@@ -1040,12 +1040,14 @@ export function shipPositionOfRow(row: unknown): ShipPosition {
 
 /**
  * The types of the fleet's ships in `reach` of any of the statuses, each
- * once: for active ships alone, read from the type index without a ship row.
+ * once with how many ships carry it: for active ships alone, read from the
+ * type index without a ship row.
  */
 export function shipTypesStatement(fleetId: FleetId, { reach, status }: { reach: ReadReach; status: readonly ShipStatus[] }): Prisma.Sql {
   return Prisma.sql`
-    SELECT DISTINCT s.type FROM ships s
-    WHERE s.fleet_id = ${fleetId} AND ${isInReachOfShip(reach)} ${shipFilterCondition({ status }, reach)}`;
+    SELECT s.type, count(*)::int AS ships FROM ships s
+    WHERE s.fleet_id = ${fleetId} AND ${isInReachOfShip(reach)} ${shipFilterCondition({ status }, reach)}
+    GROUP BY s.type`;
 }
 
 export function createPrismaFleetListing(db: Db): FleetListing {
@@ -1087,9 +1089,11 @@ export function createPrismaFleetListing(db: Db): FleetListing {
       };
     },
     counts: (fleetId, { reach, filter }) => readShipCounts(db, { fleetId, reach, selected: shipFilterCondition(filter, reach) }),
-    types: async (fleetId, read) => z.array(z.object({ type: z.string() })).parse(await db.$queryRaw(shipTypesStatement(fleetId, read)))
-        .map(({ type }) => type)
-        .toSorted(),
+    types: async (fleetId, read) =>
+      z
+        .array(z.object({ type: z.string(), ships: z.int() }))
+        .parse(await db.$queryRaw(shipTypesStatement(fleetId, read)))
+        .toSorted((first, second) => (first.type < second.type ? -1 : first.type > second.type ? 1 : 0)),
     openAlerts: async (fleetId, { reach, cursor, limit }) =>
       // Newest first through alerts_open_idx; only the ships the reader reads (decision 0034).
       (

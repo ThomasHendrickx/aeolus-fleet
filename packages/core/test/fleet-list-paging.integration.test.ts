@@ -185,7 +185,7 @@ describe("the fleet's ship types at 3,000 ships", () => {
       Prisma.sql`EXPLAIN (ANALYZE, FORMAT JSON) ${shipTypesStatement(fleetId, { status: ['awaitingCrew', 'crewed'], reach: { kind: 'every' } })}`,
     );
 
-    expect([await core.useCases.listShipTypes(argo), relationsOf(row?.['QUERY PLAN'])]).toEqual([['agent', 'operator'], ['ships']]);
+    expect([(await core.useCases.listShipTypes(argo)).map(({ type }) => type), relationsOf(row?.['QUERY PLAN'])]).toEqual([['agent', 'operator'], ['ships']]);
   });
 });
 

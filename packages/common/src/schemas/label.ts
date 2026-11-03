@@ -74,8 +74,8 @@ export const shipCountsInputSchema = z.object({ filter: fleetListFilterSchema.op
 /** Input of `fleet.shipTypes`: the types of the ships of any of these statuses; none asks the active ships. */
 export const shipTypesInputSchema = z.object({ status: z.array(shipStatusSchema).optional() }).optional();
 
-/** Output of `fleet.shipTypes`: each type once, sorted. */
-export const shipTypesOutputSchema = z.array(z.string());
+/** Output of `fleet.shipTypes`: each type once, sorted, with how many ships carry it. */
+export const shipTypesOutputSchema = z.array(z.object({ type: z.string(), ships: z.int().min(0) }));
 
 /** The columns `fleet.list` sorts by, as the overview shows them. */
 export const SHIP_SORT_COLUMNS = ['ship', 'status', 'report', 'runsOn', 'seen', 'requested'] as const;

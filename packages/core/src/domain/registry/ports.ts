@@ -594,8 +594,8 @@ export interface FleetListing {
   counts(fleetId: FleetId, read: { reach: ReadReach; filter: ShipFilter }): Promise<ShipCounts[]>;
   /** How many active ships in `reach` carry each label value, and any value of each label, by id; one no such ship carries is left out. */
   labelShipCounts(fleetId: FleetId, reach: ReadReach): Promise<{ values: ReadonlyMap<LabelValueId, number>; labels: ReadonlyMap<LabelId, number> }>;
-  /** The types of the ships in `reach` of any of the statuses, each once, sorted, without reading each ship. */
-  types(fleetId: FleetId, read: { reach: ReadReach; status: readonly ShipStatus[] }): Promise<string[]>;
+  /** The types of the ships in `reach` of any of the statuses, each once, sorted, with how many ships carry it, without reading each ship. */
+  types(fleetId: FleetId, read: { reach: ReadReach; status: readonly ShipStatus[] }): Promise<{ type: string; ships: number }[]>;
   /**
    * The ship's deliveries as its page counts them: in flight with it (what a
    * release returns) and its direct ones pending or in flight (what a retire
