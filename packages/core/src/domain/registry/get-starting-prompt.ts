@@ -7,7 +7,7 @@ import { refuse, type DomainError } from '../shared/errors.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { keepingReachRefusal, type NotReachable } from './check-reach.js';
-import { checkManagedOrAssigned, checkOwnPersonShip, type ManagedOrAssignedTx } from './managed-or-assigned.js';
+import { checkManagedOrAssigned, type ManagedOrAssignedTx } from './managed-or-assigned.js';
 import type { CrewRequestRepository, LeaseRepository, ShipRepository } from './ports.js';
 import { checkCanIssueStartingPrompt } from './ship.js';
 import { issueStartingPrompt, type IssuedStartingPrompt, type StartingPromptTx } from './starting-prompt.js';
@@ -33,9 +33,9 @@ export type GetStartingPrompt = (
  * prompt lost before use costs nothing. The caller's scope (fleet:manage or
  * crew:run) is checked before this runs; crew:run reaches only
  * the ships whose crew requests are assigned to the caller's ship, and
- * fleet:manage the ships in its manage reach (decision 0034). An account gets
- * one only for its own person ship, with no scope for it, so the app it uses
- * crews it (decision 0052).
+ * fleet:manage the ships in its manage reach (decision 0034), an account's
+ * as any ship's. An account gets one for its own person ship with no scope
+ * for it, so the app it uses crews it (decision 0052).
  *
  * Locks in the fleet's order: the ship first, so concurrent prompts for one
  * ship take turns and the last one issued is the valid one; then its secret;
@@ -57,7 +57,7 @@ export function createGetStartingPrompt(deps: {
         return refuse('SHIP_NOT_FOUND', `Ship ${shipId} does not exist`);
       }
       const at = deps.clock.now();
-      const reaches = caller.kind === 'account' ? checkOwnPersonShip(caller, ship) : await checkManagedOrAssigned({ tx, ids: deps.ids }, { caller, ship, at });
+      const reaches = await checkManagedOrAssigned({ tx, ids: deps.ids }, { caller, ship, at });
       if (!reaches.isOk) {
         return reaches;
       }
