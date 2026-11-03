@@ -2,7 +2,7 @@
 
 import { CircleAlert, Info, RotateCw } from 'lucide-react';
 import type { CrewLine } from '@aeolus-fleet/common';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 import { shortDateTime } from '../../lib/relative-time';
 import { SOURCE_URL } from '../../lib/source';
@@ -93,6 +93,7 @@ function IssuedPrompt({ shipName, prompt, crewLines }: { shipName: string; promp
 export function StartingPromptDialog(props: StartingPromptDialogProps) {
   const { shipName, state, prompt, crewLines, replacesUnclaimed, error, isOpen, onOpenChange, onConfirm } = props;
   const isIssuing = state === 'issuing';
+  const guideLink = useRef<HTMLAnchorElement>(null);
 
   return (
     <Dialog
@@ -103,13 +104,22 @@ export function StartingPromptDialog(props: StartingPromptDialogProps) {
         }
       }}
     >
-      <DialogContent size="md" data-testid="starting-prompt-dialog" className={dialogSurface.phoneFullScreen}>
+      <DialogContent
+        size="md"
+        data-testid="starting-prompt-dialog"
+        className={dialogSurface.phoneFullScreen}
+        // The design draws the focus ring on this link whichever way the dialog opened, as a keyboard open does.
+        initialFocus={() => {
+          guideLink.current?.focus({ focusVisible: true });
+          return false;
+        }}
+      >
         <DialogHeader>
           <DialogTitle>Starting prompt for {shipName}</DialogTitle>
           <DialogDescription>
             Paste the crew instructions into a chat (ChatGPT, Claude chat), or a crew line into Claude Code, Codex or
             Copilot with the Aeolus Fleet plugin.{state === 'error' ? null : ` Any earlier prompt for ${shipName} stops working now.`}{' '}
-            <a href={CHATGPT_GUIDE_URL} target="_blank" rel="noreferrer" data-testid="starting-prompt-chatgpt-guide" className="underline underline-offset-2">
+            <a ref={guideLink} href={CHATGPT_GUIDE_URL} target="_blank" rel="noreferrer" data-testid="starting-prompt-chatgpt-guide" className="underline underline-offset-2">
               Connect a ChatGPT chat
             </a>
             .
