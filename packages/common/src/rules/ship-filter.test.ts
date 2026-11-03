@@ -46,9 +46,9 @@ describe('matchesShipFilter by Harbour state', () => {
       aShip({}),
     ];
 
-    const selected = ships.map((ship) => matchesShipFilter(ship, { filter: { state: ['alert', 'waiting'] }, isInReach: true }));
+    const selected = ships.map((ship) => matchesShipFilter(ship, { filter: { state: ['alert', 'blocked'] }, isInReach: true }));
 
-    expect(selected).toEqual([true, true, true, false, false, false]);
+    expect(selected).toEqual([true, false, true, false, false, false]);
   });
 
   it('never selects a retired ship by a state: Harbour holds none', () => {

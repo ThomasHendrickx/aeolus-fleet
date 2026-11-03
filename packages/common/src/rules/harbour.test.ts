@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { harbourStateOf } from './harbour.js';
 
-// The state Harbour shows a ship in (docs/design/fleet-overview, "The read Harbour needs"), first match wins.
+// The state Harbour shows a ship in (docs/design/state-colours, "Five states"), first match wins.
 describe('harbourStateOf', () => {
   it('is alert for a ship with an open alert, whatever its status and report', () => {
     expect([
@@ -11,11 +11,15 @@ describe('harbourStateOf', () => {
     ]).toEqual(['alert', 'alert']);
   });
 
-  it('is waiting for a ship awaiting crew, or a crewed one that reports blocked', () => {
+  it('is awaiting crew for a ship no session holds, whatever its last report', () => {
     expect([
       harbourStateOf({ status: 'awaitingCrew', reportState: null, hasOpenAlert: false }),
-      harbourStateOf({ status: 'crewed', reportState: 'blocked', hasOpenAlert: false }),
-    ]).toEqual(['waiting', 'waiting']);
+      harbourStateOf({ status: 'awaitingCrew', reportState: 'blocked', hasOpenAlert: false }),
+    ]).toEqual(['awaitingCrew', 'awaitingCrew']);
+  });
+
+  it('is blocked for a crewed ship that reports blocked', () => {
+    expect(harbourStateOf({ status: 'crewed', reportState: 'blocked', hasOpenAlert: false })).toBe('blocked');
   });
 
   it('is working for a crewed ship that reports working', () => {
