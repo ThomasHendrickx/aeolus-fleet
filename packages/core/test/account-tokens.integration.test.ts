@@ -189,6 +189,24 @@ describe('a call with an account token', () => {
     await expect(database.ship.findFirst({ where: { fleetId, id: far } })).resolves.toMatchObject({ retiredAt: null });
   });
 
+  it('gets a starting prompt for a ship its group values reach, as any manage call, the event naming the account (#1608)', async () => {
+    const writer = await commissioned('writer');
+    unwrap(await useCases.assignLabel(argo, { shipId: writer, valueId: engineering }));
+
+    const { shipId } = await asAccount(issuer.sign(mathilde()), gateway.crewToken).fleet.getStartingPrompt.mutate({ shipId: writer });
+
+    expect(shipId).toBe(writer);
+    const [issued] = await database.event.findMany({ where: { fleetId, type: 'StartingPromptIssued', shipId: writer }, orderBy: { seq: 'desc' }, take: 1 });
+    expect(issued).toMatchObject({ actorKind: 'account', actorAccountId: 'acc-mathilde', actorThroughShipId: gateway.shipId });
+  });
+
+  it('is refused a starting prompt for a ship no rule lets it reach, saying so', async () => {
+    await expect(refusalOf(asAccount(issuer.sign(mathilde())).fleet.getStartingPrompt.mutate({ shipId: far }))).resolves.toEqual({
+      code: 'FORBIDDEN',
+      message: 'The network rules do not allow this manage',
+    });
+  });
+
   it('is refused a ship no rule lets it reach, as a ship is', async () => {
     await expect(refusalOf(asAccount(issuer.sign(mathilde())).fleet.rename.mutate({ shipId: far, name: 'renamed' }))).resolves.toEqual({
       code: 'FORBIDDEN',
