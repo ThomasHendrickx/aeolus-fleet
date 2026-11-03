@@ -8,7 +8,7 @@ import { useLiveUpdates } from '../../../lib/live-updates';
 import { useWayOut } from '../../../lib/session';
 import { NO_RIGHTS_PATH, NOTHING_TO_MANAGE_PATH, signInEndedPathOf } from '../../../lib/sign-in-paths';
 import { useTRPC } from '../../../lib/trpc';
-import { renew } from '../services/renew';
+import { renew } from '../../../lib/renew-account-token';
 
 /**
  * Keeps an account signed in across its token's end (accounts design, F2,

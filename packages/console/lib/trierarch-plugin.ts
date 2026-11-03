@@ -7,6 +7,10 @@ import { fetchConsoleRead } from './fetch-console-read';
 import { TRIERARCH_PLUGIN_NO_ANSWER } from './no-answer';
 import { dataFrom, dataOf } from './plugin-answer';
 import type { ShownConnection } from './shown-connection';
+import { useLiveUpdates } from './live-updates';
+import { renew } from './renew-account-token';
+import { CATALOGUE_WAIT_MS, renewUntilHolding } from './renew-until-holding';
+import { useTRPC } from './trpc';
 import { connectTrierarchPlugin, joinMachine, newSetupLine, setModelEnabled } from './trierarch-plugin-actions';
 import type { SettingsCheck } from './trierarch-plugin-schemas';
 
@@ -43,13 +47,36 @@ export function useTrierarchPluginVersion(): string | undefined {
   return query.data ?? undefined;
 }
 
-/** Connect the trierarch plugin: the web app's server does the rest; the answer is the new connection. */
+/** The scopes the trierarch plugin declares (decision 0055); an account's token minted before it connected lacks them (issue 1609). */
+const PLUGIN_SCOPES = ['trierarch:join'];
+
+/**
+ * Connect the trierarch plugin: the web app's server does the rest; the answer
+ * is the new connection. The plugin declares its scopes soon after, so an
+ * account's token is renewed until it holds them: the person can then join a
+ * machine without waiting for the token to end.
+ */
 export function useConnectTrierarchPlugin() {
   const queryClient = useQueryClient();
+  const trpc = useTRPC();
+  const live = useLiveUpdates();
   return useMutation({
     mutationFn: () => dataFrom(connectTrierarchPlugin, TRIERARCH_PLUGIN_NO_ANSWER),
     onSuccess: (connection) => {
       queryClient.setQueryData(CONNECTION_KEY, connection);
+      void renewUntilHolding({
+        wanted: PLUGIN_SCOPES,
+        retryAfterMs: CATALOGUE_WAIT_MS,
+        renew: async () => {
+          const outcome = await renew();
+          if (outcome === 'renewed') {
+            live.reopen();
+          }
+          return outcome;
+        },
+        scopesNow: async () => (await queryClient.query({ ...trpc.console.session.queryOptions(), staleTime: 0 })).scopes,
+        wait: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+      }).then(() => queryClient.invalidateQueries({ queryKey: trpc.console.session.queryKey() }));
     },
   });
 }
