@@ -266,6 +266,8 @@ export const OpenAlert: Story = {
     },
   },
   play: async ({ canvasElement }) => {
+    await expectStates(canvasElement, [['Crewed', 'ok'], ['Alert', 'attention']]);
+    await expect(within(canvasElement).getByText('Alert', { exact: true })).toHaveClass('rounded-full');
     const alert = within(canvasElement).getByTestId('ship-open-alert');
     await expect(alert).toHaveTextContent('Report unchanged 3 h 10 min');
     await expect(alert).toHaveTextContent('Expected within 60 min');
