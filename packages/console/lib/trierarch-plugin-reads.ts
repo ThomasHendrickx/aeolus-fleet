@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers';
 import { z } from 'zod';
 
-import { ConnectPluginError, TRIERARCH_PLUGIN_SHIP } from './connect-plugin';
+import { ConnectPluginError, NO_MISSING_SCOPES, TRIERARCH_PLUGIN_SHIP } from './connect-plugin';
 import type { PluginAnswer } from './plugin-answer';
 import { TRIERARCH_PLUGIN_NO_ANSWER } from './no-answer';
 import { callPlugin, sessionCookieOf } from './plugin-call';
@@ -63,7 +63,7 @@ export function refusalOf(error: unknown): PluginAnswer<never> {
 export async function readTrierarchPluginConnection(): Promise<PluginAnswer<ShownConnection>> {
   const url = trierarchPluginUrlFrom(process.env);
   if (url === undefined) {
-    return { kind: 'answered', data: shownConnectionOf(undefined, []) };
+    return { kind: 'answered', data: shownConnectionOf(undefined, NO_MISSING_SCOPES) };
   }
   try {
     return { kind: 'answered', data: await readShownConnection({ serverUrl: serverInternalUrlFrom(process.env), pluginUrl: url }, { cookie: await sessionCookie(), wanted: TRIERARCH_PLUGIN_SHIP }) };

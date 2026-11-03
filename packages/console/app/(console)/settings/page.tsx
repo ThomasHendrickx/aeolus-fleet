@@ -60,9 +60,7 @@ export default function SettingsPage() {
         <SquadronsConnection
           settings={settings.data}
           loadError={settings.isError ? settings.error.message : undefined}
-          onRetry={() => {
-            void settings.refetch();
-          }}
+          onRetry={() => settings.refetch()}
           isConnecting={connect.isPending}
           connectError={connect.isError ? connect.error.message : undefined}
           hasConnected={connect.isSuccess}
@@ -75,9 +73,7 @@ export default function SettingsPage() {
         <TrierarchPluginConnection
           settings={trierarchPlugin.data}
           loadError={trierarchPlugin.isError ? trierarchPlugin.error.message : undefined}
-          onRetry={() => {
-            void trierarchPlugin.refetch();
-          }}
+          onRetry={() => trierarchPlugin.refetch()}
           isConnecting={connectTrierarchPlugin.isPending}
           connectError={connectTrierarchPlugin.isError ? connectTrierarchPlugin.error.message : undefined}
           hasConnected={connectTrierarchPlugin.isSuccess}
@@ -90,9 +86,7 @@ export default function SettingsPage() {
         <GatewayConnection
           settings={gateway.data}
           loadError={gateway.isError ? gateway.error.message : undefined}
-          onRetry={() => {
-            void gateway.refetch();
-          }}
+          onRetry={() => gateway.refetch()}
           isConnecting={connectGateway.isPending}
           connectError={connectGateway.isError ? connectGateway.error.message : undefined}
           hasConnected={connectGateway.isSuccess}

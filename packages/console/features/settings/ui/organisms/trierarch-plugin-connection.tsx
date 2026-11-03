@@ -5,6 +5,7 @@ import type { ShownConnection } from '../../../../lib/shown-connection';
 import { Button } from '@aeolus-fleet/ui';
 import { InlineError } from '../../../../components/molecules/inline-error';
 import { LoadingSkeleton } from '../../../../components/molecules/loading-skeleton';
+import { FailedScopesRead } from '../molecules/failed-scopes-read';
 import { MissingScopes } from '../molecules/missing-scopes';
 
 interface TrierarchPluginConnectionProps {
@@ -12,7 +13,7 @@ interface TrierarchPluginConnectionProps {
   settings: ShownConnection | undefined;
   /** The read failed: shown with Try again. */
   loadError?: string;
-  onRetry: () => void;
+  onRetry: () => Promise<unknown>;
   isConnecting: boolean;
   /** Why the last Connect failed, as the trierarch plugin or the fleet says it. */
   connectError?: string;
@@ -33,7 +34,7 @@ const WHAT_IT_DOES = 'Starts, restarts and stops sessions for crew requests on y
  */
 export function TrierarchPluginConnection({ settings, loadError, onRetry, isConnecting, connectError, hasConnected, onConnect }: TrierarchPluginConnectionProps) {
   if (loadError !== undefined) {
-    return <InlineError title="Couldn’t read the trierarch plugin" description={loadError} onRetry={onRetry} />;
+    return <InlineError title="Couldn’t read the trierarch plugin" description={loadError} onRetry={() => { void onRetry(); }} />;
   }
   if (settings === undefined) {
     return <LoadingSkeleton variant="detail" rows={2} label="Loading the trierarch plugin" />;
@@ -61,16 +62,20 @@ export function TrierarchPluginConnection({ settings, loadError, onRetry, isConn
             Connected as <span className="font-mono">{settings.ship?.name}</span>{' '}
             <span className="font-mono text-muted-foreground">({settings.ship?.shipId})</span>
           </p>
-          <MissingScopes
-            plugin="the trierarch plugin"
-            shipName={settings.ship?.name ?? 'trierarch-plugin'}
-            missingScopes={settings.missingScopes}
-            isGranting={isConnecting}
-            hasGranted={hasConnected}
-            {...(connectError === undefined ? {} : { grantError: connectError })}
-            onGrant={onConnect}
-            testId="settings-trierarchs"
-          />
+          {settings.scopes.kind === 'failed' ? (
+            <FailedScopesRead plugin="the trierarch plugin" shipName={settings.ship?.name ?? 'trierarch-plugin'} reason={settings.scopes.reason} onRetry={onRetry} />
+          ) : (
+            <MissingScopes
+              plugin="the trierarch plugin"
+              shipName={settings.ship?.name ?? 'trierarch-plugin'}
+              missingScopes={settings.scopes.missingScopes}
+              isGranting={isConnecting}
+              hasGranted={hasConnected}
+              {...(connectError === undefined ? {} : { grantError: connectError })}
+              onGrant={onConnect}
+              testId="settings-trierarchs"
+            />
+          )}
         </>
       ) : (
         <>

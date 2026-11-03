@@ -22,6 +22,7 @@ Feature designs, one folder each; the status of each is at its top:
 | [argo-inbox](argo-inbox/README.md) | argo's inbox reaches the people who may act as argo |
 | [bridge](bridge/README.md) | Bridge: a person's one place to work with their fleet, and where else each job shows |
 | [e2e-encryption](e2e-encryption/e2e-encryption.md) | Who can read a fleet's messages: sealed fleets |
+| [failed-scopes-read](failed-scopes-read/README.md) | Settings: a failed read of a plugin ship's scopes shows as an error with Try again |
 | [feature-flags](feature-flags/feature-flags.md) | Feature flags per fleet |
 | [fleet-overview](fleet-overview/README.md) | The fleet and its ships' status at a glance: Harbour; one view, cards or list, and Harbour shared with Bridge |
 | [gateway-scopes](gateway-scopes/gateway-scopes.md) | The gateway's tools by scope, and ships as Slack bots |

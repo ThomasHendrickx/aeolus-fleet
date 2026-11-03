@@ -1,7 +1,7 @@
 import { commissionShipOutputSchema, fleetListOutputSchema, grantScopesOutputSchema, PAGE_SIZE_MAX, shipOutputSchema, startingPromptOutputSchema } from '@aeolus-fleet/common';
 import { z } from 'zod';
 
-import { ConnectPluginError, missingScopesOf, type ConnectCalls, type PluginConnection, type PluginShip } from './connect-plugin';
+import { ConnectPluginError, missingScopesOf, NO_MISSING_SCOPES, type ConnectCalls, type PluginConnection, type PluginShip } from './connect-plugin';
 import { everyPage } from './every-page';
 import { dataOf } from './plugin-answer';
 import { EVERY_SHIP_STATUS } from './every-ship-status';
@@ -92,10 +92,10 @@ export function readPluginConnection(squadronsUrl: string, cookie: string): Prom
   return trpc({ url: squadronsUrl, cookie, procedure: 'connection.status', answers: connectionSchema });
 }
 
-/** A plugin's connection as Settings shows it, with the scopes the plugin lists that its connected ship lacks (#1226); nothing of a plugin that is off. */
+/** A plugin's connection as Settings shows it, with the read of its connected ship's scopes (#1226, #1259); nothing of a plugin that is off. */
 export async function shownConnection(calls: Pick<ConnectCalls, 'shipScopes'>, at: { connection: PluginConnection; wanted: PluginShip }): Promise<ShownConnection> {
   const { connection } = at;
-  return shownConnectionOf(connection, connection.isEnabled ? await missingScopesOf(calls, at) : []);
+  return shownConnectionOf(connection, connection.isEnabled ? await missingScopesOf(calls, at) : NO_MISSING_SCOPES);
 }
 
 /** A plugin's connection as the operator's session reads it for Settings: the plugin's answer and its ship's scopes in the fleet. */

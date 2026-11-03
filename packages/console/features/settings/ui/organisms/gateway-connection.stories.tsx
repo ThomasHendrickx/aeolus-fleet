@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
-import { expect, within } from 'storybook/test';
+import { expect, fn, userEvent, within } from 'storybook/test';
 
 import { GatewayConnection } from './gateway-connection';
 
@@ -8,7 +8,7 @@ const SHIP_ID = 'shp_01m4jtkdcqe51e0v00c76eec2e';
 const meta = {
   title: 'Organisms/GatewayConnection',
   component: GatewayConnection,
-  args: { onRetry: () => undefined, onConnect: () => undefined, isConnecting: false, hasConnected: false },
+  args: { onRetry: () => Promise.resolve(), onConnect: () => undefined, isConnecting: false, hasConnected: false },
 } satisfies Meta<typeof GatewayConnection>;
 
 export default meta;
@@ -27,7 +27,27 @@ export const ConnectFailed: Story = {
   },
 };
 export const Connected: Story = {
-  args: { settings: { state: 'connected', ship: { shipId: SHIP_ID, name: 'gateway' }, lastShipId: SHIP_ID, missingScopes: [] } },
+  args: { settings: { state: 'connected', ship: { shipId: SHIP_ID, name: 'gateway' }, lastShipId: SHIP_ID, scopes: { kind: 'read', missingScopes: [] } } },
 };
 export const Loading: Story = { args: { settings: undefined } };
 export const LoadFailed: Story = { args: { settings: undefined, loadError: 'the gateway or the fleet did not answer: try again in a moment' } };
+
+/** The fleet did not answer the read of gateway's scopes (#1259): the connection stays shown, and under it the section error says the scopes are unknown, with Try again. */
+export const ScopesReadFailed: Story = {
+  args: { settings: { state: 'connected', ship: { shipId: SHIP_ID, name: 'gateway' }, lastShipId: SHIP_ID, scopes: { kind: 'failed', reason: 'The fleet did not answer' } }, onRetry: fn(() => Promise.resolve()) },
+  play: async ({ canvasElement, args }) => {
+    // Given the gateway connected as gateway, whose scopes the fleet did not answer for
+    const canvas = within(canvasElement);
+    await expect(canvas.getByTestId('settings-gateway-state')).toHaveTextContent('Connected as gateway');
+    const error = canvas.getByRole('alert');
+    await expect(error).toHaveTextContent('Couldn’t read the scopes of gateway');
+    await expect(error).toHaveTextContent('The fleet did not answer. Nothing changed. Whether gateway lacks a scope the gateway lists shows once the read succeeds.');
+    await expect(canvas.queryByTestId('settings-gateway-grant-scopes')).toBeNull();
+
+    // When the operator presses Try again
+    await userEvent.click(within(error).getByRole('button', { name: 'Try again' }));
+
+    // Then the section is read again
+    await expect(args.onRetry).toHaveBeenCalledOnce();
+  },
+};

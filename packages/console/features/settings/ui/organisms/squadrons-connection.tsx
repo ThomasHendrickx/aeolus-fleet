@@ -4,6 +4,7 @@ import type { ShownConnection } from '../../../../lib/shown-connection';
 import { Button } from '@aeolus-fleet/ui';
 import { InlineError } from '../../../../components/molecules/inline-error';
 import { LoadingSkeleton } from '../../../../components/molecules/loading-skeleton';
+import { FailedScopesRead } from '../molecules/failed-scopes-read';
 import { MissingScopes } from '../molecules/missing-scopes';
 
 interface SquadronsConnectionProps {
@@ -11,7 +12,7 @@ interface SquadronsConnectionProps {
   settings: ShownConnection | undefined;
   /** The read failed: shown with Try again. */
   loadError?: string;
-  onRetry: () => void;
+  onRetry: () => Promise<unknown>;
   isConnecting: boolean;
   /** Why the last Connect squadrons failed, as squadrons or the fleet says it. */
   connectError?: string;
@@ -28,7 +29,7 @@ interface SquadronsConnectionProps {
  */
 export function SquadronsConnection({ settings, loadError, onRetry, isConnecting, connectError, hasConnected, onConnect }: SquadronsConnectionProps) {
   if (loadError !== undefined) {
-    return <InlineError title="Couldn’t read squadrons" description={loadError} onRetry={onRetry} />;
+    return <InlineError title="Couldn’t read squadrons" description={loadError} onRetry={() => { void onRetry(); }} />;
   }
   if (settings === undefined) {
     return <LoadingSkeleton variant="detail" rows={2} label="Loading squadrons" />;
@@ -47,16 +48,20 @@ export function SquadronsConnection({ settings, loadError, onRetry, isConnecting
             Connected as <span className="font-mono">{settings.ship?.name}</span>{' '}
             <span className="font-mono text-muted-foreground">({settings.ship?.shipId})</span>
           </p>
-          <MissingScopes
-            plugin="squadrons"
-            shipName={settings.ship?.name ?? 'squadrons'}
-            missingScopes={settings.missingScopes}
-            isGranting={isConnecting}
-            hasGranted={hasConnected}
-            {...(connectError === undefined ? {} : { grantError: connectError })}
-            onGrant={onConnect}
-            testId="settings-squadrons"
-          />
+          {settings.scopes.kind === 'failed' ? (
+            <FailedScopesRead plugin="squadrons" shipName={settings.ship?.name ?? 'squadrons'} reason={settings.scopes.reason} onRetry={onRetry} />
+          ) : (
+            <MissingScopes
+              plugin="squadrons"
+              shipName={settings.ship?.name ?? 'squadrons'}
+              missingScopes={settings.scopes.missingScopes}
+              isGranting={isConnecting}
+              hasGranted={hasConnected}
+              {...(connectError === undefined ? {} : { grantError: connectError })}
+              onGrant={onConnect}
+              testId="settings-squadrons"
+            />
+          )}
         </>
       ) : (
         <>

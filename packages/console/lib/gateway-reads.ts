@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers';
 
-import { ConnectPluginError, GATEWAY_SHIP } from './connect-plugin';
+import { ConnectPluginError, GATEWAY_SHIP, NO_MISSING_SCOPES } from './connect-plugin';
 import { gatewayUrlFrom } from './gateway-url';
 import { GATEWAY_NO_ANSWER } from './no-answer';
 import type { PluginAnswer } from './plugin-answer';
@@ -33,7 +33,7 @@ export function refusalOf(error: unknown): PluginAnswer<never> {
 export async function readGatewayConnection(): Promise<PluginAnswer<ShownConnection>> {
   const url = gatewayUrlFrom(process.env);
   if (url === undefined) {
-    return { kind: 'answered', data: shownConnectionOf(undefined, []) };
+    return { kind: 'answered', data: shownConnectionOf(undefined, NO_MISSING_SCOPES) };
   }
   try {
     return { kind: 'answered', data: await readShownConnection({ serverUrl: serverInternalUrlFrom(process.env), pluginUrl: url }, { cookie: await sessionCookie(), wanted: GATEWAY_SHIP }) };

@@ -113,19 +113,38 @@ export async function connectPlugin(calls: ConnectCalls, at: { ship: PluginShip;
 }
 
 /**
+ * The read of a connected plugin's ship scopes, as Settings shows it: the
+ * scopes the plugin lists that the ship lacks (#1226), or the read's failure
+ * with its reason, never shown as nothing missing (#1259).
+ */
+export type ScopesRead = { kind: 'read'; missingScopes: readonly Scope[] } | { kind: 'failed'; reason: string };
+
+/** A read that found no scope missing, and what a plugin not connected or off shows. */
+export const NO_MISSING_SCOPES: ScopesRead = { kind: 'read', missingScopes: [] };
+
+/** Why a scopes read failed, when the fleet gave no refusal of its own. */
+export const FLEET_NO_ANSWER = 'The fleet did not answer';
+
+/**
  * The scopes the plugin lists that its connected ship lacks, for Settings to
  * name and offer to grant with a connect (#1226): none while not connected,
- * and none when the fleet shows the ship without its scopes or does not
- * answer for it, claiming no lack it cannot see.
+ * and none when the fleet shows the ship without its scopes, claiming no lack
+ * it cannot see. A read the fleet refuses or does not answer is a failed
+ * read (#1259), which never fails the connection: the connection gates the
+ * plugin's pages.
  */
-export async function missingScopesOf(calls: Pick<ConnectCalls, 'shipScopes'>, at: { connection: PluginConnection; wanted: PluginShip }): Promise<Scope[]> {
+export async function missingScopesOf(calls: Pick<ConnectCalls, 'shipScopes'>, at: { connection: PluginConnection; wanted: PluginShip }): Promise<ScopesRead> {
   const { connection, wanted } = at;
   if (connection.state !== 'connected' || connection.ship === null) {
-    return [];
+    return NO_MISSING_SCOPES;
   }
-  // The connection gates the plugin's pages: a ship the fleet does not answer for is a lack it cannot see, not a failed read.
-  const held = await calls.shipScopes(connection.ship.shipId).catch(() => undefined);
-  return held === undefined ? [] : wanted.scopes.filter((scope) => !held.includes(scope));
+  let held: readonly string[] | undefined;
+  try {
+    held = await calls.shipScopes(connection.ship.shipId);
+  } catch (error) {
+    return { kind: 'failed', reason: error instanceof ConnectPluginError ? error.message : FLEET_NO_ANSWER };
+  }
+  return { kind: 'read', missingScopes: held === undefined ? [] : wanted.scopes.filter((scope) => !held.includes(scope)) };
 }
 
 async function grantMissingScopes(calls: ConnectCalls, at: { ship: { id: string; scopes?: readonly string[] }; wanted: PluginShip }): Promise<void> {
