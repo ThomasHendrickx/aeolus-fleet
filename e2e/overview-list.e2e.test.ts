@@ -1,4 +1,4 @@
-import type { FleetId } from '@aeolus-fleet/common';
+import type { FleetId, ShipId } from '@aeolus-fleet/common';
 import { SCOPES } from '@aeolus-fleet/common';
 import { createTRPCClient, httpBatchLink } from '@trpc/client';
 import type { FastifyInstance } from 'fastify';
@@ -15,9 +15,10 @@ import { newKey } from '../packages/core/src/testing/keys.js';
 import { unwrap } from '../packages/core/src/testing/result.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 
-// The overview, end to end: a fleet with one ship crewed, one awaiting crew
-// and one retired; the metric cards count them and open what they count, the
-// crewed ship's model has its tooltip and the retired one's ship page keeps its retirement time.
+// The overview's list, end to end: a fleet with one ship crewed, one awaiting
+// crew and one retired; the crewed ship's model has its tooltip, the retired
+// one is in no row (decision 0070) and its ship page keeps its retirement
+// time, and the phone's Sheet filters the list by state.
 
 const INSTALLATION_TOKEN = 'aeolus_installation_test_0123456789abcdef';
 
@@ -28,6 +29,7 @@ let web: RunningWeb;
 let browser: Browser;
 const contexts: BrowserContext[] = [];
 let fleetId: FleetId;
+let oldShipId: ShipId;
 
 function installation() {
   return createTRPCClient<AppRouter>({ links: [httpBatchLink({ url: `${serverUrl}/trpc`, headers: { 'x-aeolus-installation-token': INSTALLATION_TOKEN } })] }).installation;
@@ -52,6 +54,7 @@ beforeAll(async () => {
   unwrap(await core.commissionShip(argo, { idempotencyKey: newKey(), name: 'reviewer-1', type: 'reviewer' }));
   const old = unwrap(await core.commissionShip(argo, { idempotencyKey: newKey(), name: 'old', type: 'reviewer' }));
   unwrap(await core.retireShip(argo, { shipId: old.shipId }));
+  oldShipId = old.shipId;
 });
 
 afterAll(async () => {
@@ -71,31 +74,9 @@ async function signedIn(device: Record<string, unknown> = {}): Promise<Page> {
   const page = await context.newPage();
   await page.goto(`/sign-in/ticket?ticket=${encodeURIComponent(ticket)}`);
   await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
+  await page.goto('/?view=list');
   return page;
 }
-
-describe("the overview's metric cards", () => {
-  it('counts the ships crewed and awaiting crew, names the longest wait, and says the active ships and argo', async () => {
-    const page = await signedIn();
-
-    await page.getByTestId('overview-crewed').getByText('of 2 active ships').first().waitFor();
-    await page.getByTestId('overview-awaiting').getByText(/Longest wait: reviewer-1, \d+ min/).first().waitFor();
-    await page.getByText('2 active ships and argo, 1 retired. Changes appear as they happen.').first().waitFor();
-
-    await expect(page.getByTestId('overview-stuck').getByText('Delivering').count()).resolves.toBeGreaterThan(0);
-  });
-
-  it('opens the ships awaiting crew from its card', async () => {
-    const page = await signedIn();
-
-    await page.getByTestId('overview-awaiting').click();
-    await page.waitForURL(/status=awaitingCrew/);
-    // The last view's rows stay until the server answers the new one.
-    await page.getByRole('row', { name: /builder/ }).waitFor({ state: 'detached' });
-
-    await expect(page.getByRole('row', { name: /reviewer-1/ }).count()).resolves.toBe(1);
-  });
-});
 
 describe('the overview rows', () => {
   it("shows the crewed ship's model, what it is and when it was stated, in a tooltip", async () => {
@@ -106,30 +87,27 @@ describe('the overview rows', () => {
     await page.locator('[data-slot="tooltip-content"]').getByText(/^Model, stated /).waitFor();
   });
 
-  it('keeps retired rows free of session metadata and shows their retirement time on the ship page', async () => {
+  it('leaves the retired ship out of the rows, and its ship page keeps its retirement time', async () => {
     const page = await signedIn();
+    await page.getByRole('row', { name: /reviewer-1/ }).waitFor();
 
-    await page.getByTestId('fleet-show-retired').click();
-
-    const row = page.getByRole('row', { name: /old/ });
-    await row.getByText('Retired', { exact: true }).waitFor();
-    await expect(row.getByTestId('fleet-runs-on').count()).resolves.toBe(0);
-    await row.getByRole('link', { name: 'old', exact: true }).click();
+    await expect(page.getByRole('row', { name: /old/ }).count()).resolves.toBe(0);
+    await page.goto(`/ships/${oldShipId}`);
     await page.getByTestId('ship-header').getByText(/^Retired on .* Read-only\.$/).waitFor();
   });
 });
 
 describe('the phone filters', () => {
-  it('filters to the ships awaiting crew in the sheet, shows the filter as a chip and clears it', async () => {
+  it('filters to the waiting ships in the sheet, shows the filter as a chip and clears it', async () => {
     const page = await signedIn(PHONE);
     await page.getByTestId('fleet-card-builder').waitFor();
 
     await page.getByRole('button', { name: 'Filter ships' }).click();
-    await page.getByRole('group', { name: 'Status' }).getByRole('button', { name: 'Awaiting crew' }).click();
+    await page.getByRole('group', { name: 'State' }).getByRole('button', { name: 'Waiting' }).click();
     await page.getByRole('button', { name: 'Show 1 ship' }).click();
 
-    await page.getByTestId('fleet-filter-chips').getByText('Status: Awaiting crew').waitFor();
-    await page.getByRole('button', { name: 'Filter ships, 1 active' }).waitFor();
+    await page.getByTestId('fleet-filter-chips').getByText('State: Waiting').waitFor();
+    await page.getByRole('button', { name: 'Filter ships, 1 in force' }).waitFor();
     await expect(page.getByTestId('fleet-card-builder').count()).resolves.toBe(0);
     await page.getByTestId('fleet-filter-chips').getByRole('button', { name: 'Clear filters' }).click();
     await page.getByTestId('fleet-card-builder').waitFor();

@@ -97,6 +97,7 @@ async function signedIn(): Promise<{ page: Page; asked: Record<string, unknown>[
   const asked = fleetListAsked(page);
   await page.goto(`/sign-in/ticket?ticket=${encodeURIComponent(ticket)}`);
   await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
+  await page.goto('/?view=list');
   await page.getByTestId('fleet-row-argo').waitFor();
   return { page, asked };
 }
@@ -121,7 +122,7 @@ describe('the overview of a fleet larger than a page', () => {
   it('counts every ship the view selects, not the rows loaded', async () => {
     const { page } = await signedIn();
 
-    await expect(page.getByTestId('fleet-count').textContent()).resolves.toBe(`${String(SHIPS + 1)} of ${String(SHIPS + 1)} ships`);
+    await expect(page.getByTestId('fleet-count').textContent()).resolves.toBe(`${String(SHIPS + 1)} ships`);
   });
 
   it('reads the next 20 with Load more, and offers no more after the last page', async () => {

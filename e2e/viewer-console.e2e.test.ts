@@ -65,6 +65,7 @@ async function signedIn(as: 'operator' | 'viewer'): Promise<Page> {
   const page = await context.newPage();
   await page.goto(`/sign-in/ticket?ticket=${encodeURIComponent(ticket)}`);
   await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
+  await page.goto('/?view=list');
   await page.getByRole('row', { name: /scout/ }).waitFor();
   return page;
 }

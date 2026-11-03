@@ -106,6 +106,7 @@ async function signedIn(): Promise<Page> {
   const page = await context.newPage();
   await signIn(page, OPERATOR);
   await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
+  await page.goto('/?view=list');
   // Live shows once the page is hydrated and subscribed: a click before that does nothing.
   await page.getByRole('banner').getByText('Live', { exact: true }).waitFor(WITHIN);
   return page;

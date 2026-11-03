@@ -101,6 +101,7 @@ async function signedInPage(): Promise<Page> {
   const page = await context.newPage();
   await signIn(page, OPERATOR);
   await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
+  await page.goto('/?view=list');
   return page;
 }
 
@@ -194,7 +195,7 @@ describe('the ship page', () => {
     await expect(sheet.getByTestId('message-model').textContent()).resolves.toBe('claude-opus-5-5');
     await expect(page.getByTestId('ship-model').textContent()).resolves.toMatch(/^Claude Code·claude-opus-5-5$/);
     // On the overview, the scout's row says what it runs on and its model.
-    await page.goto('/');
+    await page.goto('/?view=list');
     const row = page.getByTestId('fleet-row-scout');
     await expect(row.getByTestId('fleet-runs-on').getByTestId('fleet-model-hint').textContent()).resolves.toMatch(/^claude-opus-5-5, Model, stated /);
     await row.locator('[data-slot="location-tag"]').getByText('Claude Code').waitFor();

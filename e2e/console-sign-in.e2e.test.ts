@@ -138,7 +138,7 @@ describe('the console sign-in', () => {
     await signIn(page, OPERATOR);
 
     await expectSignedIn(page);
-    await page.getByRole('row', { name: /argo/ }).waitFor();
+    await page.getByTestId('harbour-group-people').getByText('argo', { exact: true }).waitFor();
     const cookies = await page.context().cookies();
     expect(cookies).toEqual([
       expect.objectContaining({ name: 'aeolus_session', httpOnly: true, secure: true, sameSite: 'Strict', path: '/' }),

@@ -13,14 +13,20 @@ import { withOperatorLogin } from '../packages/core/test/support/operator-login.
 import { signIn } from './support/console.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 
-// The fleet overview's filter bar stays in line (#1116, docs/design/png/FleetTable.png):
-// on desktop the search, the filters, Show retired and the ship count share
-// one row, also when the filters take more than the row's width; on phone
-// the search and the Filter ships button share one.
+// The fleet overview's bar stays in line (docs/design/fleet-overview): on a
+// narrow desktop the search, the filters, the ship count and the switch
+// between cards and list share one row; on phone the search, the Filter ships
+// button and the switch share one. At the widths the mockups draw, neither
+// view scrolls the page sideways.
 
-/** A desktop too narrow for every filter on one row. */
 const NARROW_DESKTOP = { width: 1024, height: 800 };
 const PHONE = { width: 390, height: 844 };
+/** The mockups' widths (web-frontend: 375, 1440 and 1920). */
+const MOCKUP_WIDTHS = [
+  { width: 375, height: 812 },
+  { width: 1440, height: 900 },
+  { width: 1920, height: 1080 },
+];
 /** In line: middles within a pixel, as centring a 20 px switch in a 32 px row rounds. */
 const IN_LINE_PX = 1;
 
@@ -57,7 +63,7 @@ async function overviewAt(viewport: { width: number; height: number }, isPhone =
   const page = await context.newPage();
   await signIn(page, OPERATOR);
   await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
-  await page.getByText('of 2 ships').waitFor();
+  await page.getByTestId('harbour-tile').first().waitFor();
   return page;
 }
 
@@ -70,21 +76,32 @@ async function middleOf(locator: Locator): Promise<number> {
   return Math.round(box.y + box.height / 2);
 }
 
-describe("the fleet overview's filter bar", () => {
-  it('keeps the search, the first filter, Show retired and the ship count on one row on a desktop too narrow for every filter', async () => {
+describe("the fleet overview's bar", () => {
+  it('keeps the search, State, Type, the ship count and the view switch on one row on a narrow desktop', async () => {
     const page = await overviewAt(NARROW_DESKTOP);
-    const row = await middleOf(page.getByTestId('fleet-filter-status'));
+    const row = await middleOf(page.getByTestId('fleet-search'));
 
-    const middles = await Promise.all([middleOf(page.getByTestId('fleet-search')), middleOf(page.getByTestId('fleet-show-retired')), middleOf(page.getByText('of 2 ships'))]);
+    const middles = await Promise.all(['fleet-filter-state', 'fleet-filter-type', 'fleet-count', 'fleet-view-switch'].map((testId) => middleOf(page.getByTestId(testId))));
 
-    expect(middles.map((middle) => Math.abs(middle - row) <= IN_LINE_PX)).toEqual([true, true, true]);
+    expect(middles.map((middle) => Math.abs(middle - row) <= IN_LINE_PX)).toEqual([true, true, true, true]);
   });
 
-  it('keeps the search and the Filter ships button on one row on phone', async () => {
+  it('keeps the search, the Filter ships button and the view switch on one row on phone', async () => {
     const page = await overviewAt(PHONE, true);
 
-    const middles = await Promise.all([middleOf(page.getByTestId('fleet-search')), middleOf(page.getByTestId('fleet-filters-open'))]);
+    const middles = await Promise.all([middleOf(page.getByTestId('fleet-search-touch')), middleOf(page.getByTestId('fleet-filters-open')), middleOf(page.getByTestId('fleet-view-switch-touch'))]);
 
-    expect(Math.abs(middles[0] - middles[1])).toBeLessThanOrEqual(IN_LINE_PX);
+    expect([Math.abs(middles[0] - middles[1]) <= IN_LINE_PX, Math.abs(middles[0] - middles[2]) <= IN_LINE_PX]).toEqual([true, true]);
+  });
+
+  it.each(MOCKUP_WIDTHS)('scrolls neither the cards nor the list sideways at $width px', async (viewport) => {
+    const page = await overviewAt(viewport, viewport.width < NARROW_DESKTOP.width);
+    const isPageWider = () => page.evaluate('document.documentElement.scrollWidth > document.documentElement.clientWidth');
+
+    const cards = await isPageWider();
+    await page.goto('/?view=list');
+    await page.getByTestId('fleet-overview').and(page.locator('[data-view=list]')).waitFor();
+
+    expect([cards, await isPageWider()]).toEqual([false, false]);
   });
 });

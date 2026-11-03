@@ -133,8 +133,8 @@ describe('an account signing in to the console', () => {
         reads.push(request);
       }
     });
-    // The fleet list is read again when the tab comes back: that round is what the test waits for.
-    const listedAgain = page.waitForResponse((response) => response.url().includes('fleet.list'));
+    // Harbour is read again when the tab comes back: that round is what the test waits for.
+    const listedAgain = page.waitForResponse((response) => response.url().includes('fleet.harbour'));
 
     // The page's tab goes to the background and comes back, as switching tabs does.
     await page.evaluate("for (const state of ['hidden', 'visible']) { Object.defineProperty(document, 'visibilityState', { value: state, configurable: true }); window.dispatchEvent(new Event('visibilitychange')); }");

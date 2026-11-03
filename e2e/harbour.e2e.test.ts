@@ -96,6 +96,12 @@ function tileOf(page: Page, name: string) {
   return page.getByTestId('harbour').getByTestId('harbour-tile').filter({ has: page.getByText(name, { exact: true }) });
 }
 
+/** A group's tiles in the order shown, each as its name and state. */
+async function tilesIn(page: Page, kind: 'people' | 'agents'): Promise<string[]> {
+  const tiles = await page.getByTestId(`harbour-group-${kind}`).getByTestId('harbour-tile').all();
+  return Promise.all(tiles.map(async (tile) => `${(await tile.innerText()).split('\n')[0] ?? ''} ${(await tile.getAttribute('data-state')) ?? ''}`));
+}
+
 /** The numbers as Harbour shows them, by their test ids. */
 async function numbersOf(page: Page): Promise<Record<string, string>> {
   const words = ['ships', 'alert', 'waiting', 'working', 'idle'] as const;
@@ -107,11 +113,11 @@ describe('Harbour on the fleet overview', () => {
   it('counts the active ships by state and shows one tile per ship, grouped by kind, alerts first', async () => {
     const page = await signedIn();
     const harbour = page.getByTestId('harbour');
-    await tileOf(page, 'builder').getByText('Working').waitFor();
+    await tileOf(page, 'builder').getByText('Working', { exact: true }).waitFor();
 
     await expect(numbersOf(page)).resolves.toEqual({ ships: '4\nShips', alert: '1\nAlert', waiting: '1\nWaiting', working: '1\nWorking', idle: '1\nIdle' });
-    await expect(page.getByTestId('harbour-group-people').getByTestId('harbour-tile').allInnerTexts()).resolves.toEqual(['argo\nIdle']);
-    await expect(page.getByTestId('harbour-group-agents').getByTestId('harbour-tile').allInnerTexts()).resolves.toEqual(['builder-gateway\nAlert', 'reviewer-1\nWaiting', 'builder\nWorking']);
+    await expect(tilesIn(page, 'people')).resolves.toEqual(['argo idle']);
+    await expect(tilesIn(page, 'agents')).resolves.toEqual(['builder-gateway alert', 'reviewer-1 waiting', 'builder working']);
     await expect(harbour.getByText('old').count()).resolves.toBe(0);
   });
 
@@ -119,7 +125,7 @@ describe('Harbour on the fleet overview', () => {
     const page = await signedIn();
     const harbour = page.getByTestId('harbour');
 
-    await tileOf(page, 'builder').getByText('Working').waitFor();
+    await tileOf(page, 'builder').getByText('Working', { exact: true }).waitFor();
 
     await expect(Promise.all([harbour.getByTitle('builder: Building the harbour').count(), harbour.getByTitle('reviewer-1: Waiting').count()])).resolves.toEqual([1, 1]);
   });
@@ -142,25 +148,25 @@ describe('Harbour on the fleet overview', () => {
     await page.getByTestId('ship-header').getByText('reviewer-1', { exact: true }).first().waitFor();
   });
 
-  it("shows a long name whole in its tile on the mockup's 375 px phone, three tiles across, on two lines where one is too narrow", async () => {
+  it("shows a long name whole in its tile on the mockup's 375 px phone, two tiles across, on two lines where one is too narrow", async () => {
     const page = await signedIn({ ...PHONE, viewport: { width: 375, height: 812 } });
     await tileOf(page, 'builder-gateway').waitFor();
 
     // Not cut short: the name takes no more room than its tile gives it, across or down.
     await expect(
       page.evaluate(
-        "(() => { const name = [...document.querySelectorAll('[data-testid=harbour-tile] span')].find((span) => span.textContent === 'builder-gateway'); const tiles = [...document.querySelectorAll('[data-testid=harbour-group-agents] [data-testid=harbour-tile]')]; return [name.scrollWidth <= name.clientWidth && name.scrollHeight <= name.clientHeight, new Set(tiles.slice(0, 3).map((tile) => tile.getBoundingClientRect().top)).size]; })()",
+        "(() => { const name = [...document.querySelectorAll('[data-testid=harbour-tile] span')].find((span) => span.textContent === 'builder-gateway'); const tiles = [...document.querySelectorAll('[data-testid=harbour-group-agents] [data-testid=harbour-tile]')]; return [name.scrollWidth <= name.clientWidth && name.scrollHeight <= name.clientHeight, new Set(tiles.slice(0, 2).map((tile) => tile.getBoundingClientRect().top)).size]; })()",
       ),
     ).resolves.toEqual([true, 1]);
   });
 
   it("moves a ship's tile live when its crew reports blocked, without a reload", async () => {
     const page = await signedIn();
-    await tileOf(page, 'builder').getByText('Working').waitFor();
+    await tileOf(page, 'builder').getByText('Working', { exact: true }).waitFor();
 
     unwrap(await core.report(unwrap(builderCrew), { state: 'blocked', note: 'Waiting for a review' }));
 
-    await tileOf(page, 'builder').getByText('Waiting').waitFor();
+    await tileOf(page, 'builder').getByText('Waiting', { exact: true }).waitFor();
     await expect(numbersOf(page)).resolves.toMatchObject({ waiting: '2\nWaiting', working: '0\nWorking' });
   });
 });

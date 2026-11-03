@@ -63,6 +63,7 @@ async function signedInPage(): Promise<Page> {
   await signIn(page, OPERATOR);
   await page.waitForURL(`${web.url}/`);
   await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
+  await page.goto('/?view=list');
   return page;
 }
 
@@ -427,9 +428,8 @@ describe('retiring a ship', () => {
     await dialog.getByTestId('retire-typed-confirm').getByRole('textbox').fill('castaway');
     await retire.click();
 
+    // A retired ship is in no list (decision 0070).
     await row.waitFor({ state: 'detached' });
-    await page.getByTestId('fleet-show-retired').click();
-    await shipRow(page, 'castaway').getByText('Retired', { exact: true }).waitFor();
     await expect(
       database.delivery.count({ where: { recipientShip: { name: 'castaway' }, state: 'abandoned' } }),
     ).resolves.toBe(1);

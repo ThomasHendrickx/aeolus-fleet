@@ -58,6 +58,8 @@ describe('a console without squadrons', () => {
     context = await browser.newContext({ baseURL: web.url });
     const page = await context.newPage();
     await signIn(page, OPERATOR);
+    await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
+    await page.goto('/?view=list');
     // The row menu stays open while the overview refreshes: what it offers must not change.
     await page.getByTestId('fleet-row-reviewer-02').waitFor();
     await openRowMenu(page, 'reviewer-02');
