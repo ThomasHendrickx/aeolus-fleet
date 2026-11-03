@@ -33,11 +33,17 @@ export const Wide: Story = {
   ],
 };
 
-/** Small, by its own width: a phone, or Bridge's column at 1440. "Awaiting crew" wraps rather than being cut. */
+/** Small, by its own width: a phone at 375. "Awaiting crew" wraps rather than being cut, and every word stays inside its card. */
 export const Narrow: Story = {
   play: async ({ canvasElement }) => {
     const word = within(within(canvasElement).getByTestId('harbour-number-awaitingCrew')).getByTestId('ship-state');
     await expect(word.scrollWidth).toBeLessThanOrEqual(word.clientWidth);
+    const outside = ['alert', 'awaitingCrew', 'blocked', 'working', 'idle'].filter((state) => {
+      const card = within(canvasElement).getByTestId(`harbour-number-${state}`).getBoundingClientRect();
+      const shown = within(within(canvasElement).getByTestId(`harbour-number-${state}`)).getByTestId('ship-state').getBoundingClientRect();
+      return shown.left < card.left || shown.right > card.right;
+    });
+    await expect(outside).toEqual([]);
   },
   decorators: [
     (Story) => (
