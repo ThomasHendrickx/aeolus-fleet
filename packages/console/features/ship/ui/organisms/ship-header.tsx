@@ -270,6 +270,7 @@ export function ShipHeader({ ship, shipId, state, actions, crewRequest, now, vie
           </h1>
           <div className="flex flex-wrap items-center gap-2">
             <ShipState state={ship.status} />
+            {ship.openAlertCount > 0 ? <ShipState state="alert" isBadge /> : null}
             {isOperator ? (
               <Badge variant="kind">
                 <UserRound aria-hidden />
