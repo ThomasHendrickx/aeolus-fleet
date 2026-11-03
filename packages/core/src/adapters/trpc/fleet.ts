@@ -1226,12 +1226,18 @@ export const fleetRouter = router({
    * Harbour's ships (docs/design/fleet-overview): each active ship in read
    * reach by id, name, kind, its state and note, a page at a time, the
    * numbers on the first page; or only the ships named, for a live reload.
+   * With the overview bar's filter, only the ships it selects; the numbers
+   * still count the whole fleet.
    */
   harbour: actorScopedProcedure('fleet:read')
     .input(harbourInputSchema)
     .output(harbourOutputSchema)
     .query(async ({ ctx, input }) => {
-      const { ships, nextCursor, counts } = await ctx.useCases.readHarbour(ctx.caller, input?.shipIds === undefined ? { cursor: input?.cursor, limit: input?.limit } : { shipIds: input.shipIds });
+      const filter = input?.filter;
+      const { ships, nextCursor, counts } = await ctx.useCases.readHarbour(
+        ctx.caller,
+        input?.shipIds === undefined ? { cursor: input?.cursor, limit: input?.limit, filter } : { shipIds: input.shipIds, filter },
+      );
       return { items: ships.map((ship) => ({ ...ship, lastActivityAt: ship.lastActivityAt?.toISOString() ?? null })), nextCursor: nextCursor && shipCursorOf(nextCursor), counts };
     }),
 

@@ -1994,16 +1994,18 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
                     ]),
                   },
                   position: positionOf(listed, { sort: undefined, isInReach: true }),
+                  listed,
                 },
               ],
         )
         .sort((first, second) => comparePositions(undefined)(first.position, second.position));
+      const selected = ships.filter(({ listed }) => matchesShipFilter(listed, { filter: read.filter, isInReach: true }));
       if ('shipIds' in read) {
-        return Promise.resolve({ ships: ships.filter(({ ship }) => read.shipIds.includes(ship.id)), counts: null });
+        return Promise.resolve({ ships: selected.filter(({ ship }) => read.shipIds.includes(ship.id)).map(({ ship, position }) => ({ ship, position })), counts: null });
       }
       const { after, limit } = read;
-      const page = ships.filter(({ position }) => after === undefined || comparePositions(undefined)(position, after) > 0).slice(0, limit);
-      return Promise.resolve({ ships: page, counts: after === undefined ? harbourCountsOf(ships.map(({ ship }) => ship)) : null });
+      const page = selected.filter(({ position }) => after === undefined || comparePositions(undefined)(position, after) > 0).slice(0, limit);
+      return Promise.resolve({ ships: page.map(({ ship, position }) => ({ ship, position })), counts: after === undefined ? harbourCountsOf(ships.map(({ ship }) => ship)) : null });
     },
     counts: (fleetId, { reach, filter }) =>
       Promise.resolve(

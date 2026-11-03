@@ -567,8 +567,11 @@ export interface ShipPage {
   reach: ReadReach;
 }
 
-/** Which of Harbour's ships a read answers: a page after a position, or the ships asked. */
-export type HarbourRead = { reach: ReadReach } & ({ after?: ShipPosition; limit: number } | { shipIds: readonly ShipId[] });
+/** The overview bar's filter on Harbour's ships (docs/design/fleet-overview): search, state, type and label values. */
+export type HarbourFilter = Pick<ShipFilter, 'query' | 'state' | 'type' | 'valueIds'>;
+
+/** Which of Harbour's ships a read answers: a page after a position, or the ships asked; of those, the ones the filter selects. */
+export type HarbourRead = { reach: ReadReach; filter: HarbourFilter } & ({ after?: ShipPosition; limit: number } | { shipIds: readonly ShipId[] });
 
 /** The fleet snapshot's reads. Its lists, counts and types leave every removed ship out; `ship` still answers one, its remnant (decision 0070, D4 and D8). */
 export interface FleetListing {

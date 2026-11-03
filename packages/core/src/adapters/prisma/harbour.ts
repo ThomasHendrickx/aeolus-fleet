@@ -14,7 +14,7 @@ import type { HarbourRead } from '../../domain/registry/ports.js';
 import type { ReadReach } from '../../domain/registry/read-reach.js';
 import type { Db } from './client.js';
 import { Prisma } from './generated/client.js';
-import { afterPosition, isInReachOfShip, orderOfPage, shipPositionOfRow } from './registry.js';
+import { afterPosition, isInReachOfShip, orderOfPage, shipFilterCondition, shipPositionOfRow } from './registry.js';
 
 /**
  * The state of the ship `s` of the outer query, with `l` its open lease,
@@ -47,7 +47,8 @@ function isShownOfShip(fleetId: FleetId, reach: ReadReach): Prisma.Sql {
  * A page of Harbour's ships: ordered and cut by the default order's keys
  * alone, argo first and then by name, so the page reads only its own ships
  * from the index; then only the page's ships read their lease and alerts.
- * With ship ids, only those ships, in the same order.
+ * With ship ids, only those ships, in the same order. Either way only the
+ * ships the overview bar's filter selects, in the same scan.
  */
 export function harbourPageStatement(fleetId: FleetId, read: HarbourRead): Prisma.Sql {
   const selected = 'shipIds' in read ? Prisma.sql`AND s.id = ANY(${[...read.shipIds]}::text[])` : Prisma.empty;
@@ -61,7 +62,7 @@ export function harbourPageStatement(fleetId: FleetId, read: HarbourRead): Prism
       SELECT ranked.* FROM (
         SELECT s.id, s.kind <> 'operator' AS sort_is_empty, ''::text AS sort_value, lower(s.name) AS sort_name
         FROM ships s
-        WHERE ${isShownOfShip(fleetId, read.reach)} ${selected}
+        WHERE ${isShownOfShip(fleetId, read.reach)} ${selected} ${shipFilterCondition(read.filter, read.reach)}
       ) ranked
       ${after}
       ${orderOfPage('ranked', undefined)}
@@ -116,7 +117,8 @@ function harbourShipOfRow(row: unknown): { ship: HarbourShip; position: ShipPosi
 /**
  * Reads Harbour's ships, and on a page from the start its numbers, in one
  * repeatable-read transaction so the numbers count the ships the page
- * shows; inside a unit of work, in its transaction.
+ * reads from; the numbers count every ship Harbour shows, whatever the
+ * filter. Inside a unit of work, in its transaction.
  */
 export async function readHarbourOf(
   db: Db,

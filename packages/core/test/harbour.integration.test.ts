@@ -132,7 +132,7 @@ describe("Harbour's read on Postgres", () => {
     const [, first, second] = await expectedTiles();
     const reach = { kind: 'some' as const, shipIds: new Set([first?.id, second?.id].filter((id) => id !== undefined)), types: new Set<string>() };
 
-    const read = await createPrismaFleetListing(core.prisma).harbour(fleetId, { reach, limit: 100 });
+    const read = await createPrismaFleetListing(core.prisma).harbour(fleetId, { reach, filter: {}, limit: 100 });
 
     expect([read.ships.map(({ ship }) => ship), read.counts?.ships]).toEqual([[first, second], 2]);
   });
@@ -153,6 +153,19 @@ describe("Harbour's read on Postgres", () => {
     const observedAt = new Date(sent.getTime() + 60_000);
     await core.prisma.$executeRaw`UPDATE leases SET activity_at = ${observedAt} WHERE fleet_id = ${fleetId} AND ship_id = ${shipId} AND ended_at IS NULL`;
     await expect(read()).resolves.toEqual(observedAt);
+  });
+});
+
+// The overview's bar on the cards (#1605): Harbour's read selects in SQL as the rule does; its numbers stay the whole fleet.
+describe("Harbour's read filtered by the overview's bar on Postgres", () => {
+  it('answers only the ships in the states picked whose name holds the search, still counting every ship', async () => {
+    const tiles = await expectedTiles();
+    const expected = tiles.filter((tile) => ['alert', 'waiting'].includes(tile.state) && tile.name.includes('-0'));
+
+    const harbour = await core.useCases.readHarbour(argo, { filter: { state: ['alert', 'waiting'], query: '-0' } });
+    const reload = await core.useCases.readHarbour(argo, { shipIds: tiles.map((tile) => tile.id), filter: { state: ['alert', 'waiting'], query: '-0' } });
+
+    expect([harbour.ships, reload.ships, harbour.counts]).toEqual([expected, expected, harbourCountsOf(tiles)]);
   });
 });
 
