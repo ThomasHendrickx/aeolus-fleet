@@ -81,7 +81,7 @@ export const SameValueOnOneSide: Story = {
   args: { rules: [{ verb: 'send', from: [{ labelId: PROJECT.id, value: '#' }], to: [{ labelId: PROJECT.id, value: '#' }] }] },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await userEvent.click(within(canvas.getByTestId('network-rule-to')).getByRole('button', { name: 'Remove project=#' }));
+    await userEvent.click(within(canvas.getByTestId('network-rule-to')).getByRole('button', { name: 'Remove project: #' }));
     await expect(canvas.getByTestId('network-rule-from-problem')).toHaveTextContent('project=# needs project=# on the other side');
     await expect(canvas.getByTestId('network-rules-save')).toBeDisabled();
   },

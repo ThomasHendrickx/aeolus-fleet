@@ -50,7 +50,7 @@ export const Declared: Story = {
     const canvas = within(canvasElement);
     await expect(canvas.getAllByTestId('network-declared-by').map((by) => by.textContent)).toEqual(['Declared by squadrons', 'Declared by trierarch-plugin']);
     const [bySquadrons, byTrierarchPlugin] = canvas.getAllByTestId('network-declared-plugin');
-    await expect(within(bySquadrons ?? canvasElement).getAllByTestId('network-declared-rule-from-value').map((chip) => chip.textContent)).toEqual(['blueprint=#']);
+    await expect(within(bySquadrons ?? canvasElement).getAllByTestId('network-declared-rule-from-value').map((chip) => chip.textContent)).toEqual(['blueprint: #']);
     await expect(within(byTrierarchPlugin ?? canvasElement).getAllByTestId('network-declared-rule')).toHaveLength(2);
     await expect(within(byTrierarchPlugin ?? canvasElement).getAllByTestId('network-declared-rule')[1]).toHaveTextContent('Every ship');
     await expect(within(byTrierarchPlugin ?? canvasElement).getAllByTestId('network-declared-rule-verb').map((verb) => verb.textContent)).toEqual(['May send to', 'May read']);
