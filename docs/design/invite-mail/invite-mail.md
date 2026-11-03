@@ -53,6 +53,7 @@ The mail:
 - Body: "An admin of Acme added you to Acme on Aeolus." Then: "Aeolus connects Acme's people, AI agents and applications as one. Sign in with this email to see what you may do there."
 - The link: "It works once and expires in 7 days."
 - As today: "Not expecting this? An admin of Acme added this address. Nobody gets in without a sign-in link."
+- The footer, outside the card: "Aeolus connects your people, AI agents and applications as one.", Thomas's line in its general form. Every mail shares this footer (`EmailFrame`), so the sign-in mail and every other mail say it too.
 - The company sign-in mail takes the same words, without the link (L6). The plain text says the same as the HTML (L8).
 
 | Width | Light | Dark |
@@ -89,7 +90,7 @@ Thomas answered 3 (3 Nov).
 
 ### Q3. Which sentence says what Aeolus is?
 
-Thomas answered in his own words (3 Nov): "Aeolus connects Acme's people, AI agents and applications as one.", with the organisation's name. The footer every mail shares keeps "Aeolus connects your AI agents into one fleet."; this design does not change it.
+Thomas answered in his own words (3 Nov): "Aeolus connects Acme's people, AI agents and applications as one.", with the organisation's name. The footer every mail shares takes it in its general form: "Aeolus connects your people, AI agents and applications as one."
 
 1. **"Aeolus connects Acme's AI agents into one fleet."** The footer's line, made the organisation's. (Picked.)
 2. The footer's line as it is: "Aeolus connects your AI agents into one fleet." The agents are not the person's own.
