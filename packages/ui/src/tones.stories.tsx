@@ -115,7 +115,7 @@ function Tones({ mode }: { mode: Mode }) {
         {tones.map((tone) => (
           <div
             key={tone.word}
-            className="grid grid-cols-[150px_minmax(0,1fr)] items-center gap-3 sm:grid-cols-[150px_110px_70px_minmax(0,1fr)]"
+            className="grid grid-cols-[150px_minmax(0,1fr)] items-center gap-3 sm:grid-cols-[150px_200px_70px_minmax(0,1fr)]"
           >
             <Chip tone={tone} />
             <code className="hidden font-mono text-id text-muted-foreground sm:block">
