@@ -8,7 +8,12 @@ import { useTRPC } from './trpc';
 /** The fleet's ship types (`fleet.shipTypes`), for a Type filter or field: of the active ships, and the retired ones while they are shown. */
 export function useShipTypes(isRetiredShown: boolean): readonly string[] | undefined {
   const trpc = useTRPC();
-  return useQuery(trpc.fleet.shipTypes.queryOptions(isRetiredShown ? { status: [...EVERY_SHIP_STATUS] } : undefined, { placeholderData: keepPreviousData })).data;
+  return useQuery(
+    trpc.fleet.shipTypes.queryOptions(isRetiredShown ? { status: [...EVERY_SHIP_STATUS] } : undefined, {
+      placeholderData: keepPreviousData,
+      select: (types) => types.map(({ type }) => type),
+    }),
+  ).data;
 }
 
 /** How many active ships have the type, for a type field's hint (`fleet.shipCounts` with the type); undefined while read or for no type. */
