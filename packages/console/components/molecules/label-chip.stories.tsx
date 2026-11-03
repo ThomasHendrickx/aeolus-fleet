@@ -36,28 +36,28 @@ export const Yours: Story = {
     const chip = chipIn(canvasElement);
     await expect(chip.querySelector('svg')).toBeNull();
     await expect(getComputedStyle(chip).borderStyle).toBe('solid');
-    await expect(untitledChipIn(canvasElement)).toHaveAccessibleName('project=hemma, by you');
+    await expect(untitledChipIn(canvasElement)).toHaveAccessibleName('project: hemma, by you');
   },
 };
 /** The trierarch plugin's: a ship wheel; its accessible name names the owner. */
 export const ByTrierarchPlugin: Story = {
   args: { chip: { key: 'os', value: 'macos', mark: 'trierarch-plugin', ownerName: 'trierarch-plugin' } },
   play: async ({ canvasElement }) => {
-    await expect(untitledChipIn(canvasElement)).toHaveAccessibleName('os=macos, by trierarch-plugin');
+    await expect(untitledChipIn(canvasElement)).toHaveAccessibleName('os: macos, by trierarch-plugin');
   },
 };
 /** Squadrons': boxes; its accessible name names the owner. */
 export const BySquadrons: Story = {
   args: { chip: { key: 'blueprint', value: 'hemma-feature', mark: 'squadrons', ownerName: 'squadrons' } },
   play: async ({ canvasElement }) => {
-    await expect(untitledChipIn(canvasElement)).toHaveAccessibleName('blueprint=hemma-feature, by squadrons');
+    await expect(untitledChipIn(canvasElement)).toHaveAccessibleName('blueprint: hemma-feature, by squadrons');
   },
 };
 /** Any other owner's: the ship icon; its accessible name names the owner. */
 export const ByAnotherShip: Story = {
   args: { chip: { key: 'cost', value: 'low', mark: 'ship', ownerName: 'orchestrator' } },
   play: async ({ canvasElement }) => {
-    await expect(untitledChipIn(canvasElement)).toHaveAccessibleName('cost=low, by orchestrator');
+    await expect(untitledChipIn(canvasElement)).toHaveAccessibleName('cost: low, by orchestrator');
   },
 };
 /** A label the fleet no longer has, as a reach refusal kept it: a crossed-out tag and a dashed edge, so it never looks like yours; its accessible name says so. */
@@ -67,15 +67,15 @@ export const Gone: Story = {
     const chip = chipIn(canvasElement);
     await expect(chip.querySelector('svg')).not.toBeNull();
     await expect(getComputedStyle(chip).borderStyle).toBe('dashed');
-    await expect(untitledChipIn(canvasElement)).toHaveAccessibleName('tier=gold, a label that no longer exists');
+    await expect(untitledChipIn(canvasElement)).toHaveAccessibleName('tier: gold, a label that no longer exists');
   },
 };
 /** In a filter: it ends in ×; the chip keeps its owner in its name, the × names what it removes. */
 export const Removable: Story = {
   args: { onRemove: fn() },
   play: async ({ canvasElement }) => {
-    await expect(untitledChipIn(canvasElement)).toHaveAccessibleName('project=hemma, by you');
-    await expect(within(canvasElement).getByRole('button')).toHaveAccessibleName('Remove project=hemma');
+    await expect(untitledChipIn(canvasElement)).toHaveAccessibleName('project: hemma, by you');
+    await expect(within(canvasElement).getByRole('button')).toHaveAccessibleName('Remove project: hemma');
   },
 };
 /** A long value truncates within its space. */
@@ -86,6 +86,6 @@ export const Long: Story = {
 export const RuleTerm: Story = {
   args: { chip: { key: 'project', value: '#', mark: 'none', ownerName: 'argo' }, meaning: 'The same value as the other side' },
   play: async ({ canvasElement }) => {
-    await expect(untitledChipIn(canvasElement)).toHaveAccessibleName('project=#, by you. The same value as the other side');
+    await expect(untitledChipIn(canvasElement)).toHaveAccessibleName('project: #, by you. The same value as the other side');
   },
 };
