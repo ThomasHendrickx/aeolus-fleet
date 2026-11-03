@@ -22,17 +22,26 @@ beforeEach(async () => {
   unwrap(await registry.retireShip(argo, { shipId }));
 });
 
+/** The types alone, without their counts. */
+async function typesOf(read: Promise<readonly { type: string }[]>): Promise<string[]> {
+  return (await read).map(({ type }) => type);
+}
+
 describe("the fleet's ship types (the overview's Type filter)", () => {
-  it('answers each type of the active ships once, sorted', async () => {
-    await expect(registry.listShipTypes(argo)).resolves.toEqual(['implementer', 'operator', 'reviewer']);
+  it('answers each type of the active ships once, sorted, with how many ships carry it (the menu draws it, #1605)', async () => {
+    await expect(registry.listShipTypes(argo)).resolves.toEqual([
+      { type: 'implementer', ships: 1 },
+      { type: 'operator', ships: 1 },
+      { type: 'reviewer', ships: 2 },
+    ]);
   });
 
   it('answers the types of retired ships too when the status asks for retired', async () => {
-    await expect(registry.listShipTypes(argo, { status: ['awaitingCrew', 'crewed', 'retired'] })).resolves.toEqual(['archivist', 'implementer', 'operator', 'reviewer']);
+    await expect(typesOf(registry.listShipTypes(argo, { status: ['awaitingCrew', 'crewed', 'retired'] }))).resolves.toEqual(['archivist', 'implementer', 'operator', 'reviewer']);
   });
 
   it('answers only the types of the statuses asked', async () => {
-    await expect(registry.listShipTypes(argo, { status: ['retired'] })).resolves.toEqual(['archivist']);
+    await expect(typesOf(registry.listShipTypes(argo, { status: ['retired'] }))).resolves.toEqual(['archivist']);
   });
 });
 
@@ -41,7 +50,7 @@ describe("the fleet's ship types within read reach (decision 0034)", () => {
     const fleet = await readReachScenario();
     await fleet.readRulesApply();
 
-    const types = await fleet.registry.listShipTypes(fleet.reader);
+    const types = await typesOf(fleet.registry.listShipTypes(fleet.reader));
     const read = (await fleet.registry.listFleet(fleet.reader)).ships.filter((ship) => !('isInReadReach' in ship)).map((ship) => ship.type);
 
     expect(types).toEqual([...new Set(read)].toSorted());
