@@ -273,7 +273,7 @@ describe("a connected plugin's ship missing a scope its plugin lists, as Setting
   it('names the scopes the plugin lists that its connected ship lacks', async () => {
     const { calls } = fakes({ ships: [connectedShip(BEFORE_SCOPES_DECLARE)], connection: connected });
 
-    await expect(missingScopesOf(calls, { connection: connected, wanted: TRIERARCH_PLUGIN_SHIP })).resolves.toEqual(['scopes:declare']);
+    await expect(missingScopesOf(calls, { connection: connected, wanted: TRIERARCH_PLUGIN_SHIP })).resolves.toEqual({ kind: 'read', missingScopes: ['scopes:declare'] });
   });
 
   it('names none once connecting again granted them', async () => {
@@ -281,32 +281,53 @@ describe("a connected plugin's ship missing a scope its plugin lists, as Setting
 
     const connection = await connectPlugin(calls, { ship: TRIERARCH_PLUGIN_SHIP, newKey });
 
-    await expect(missingScopesOf(calls, { connection, wanted: TRIERARCH_PLUGIN_SHIP })).resolves.toEqual([]);
+    await expect(missingScopesOf(calls, { connection, wanted: TRIERARCH_PLUGIN_SHIP })).resolves.toEqual({ kind: 'read', missingScopes: [] });
   });
 
   it('names none for a connected ship that holds every scope, and more', async () => {
     const { calls } = fakes({ ships: [connectedShip(['messages:send', ...TRIERARCH_PLUGIN_SHIP.scopes])], connection: connected });
 
-    await expect(missingScopesOf(calls, { connection: connected, wanted: TRIERARCH_PLUGIN_SHIP })).resolves.toEqual([]);
+    await expect(missingScopesOf(calls, { connection: connected, wanted: TRIERARCH_PLUGIN_SHIP })).resolves.toEqual({ kind: 'read', missingScopes: [] });
   });
 
   it('names none while the plugin is not connected, and reads no ship', async () => {
     const notConnected: PluginConnection = { isEnabled: true, state: 'not-connected', ship: null, lastShipId: 'shp_4' };
     const { calls } = fakes({ ships: [connectedShip([])], connection: notConnected });
 
-    await expect(missingScopesOf(calls, { connection: notConnected, wanted: TRIERARCH_PLUGIN_SHIP })).resolves.toEqual([]);
+    await expect(missingScopesOf(calls, { connection: notConnected, wanted: TRIERARCH_PLUGIN_SHIP })).resolves.toEqual({ kind: 'read', missingScopes: [] });
   });
 
-  it("names none when the fleet does not answer for the ship, so the connection still shows and the plugin's pages stay", async () => {
+  it('names none when the fleet shows the ship without its scopes, as out of read reach: it claims no lack it cannot see (#1259, Q2)', async () => {
     const { calls } = fakes({ connection: connected });
-    const failing = { shipScopes: () => Promise.reject(new Error('NOT_FOUND')) };
 
-    await expect(missingScopesOf({ ...calls, ...failing }, { connection: connected, wanted: TRIERARCH_PLUGIN_SHIP })).resolves.toEqual([]);
+    await expect(missingScopesOf(calls, { connection: connected, wanted: TRIERARCH_PLUGIN_SHIP })).resolves.toEqual({ kind: 'read', missingScopes: [] });
+  });
+});
+
+describe("a failed read of a connected plugin's ship scopes, as Settings shows it (#1259)", () => {
+  const connected: PluginConnection = { isEnabled: true, state: 'connected', ship: { shipId: 'shp_4', name: 'trierarch-plugin' }, lastShipId: 'shp_4' };
+
+  it('is a failed read, never nothing missing, when the fleet does not answer', async () => {
+    // Given the trierarch plugin connected, and a fleet that does not answer for its ship
+    const { calls } = fakes({ connection: connected });
+    const failing = { shipScopes: () => Promise.reject(new TypeError('fetch failed')) };
+
+    // When Settings reads the scopes its ship lacks
+    const read = missingScopesOf({ ...calls, ...failing }, { connection: connected, wanted: TRIERARCH_PLUGIN_SHIP });
+
+    // Then the read failed, saying the fleet did not answer
+    await expect(read).resolves.toEqual({ kind: 'failed', reason: 'The fleet did not answer' });
   });
 
-  it('names none when the fleet shows the ship without its scopes, as out of read reach: it claims no lack it cannot see', async () => {
+  it("is a failed read with the fleet's refusal in its words when the fleet refuses", async () => {
+    // Given the trierarch plugin connected, and a fleet that refuses the read of its ship
     const { calls } = fakes({ connection: connected });
+    const refusing = { shipScopes: () => Promise.reject(new ConnectPluginError('No ship shp_4 in this fleet')) };
 
-    await expect(missingScopesOf(calls, { connection: connected, wanted: TRIERARCH_PLUGIN_SHIP })).resolves.toEqual([]);
+    // When Settings reads the scopes its ship lacks
+    const read = missingScopesOf({ ...calls, ...refusing }, { connection: connected, wanted: TRIERARCH_PLUGIN_SHIP });
+
+    // Then the read failed, with the fleet's words
+    await expect(read).resolves.toEqual({ kind: 'failed', reason: 'No ship shp_4 in this fleet' });
   });
 });
