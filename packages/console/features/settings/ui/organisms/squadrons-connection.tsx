@@ -50,7 +50,7 @@ export function SquadronsConnection({ settings, loadError, onRetry, isConnecting
           <MissingScopes
             plugin="squadrons"
             shipName={settings.ship?.name ?? 'squadrons'}
-            missingScopes={settings.missingScopes}
+            missingScopes={settings.scopes.kind === 'read' ? settings.scopes.missingScopes : []}
             isGranting={isConnecting}
             hasGranted={hasConnected}
             {...(connectError === undefined ? {} : { grantError: connectError })}

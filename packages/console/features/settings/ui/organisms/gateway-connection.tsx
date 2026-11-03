@@ -53,7 +53,7 @@ export function GatewayConnection({ settings, loadError, onRetry, isConnecting, 
           <MissingScopes
             plugin="the gateway"
             shipName={settings.ship?.name ?? 'gateway'}
-            missingScopes={settings.missingScopes}
+            missingScopes={settings.scopes.kind === 'read' ? settings.scopes.missingScopes : []}
             isGranting={isConnecting}
             hasGranted={hasConnected}
             {...(connectError === undefined ? {} : { grantError: connectError })}

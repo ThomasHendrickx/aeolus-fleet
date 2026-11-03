@@ -26,11 +26,11 @@ export const ConnectFailed: Story = {
   },
 };
 export const Connected: Story = {
-  args: { settings: { state: 'connected', ship: { shipId: SHIP_ID, name: 'trierarch-plugin' }, lastShipId: SHIP_ID, missingScopes: [] } },
+  args: { settings: { state: 'connected', ship: { shipId: SHIP_ID, name: 'trierarch-plugin' }, lastShipId: SHIP_ID, scopes: { kind: 'read', missingScopes: [] } } },
 };
 /** Connected before the trierarch plugin listed scopes:declare (#1226): Settings names it and offers to grant it. */
 export const ConnectedMissingScopes: Story = {
-  args: { settings: { state: 'connected', ship: { shipId: SHIP_ID, name: 'trierarch-plugin' }, lastShipId: SHIP_ID, missingScopes: ['scopes:declare'] } },
+  args: { settings: { state: 'connected', ship: { shipId: SHIP_ID, name: 'trierarch-plugin' }, lastShipId: SHIP_ID, scopes: { kind: 'read', missingScopes: ['scopes:declare'] } } },
 };
 export const GrantingMissingScopes: Story = { args: { ...ConnectedMissingScopes.args, isConnecting: true } };
 export const GrantFailed: Story = { args: { ...ConnectedMissingScopes.args, connectError: 'This call needs the scopes:grant scope' } };

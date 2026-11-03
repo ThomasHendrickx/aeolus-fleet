@@ -64,7 +64,7 @@ export function TrierarchPluginConnection({ settings, loadError, onRetry, isConn
           <MissingScopes
             plugin="the trierarch plugin"
             shipName={settings.ship?.name ?? 'trierarch-plugin'}
-            missingScopes={settings.missingScopes}
+            missingScopes={settings.scopes.kind === 'read' ? settings.scopes.missingScopes : []}
             isGranting={isConnecting}
             hasGranted={hasConnected}
             {...(connectError === undefined ? {} : { grantError: connectError })}

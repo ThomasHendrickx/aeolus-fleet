@@ -27,7 +27,7 @@ export const ConnectFailed: Story = {
   },
 };
 export const Connected: Story = {
-  args: { settings: { state: 'connected', ship: { shipId: SHIP_ID, name: 'gateway' }, lastShipId: SHIP_ID, missingScopes: [] } },
+  args: { settings: { state: 'connected', ship: { shipId: SHIP_ID, name: 'gateway' }, lastShipId: SHIP_ID, scopes: { kind: 'read', missingScopes: [] } } },
 };
 export const Loading: Story = { args: { settings: undefined } };
 export const LoadFailed: Story = { args: { settings: undefined, loadError: 'the gateway or the fleet did not answer: try again in a moment' } };

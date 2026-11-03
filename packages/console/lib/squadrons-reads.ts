@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers';
 import { z } from 'zod';
 
-import { ConnectPluginError, SQUADRONS_SHIP } from './connect-plugin';
+import { ConnectPluginError, NO_MISSING_SCOPES, SQUADRONS_SHIP } from './connect-plugin';
 import type { PluginAnswer } from './plugin-answer';
 import { SQUADRONS_NO_ANSWER } from './no-answer';
 import { callPlugin, sessionCookieOf } from './plugin-call';
@@ -56,7 +56,7 @@ export function refusalOf(error: unknown): PluginAnswer<never> {
 export async function readSquadronsConnection(): Promise<PluginAnswer<ShownConnection>> {
   const url = squadronsUrlFrom(process.env);
   if (url === undefined) {
-    return { kind: 'answered', data: shownConnectionOf(undefined, []) };
+    return { kind: 'answered', data: shownConnectionOf(undefined, NO_MISSING_SCOPES) };
   }
   try {
     return { kind: 'answered', data: await readShownConnection({ serverUrl: serverInternalUrlFrom(process.env), pluginUrl: url }, { cookie: await sessionCookie(), wanted: SQUADRONS_SHIP }) };

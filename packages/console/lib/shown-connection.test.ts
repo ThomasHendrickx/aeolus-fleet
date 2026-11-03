@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
+import { NO_MISSING_SCOPES } from './connect-plugin';
 import { shownConnectionOf } from './shown-connection';
 
-const NONE_MISSING = { kind: 'read', missingScopes: [] } as const;
 const ship = { shipId: 'shp_01m48v8ny2pyv0jtpjfzw1n5vs', name: 'squadrons' };
 
 describe('a plugin connection as the browser sees it', () => {
   it('is none without the plugin', () => {
-    expect(shownConnectionOf(undefined, NONE_MISSING)).toEqual({ state: 'none' });
+    expect(shownConnectionOf(undefined, NO_MISSING_SCOPES)).toEqual({ state: 'none' });
   });
 
   it('is none while the plugin is off for the fleet, with no trace of its ship', () => {
@@ -24,6 +24,6 @@ describe('a plugin connection as the browser sees it', () => {
   });
 
   it('shows a plugin that is on but not connected', () => {
-    expect(shownConnectionOf({ isEnabled: true, state: 'not-connected', ship: null, lastShipId: null }, NONE_MISSING)).toEqual({ state: 'not-connected', ship: null, lastShipId: null });
+    expect(shownConnectionOf({ isEnabled: true, state: 'not-connected', ship: null, lastShipId: null }, NO_MISSING_SCOPES)).toEqual({ state: 'not-connected', ship: null, lastShipId: null });
   });
 });
