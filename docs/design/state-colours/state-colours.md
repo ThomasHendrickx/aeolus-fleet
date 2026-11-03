@@ -1,8 +1,8 @@
 # One meaning per colour for a ship's state
 
-Design, stage 1. Docs only. Purpose, lessons and questions for Thomas; no detailed decisions until he answers. [Issue 1618](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1618).
+Design. Docs only. [Issue 1618](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1618); Thomas answered its five questions on 3 Nov (section 3).
 
-[sheet.html](sheet.html), [sheet.png](sheet.png): every ship state in every place, today and proposed (the picks below), light and dark. The HTML stands alone, with the tone tokens inlined.
+[sheet.html](sheet.html), [sheet.png](sheet.png): the mockups for approval. Every place a ship's state shows (console ship list, ship page, Needs crew, Harbour cards and list, Bridge's Your fleet), today beside proposed, light and dark, with the contrast of every tone measured in the page. The HTML stands alone, with both sets of tone tokens inlined; the PNG is that file rendered in Chromium at 1x.
 
 ## 1. Purpose (Thomas, 3 Nov)
 
@@ -10,7 +10,7 @@ Design, stage 1. Docs only. Purpose, lessons and questions for Thomas; no detail
 
 A ship's colour means one thing, the same in every app: a reader who learned it once in the console reads it the same in Harbour and Bridge. Each meaning and its colour is written down once, as tokens in `@aeolus-fleet/ui`, with the rule beside them. Colour is never the only sign: an icon and a word say the same.
 
-Not the purpose: what a ship's state is (the blueprint and `harbourStateOf` decide that; question 1 only asks whether Harbour shows one more), and the tones of things that are not ships (deliveries, schedules, squadron members, machines), beyond question 5.
+Not the purpose: what a ship's state is (the blueprint and `harbourStateOf` decide that; Harbour only splits Waiting in two), and what the tones of things that are not ships (deliveries, schedules, squadron members, machines) mean: they take the new colours with the tokens, and their meanings get their own issue.
 
 ## 2. Lessons to check against
 
@@ -50,39 +50,50 @@ Not the purpose: what a ship's state is (the blueprint and `harbourStateOf` deci
 
 And one meaning with several looks: Working (green in Harbour, blue in the list), Idle (grey, plain or foreground by place), Needs crew (grey count, amber rows), Alert (TriangleAlert in the console, CircleAlert in Harbour), Waiting for crew (four words, four icons).
 
-## 3. Questions
+## 3. Decisions (Thomas, 3 Nov)
 
-Each with options and my pick. The sheet's Proposed column draws the picks.
+### Five states
 
-**Q1. Which states does Harbour show for a ship?**
-1. Keep four: Alert, Waiting, Working, Idle. Waiting stays both; only its icon could tell them apart.
-2. Split Waiting into five: Alert, Awaiting crew, Blocked, Working, Idle, first match in that order. The console's Status and Report columns show the same words.
-3. Split, and Blocked joins Alert: four states, red for both.
+A ship shows one of five states, first match wins: **Alert** (an open alert), **Awaiting crew** (no session holds the lease), **Blocked** (a blocked report), **Working** (a working report), **Idle** (anything else). Harbour's Waiting splits into Awaiting crew and Blocked: two actions, two states (crew the ship; unblock the crew that is there). Harbour's numbers become six: Ships, then the five. The State filter offers the five. A ship's status (Crewed, Retired) still shows beside it in the console list and on its page.
 
-Pick 2. Awaiting crew asks the operator to crew the ship; Blocked asks someone to unblock a crew that is there. Two actions, two states. Awaiting crew before Blocked: a ship without crew cannot be unblocked.
+### One meaning per colour
 
-**Q2. One colour per meaning: which, and their tokens in `@aeolus-fleet/ui`?**
-1. Keep the five `--tone-*` families and write one meaning for each beside the tokens and in `conventions.md`; add `--tone-blocked` (violet) for the one meaning that has none. Red `attention`: something is wrong, act now (Alert). Amber `waiting`: waits on a person (Awaiting crew, Needs crew). Violet `blocked`: the crew says it cannot go on. Blue `active`: in motion (Working). Green `ok`: settled and well (Crewed). Grey `ended`: over for good (Retired). Idle carries no tone.
-2. As 1, with per-state tokens on top (`--state-working-fg` pointing at `--tone-active-fg`), so a state can change colour in one place.
-3. As 1, but Blocked shares amber with Awaiting crew ("waits on a person"), told apart by icon and word only.
+The five `--tone-*` families stay, each with one meaning; one family is added. Idle carries no tone.
 
-Pick 1. One layer, the names already exist, and each name is the meaning. Idle plain, as the Harbour mockup already draws it, so colour marks only what is going on; Retired keeps grey.
+| Token | Colour | Means | Ship state |
+| --- | --- | --- | --- |
+| `--tone-attention-*` | Coral | Something is wrong: act now | Alert |
+| `--tone-waiting-*` | Amber | Waits on a person | Awaiting crew |
+| `--tone-blocked-*` (new) | Violet | The crew says it cannot go on | Blocked |
+| `--tone-active-*` | Sea | Live and in motion | Working |
+| `--tone-ok-*` | Green, as today | Settled and well | Crewed |
+| `--tone-ended-*` | Grey, as today | Over for good | Retired |
+| none | `--muted-foreground` | Nothing going on | Idle |
 
-**Q3. Do the tones take the brand's meaning colours?**
-1. Yes: `active` from Sea, `attention` from Coral, `waiting` from Amber, each made readable as text (as `--brand-coral-text` is).
-2. No: the tones keep their hues; the brand's meanings are written to match them (Sea is `active`, Coral is `attention`, Amber is `waiting`).
+### The brand's colours
 
-Pick 2. The meanings already agree (L13); the hues differ but read as the same family. Changing every tone is a wider change than this issue.
+The tones take the brand's meaning colours (`ui/src/brand.css`): attention from Coral, waiting from Amber, active from Sea. Text and icons use a darker shade in light and a lighter one in dark, as `--brand-coral-text` does; the hue itself shows only where nothing is read (the live band on a working tile).
 
-**Q4. How does a state show without colour?**
-1. One icon and one word per state, held in one `@aeolus-fleet/ui` part every place uses (console list, ship page, Harbour, Bridge): Alert TriangleAlert, Awaiting crew CircleDashed, Blocked OctagonPause, Working Activity, Idle CirclePause, Crewed UserCheck, Retired Archive.
-2. Keep each place's own icons (Hourglass and CirclePlay in Harbour); only the colours line up.
+| Token | Light fg / bg / border | Dark fg / bg / border |
+| --- | --- | --- |
+| attention | `#AE3820` / `#FFEEE9` / `#FFC2B2` | `#FFA58F` / `#3A1E19` / `#7B3628` |
+| waiting | `#8A5300` / `#FDF4E1` / `#F0D198` | `#F3C46C` / `#33280F` / `#6E5119` |
+| blocked | `#6B3FB8` / `#F3EEFC` / `#D3C3F2` | `#C9B1F7` / `#2A2142` / `#523E86` |
+| active | `#0B6A88` / `#E8F6FB` / `#A6DAEB` | `#85D3EC` / `#0E2C37` / `#1F5E72` |
 
-Pick 1. The console's icons are the older and wider set; CirclePlay already means a running session on Needs crew.
+ok and ended keep today's values. Contrast, measured in the sheet (WCAG 2): every fg, text and icon alike, is at least 5.5 : 1 on its own fill, on a card and on the page in light, and at least 7.3 : 1 in dark; Idle's `--muted-foreground` is 5.8 : 1 and 7.3 : 1.
 
-**Q5. In what order, and how far?**
-1. (a) The rule and `--tone-blocked` in `@aeolus-fleet/ui` and `conventions.md`. (b) The one state part in `@aeolus-fleet/ui`, after PR 1614 lands. (c) Harbour on it, five states, and the console's list, ship page and Needs crew count. (d) Bridge on the released part. Other tone uses that break the rule (C1, C4 outside ships) go in their own issue.
-2. Harbour first (split Waiting, Working blue), the rule after.
-3. All at once, every tone use included.
+The colours live only in `@aeolus-fleet/ui`: its tone tokens carry the values, and every app takes them from the package and keeps no colour of its own. A re-colour is one change there; no app does colour work. Every tone use, ships or not, shifts with it.
 
-Pick 1. The rule comes before what follows it; ships first, as Thomas named ships.
+### Without colour
+
+One icon and one word per state, from one part in `@aeolus-fleet/ui` that every place uses (console list, ship page, Harbour, Bridge): Alert TriangleAlert, Awaiting crew CircleDashed, Blocked OctagonPause, Working Activity, Idle CirclePause; the status beside it Crewed UserCheck, Retired Archive. Harbour's Hourglass, CirclePlay and CircleAlert go. Needs crew is a crew request's state, not a ship's: its rows keep Needs crew (Clock, amber).
+
+### Order
+
+1. The rule, the new values and `--tone-blocked-*` in `@aeolus-fleet/ui` and `conventions.md`.
+2. The one state part in `@aeolus-fleet/ui`, after PR 1614 lands.
+3. Harbour on it with five states, and the console's list and ship page.
+4. Bridge on the released part.
+
+Other places that break the rule (C1 and C4 outside ships) get their own issue.
