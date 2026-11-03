@@ -2,7 +2,9 @@ import { accountIdSchema, type FleetId, type ShipId } from '@aeolus-fleet/common
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import {
+  applyNetworkRules,
   crewShip,
+  everyShipMay,
   initialiseFleet,
   operatorCaller,
   registryUseCases,
@@ -236,6 +238,49 @@ describe("an account's own person ship (decision 0052)", () => {
 
   it('is refused for any ship to an account without a person ship', async () => {
     await expect(useCases.getStartingPrompt(thomasWith(null), { shipId: scoutId })).resolves.toMatchObject({
+      isOk: false,
+      error: { kind: 'CREW_REQUEST_NOT_ASSIGNED_TO_CALLER' },
+    });
+  });
+});
+
+describe('a ship an account commissioned (issue 1608)', () => {
+  const MATHILDE = accountIdSchema.parse('acc-mathilde');
+  let mathilde: AccountCaller;
+  let writerId: ShipId;
+
+  beforeEach(async () => {
+    const personShipId = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'person-mathilde', type: 'person', kind: 'person' })).shipId;
+    mathilde = { kind: 'account', accountId: MATHILDE, fleetId, scopes: ['fleet:read', 'fleet:manage', 'fleet:commission'], groupValues: [], personShipId, throughShipId: null };
+    writerId = unwrap(await useCases.commissionShip(mathilde, { idempotencyKey: newKey(), name: 'writer', type: 'writer' })).shipId;
+    core.state.events.length = 0;
+  });
+
+  it('gets a new starting prompt for it with fleet:manage, as any manage call: its owner reaches it, the event naming the account', async () => {
+    const before = validSecretsOf(writerId);
+
+    const { shipId } = unwrap(await useCases.getStartingPrompt(mathilde, { shipId: writerId }));
+
+    expect(shipId).toBe(writerId);
+    expect(validSecretsOf(writerId)).toHaveLength(1);
+    expect(validSecretsOf(writerId)).not.toEqual(before);
+    expect(core.state.events.filter((event) => event.type === 'StartingPromptIssued').map((event) => event.actor)).toEqual([
+      { kind: 'account', accountId: MATHILDE, throughShipId: null },
+    ]);
+  });
+
+  it('is refused for a ship out of its manage reach, whose secret stays', async () => {
+    await applyNetworkRules(useCases, { by: argo, rules: [everyShipMay('send')] });
+    const before = validSecretsOf(scoutId);
+
+    await expect(useCases.getStartingPrompt(mathilde, { shipId: scoutId })).resolves.toMatchObject({ isOk: false, error: { kind: 'NOT_REACHABLE' } });
+    expect(validSecretsOf(scoutId)).toEqual(before);
+  });
+
+  it('is refused without fleet:manage, though it owns the ship', async () => {
+    const withoutManage: AccountCaller = { ...mathilde, scopes: ['fleet:read', 'fleet:commission'] };
+
+    await expect(useCases.getStartingPrompt(withoutManage, { shipId: writerId })).resolves.toMatchObject({
       isOk: false,
       error: { kind: 'CREW_REQUEST_NOT_ASSIGNED_TO_CALLER' },
     });
