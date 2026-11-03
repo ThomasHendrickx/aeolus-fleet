@@ -7,8 +7,8 @@ const newId = createIdGenerator();
 
 type Tile = HarbourOutput['items'][number];
 
-function aTile(name: string, { kind = 'agent', state = 'idle', note = null }: Partial<Omit<Tile, 'id' | 'name'>> = {}): Tile {
-  return { id: newId('ship'), name, kind, state, note, lastActivityAt: null };
+function aTile(name: string, { kind = 'agent', state = 'idle', note = null, lastActivityAt = null }: Partial<Omit<Tile, 'id' | 'name'>> = {}): Tile {
+  return { id: newId('ship'), name, kind, state, note, lastActivityAt };
 }
 
 describe("harbourGroupsOf: Harbour's groups from the tiles fleet.harbour answers", () => {
@@ -22,6 +22,22 @@ describe("harbourGroupsOf: Harbour's groups from the tiles fleet.harbour answers
       { kind: 'plugins', names: ['trierarch'] },
       { kind: 'gateway', names: ['linear', 'sentry'] },
     ]);
+  });
+
+  // Thomas, #1605: state, then last activity newest first, then name; a ship that never did anything last in its state.
+  it('orders a state by last activity, newest first, then by name, a ship that never did anything last', () => {
+    const tiles = [
+      aTile('walker-3', { state: 'waiting' }),
+      aTile('aeolus-fleet-infra', { state: 'working', lastActivityAt: '2026-11-03T11:56:00.000Z' }),
+      aTile('mac-mini', { state: 'working', lastActivityAt: '2026-11-03T11:59:00.000Z' }),
+      aTile('orchestrator-1', { state: 'working', lastActivityAt: '2026-11-03T12:00:00.000Z' }),
+      aTile('design-bridge-fleet', { state: 'working', lastActivityAt: '2026-11-03T12:00:00.000Z' }),
+      aTile('builder-gateway', { state: 'waiting', lastActivityAt: '2026-11-03T11:35:00.000Z' }),
+    ];
+
+    const names = harbourGroupsOf(tiles)[0]?.tiles.map((tile) => tile.name);
+
+    expect(names).toEqual(['builder-gateway', 'walker-3', 'design-bridge-fleet', 'orchestrator-1', 'mac-mini', 'aeolus-fleet-infra']);
   });
 
   it('orders a group alerts first, then waiting, working and idle, each by name', () => {
