@@ -120,6 +120,8 @@ const NO_SESSION_COOKIE: SessionCookie = { set: () => undefined, clear: () => un
 export function buildHttpServer(options: HttpServerOptions): FastifyInstance {
   const server = Fastify({
     logger: options.logger ?? false,
+    // Fastify logs both lines of every request at info; they are logged at debug below.
+    disableRequestLogging: true,
     trustProxy: options.shouldTrustProxy ?? false,
     // Unique across restarts, so a caller's request id finds one log line.
     genReqId: () => randomUUID(),
@@ -149,6 +151,17 @@ export function buildHttpServer(options: HttpServerOptions): FastifyInstance {
   const registerFailures = createRateLimiter(options.registerRateLimit ?? DEFAULT_REGISTER_RATE_LIMIT, options.clock);
   const { consoleOrigin, cookieDomain } = options;
   const fleetEvents = options.fleetEvents ?? createFleetEventWakeups();
+
+  // eslint-disable-next-line @typescript-eslint/max-params -- Fastify calls a callback hook with three arguments.
+  server.addHook('onRequest', (request, _reply, done) => {
+    request.log.debug({ req: request }, 'incoming request');
+    done();
+  });
+  // eslint-disable-next-line @typescript-eslint/max-params -- Fastify calls a callback hook with three arguments.
+  server.addHook('onResponse', (request, reply, done) => {
+    request.log.debug({ res: reply, responseTime: reply.elapsedTime }, 'request completed');
+    done();
+  });
 
   // Every answered request, measured (telemetry/requests.ts): a no-op until telemetry starts.
   server.addHook('onResponse', async (request, reply) => {

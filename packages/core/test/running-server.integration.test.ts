@@ -53,7 +53,7 @@ async function start(
   receiveWaitMs = LONG_WAIT_MS,
   logLines?: string[],
 ): Promise<{ server: FastifyInstance; address: string }> {
-  const logger = logLines && { level: 'info', stream: { write: (line: string) => void logLines.push(line) } };
+  const logger = logLines && { level: 'debug', stream: { write: (line: string) => void logLines.push(line) } };
   const server = createApp({ databaseUrl, publicUrl: FLEET_URL, logger: logger ?? false, receiveWaitMs });
   running.push(server);
   return { server, address: await server.listen({ host: '127.0.0.1', port: 0 }) };
