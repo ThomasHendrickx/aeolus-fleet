@@ -81,7 +81,8 @@ import type { ScopeNamespace } from '../../src/domain/registry/scope-namespace.j
 import { noNetworkSettings, type NetworkSettings } from '../../src/domain/registry/network-settings.js';
 import type { ReachRefusal } from '../../src/domain/registry/reach-refusal.js';
 import { shipCountsOf } from '../../src/domain/registry/ship-counts.js';
-import { harbourCountsOf, harbourStateOf, latestOf } from '../../src/domain/registry/harbour.js';
+import { harbourCountsOf, latestOf } from '../../src/domain/registry/harbour.js';
+import { harbourStateOf } from '@aeolus-fleet/common/rules';
 import { isSameCommissioner, type Ship } from '../../src/domain/registry/ship.js';
 import { listedShipOf } from '../../src/domain/registry/list-fleet.js';
 import type { ShipReport } from '../../src/domain/registry/ship-report.js';

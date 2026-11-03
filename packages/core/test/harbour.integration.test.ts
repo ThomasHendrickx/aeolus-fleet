@@ -2,7 +2,8 @@ import { idSchema, type FleetId, type ReportState, type ShipId } from '@aeolus-f
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { createPrismaFleetListing } from '../src/adapters/prisma/registry.js';
-import { harbourCountsOf, harbourStateOf } from '../src/domain/registry/harbour.js';
+import { harbourStateOf } from '@aeolus-fleet/common/rules';
+import { harbourCountsOf } from '../src/domain/registry/harbour.js';
 import type { ShipCaller } from '../src/domain/shared/caller.js';
 import { newKey } from '../src/testing/keys.js';
 import { unwrap } from '../src/testing/result.js';

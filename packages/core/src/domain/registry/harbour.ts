@@ -1,9 +1,9 @@
 /**
  * Harbour (docs/design/fleet-overview, "The read Harbour needs"): each active
- * ship in one of four states, and the five numbers. The listing computes the
- * state in its statement; this is the rule it is held to.
+ * ship in one of four states (common's harbourStateOf), and the five
+ * numbers.
  */
-import type { ReportState, ShipId, ShipKind, ShipStatus } from '@aeolus-fleet/common';
+import type { ShipId, ShipKind } from '@aeolus-fleet/common';
 import type { HarbourState } from '@aeolus-fleet/common/rules';
 
 /** A ship as Harbour shows it: its tile. */
@@ -20,21 +20,6 @@ export interface HarbourShip {
 
 /** Harbour's numbers: the ships it shows, and how many are in each state. */
 export type HarbourCounts = { ships: number } & Record<HarbourState, number>;
-
-/**
- * The state of an active ship, first match wins: an open alert is alert;
- * awaiting crew or a blocked report is waiting; a working report is working;
- * anything else (an idle report, or none yet) is idle.
- */
-export function harbourStateOf(ship: { status: Exclude<ShipStatus, 'retired'>; reportState: ReportState | null; hasOpenAlert: boolean }): HarbourState {
-  if (ship.hasOpenAlert) {
-    return 'alert';
-  }
-  if (ship.status === 'awaitingCrew' || ship.reportState === 'blocked') {
-    return 'waiting';
-  }
-  return ship.reportState === 'working' ? 'working' : 'idle';
-}
 
 /** The latest of the times given, none when there is none. */
 export function latestOf(times: readonly (Date | null)[]): Date | null {
