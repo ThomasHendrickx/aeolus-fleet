@@ -3,7 +3,7 @@ import { Archive, CircleAlert, Eye, Info, KeyRound, Plug, UserRound } from 'luci
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
-import { Button, classNames } from '@aeolus-fleet/ui';
+import { Button, classNames, ShipState } from '@aeolus-fleet/ui';
 import { clockTime, dayDate, duration, fullDateTime, lastSeen, relativeTime, shortDateTime } from '../../../../lib/relative-time';
 import { Badge } from '../../../../components/atoms/badge';
 import { CopyButton } from '../../../../components/atoms/copy-button';
@@ -21,7 +21,6 @@ import { AlertPanel } from '../../../../components/molecules/alert-panel';
 import { alertShipPanel } from '../../../../lib/alert';
 import { expectationLines } from '../../../../lib/expectations';
 import { ShipName } from '../../../../components/molecules/ship-name';
-import { StatusBadge } from '../../../../components/molecules/status-badge';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -270,7 +269,8 @@ export function ShipHeader({ ship, shipId, state, actions, crewRequest, now, vie
             <ShipName name={ship.name} shipId={ship.id} size="title" isSuffixShown={isRetired} />
           </h1>
           <div className="flex flex-wrap items-center gap-2">
-            <StatusBadge status={ship.status} />
+            <ShipState state={ship.status} />
+            {ship.openAlertCount > 0 ? <ShipState state="alert" isBadge /> : null}
             {isOperator ? (
               <Badge variant="kind">
                 <UserRound aria-hidden />

@@ -72,9 +72,9 @@ describe("reading Harbour's ships", () => {
       { name: 'argo', kind: 'operator', state: 'idle', note: null },
       { name: 'builder', kind: 'agent', state: 'working', note: 'Building the harbour' },
       { name: 'deploy-bot', kind: 'agent', state: 'alert', note: null },
-      { name: 'planner', kind: 'agent', state: 'waiting', note: 'Waiting for a review' },
+      { name: 'planner', kind: 'agent', state: 'blocked', note: 'Waiting for a review' },
       { name: 'scout', kind: 'agent', state: 'idle', note: null },
-      { name: 'walker', kind: 'agent', state: 'waiting', note: null },
+      { name: 'walker', kind: 'agent', state: 'awaitingCrew', note: null },
     ]);
   });
 
@@ -83,7 +83,7 @@ describe("reading Harbour's ships", () => {
 
     const { counts } = await registry.readHarbour(argo);
 
-    expect(counts).toEqual({ ships: 6, alert: 1, waiting: 2, working: 1, idle: 2 });
+    expect(counts).toEqual({ ships: 6, alert: 1, awaitingCrew: 1, blocked: 1, working: 1, idle: 2 });
   });
 
   it('answers a page of the size asked and where the next starts, the numbers on the first page only, until the last page', async () => {
@@ -125,9 +125,9 @@ describe("reading Harbour's ships", () => {
     it('answers only the ships the filter selects, and still counts the whole fleet', async () => {
       await aFleet();
 
-      const read = await namesOf({ state: ['waiting', 'alert'] });
+      const read = await namesOf({ state: ['awaitingCrew', 'blocked', 'alert'] });
 
-      expect(read).toEqual({ names: ['deploy-bot', 'planner', 'walker'], counts: { ships: 6, alert: 1, waiting: 2, working: 1, idle: 2 } });
+      expect(read).toEqual({ names: ['deploy-bot', 'planner', 'walker'], counts: { ships: 6, alert: 1, awaitingCrew: 1, blocked: 1, working: 1, idle: 2 } });
     });
 
     it('selects by the search in the name, by type and by every label value picked, combined', async () => {
@@ -140,7 +140,7 @@ describe("reading Harbour's ships", () => {
         unwrap(await registry.assignLabel(argo, { shipId: reviewer2, valueId: teamCore }));
       }
 
-      const [bySearch, byType, byLabel] = [await namesOf({ nameQuery: 'PLAN' }), await namesOf({ type: ['reviewer'], state: ['waiting'] }), await namesOf({ valueIds: teamCore === undefined ? [] : [teamCore] })];
+      const [bySearch, byType, byLabel] = [await namesOf({ nameQuery: 'PLAN' }), await namesOf({ type: ['reviewer'], state: ['awaitingCrew'] }), await namesOf({ valueIds: teamCore === undefined ? [] : [teamCore] })];
 
       expect([bySearch.names, byType.names, byLabel.names]).toEqual([['planner'], ['reviewer-1', 'reviewer-2'], ['reviewer-2']]);
     });

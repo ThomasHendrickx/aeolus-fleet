@@ -19,13 +19,14 @@ import { afterPosition, isInReachOfShip, orderOfPage, shipFilterCondition, shipP
 /**
  * The state of the ship `s` of the outer query, with `l` its open lease,
  * first match wins: an open alert, awaiting crew (no open lease; argo is
- * always crewed) or a blocked report, a working report, else idle.
+ * always crewed), a blocked report, a working report, else idle.
  */
 function harbourStateOfShip(hasOpenAlert: Prisma.Sql): Prisma.Sql {
   return Prisma.sql`
     CASE
       WHEN ${hasOpenAlert} THEN 'alert'
-      WHEN (l.id IS NULL AND s.kind <> 'operator') OR l.report_state = 'blocked' THEN 'waiting'
+      WHEN l.id IS NULL AND s.kind <> 'operator' THEN 'awaitingCrew'
+      WHEN l.report_state = 'blocked' THEN 'blocked'
       WHEN l.report_state = 'working' THEN 'working'
       ELSE 'idle'
     END`;
@@ -85,7 +86,8 @@ export function harbourCountsStatement(fleetId: FleetId, reach: ReadReach): Pris
   return Prisma.sql`
     SELECT count(*)::int AS ships,
            count(*) FILTER (WHERE state = 'alert')::int AS alert,
-           count(*) FILTER (WHERE state = 'waiting')::int AS waiting,
+           count(*) FILTER (WHERE state = 'awaitingCrew')::int AS "awaitingCrew",
+           count(*) FILTER (WHERE state = 'blocked')::int AS blocked,
            count(*) FILTER (WHERE state = 'working')::int AS working,
            count(*) FILTER (WHERE state = 'idle')::int AS idle
     FROM (
@@ -107,7 +109,7 @@ const harbourRowSchema = z.object({
   last_activity_at: z.date().nullable(),
 });
 
-const countsRowSchema = z.object({ ships: z.int(), alert: z.int(), waiting: z.int(), working: z.int(), idle: z.int() });
+const countsRowSchema = z.object({ ships: z.int(), alert: z.int(), awaitingCrew: z.int(), blocked: z.int(), working: z.int(), idle: z.int() });
 
 function harbourShipOfRow(row: unknown): { ship: HarbourShip; position: ShipPosition } {
   const { id, name, kind, report_note, state, last_activity_at } = harbourRowSchema.parse(row);

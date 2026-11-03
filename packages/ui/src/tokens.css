@@ -38,6 +38,8 @@
   --tone-ended-bg:oklch(0.957 0.005 247);
   --tone-ended-fg:oklch(0.47 0.015 257);
   --tone-ended-border:oklch(0.87 0.01 247);
+  /* A working ship's live band: Sea itself, both modes, where nothing is read (docs/design/state-colours, "The brand's colours"). */
+  --live-band:#2BA3C9;
   --card-foreground:var(--foreground);
   --popover-foreground:var(--foreground);
   --secondary-foreground:var(--foreground);

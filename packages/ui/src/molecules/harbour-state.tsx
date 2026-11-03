@@ -1,30 +1,9 @@
-import type { HarbourState } from '@aeolus-fleet/common/rules';
-import { CircleAlert, CirclePause, CirclePlay, Hourglass, Network, Plug, SquareTerminal, User, Users, type LucideIcon } from 'lucide-react';
+import { Network, Plug, SquareTerminal, User, Users, type LucideIcon } from 'lucide-react';
 
 /**
- * Harbour's words, icons and groups (docs/design/fleet-overview), shared by
- * its numbers, groups and tiles. A state's icon always sits beside its word,
- * so status never rests on colour alone.
+ * Harbour's groups (docs/design/fleet-overview), shared by its groups and
+ * tiles. A ship's state shows through ShipState, as everywhere else.
  */
-export const HARBOUR_STATE_WORDS: Record<HarbourState, string> = {
-  alert: 'Alert',
-  waiting: 'Waiting',
-  working: 'Working',
-  idle: 'Idle',
-};
-
-const STATE_ICONS: Record<HarbourState, LucideIcon> = {
-  alert: CircleAlert,
-  waiting: Hourglass,
-  working: CirclePlay,
-  idle: CirclePause,
-};
-
-/** A state's mark, beside its word. */
-export function HarbourStateIcon({ state, className }: { state: HarbourState; className?: string }) {
-  const Icon = STATE_ICONS[state];
-  return <Icon aria-hidden className={className ?? 'size-3 shrink-0'} />;
-}
 
 /** Harbour's groups, in the order it shows them: People, Agents, Plugins, Through the gateway. */
 export const HARBOUR_GROUP_KINDS = ['people', 'agents', 'plugins', 'gateway'] as const;

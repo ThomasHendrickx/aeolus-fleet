@@ -8,13 +8,13 @@ Harbour as built (0.37) is below. [One view: cards or list](#one-view-cards-or-l
 
 ## What it shows
 
-- **Numbers on top:** ships, then Alert, Waiting, Working and Idle, each with its status icon and word. Only Alert is filled in its tone.
-- **One tile per ship below**, grouped by kind: People, Agents, Plugins, Through the gateway (the proxy ships the gateway crews). In each group: alerts first, then waiting, working, idle.
-- **A tile** holds the ship's name and its status: icon and word in the tone, the tile filled in the tone (Alert attention, Waiting waiting, Working ok). Idle tiles stay plain, so colour marks only what is going on.
+- **Numbers on top:** ships, then a ship's five states ([state-colours](../state-colours/state-colours.md), "Five states"), each with its icon and word. Only Alert is filled in its tone.
+- **One tile per ship below**, grouped by kind: People, Agents, Plugins, Through the gateway (the proxy ships the gateway crews). In each group: in the order of the five states.
+- **A tile** holds the ship's name and its state: icon and word in the tone, the tile filled in the tone ([state-colours](../state-colours/state-colours.md), "One meaning per colour"). Idle tiles stay plain, so colour marks only what is going on.
 - **What a ship is doing** (its report) shows in the tile's title on hover and on tap; long names truncate.
-- **Phone:** the same numbers in one row of five, tiles three across.
+- **Phone:** the same numbers in one row, tiles three across.
 
-The mockup groups ship states into four for its numbers and tiles: Alert (an open alert), Waiting (awaiting crew or blocked), Working, Idle. Which state lands in which group is for the build to settle against the blueprint; the mockup decides no behaviour.
+The states and their rule are [state-colours](../state-colours/state-colours.md), "Five states"; the mockup decides no behaviour.
 
 ## The read Harbour needs
 
@@ -22,9 +22,9 @@ Thomas picked a tailored read over paging `fleet.list` whole ([#1475](https://gi
 
 ### 1. Purpose
 
-Harbour needs, for every active ship the caller reads whole: its id (to open it), name, kind (its group), its state (Alert, Waiting, Working or Idle) and what it is doing (its report's note); and the five numbers. Nothing else: no labels, scopes, crew request, ping, model or location.
+Harbour needs, for every active ship the caller reads whole: its id (to open it), name, kind (its group), its state (one of the five) and what it is doing (its report's note); and the numbers. Nothing else: no labels, scopes, crew request, ping, model or location.
 
-The state, as Thomas confirmed, first match wins: an open alert is Alert; awaiting crew or a blocked report is Waiting; a working report is Working; anything else (an idle report, or none yet) is Idle. Groups: argo and person ships are People, agent Agents, plugin Plugins, app Through the gateway; the viewer ship, retired ships and ships outside read reach are left out.
+The state is [state-colours](../state-colours/state-colours.md), "Five states". Groups: argo and person ships are People, agent Agents, plugin Plugins, app Through the gateway; the viewer ship, retired ships and ships outside read reach are left out.
 
 ### 2. Lessons to check against
 
@@ -38,7 +38,7 @@ The state, as Thomas confirmed, first match wins: an open alert is Alert; awaiti
 
 - **Procedure:** `fleet.harbour`, query, `fleet:read`, scoped by `fleet_id` and the caller's read reach (decision 0034), as `fleet.list` is.
 - **Input:** `{ cursor?, limit? }`, limit at most 500, default 500; or `{ shipIds }`, at most 100, for the live reload of single tiles.
-- **Output:** `{ items: [{ id, name, kind, state, note }], nextCursor, counts }`, `counts` = `{ ships, alert, waiting, working, idle }` on the first page only (null on later pages and for `shipIds`).
+- **Output:** `{ items: [{ id, name, kind, state, note }], nextCursor, counts }`, `counts` = `{ ships, alert, awaitingCrew, blocked, working, idle }` on the first page only (null on later pages and for `shipIds`).
 - **Order:** the listing order (argo first, then by name), so a page reads through `ships_listing_idx` by keyset; the browser groups the tiles and orders each group by state, then last activity newest first, then name; a ship that never did anything comes last in its state (Thomas, #1605).
 - **The statement:** active ships (`retired_at IS NULL`, every kind but viewer) in reach, `LEFT JOIN leases` on the open lease (`leases_ship_id_open_key`) for status, report state and note, and `EXISTS` an open alert (`alerts_open_on_ship_idx`); the state is one `CASE` in that order. The counts are one aggregate of the same `CASE` over the same ships, read through a partial index of the active ships, with the fleet's open alerts joined once rather than looked up per ship and per count. No new index.
 - **The rule:** `harbourStateOf` in `core/src/domain/registry`, pure; the integration test holds the `CASE` to it for every combination of status, report state and alert.
@@ -77,22 +77,22 @@ Built on what was approved: Harbour above, the fleet table as it is today ([Flee
 
 ### What changes
 
-- **One view.** The numbers on top count the whole fleet. Under them one bar: search, State (Alert, Waiting, Working, Idle), Type, Labels (as today: values picked show under the bar as "Ships with a and b"), Clear filters, the count ("4 of 19 ships") and the switch, Cards or List. Under the bar either Harbour's groups of tiles or the fleet table, filtered the same.
+- **One view.** The numbers on top count the whole fleet. Under them one bar: search, State (the five states), Type, Labels (as today: values picked show under the bar as "Ships with a and b"), Clear filters, the count ("4 of 19 ships") and the switch, Cards or List. Under the bar either Harbour's groups of tiles or the fleet table, filtered the same.
 - **The address** keeps the view and the filters: `/` is cards with nothing filtered; `view=list`, `state` (repeated), `type`, `label`, `q` as the overview has them today. Switching view keeps every filter.
 - **Pending.** A pick shows at once (#815); what is below dims and the count says Updating until the new result is in.
 - **No match:** "No ships match these filters." or "No ships match "query"." with Clear filters or Clear search, in either view. **argo alone:** no bar, as today, and the empty state with Commission your first ship.
 - **Phone:** the filters move into a bottom Sheet behind a filter button that shows how many are in force; each shows as a chip under the search. The switch keeps its icons. Tiles two a row.
-- **Order inside a group:** alerts first, then waiting, working, idle; inside a state the newest last activity first, then by name, a ship that never did anything last (Thomas, #1605).
+- **Order inside a group:** Alert, Awaiting crew, Blocked, Working, Idle; inside a state the newest last activity first, then by name, a ship that never did anything last (Thomas, #1605).
 - **The tile** is Bridge's: kind icon, the whole name, what the ship is doing (two lines), its state and when it last did something ("now", "25 min", "yesterday", "2 d" up to 6 days, then "28 Oct"; "No activity yet" when it never did). Hover lifts it and shows the arrow; focus has the ring; a working tile carries the live band; reduced motion stills both. A click opens the ship's page.
 
 ### The shared part: Harbour in @aeolus-fleet/ui
 
-Props only: no fetching, router, live wiring or filters. It lays itself out by its own width (a container query), not the window's: five large numbers and four tiles a row in the console at 1440 (seven at 1920), five small numbers and one tile a row in Bridge's column at 1440 (three at 1920), two a row on a phone.
+Props only: no fetching, router, live wiring or filters. It lays itself out by its own width (a container query), not the window's: six large numbers and four tiles a row in the console at 1440 (seven at 1920), six small numbers and one tile a row in Bridge's column at 1440 (three at 1920), two a row on a phone.
 
 | Part | Props |
 | --- | --- |
 | `Harbour` | `counts: HarbourCounts \| undefined`, `groups: readonly HarbourGroup[] \| undefined` (undefined draws the loading shape), `now: Date`, `hrefOf?: (shipId) => string` (none: tiles are not links), `between?: ReactNode` (the console's filter bar; Bridge passes none), `empty?: ReactNode` (stands in for the groups: no match, argo alone), `state: 'ready' \| 'loading' \| 'error'`, `onRetry` |
-| `HarbourNumbers` | `counts: { ships, alert, waiting, working, idle } \| undefined` |
+| `HarbourNumbers` | `counts: { ships, alert, awaitingCrew, blocked, working, idle } \| undefined` |
 | `HarbourGroup` | `kind: 'people' \| 'agents' \| 'plugins' \| 'gateway'`, `tiles` in the order given |
 | `HarbourTile` | `{ id, name, state, note, lastActivityAt }` with its group's kind, `href` and `now`; the time words are formatted inside the part, so both apps say them alike |
 

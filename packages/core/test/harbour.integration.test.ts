@@ -160,10 +160,10 @@ describe("Harbour's read on Postgres", () => {
 describe("Harbour's read filtered by the overview's bar on Postgres", () => {
   it('answers only the ships in the states picked whose name holds the search, still counting every ship', async () => {
     const tiles = await expectedTiles();
-    const expected = tiles.filter((tile) => ['alert', 'waiting'].includes(tile.state) && tile.name.includes('-0'));
+    const expected = tiles.filter((tile) => ['alert', 'blocked'].includes(tile.state) && tile.name.includes('-0'));
 
-    const harbour = await core.useCases.readHarbour(argo, { filter: { state: ['alert', 'waiting'], nameQuery: '-0' } });
-    const reload = await core.useCases.readHarbour(argo, { shipIds: tiles.map((tile) => tile.id), filter: { state: ['alert', 'waiting'], nameQuery: '-0' } });
+    const harbour = await core.useCases.readHarbour(argo, { filter: { state: ['alert', 'blocked'], nameQuery: '-0' } });
+    const reload = await core.useCases.readHarbour(argo, { shipIds: tiles.map((tile) => tile.id), filter: { state: ['alert', 'blocked'], nameQuery: '-0' } });
 
     expect([harbour.ships, reload.ships, harbour.counts]).toEqual([expected, expected, harbourCountsOf(tiles)]);
   });
@@ -180,7 +180,7 @@ async function expectedListStates(): Promise<{ id: ShipId; state: HarbourState }
 
 // The overview's State filter (#1605): fleet.list selects by Harbour's state in SQL, held to harbourStateOf as the read is.
 describe("fleet.list's State filter on Postgres", () => {
-  it.each<{ state: HarbourState[] }>([{ state: ['alert'] }, { state: ['waiting'] }, { state: ['working'] }, { state: ['idle'] }, { state: ['alert', 'waiting'] }])(
+  it.each<{ state: HarbourState[] }>([{ state: ['alert'] }, { state: ['awaitingCrew'] }, { state: ['blocked'] }, { state: ['working'] }, { state: ['idle'] }, { state: ['alert', 'blocked'] }])(
     'selects the ships harbourStateOf puts in $state, for every status, report and alert',
     async ({ state }) => {
       const expected = (await expectedListStates()).filter((ship) => state.includes(ship.state)).map((ship) => ship.id);
@@ -192,9 +192,9 @@ describe("fleet.list's State filter on Postgres", () => {
   );
 
   it('counts the ships the State filter selects as fleet.list lists them', async () => {
-    const expected = (await expectedListStates()).filter((ship) => ship.state === 'waiting').length;
+    const expected = (await expectedListStates()).filter((ship) => ship.state === 'blocked').length;
 
-    const counts = await core.useCases.countShips(argo, { filter: { state: ['waiting'] } });
+    const counts = await core.useCases.countShips(argo, { filter: { state: ['blocked'] } });
 
     expect(counts.reduce((sum, { active, retired }) => sum + active + retired, 0)).toBe(expected);
   });

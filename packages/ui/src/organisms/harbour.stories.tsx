@@ -23,14 +23,14 @@ const DAY = 24 * HOUR;
 const FLEET: HarbourGroupShips[] = [
   {
     kind: 'people',
-    tiles: [aTile('thomas', ['waiting', '4 wait on you', 12]), aTile('argo', ['idle', 'Nothing open', 3 * HOUR]), aTile('thomas-hendrickx1989', ['idle', 'Signed in, nothing open', DAY + HOUR])],
+    tiles: [aTile('thomas', ['awaitingCrew', '4 wait on you', 12]), aTile('argo', ['idle', 'Nothing open', 3 * HOUR]), aTile('thomas-hendrickx1989', ['idle', 'Signed in, nothing open', DAY + HOUR])],
   },
   {
     kind: 'agents',
     tiles: [
       aTile('ecosystem-relationships', ['alert', 'No report change for 2 h', 2 * HOUR]),
-      aTile('builder-gateway', ['waiting', 'Blocked: waiting for release 0.37.0', 25]),
-      aTile('walker-3', ['waiting', 'Awaiting crew', null]),
+      aTile('walker-3', ['awaitingCrew', 'Awaiting crew', null]),
+      aTile('builder-gateway', ['blocked', 'Blocked: waiting for release 0.37.0', 25]),
       aTile('orchestrator-1', ['working', 'Cutting #189 into slices', 0]),
       aTile('mac-mini', ['working', 'Running the nightly backup check', 1]),
       aTile('host-agent-1', ['working', 'Answering a question from attio', 3]),
@@ -48,7 +48,7 @@ const FLEET: HarbourGroupShips[] = [
   { kind: 'gateway', tiles: [aTile('company-memory', ['idle', 'Last call: search', 40]), aTile('attio', ['idle', 'Last call: list contacts', 3 * HOUR])] },
 ];
 
-const COUNTS = { ships: 19, alert: 1, waiting: 3, working: 8, idle: 7 };
+const COUNTS = { ships: 19, alert: 1, awaitingCrew: 2, blocked: 1, working: 8, idle: 7 };
 
 /** Harbour at a width, as an app's page or column gives it. */
 function widthOf(className: string) {
@@ -116,7 +116,7 @@ export const Empty: Story = {
 
 /** argo alone: one group, one tile. */
 export const ArgoAlone: Story = {
-  args: { counts: { ships: 1, alert: 0, waiting: 0, working: 0, idle: 1 }, groups: [{ kind: 'people', tiles: [aTile('argo', ['idle', 'Nothing open', 3 * HOUR])] }] },
+  args: { counts: { ships: 1, alert: 0, awaitingCrew: 0, blocked: 0, working: 0, idle: 1 }, groups: [{ kind: 'people', tiles: [aTile('argo', ['idle', 'Nothing open', 3 * HOUR])] }] },
 };
 
 /** While the fleet is read: the shape that is coming. */

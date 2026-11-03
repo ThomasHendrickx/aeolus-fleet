@@ -1,12 +1,10 @@
-import type { FleetId, ListedShip, ReportState, ReportTask } from '@aeolus-fleet/common';
-import { Activity, CircleDot, CircleHelp, CirclePause, GitPullRequest, Link, Mail, OctagonPause, type LucideIcon } from 'lucide-react';
+import type { FleetId, ListedShip, ReportTask } from '@aeolus-fleet/common';
+import { CircleDot, CircleHelp, GitPullRequest, Link, Mail, type LucideIcon } from 'lucide-react';
 
-import { classNames } from '@aeolus-fleet/ui';
+import { classNames, ShipState } from '@aeolus-fleet/ui';
 import { fullDateTime } from '../../lib/relative-time';
-import { REPORT_STATE_WORDS, REPORT_TONES, reportAge, reportChangedWhen, reportedWhen, reportText } from '../../lib/report';
+import { reportAge, reportChangedWhen, reportedWhen, reportText } from '../../lib/report';
 import { reportStepText, reportTaskLabel, type ReportTaskLabel } from '../../lib/report-task';
-
-const ICONS: Record<ReportState, LucideIcon> = { working: Activity, blocked: OctagonPause, idle: CirclePause };
 
 const TASK_ICONS: Record<ReportTaskLabel['icon'], LucideIcon> = {
   pullRequest: GitPullRequest,
@@ -16,17 +14,11 @@ const TASK_ICONS: Record<ReportTaskLabel['icon'], LucideIcon> = {
   unknown: CircleHelp,
 };
 
-const TONE_TEXT = {
-  active: 'text-tone-active-fg',
-  waiting: 'text-tone-waiting-fg',
-  ended: 'text-tone-ended-fg',
-} as const;
-
 type Report = NonNullable<ListedShip['report']>;
 
 /**
  * What a ship says it is doing (docs/design/png/ReportLine.png,
- * docs/design/monitoring): the state's icon and word in its tone, the task
+ * docs/design/monitoring): the state as ShipState draws it (docs/design/state-colours), the task
  * per kind and the step, the note in the foreground, truncated. In a row, all
  * on one line with when it reported, short ("2 min"), or both times in the
  * title. On the ship page, the note on the first line, the task and the step
@@ -70,17 +62,6 @@ export function ReportLine({
   );
 }
 
-function StateWord({ state }: { state: ReportState }) {
-  const Icon = ICONS[state];
-  const tone = TONE_TEXT[REPORT_TONES[state]];
-  return (
-    <>
-      <Icon aria-hidden className={classNames('size-(--size-icon-sm) shrink-0', tone)} />
-      <span className={classNames('shrink-0 font-medium', tone)}>{REPORT_STATE_WORDS[state]}</span>
-    </>
-  );
-}
-
 function RowReport({
   report,
   now,
@@ -100,7 +81,7 @@ function RowReport({
     : reportText(report);
   return (
     <span data-testid={testId} data-state={report.state} title={title} className="flex min-w-0 items-center gap-1.5 text-meta">
-      <StateWord state={report.state} />
+      <ShipState state={report.state} className="shrink-0" />
       {report.task === null ? null : <TaskLabel task={{ ...report.task, canOpen: report.taskView?.canOpen === true, fleetName: report.taskView?.fleetName ?? null }} viewerFleetId={viewerFleetId} testId={`${testId}-task`} />}
       {report.step === null ? null : <StepText text={reportStepText(report.step, 'row')} testId={`${testId}-step`} />}
       {report.note === null ? null : <span className="min-w-0 truncate text-foreground">{report.note}</span>}
@@ -118,7 +99,7 @@ function FullReport({ report, now, viewerFleetId, testId }: { report: Report; no
   return (
     <span data-testid={testId} data-state={report.state} title={reportText(report)} className="flex min-w-0 flex-col gap-0.5 text-body">
       <span className="flex min-w-0 items-center gap-1.5">
-        <StateWord state={report.state} />
+        <ShipState state={report.state} className="shrink-0" />
         {report.note === null ? null : <span className="min-w-0 truncate text-foreground">{report.note}</span>}
       </span>
       {report.task === null && report.step === null ? null : (

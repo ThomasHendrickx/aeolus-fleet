@@ -683,3 +683,62 @@ export const MockupRowsPhone: Story = {
 };
 
 export const MockupRowsPhoneDark: Story = { ...MockupRowsPhone, globals: { ...MockupRowsPhone.globals, theme: 'dark' } };
+
+function reportOf({ state, note, minutesBack }: { state: 'working' | 'blocked' | 'idle'; note: string; minutesBack: number }): ListedShip['report'] {
+  const at = new Date(NOW.getTime() - minutesBack * 60_000).toISOString();
+  return { state, note, task: null, step: null, reportedAt: at, reportChangedAt: at, detailsVersion: 0 };
+}
+
+/** The state-colours sheet's console list (docs/design/state-colours): a ship of every state and status. */
+const STATE_ROWS: ListedShip[] = [
+  ship('s1aa', { name: 'ecosystem-relationships', openAlertCount: 1, report: reportOf({ state: 'working', note: 'Drafting the partner list', minutesBack: 120 }) }),
+  ship('s1ab', { name: 'walker-3', status: 'awaitingCrew', lastSeenAt: null, harness: null, model: null }),
+  ship('s1ac', { name: 'builder-gateway', report: reportOf({ state: 'blocked', note: 'Waiting for release 0.37.0', minutesBack: 25 }) }),
+  ship('s1ad', { name: 'orchestrator-1', report: reportOf({ state: 'working', note: 'Cutting #189 into slices', minutesBack: 0 }) }),
+  ship('s1ae', { name: 'aeolus-guide', report: reportOf({ state: 'idle', note: 'Nothing open', minutesBack: 7 * 24 * 60 }) }),
+  ship('s1af', { name: 'old-scout', status: 'retired', retiredAt: new Date(NOW.getTime() - 16 * 24 * HOUR_MS).toISOString() }),
+];
+
+/** A row's status, its Alert badge and its report's state, each as ShipState draws it: [word, tone]. */
+function shownStatesOf(row: HTMLElement): string[][] {
+  return within(row)
+    .queryAllByTestId('ship-state')
+    .map((state) => [state.textContent, state.dataset.tone ?? '']);
+}
+
+/**
+ * Every state and status in the list as the sheet draws them, on the one
+ * ShipState part: Crewed green, Awaiting crew Amber, Retired grey, the Alert
+ * badge Coral; Working Sea, Blocked violet, Idle with no tone.
+ */
+export const ShipStates: Story = {
+  args: { ships: STATE_ROWS },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const shown = Object.fromEntries(STATE_ROWS.map(({ name }) => [name, shownStatesOf(canvas.getByTestId(`fleet-row-${name}`))]));
+    await expect(shown).toEqual({
+      'ecosystem-relationships': [
+        ['Crewed', 'ok'],
+        ['Alert', 'attention'],
+        ['Working', 'active'],
+      ],
+      'walker-3': [['Awaiting crew', 'waiting']],
+      'builder-gateway': [
+        ['Crewed', 'ok'],
+        ['Blocked', 'blocked'],
+      ],
+      'orchestrator-1': [
+        ['Crewed', 'ok'],
+        ['Working', 'active'],
+      ],
+      'aeolus-guide': [
+        ['Crewed', 'ok'],
+        ['Idle', 'none'],
+      ],
+      'old-scout': [['Retired', 'ended']],
+    });
+    await expect(within(canvas.getByTestId('fleet-row-ecosystem-relationships')).getByText('Alert')).toHaveClass('rounded-full');
+  },
+};
+export const ShipStatesDark: Story = { ...ShipStates, globals: { theme: 'dark' } };
+export const ShipStatesPhone: Story = { ...ShipStates, play: undefined, globals: { viewport: { value: 'mobile1' } } };

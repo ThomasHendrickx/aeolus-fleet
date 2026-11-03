@@ -110,7 +110,7 @@ async function tilesIn(page: Page, kind: 'people' | 'agents'): Promise<string[]>
 
 /** The numbers as Harbour shows them, by their test ids. */
 async function numbersOf(page: Page): Promise<Record<string, string>> {
-  const words = ['ships', 'alert', 'waiting', 'working', 'idle'] as const;
+  const words = ['ships', 'alert', 'awaitingCrew', 'blocked', 'working', 'idle'] as const;
   const shown = await Promise.all(words.map(async (word) => [word, await page.getByTestId(`harbour-number-${word}`).innerText()] as const));
   return Object.fromEntries(shown);
 }
@@ -121,9 +121,9 @@ describe('Harbour on the fleet overview', () => {
     const harbour = page.getByTestId('harbour');
     await tileOf(page, 'builder').getByText('Working', { exact: true }).waitFor();
 
-    await expect(numbersOf(page)).resolves.toEqual({ ships: '4\nShips', alert: '1\nAlert', waiting: '1\nWaiting', working: '1\nWorking', idle: '1\nIdle' });
+    await expect(numbersOf(page)).resolves.toEqual({ ships: '4\nShips', alert: '1\nAlert', awaitingCrew: '1\nAwaiting crew', blocked: '0\nBlocked', working: '1\nWorking', idle: '1\nIdle' });
     await expect(tilesIn(page, 'people')).resolves.toEqual(['argo idle']);
-    await expect(tilesIn(page, 'agents')).resolves.toEqual(['builder-gateway alert', 'reviewer-1 waiting', 'builder working']);
+    await expect(tilesIn(page, 'agents')).resolves.toEqual(['builder-gateway alert', 'reviewer-1 awaitingCrew', 'builder working']);
     await expect(harbour.getByText('old').count()).resolves.toBe(0);
   });
 
@@ -133,7 +133,7 @@ describe('Harbour on the fleet overview', () => {
 
     await tileOf(page, 'builder').getByText('Working', { exact: true }).waitFor();
 
-    await expect(Promise.all([harbour.getByTitle('builder: Building the harbour').count(), harbour.getByTitle('reviewer-1: Waiting').count()])).resolves.toEqual([1, 1]);
+    await expect(Promise.all([harbour.getByTitle('builder: Building the harbour').count(), harbour.getByTitle('reviewer-1: Awaiting crew').count()])).resolves.toEqual([1, 1]);
   });
 
   it("opens the ship's page when its tile is tapped on phone", async () => {
@@ -172,8 +172,8 @@ describe('Harbour on the fleet overview', () => {
 
     unwrap(await core.report(unwrap(builderCrew), { state: 'blocked', note: 'Waiting for a review' }));
 
-    await tileOf(page, 'builder').getByText('Waiting', { exact: true }).waitFor();
-    await expect(numbersOf(page)).resolves.toMatchObject({ waiting: '2\nWaiting', working: '0\nWorking' });
+    await tileOf(page, 'builder').getByText('Blocked', { exact: true }).waitFor();
+    await expect(numbersOf(page)).resolves.toMatchObject({ awaitingCrew: '1\nAwaiting crew', blocked: '1\nBlocked', working: '0\nWorking' });
   });
 
   it('shows the shape that is coming while the fleet is read, without the bar or a line under the title', async () => {

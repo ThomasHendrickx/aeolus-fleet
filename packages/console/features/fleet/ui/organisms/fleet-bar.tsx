@@ -4,7 +4,7 @@ import type { LabelValueId } from '@aeolus-fleet/common';
 import type { HarbourState } from '@aeolus-fleet/common/rules';
 import { Search, SlidersHorizontal, X } from 'lucide-react';
 
-import { Button, classNames, HarbourStateIcon, Sheet, SheetBody, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger, type HarbourCounts } from '@aeolus-fleet/ui';
+import { Button, Sheet, SheetBody, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger, ShipState, type HarbourCounts } from '@aeolus-fleet/ui';
 import { Input } from '../../../../components/atoms/input';
 import { LabelChip } from '../../../../components/molecules/label-chip';
 import { filterGroupsOf, pickedChips, type LabelContext } from '../../../../lib/labels';
@@ -16,26 +16,13 @@ import { TypeFilter } from '../molecules/type-filter';
 import { ViewSwitch } from '../molecules/view-switch';
 import { LabelFilterButton, PickedLabels } from './label-filter';
 
-/** Each state's word in its tone, beside its icon, so the state never rests on colour alone. */
-const STATE_TONES: Record<HarbourState, string> = {
-  alert: 'text-tone-attention-fg',
-  waiting: 'text-tone-waiting-fg',
-  working: 'text-tone-ok-fg',
-  idle: 'text-tone-ended-fg',
-};
-
 function isHarbourState(value: string): value is HarbourState {
   return Object.hasOwn(STATE_WORDS, value);
 }
 
-/** A state's icon and word: in its tone in the State menu, in the text colour on the phone's chips. */
+/** A state as ShipState draws it (docs/design/state-colours): in its tone in the State menu, in the text colour on the phone's chips. */
 function StateWord({ state, isToned = true }: { state: HarbourState; isToned?: boolean }) {
-  return (
-    <span className={classNames('inline-flex items-center gap-1.5', isToned ? STATE_TONES[state] : undefined)}>
-      <HarbourStateIcon state={state} className="size-(--size-icon-sm) shrink-0" />
-      {STATE_WORDS[state]}
-    </span>
-  );
+  return <ShipState state={state} className={isToned ? undefined : 'font-normal text-inherit'} />;
 }
 
 export interface FleetBarProps {

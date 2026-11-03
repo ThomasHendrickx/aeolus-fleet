@@ -15,7 +15,7 @@ const meta = {
   args: {
     kind: 'people',
     tiles: [
-      { id: 'shp_thomas', name: 'thomas', state: 'waiting', note: '4 wait on you', lastActivityAt: minutesAgo(12) },
+      { id: 'shp_thomas', name: 'thomas', state: 'awaitingCrew', note: '4 wait on you', lastActivityAt: minutesAgo(12) },
       { id: 'shp_argo', name: 'argo', state: 'idle', note: 'Nothing open', lastActivityAt: minutesAgo(180) },
       { id: 'shp_th1989', name: 'thomas-hendrickx1989', state: 'idle', note: 'Signed in, nothing open', lastActivityAt: minutesAgo(24 * 60 + 30) },
     ],

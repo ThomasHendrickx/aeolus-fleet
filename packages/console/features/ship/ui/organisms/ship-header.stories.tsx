@@ -24,8 +24,17 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const Crewed: Story = {};
+/** The header's status and its report's state as ShipState draws them (docs/design/state-colours): [word, tone]. */
+async function expectStates(canvasElement: HTMLElement, expected: string[][]) {
+  const shown = within(within(canvasElement).getByTestId('ship-header'))
+    .queryAllByTestId('ship-state')
+    .map((state) => [state.textContent, state.dataset.tone ?? '']);
+  await expect(shown).toEqual(expected);
+}
+
+export const Crewed: Story = { play: async ({ canvasElement }) => expectStates(canvasElement, [['Crewed', 'ok']]) };
 export const AwaitingCrew: Story = {
+  play: async ({ canvasElement }) => expectStates(canvasElement, [['Awaiting crew', 'waiting']]),
   args: {
     ship: AWAITING_SHIP,
     actions: (
@@ -62,8 +71,13 @@ export const WithEveryScope: Story = {
     await expect(shown).toEqual(['messages:send', 'messages:receive', 'scopes:declare', 'fleet:read']);
   },
 };
-/** A crew that reported it is blocked, with a note. */
+/** A crew that reported it is blocked, with a note: Blocked in violet. */
 export const Reported: Story = {
+  play: async ({ canvasElement }) =>
+    expectStates(canvasElement, [
+      ['Crewed', 'ok'],
+      ['Blocked', 'blocked'],
+    ]),
   args: { ship: { ...CREWED_SHIP, report: { state: 'blocked', note: 'waiting for review on PR 88', task: null, step: null, reportedAt: minutesAgo(3), reportChangedAt: minutesAgo(3), detailsVersion: 0, details: null, detailsBytes: null } } },
 };
 /** The monitoring design's Activity line under the report: what the trierarch last observed of the session. */
@@ -90,7 +104,7 @@ export const WithReportDetails: Story = {
   },
 };
 export const Argo: Story = { args: { ship: ARGO_SHIP, actions: undefined } };
-export const Retired: Story = { args: { ship: RETIRED_SHIP } };
+export const Retired: Story = { args: { ship: RETIRED_SHIP }, play: async ({ canvasElement }) => expectStates(canvasElement, [['Retired', 'ended']]) };
 export const Loading: Story = { args: { ship: undefined, state: 'loading' } };
 export const NotFound: Story = { args: { ship: undefined, shipId: UNKNOWN_SHIP_ID, state: 'not-found' } };
 export const Phone: Story = { globals: { viewport: { value: 'mobile1' } } };
@@ -252,6 +266,8 @@ export const OpenAlert: Story = {
     },
   },
   play: async ({ canvasElement }) => {
+    await expectStates(canvasElement, [['Crewed', 'ok'], ['Alert', 'attention']]);
+    await expect(within(canvasElement).getByText('Alert', { exact: true })).toHaveClass('rounded-full');
     const alert = within(canvasElement).getByTestId('ship-open-alert');
     await expect(alert).toHaveTextContent('Report unchanged 3 h 10 min');
     await expect(alert).toHaveTextContent('Expected within 60 min');
@@ -307,3 +323,25 @@ export const NoExpectations: Story = {
     await expect(within(canvasElement).queryByTestId('ship-expectations')).toBeNull();
   },
 };
+
+/** The state-colours sheet's ship pages (docs/design/state-colours): Working in Sea, Idle with no tone, each in light and dark. */
+export const ReportedWorking: Story = {
+  args: { ship: { ...CREWED_SHIP, report: { state: 'working', note: 'Drafting the partner list', task: null, step: null, reportedAt: minutesAgo(3), reportChangedAt: minutesAgo(3), detailsVersion: 0, details: null, detailsBytes: null } } },
+  play: async ({ canvasElement }) =>
+    expectStates(canvasElement, [
+      ['Crewed', 'ok'],
+      ['Working', 'active'],
+    ]),
+};
+export const ReportedIdle: Story = {
+  args: { ship: { ...CREWED_SHIP, report: { state: 'idle', note: 'Nothing open', task: null, step: null, reportedAt: minutesAgo(3), reportChangedAt: minutesAgo(3), detailsVersion: 0, details: null, detailsBytes: null } } },
+  play: async ({ canvasElement }) =>
+    expectStates(canvasElement, [
+      ['Crewed', 'ok'],
+      ['Idle', 'none'],
+    ]),
+};
+export const ReportedDark: Story = { ...Reported, globals: { theme: 'dark' } };
+export const ReportedWorkingDark: Story = { ...ReportedWorking, globals: { theme: 'dark' } };
+export const ReportedIdleDark: Story = { ...ReportedIdle, globals: { theme: 'dark' } };
+export const AwaitingCrewDark: Story = { ...AwaitingCrew, globals: { theme: 'dark' } };

@@ -4,7 +4,7 @@ import type { HarbourState } from '@aeolus-fleet/common/rules';
 import type { FleetSort } from './fleet-sort';
 
 /** Harbour's states in words, in the order the State filter lists them. */
-export const STATE_WORDS: Record<HarbourState, string> = { alert: 'Alert', waiting: 'Waiting', working: 'Working', idle: 'Idle' };
+export const STATE_WORDS: Record<HarbourState, string> = { alert: 'Alert', awaitingCrew: 'Awaiting crew', blocked: 'Blocked', working: 'Working', idle: 'Idle' };
 
 /**
  * The overview bar's filters (docs/design/fleet-overview, "One view: cards or

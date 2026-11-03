@@ -8,7 +8,7 @@ import { nextSort, type FleetSort, type SortColumn } from '../../services/fleet-
 import { chipsOf, type LabelContext } from '../../../../lib/labels';
 import type { ShipInSquadron } from '../../../../lib/squadrons-view';
 import { counted } from '../../../../lib/sentence';
-import { classNames, lastActivityWordsOf } from '@aeolus-fleet/ui';
+import { classNames, lastActivityWordsOf, ShipState } from '@aeolus-fleet/ui';
 import { Badge } from '../../../../components/atoms/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableSortHead } from '../../../../components/atoms/table';
 import { EmptyState } from '../../../../components/molecules/empty-state';
@@ -25,7 +25,6 @@ import { ModelHint } from '../molecules/model-hint';
 import { ReportLine } from '../../../../components/molecules/report-line';
 import { SquadronTag } from '../../../../components/molecules/squadron-tag';
 import { ShipName } from '../../../../components/molecules/ship-name';
-import { StatusBadge } from '../../../../components/molecules/status-badge';
 
 /** Where row actions render: the desktop row menu, the phone row's actions sheet, or the one next step in the Report cell. */
 export type RowActionsLayout = 'table' | 'phone' | 'next';
@@ -312,7 +311,7 @@ function DesktopTable({
               </TableCell>
               <TableCell>
                 <span className="flex items-center gap-1.5">
-                  <StatusBadge status={ship.status} />
+                  <ShipState state={ship.status} />
                   <AlertBadge ship={ship} />
                 </span>
               </TableCell>
@@ -347,7 +346,7 @@ function AlertBadge({ ship }: { ship: ListedShip }) {
   }
   return (
     <span title={counted(ship.openAlertCount, { one: 'open alert', many: 'open alerts' })} data-testid="fleet-alert">
-      <StatusBadge status="alert" />
+      <ShipState state="alert" isBadge />
     </span>
   );
 }
@@ -374,7 +373,7 @@ function PhoneList({
               <ShipNameCell ship={ship} />
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <StatusBadge status={ship.status} />
+              <ShipState state={ship.status} />
               <AlertBadge ship={ship} />
               {ship.kind === 'viewer' ? <NameChip ship={ship} squadron={undefined} isPluginShip={false} /> : <TypeChip ship={ship} />}
               <FlagshipChip squadron={ship.kind === 'agent' ? squadronsOf?.get(ship.id) : undefined} />
