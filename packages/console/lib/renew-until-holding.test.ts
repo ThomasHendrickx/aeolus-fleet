@@ -66,4 +66,16 @@ describe('renewing the account token after connecting the trierarch plugin (issu
     expect(session.renewals()).toBe(1);
     expect(session.waits).toEqual([]);
   });
+
+  it('answers failed instead of rejecting when the session read fails', async () => {
+    await expect(
+      renewUntilHolding({
+        wanted: WANTED,
+        retryAfterMs: 61_000,
+        renew: () => Promise.resolve('renewed'),
+        scopesNow: () => Promise.reject(new Error('console.session unreachable')),
+        wait: () => Promise.resolve(),
+      }),
+    ).resolves.toBe('failed');
+  });
 });
