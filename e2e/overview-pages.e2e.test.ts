@@ -149,7 +149,7 @@ describe('the overview of a fleet larger than a page', () => {
 
     expect([await rowNames(page), overviewPagesOf(asked).at(-1)]).toEqual([
       ['ship-40', 'ship-41', 'ship-42', 'ship-43', 'ship-44', 'ship-45'],
-      expect.objectContaining({ query: 'ship-4', limit: PAGE_SIZE }),
+      expect.objectContaining({ nameQuery: 'ship-4', limit: PAGE_SIZE }),
     ]);
   });
 
