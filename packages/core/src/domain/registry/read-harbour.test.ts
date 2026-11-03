@@ -130,7 +130,7 @@ describe("reading Harbour's ships", () => {
       expect(read).toEqual({ names: ['deploy-bot', 'planner', 'walker'], counts: { ships: 6, alert: 1, waiting: 2, working: 1, idle: 2 } });
     });
 
-    it('selects by the search in the name or type, by type and by every label value picked, combined', async () => {
+    it('selects by the search in the name, by type and by every label value picked, combined', async () => {
       await aFleet();
       await commission('reviewer-1', 'reviewer');
       const reviewer2 = await commission('reviewer-2', 'reviewer');
@@ -140,7 +140,7 @@ describe("reading Harbour's ships", () => {
         unwrap(await registry.assignLabel(argo, { shipId: reviewer2, valueId: teamCore }));
       }
 
-      const [bySearch, byType, byLabel] = [await namesOf({ query: 'PLAN' }), await namesOf({ type: ['reviewer'], state: ['waiting'] }), await namesOf({ valueIds: teamCore === undefined ? [] : [teamCore] })];
+      const [bySearch, byType, byLabel] = [await namesOf({ nameQuery: 'PLAN' }), await namesOf({ type: ['reviewer'], state: ['waiting'] }), await namesOf({ valueIds: teamCore === undefined ? [] : [teamCore] })];
 
       expect([bySearch.names, byType.names, byLabel.names]).toEqual([['planner'], ['reviewer-1', 'reviewer-2'], ['reviewer-2']]);
     });

@@ -14,6 +14,10 @@ describe('matchesShipFilter', () => {
     expect([aShip({ name: 'Scout-1' }), aShip({ type: 'SCOUT' }), aShip({})].map((ship) => matchesShipFilter(ship, { filter: { query: ' scout ' }, isInReach: true }))).toEqual([true, true, false]);
   });
 
+  it("selects a ship whose name holds the overview's search, in any case, never by its type alone", () => {
+    expect([aShip({ name: 'Scout-1' }), aShip({ type: 'SCOUT' })].map((ship) => matchesShipFilter(ship, { filter: { nameQuery: ' scout ' }, isInReach: true }))).toEqual([true, false]);
+  });
+
   it('selects a ship of a picked status only', () => {
     expect(matchesShipFilter(aShip({ status: 'retired' }), { filter: { status: ['awaitingCrew', 'crewed'] }, isInReach: true })).toBe(false);
   });

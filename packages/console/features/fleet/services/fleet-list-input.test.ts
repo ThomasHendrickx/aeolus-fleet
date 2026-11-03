@@ -14,8 +14,8 @@ describe("the overview's bar as fleet.list and fleet.harbour select by it", () =
     expect(fleetListFilterOf(DEFAULT_FLEET_VIEW)).toEqual({});
   });
 
-  it('searches by the text typed, without the spaces around it', () => {
-    expect(fleetListFilterOf(viewWith({}, '  scout '))).toEqual({ query: 'scout' });
+  it('searches the names by the text typed, without the spaces around it', () => {
+    expect(fleetListFilterOf(viewWith({}, '  scout '))).toEqual({ nameQuery: 'scout' });
   });
 
   it('passes the states, types and label values picked', () => {
