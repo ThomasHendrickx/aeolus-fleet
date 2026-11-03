@@ -2,7 +2,7 @@ import { idSchema, type FleetId, type ReportState, type ShipId } from '@aeolus-f
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { createPrismaFleetListing } from '../src/adapters/prisma/registry.js';
-import { harbourStateOf } from '@aeolus-fleet/common/rules';
+import { harbourStateOf, type HarbourState } from '@aeolus-fleet/common/rules';
 import { harbourCountsOf } from '../src/domain/registry/harbour.js';
 import type { ShipCaller } from '../src/domain/shared/caller.js';
 import { newKey } from '../src/testing/keys.js';
@@ -153,5 +153,27 @@ describe("Harbour's read on Postgres", () => {
     const observedAt = new Date(sent.getTime() + 60_000);
     await core.prisma.$executeRaw`UPDATE leases SET activity_at = ${observedAt} WHERE fleet_id = ${fleetId} AND ship_id = ${shipId} AND ended_at IS NULL`;
     await expect(read()).resolves.toEqual(observedAt);
+  });
+});
+
+// The overview's State filter (#1605): fleet.list selects by Harbour's state in SQL, held to harbourStateOf as the read is.
+describe("fleet.list's State filter on Postgres", () => {
+  it.each<{ state: HarbourState[] }>([{ state: ['alert'] }, { state: ['waiting'] }, { state: ['working'] }, { state: ['idle'] }, { state: ['alert', 'waiting'] }])(
+    'selects the ships harbourStateOf puts in $state, for every status, report and alert',
+    async ({ state }) => {
+      const expected = (await expectedTiles()).filter((tile) => state.includes(tile.state)).map((tile) => tile.id);
+
+      const { ships } = await core.useCases.listFleet(argo, { state, limit: 100 });
+
+      expect(ships.map((ship) => ship.id)).toEqual(expected);
+    },
+  );
+
+  it('counts the ships the State filter selects as fleet.list lists them', async () => {
+    const expected = (await expectedTiles()).filter((tile) => tile.state === 'waiting').length;
+
+    const counts = await core.useCases.countShips(argo, { filter: { state: ['waiting'] } });
+
+    expect(counts.reduce((sum, { active, retired }) => sum + active + retired, 0)).toBe(expected);
   });
 });
