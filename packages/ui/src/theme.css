@@ -48,6 +48,9 @@
   --color-tone-active-bg: var(--tone-active-bg);
   --color-tone-active-fg: var(--tone-active-fg);
   --color-tone-active-border: var(--tone-active-border);
+  --color-tone-blocked-bg: var(--tone-blocked-bg);
+  --color-tone-blocked-fg: var(--tone-blocked-fg);
+  --color-tone-blocked-border: var(--tone-blocked-border);
   --color-tone-ok-bg: var(--tone-ok-bg);
   --color-tone-ok-fg: var(--tone-ok-fg);
   --color-tone-ok-border: var(--tone-ok-border);

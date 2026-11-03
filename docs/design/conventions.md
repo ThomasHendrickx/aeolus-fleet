@@ -11,8 +11,20 @@ Rules for cases the Design system page does not show. Names = parts and tokens o
 ## Colour
 - Brand accent = `--primary`: primary Button, active nav item, open-message counts, active TabBar item. Nothing else.
 - `--accent` = neutral hover and selected surface (shadcn meaning), never brand.
-- Tone families (`--tone-{waiting|active|ok|attention|ended}-{bg|fg|border}`) only via StatusBadge, ReportLine, HealthIndicator, StationProgress, LastSeen, HarnessUnknown, alerts and count badges. Never on buttons, text blocks or layout.
-- Mapping: Awaiting crew, Pending, Forming, Blocked, Late, seen long ago → waiting. Handed (pulled), Standing down, Working → active. Crewed, Acknowledged, Sailing, On time, seen fresh → ok. Undeliverable, Silent → attention. Retired, Dismissed, Abandoned, Disbanded, Idle → ended; Abandoned has a dashed border; Not on station is a dashed ring and seen a while ago is muted, no tone.
+- One meaning per tone, the same in every app; a reader who learned a colour once reads it the same everywhere. Each family is `--tone-{attention|waiting|blocked|active|ok|ended}-{bg|fg|border}`:
+
+  | Tone | Colour | Means | Ship state |
+  | --- | --- | --- | --- |
+  | attention | Coral | Something is wrong: act now | Alert |
+  | waiting | Amber | Waits on a person | Awaiting crew |
+  | blocked | Violet | The crew says it cannot go on | Blocked |
+  | active | Sea | Live and in motion | Working |
+  | ok | Green | Settled and well | Crewed |
+  | ended | Grey | Over for good | Retired |
+
+  Idle carries no tone: `--muted-foreground`. The values are in `packages/ui/src/tokens.css` and only there: an app takes them from `@aeolus-fleet/ui` and keeps no colour of its own for a state. Story: Design/Tones.
+- Tone families only via StatusBadge, ReportLine, HealthIndicator, StationProgress, LastSeen, HarnessUnknown, alerts and count badges. Never on buttons, text blocks or layout.
+- Mapping outside a ship's state: Pending, Forming, Late, seen long ago → waiting. Handed (pulled), Standing down → active. Acknowledged, Sailing, On time, seen fresh → ok. Undeliverable, Silent → attention. Dismissed, Abandoned, Disbanded → ended; Abandoned has a dashed border; Not on station is a dashed ring and seen a while ago is muted, no tone.
 - Status is never colour alone: icon + label always; the live dot always has its word.
 - Alert tone: error → attention; warning or rate limit → waiting; neutral fact → ended; calm notice (signed in elsewhere) → `--muted` panel.
 - `--destructive` fills only the final confirm Button. Destructive menu items and field errors use `--destructive-text`.
