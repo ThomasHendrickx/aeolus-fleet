@@ -358,6 +358,8 @@ export function createLiveFleetHandler(input: {
   const harbourKey: readonly unknown[] = [...trpc.fleet.harbour.infiniteQueryKey()];
   const loadedHarbourKeys = () => queryClient.getQueriesData<InfiniteData<HarbourPage>>({ queryKey: harbourKey }).flatMap(([queryKey, pages]) => (pages === undefined ? [] : [queryKey]));
   const isHarbourLoaded = () => loadedHarbourKeys().length > 0;
+  // Harbour's numbers alone, read over the list too (features/fleet/hooks/harbour.ts); reading them again refreshes that read.
+  const areHarbourNumbersLoaded = () => queryClient.getQueryData(trpc.fleet.harbour.queryKey({ limit: 1 })) !== undefined;
   const reloadTile = createShipRowReloads<{ shipId: ShipId; reads: { queryKey: readonly unknown[]; tile: HarbourTile | undefined }[] }>({
     readRow: async (shipId) => {
       const reads = await Promise.all(
@@ -455,6 +457,8 @@ export function createLiveFleetHandler(input: {
           reloadTile(concerned);
         }
       }
+    }
+    if (isHarbourLoaded() || areHarbourNumbersLoaded()) {
       reloadHarbourCounts();
     }
     // A commission, a crew, a release or a crew request moves the ship counts: the fleet's and each view's.
