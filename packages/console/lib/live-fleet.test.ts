@@ -537,4 +537,18 @@ describe("Harbour live (docs/design/fleet-overview, \"The read Harbour needs\")"
     await expect.poll(() => [tilesOf(working), tilesOf(every)]).toEqual([[], [blocked]]);
     live.close();
   });
+
+  it("reads Harbour's numbers again over the list, where no tile is loaded (#1605)", async () => {
+    let numbers = counts(0, 0);
+    const live = aLiveFleet({ 'fleet.harbour': () => ({ items: [], nextCursor: null, counts: numbers }), 'fleet.listedShip': () => aShip({}) });
+    const shown = new QueryObserver(live.queryClient, live.trpc.fleet.harbour.queryOptions({ limit: 1 }));
+    live.show(shown);
+    await expect.poll(() => shown.getCurrentResult().data?.counts).toEqual(counts(0, 0));
+
+    numbers = counts(0, 1);
+    live.onItem({ kind: 'event', event: anEvent('ShipCommissioned', { shipId: newId('ship'), hasMessage: false }) });
+
+    await expect.poll(() => shown.getCurrentResult().data?.counts).toEqual(counts(0, 1));
+    live.close();
+  });
 });
