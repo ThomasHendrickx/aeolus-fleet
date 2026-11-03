@@ -119,14 +119,14 @@ async function listed(page: Page): Promise<string[]> {
   return names.filter((name) => name !== 'argo');
 }
 
-/** Picks a value in the open label picker; the URL then carries it. */
+/** Picks a value under its key in the open Labels menu, then closes it; the URL then carries it. */
 async function pick(page: Page, label: { key: string; value: string }): Promise<void> {
-  // The open one: a picker that just closed may still be fading out beside it.
-  const popover = page.locator('[data-testid="label-filter-popover"][data-open]');
+  // The open one: a menu that just closed may still be fading out beside it.
+  const popover = page.locator('[data-testid="fleet-filter-labels-popover"][data-open]');
   await popover.waitFor();
-  await popover.getByTestId('label-picker-key').filter({ hasText: label.key }).click();
-  await popover.getByTestId('label-picker-value').filter({ hasText: label.value }).click();
+  await popover.getByRole('group', { name: label.key, exact: true }).getByRole('button', { name: new RegExp(`^${label.value}\\s*\\d+$`) }).click();
   await expect.poll(() => new URL(page.url()).searchParams.getAll('label'), WITHIN).toContain(idOf(`${label.key}=${label.value}`));
+  await page.keyboard.press('Escape');
 }
 
 describe('Labels in the console', () => {
