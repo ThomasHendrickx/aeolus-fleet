@@ -1,9 +1,8 @@
-import { CREW_STATUSES, idSchema, shipStatusSchema } from '@aeolus-fleet/common';
+import { idSchema } from '@aeolus-fleet/common';
+import { HARBOUR_STATES, type HarbourState } from '@aeolus-fleet/common/rules';
 
-import { isAgentKind } from './agent-kind';
 import { isSortColumn, type FleetSort } from './fleet-sort';
-import { DESCENDING, PARAMS, RETIRED_SHOWN, type FleetView, type StatusFilter } from './fleet-filter';
-import { crewRequestKeysOf, type CrewRequestKey } from '../../../lib/needs-crew';
+import { DESCENDING, LIST_VIEW, PARAMS, type FleetView } from './fleet-filter';
 
 /** A repeated parameter's values, each once, in the order given; `read` leaves out what it does not know. */
 function readAll<T>(values: readonly string[], read: (value: string) => T | undefined): T[] {
@@ -13,31 +12,23 @@ function readAll<T>(values: readonly string[], read: (value: string) => T | unde
   });
 }
 
-function readStatus(value: string): StatusFilter | undefined {
-  const parsed = shipStatusSchema.safeParse(value);
-  return parsed.success && parsed.data !== 'retired' ? parsed.data : undefined;
-}
-
-function readCrewRequest(value: string): CrewRequestKey | undefined {
-  return crewRequestKeysOf(CREW_STATUSES).find((key) => key === value);
+function readState(value: string): HarbourState | undefined {
+  return HARBOUR_STATES.find((state) => state === value);
 }
 
 function readSort(column: string | null, order: string | null): FleetSort | null {
   return isSortColumn(column) ? { column, direction: order === DESCENDING ? 'descending' : 'ascending' } : null;
 }
 
-/** Reads the overview's view from the URL, on the web app's server (decision 0033); a value it does not know is left out, anything else unknown falls back to the default. */
+/** Reads the overview's view from the address, on the web app's server (decision 0033); a value it does not know is left out, anything else unknown falls back to the default. */
 export function readFleetView(params: URLSearchParams): FleetView {
   return {
+    mode: params.get(PARAMS.mode) === LIST_VIEW ? 'list' : 'cards',
     query: params.get(PARAMS.query) ?? '',
     filters: {
-      status: readAll(params.getAll(PARAMS.status), readStatus),
-      crewRequest: readAll(params.getAll(PARAMS.crewRequest), readCrewRequest),
-      kind: readAll(params.getAll(PARAMS.kind), (value) => (isAgentKind(value) ? value : undefined)),
+      state: readAll(params.getAll(PARAMS.state), readState),
       type: readAll(params.getAll(PARAMS.type), (value) => value),
-      squadron: readAll(params.getAll(PARAMS.squadron), (value) => value),
-      isRetiredShown: params.get(PARAMS.isRetiredShown) === RETIRED_SHOWN,
-      labelValueIds: params.getAll(PARAMS.labelValueIds).flatMap((value) => idSchema('labelValue').safeParse(value).data ?? []),
+      labelValueIds: readAll(params.getAll(PARAMS.labelValueIds), (value) => idSchema('labelValue').safeParse(value).data),
     },
     sort: readSort(params.get(PARAMS.sort), params.get(PARAMS.order)),
   };

@@ -23,3 +23,9 @@ export function useTypeShipCount(type: string): number | undefined {
   const counts = useQuery(trpc.fleet.shipCounts.queryOptions({ filter: { type: [type] } }, { enabled: isType }));
   return isType ? counts.data?.reduce((total, kind) => total + kind.active, 0) : undefined;
 }
+
+/** The fleet's active ship types, each with how many ships carry it (`fleet.shipTypes`), for the overview's Type filter; none until read. */
+export function useShipTypeCounts(): readonly { type: string; ships: number }[] {
+  const trpc = useTRPC();
+  return useQuery(trpc.fleet.shipTypes.queryOptions(undefined, { placeholderData: keepPreviousData })).data ?? [];
+}

@@ -4,8 +4,8 @@ import { Ellipsis, Plus } from 'lucide-react';
 import { useState, type ComponentProps } from 'react';
 import { expect, fn, userEvent, within } from 'storybook/test';
 
-import { agentKindOf } from '../../services/agent-kind';
-import { DEFAULT_FLEET_VIEW, type FleetView } from '../../services/fleet-filter';
+import type { FleetSort } from '../../services/fleet-sort';
+import { NoMatch } from '../molecules/no-match';
 import { Button } from '@aeolus-fleet/ui';
 import { FleetTable, type RowActionsLayout } from './fleet-table';
 import { AREA, BLUEPRINT, carried, COST, labelContext, OS, OWNERS, ownerShips, PROJECT } from '../../../../lib/fixtures/labels.fixtures';
@@ -131,19 +131,13 @@ function rowActions(listed: ListedShip, layout: RowActionsLayout) {
 /** The active ships of the story fleet: what `fleet.list` answers while Show retired is off. */
 const ACTIVE_FLEET = FLEET.filter((listed) => listed.status !== 'retired');
 
-/** Counts of a story fleet whose view selects `shown` ships. */
-function countsOf(shown: readonly ListedShip[]) {
-  return { shown: shown.length, total: FLEET.length, retired: FLEET.length - ACTIVE_FLEET.length };
-}
-
 /**
- * Keeps the view the way a page keeps it in the URL; with `rowsOf`, the rows
- * answer each view as the server would, so a story can pick and sort.
+ * Keeps the sort the way a page keeps it in the address; with `rowsOf`, the
+ * rows answer each sort as the server would, so a story can sort.
  */
-function StatefulFleetTable({ view: initialView, rowsOf, ...props }: ComponentProps<typeof FleetTable> & { rowsOf?: (view: FleetView) => readonly ListedShip[] }) {
-  const [view, setView] = useState<FleetView>(initialView);
-  const rows = rowsOf?.(view) ?? props.ships;
-  return <FleetTable {...props} ships={rows} counts={props.counts && { ...props.counts, shown: rows.length }} view={view} onViewChange={setView} />;
+function StatefulFleetTable({ sort: initialSort, rowsOf, ...props }: ComponentProps<typeof FleetTable> & { rowsOf?: (sort: FleetSort | null) => readonly ListedShip[] }) {
+  const [sort, setSort] = useState<FleetSort | null>(initialSort);
+  return <FleetTable {...props} ships={rowsOf?.(sort) ?? props.ships} sort={sort} onSortChange={setSort} />;
 }
 
 const meta = {
@@ -152,11 +146,9 @@ const meta = {
   args: {
     viewerFleetId: VIEWER_FLEET_ID,
     ships: ACTIVE_FLEET,
-    counts: countsOf(ACTIVE_FLEET),
     isOnlyArgo: false,
-    types: [...new Set(FLEET.map((listed) => listed.type))].toSorted(),
-    view: DEFAULT_FLEET_VIEW,
-    onViewChange: fn(),
+    sort: null,
+    onSortChange: fn(),
     state: 'ready',
     now: NOW,
     renderRowActions: rowActions,
@@ -177,19 +169,8 @@ export const NewShipHighlighted: Story = {
   args: { highlightedShipIds: new Set([FLEET[2]?.id ?? argo.id]) },
 };
 
-export const RetiredShown: Story = {
-  args: {
-    ships: FLEET,
-    counts: countsOf(FLEET),
-    view: {
-      ...DEFAULT_FLEET_VIEW,
-      filters: { ...DEFAULT_FLEET_VIEW.filters, isRetiredShown: true },
-    },
-  },
-};
-
 export const NoResults: Story = {
-  args: { ships: [], counts: countsOf([]), view: { ...DEFAULT_FLEET_VIEW, query: 'deploy' } },
+  args: { ships: [], noMatch: <NoMatch query="deploy" hasFilters={false} fleetShips={ACTIVE_FLEET.length} onClear={fn()} /> },
 };
 
 export const EmptyOnlyArgo: Story = { args: { ships: [argo], isOnlyArgo: true } };
@@ -292,21 +273,6 @@ export const Activity: Story = {
 export const ActivityPhone: Story = { ...Activity, globals: { viewport: { value: 'mobile1' } } };
 export const ActivityDark: Story = { ...Activity, globals: { theme: 'dark' } };
 
-/** Phone with filters in force: the chips under the search, Clear filters, and the filter button marked. */
-export const PhoneFiltered: Story = {
-  globals: { viewport: { value: 'mobile1' } },
-  args: {
-    ships: ACTIVE_FLEET.filter((listed) => listed.status === 'crewed'),
-    counts: countsOf(ACTIVE_FLEET.filter((listed) => listed.status === 'crewed')),
-    view: { ...DEFAULT_FLEET_VIEW, filters: { ...DEFAULT_FLEET_VIEW.filters, status: ['crewed'], isRetiredShown: true } },
-  },
-};
-
-/** Filters and a search with nothing left: one action clears both. */
-export const NoResultsFiltered: Story = {
-  args: { ships: [], counts: countsOf([]), view: { ...DEFAULT_FLEET_VIEW, query: 'deploy', filters: { ...DEFAULT_FLEET_VIEW.filters, status: ['awaitingCrew'] } } },
-};
-
 /** Crewed ships with when each last called: one live, one whose session went quiet. */
 export const LastSeen: Story = {
   args: {
@@ -390,30 +356,12 @@ const CARRIED: Readonly<Record<string, ListedShip['labels']>> = {
   'reviewer-01': [carried(PROJECT, 'aeolus'), carried(AREA, 'review'), carried(OS, 'linux')],
 };
 const LABELLED_FLEET: ListedShip[] = [...FLEET.map((listed) => ({ ...listed, labels: CARRIED[listed.name] ?? [] })), ...ownerShips(argo)];
-const PICKED = [carried(PROJECT, 'hemma').valueId, carried(AREA, 'frontend').valueId];
 
-/** With labels (#102): a second line of chips under each name, yours unmarked, then "+n"; the Labels filter in the toolbar. */
+/** With labels (#102): a second line of chips under each name, yours unmarked, then "+n". */
 export const Labels: Story = { args: { ships: LABELLED_FLEET, labels: labelContext(LABELLED_FLEET) } };
-
-/** Two label values picked: "Ships with project=hemma and area=frontend", each with ×, Add and Clear labels. */
-export const LabelsFiltered: Story = {
-  args: {
-    ...Labels.args,
-    ships: LABELLED_FLEET.filter((listed) => PICKED.every((valueId) => listed.labels.some((label) => label.valueId === valueId))),
-    view: { ...DEFAULT_FLEET_VIEW, filters: { ...DEFAULT_FLEET_VIEW.filters, labelValueIds: PICKED } },
-  },
-};
-
-/** Label values no ship carries together: nothing left, one action clears them. */
-export const LabelsNoMatch: Story = {
-  args: { ...Labels.args, ships: [], counts: countsOf([]), view: { ...DEFAULT_FLEET_VIEW, filters: { ...DEFAULT_FLEET_VIEW.filters, labelValueIds: [carried(PROJECT, 'website').valueId, carried(COST, 'high').valueId] } } },
-};
 
 /** A viewer: every label marked by its owner, argo's too; the filter works the same. */
 export const LabelsViewer: Story = { args: { ships: LABELLED_FLEET, labels: labelContext(LABELLED_FLEET, false) } };
-
-/** Phone with labels picked: no chips on rows (Q3), the values picked as chips under the search. */
-export const PhoneLabelsFiltered: Story = { ...LabelsFiltered, globals: { viewport: { value: 'mobile1' } } };
 
 /** The ships the console's plugins run as, squadrons' and the trierarch plugin's, each with a plugin chip (#368). */
 export const PluginShips: Story = {
@@ -443,7 +391,6 @@ const CLEAN_ARGS = {
   ships: CLEAN_FLEET,
   labels: { ...labelContext(CLEAN_FLEET), ownerOf: new Map([...labelContext(CLEAN_FLEET).ownerOf, [SQUADRON_LABEL.id, { name: OWNERS.squadrons.name, mark: 'squadrons', isYours: false }], [ROLE_LABEL.id, { name: OWNERS.squadrons.name, mark: 'squadrons', isYours: false }]]), labels: [...labelContext(CLEAN_FLEET).labels, SQUADRON_LABEL, ROLE_LABEL] },
   squadronsOf: new Map([[IMPLEMENTER.id, { squadronId: SQUADRON_ID, role: 'implementer' }]]),
-  view: { ...DEFAULT_FLEET_VIEW, filters: { ...DEFAULT_FLEET_VIEW.filters, isRetiredShown: true } },
 };
 
 export const CleanOverview: Story = {
@@ -568,11 +515,11 @@ function reportNoteOf(listed: ListedShip): string | undefined {
   return listed.report?.note ?? undefined;
 }
 
-/** The kind fleet as the server answers a view: the kinds picked, sorted by ship or report; otherwise argo first and then by name, as the stories need no more. */
-function kindRowsOf(view: FleetView): ListedShip[] {
-  const picked = KIND_FLEET.filter((listed) => view.filters.kind.length === 0 || view.filters.kind.includes(agentKindOf(listed, KIND_PLUGINS)));
-  const sign = view.sort?.direction === 'descending' ? -1 : 1;
-  switch (view.sort?.column) {
+/** The kind fleet as the server answers a sort: by ship or report; otherwise argo first and then by name, as the stories need no more. */
+function kindRowsOf(sort: FleetSort | null): ListedShip[] {
+  const picked = KIND_FLEET;
+  const sign = sort?.direction === 'descending' ? -1 : 1;
+  switch (sort?.column) {
     case 'ship':
       return picked.toSorted((first, second) => sign * first.name.localeCompare(second.name));
     case 'report':
@@ -589,102 +536,6 @@ function kindRowsOf(view: FleetView): ListedShip[] {
 }
 
 const KIND_ARGS = { ships: KIND_FLEET, rowsOf: kindRowsOf, pluginShipIds: KIND_PLUGINS };
-
-/** The Kind filter on Codex: only the ships whose session runs in Codex. */
-export const KindFiltered: Story = {
-  args: { ...KIND_ARGS, view: { ...DEFAULT_FLEET_VIEW, filters: { ...DEFAULT_FLEET_VIEW.filters, kind: ['codex'] } } },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    await expect(canvas.getByTestId('fleet-filter-kind')).toHaveTextContent('Codex');
-    await expect(within(canvas.getByRole('table', { name: 'Ships' })).getAllByRole('row')).toHaveLength(2);
-    await expect(canvas.getByTestId('fleet-row-launch-implementer')).toBeVisible();
-  },
-};
-
-export const KindFilteredDark: Story = { ...KindFiltered, globals: { theme: 'dark' } };
-
-/** The phone's filter Sheet with Kind on Plugin: its chips beside the other filters, and the filter in force as a chip. */
-export const PhoneKindFilter: Story = {
-  args: { ...KIND_ARGS, view: { ...DEFAULT_FLEET_VIEW, filters: { ...DEFAULT_FLEET_VIEW.filters, kind: ['plugin'] } } },
-  globals: { viewport: { value: 'mobile1' } },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    await expect(canvas.getByTestId('fleet-filter-chips')).toHaveTextContent('Kind: Plugin');
-    await userEvent.click(canvas.getByTestId('fleet-filters-open'));
-    const sheet = within(canvasElement.ownerDocument.body);
-    const kinds = sheet.getByRole('group', { name: 'Kind' });
-    await expect(within(kinds).getAllByRole('button').map((option) => option.textContent)).toEqual(['All', 'Console', 'Claude Code', 'Codex', 'Trierarch', 'Plugin', 'Other']);
-    await expect(within(kinds).getByRole('button', { name: 'Plugin' })).toHaveAttribute('aria-pressed', 'true');
-    await expect(sheet.getByTestId('fleet-filters-apply')).toHaveTextContent('Show 1 ship');
-  },
-};
-
-export const PhoneKindFilterDark: Story = { ...PhoneKindFilter, globals: { ...PhoneKindFilter.globals, theme: 'dark' } };
-
-const CLAUDE_CODE_AND_CODEX: FleetView = { ...DEFAULT_FLEET_VIEW, filters: { ...DEFAULT_FLEET_VIEW.filters, kind: ['claudeCode', 'codex'] } };
-
-/** The Kind filter on Claude Code and Codex (#815): the ships of either, the trigger counting the two picked. */
-export const KindSeveralPicked: Story = {
-  args: { ...KIND_ARGS, view: CLAUDE_CODE_AND_CODEX },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    await expect(canvas.getByTestId('fleet-filter-kind')).toHaveTextContent('Kind2 picked');
-    await expect(canvas.getByTestId('fleet-row-launch-implementer')).toBeVisible();
-    await expect(canvas.getByTestId('fleet-row-harbour-ios')).toBeVisible();
-    await expect(canvas.queryByTestId('fleet-row-trierarch-mac')).toBeNull();
-    await expect(canvas.queryByTestId('fleet-row-argo')).toBeNull();
-  },
-};
-
-export const KindSeveralPickedDark: Story = { ...KindSeveralPicked, globals: { theme: 'dark' } };
-
-/** The Kind filter open with Claude Code and Codex picked: both checked, All not; picking Trierarch adds it and keeps the list open. */
-export const KindSeveralPickedOpen: Story = {
-  args: { ...KIND_ARGS, view: CLAUDE_CODE_AND_CODEX },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    const page = within(canvasElement.ownerDocument.body);
-    await userEvent.click(canvas.getByTestId('fleet-filter-kind'));
-    await expect(await page.findByRole('option', { name: 'Claude Code' })).toHaveAttribute('aria-selected', 'true');
-    await expect(page.getByRole('option', { name: 'Codex' })).toHaveAttribute('aria-selected', 'true');
-    await expect(page.getByRole('option', { name: 'All' })).toHaveAttribute('aria-selected', 'false');
-    await userEvent.click(page.getByRole('option', { name: 'Trierarch' }));
-    await expect(page.getByRole('option', { name: 'Trierarch' })).toHaveAttribute('aria-selected', 'true');
-    await expect(canvas.getByTestId('fleet-filter-kind')).toHaveTextContent('Kind3 picked');
-    await expect(canvas.getByTestId('fleet-row-trierarch-mac')).toBeVisible();
-  },
-};
-
-/** One value picked: the trigger names it. Picking All in the open list takes every value out. */
-export const KindOnePickedThenAll: Story = {
-  args: { ...KIND_ARGS, view: { ...DEFAULT_FLEET_VIEW, filters: { ...DEFAULT_FLEET_VIEW.filters, kind: ['trierarch'] } } },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    const page = within(canvasElement.ownerDocument.body);
-    await expect(canvas.getByTestId('fleet-filter-kind')).toHaveTextContent('KindTrierarch');
-    await userEvent.click(canvas.getByTestId('fleet-filter-kind'));
-    await userEvent.click(await page.findByRole('option', { name: 'All' }));
-    await expect(canvas.getByTestId('fleet-filter-kind')).toHaveTextContent('KindAll');
-    await expect(canvas.getByTestId('fleet-row-argo')).toBeVisible();
-  },
-};
-
-/** The phone's Sheet with Claude Code and Codex picked: both chips on, All off, and the filter as one chip naming both. */
-export const PhoneKindSeveralPicked: Story = {
-  args: { ...KIND_ARGS, view: CLAUDE_CODE_AND_CODEX },
-  globals: { viewport: { value: 'mobile1' } },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    await expect(canvas.getByTestId('fleet-filter-chips')).toHaveTextContent('Kind: Claude Code, Codex');
-    await userEvent.click(canvas.getByTestId('fleet-filters-open'));
-    const kinds = within(within(canvasElement.ownerDocument.body).getByRole('group', { name: 'Kind' }));
-    await expect(kinds.getByRole('button', { name: 'Claude Code' })).toHaveAttribute('aria-pressed', 'true');
-    await expect(kinds.getByRole('button', { name: 'Codex' })).toHaveAttribute('aria-pressed', 'true');
-    await expect(kinds.getByRole('button', { name: 'All' })).toHaveAttribute('aria-pressed', 'false');
-  },
-};
-
-export const PhoneKindSeveralPickedDark: Story = { ...PhoneKindSeveralPicked, globals: { ...PhoneKindSeveralPicked.globals, theme: 'dark' } };
 
 function shownNames(canvasElement: HTMLElement): string[] {
   return within(within(canvasElement).getByRole('table', { name: 'Ships' }))
@@ -708,7 +559,7 @@ export const UnsortedDark: Story = { ...Unsorted, globals: { theme: 'dark' } };
 
 /** Sorted by Ship, A to Z: argo among the rest; a keyboard press on the header turns it Z to A. */
 export const SortedAscending: Story = {
-  args: { ...KIND_ARGS, view: { ...DEFAULT_FLEET_VIEW, sort: { column: 'ship', direction: 'ascending' } } },
+  args: { ...KIND_ARGS, sort: { column: 'ship', direction: 'ascending' } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByTestId('fleet-sort-ship')).toHaveAttribute('aria-sort', 'ascending');
@@ -724,7 +575,7 @@ export const SortedAscendingDark: Story = { ...SortedAscending, globals: { theme
 
 /** Sorted by Report, Z to A: ships without a report stay last; a third click puts the default order back. */
 export const SortedDescending: Story = {
-  args: { ...KIND_ARGS, view: { ...DEFAULT_FLEET_VIEW, sort: { column: 'report', direction: 'descending' } } },
+  args: { ...KIND_ARGS, sort: { column: 'report', direction: 'descending' } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByTestId('fleet-sort-report')).toHaveAttribute('aria-sort', 'descending');
@@ -750,7 +601,7 @@ const NO_HARNESS = ship('h6aa', { name: 'lookout', harness: null, location: { ki
 
 /** A crewed agent ship whose session stated no harness (aeolus-fleet#1408): Harness unknown, a fault, beside its location with the machine name; argo stays the console. */
 export const HarnessUnknown: Story = {
-  args: { ships: [argo, NO_HARNESS], counts: countsOf([argo, NO_HARNESS]) },
+  args: { ships: [argo, NO_HARNESS] },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     const runsOn = within(canvas.getByTestId('fleet-row-lookout')).getByTestId('fleet-runs-on');

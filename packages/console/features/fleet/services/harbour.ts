@@ -1,13 +1,14 @@
 import type { HarbourOutput, ShipKind } from '@aeolus-fleet/common';
-import { HARBOUR_STATES } from '@aeolus-fleet/common/rules';
+import { HARBOUR_STATES, type HarbourState } from '@aeolus-fleet/common/rules';
 
 import { uniqueById } from '../../../lib/paged-list';
 
 /**
- * Harbour's groups (docs/design/fleet-overview): the tiles `fleet.harbour`
- * answers, each with the state the server worked out, grouped by kind and
- * ordered in each group alerts first, then waiting, working and idle, each
- * by name.
+ * Harbour's groups and words (docs/design/fleet-overview): the tiles
+ * `fleet.harbour` answers, each with the state the server worked out,
+ * grouped by kind and ordered in each group alerts first, then waiting,
+ * working and idle, each by name; and the overview's subtitle from its
+ * numbers.
  */
 export const HARBOUR_GROUPS = ['people', 'agents', 'plugins', 'gateway'] as const;
 
@@ -20,12 +21,6 @@ export type HarbourCounts = NonNullable<HarbourOutput['counts']>;
 export interface HarbourGroup {
   kind: HarbourGroupKind;
   tiles: HarbourTile[];
-}
-
-/** What Harbour shows: the numbers and the groups. */
-export interface Harbour {
-  counts: HarbourCounts;
-  groups: HarbourGroup[];
 }
 
 /** Which group a ship's kind lands in; fleet.harbour never answers the viewer ship. */
@@ -53,4 +48,25 @@ export function harbourGroupsOf(tiles: readonly HarbourTile[]): HarbourGroup[] {
     const ofKind = shown.filter((tile) => GROUP_OF_KIND[tile.kind] === kind);
     return ofKind.length === 0 ? [] : [{ kind, tiles: ofKind.toSorted(byStateThenName) }];
   });
+}
+
+/** The subtitle words each state so; working and idle first, as most ships are. */
+const SUMMARY_PARTS: readonly { state: HarbourState; words: string }[] = [
+  { state: 'working', words: 'working' },
+  { state: 'idle', words: 'idle' },
+  { state: 'waiting', words: 'waiting' },
+  { state: 'alert', words: 'with an alert' },
+];
+
+/**
+ * The overview's subtitle from Harbour's numbers, as Bridge words them: the
+ * ships, then how many are in each state any ship is in; while argo is
+ * alone, what comes next.
+ */
+export function harbourSummaryOf(counts: HarbourCounts, { canCommission }: { canCommission: boolean }): string {
+  if (counts.ships <= 1) {
+    return canCommission ? 'Only argo so far. Ships you commission appear here.' : 'Only argo so far.';
+  }
+  const parts = SUMMARY_PARTS.filter(({ state }) => counts[state] > 0).map(({ state, words }) => `${String(counts[state])} ${words}`);
+  return `${String(counts.ships)} ships: ${parts.join(', ')}`;
 }

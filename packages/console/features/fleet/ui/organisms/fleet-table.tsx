@@ -1,37 +1,19 @@
 'use client';
 
-import type { CrewStatus, FleetId, LabelValueId, ListedShip, ShipId } from '@aeolus-fleet/common';
-import { Eye, Flag, Plug, Search, Ship, SlidersHorizontal, UserRound } from 'lucide-react';
+import type { FleetId, ListedShip, ShipId } from '@aeolus-fleet/common';
+import { Eye, Flag, Plug, Ship, UserRound } from 'lucide-react';
 import type { ReactNode } from 'react';
 
-import { useConsoleConstants } from '../../../../lib/console-constants';
-import { Button, Sheet, SheetBody, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@aeolus-fleet/ui';
-import {
-  activeFilterCount,
-  activeFilterLabels,
-  DEFAULT_FLEET_VIEW,
-  fleetSquadrons,
-  STATUS_WORDS,
-  type FleetFilters,
-  type FleetView,
-  type StatusFilter,
-} from '../../services/fleet-filter';
-import { AGENT_KIND_WORDS, isAgentKind } from '../../services/agent-kind';
-import type { FleetCounts } from '../../services/fleet-counts';
 import { nextSort, type FleetSort, type SortColumn } from '../../services/fleet-sort';
-import { chipsOf, filterGroupsOf, pickedChips, type LabelContext } from '../../../../lib/labels';
+import { chipsOf, type LabelContext } from '../../../../lib/labels';
 import type { ShipInSquadron } from '../../../../lib/squadrons-view';
-import { crewRequestKeyWord, crewRequestKeysOf, type CrewRequestKey } from '../../../../lib/needs-crew';
 import { counted } from '../../../../lib/sentence';
+import { classNames } from '@aeolus-fleet/ui';
 import { Badge } from '../../../../components/atoms/badge';
-import { Input } from '../../../../components/atoms/input';
-import { Label } from '../../../../components/atoms/label';
-import { Switch } from '../../../../components/atoms/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableSortHead } from '../../../../components/atoms/table';
 import { EmptyState } from '../../../../components/molecules/empty-state';
 import { InlineError } from '../../../../components/molecules/inline-error';
 import { LoadMore } from '../../../../components/molecules/load-more';
-import { LabelChip } from '../../../../components/molecules/label-chip';
 import { LabelChips } from '../molecules/label-chips';
 import { LoadingSkeleton } from '../../../../components/molecules/loading-skeleton';
 import { LastSeen } from '../molecules/last-seen';
@@ -42,9 +24,6 @@ import { ReportLine } from '../../../../components/molecules/report-line';
 import { SquadronTag } from '../../../../components/molecules/squadron-tag';
 import { ShipName } from '../../../../components/molecules/ship-name';
 import { StatusBadge } from '../../../../components/molecules/status-badge';
-import { FilterSelect } from '../molecules/filter-select';
-import { FilterToggles } from '../molecules/filter-toggles';
-import { LabelFilterButton, PhoneLabelFilter, PickedLabels } from './label-filter';
 
 /** Where row actions render: the desktop row menu, the phone row's actions sheet, or the one next step in the Report cell. */
 export type RowActionsLayout = 'table' | 'phone' | 'next';
@@ -52,17 +31,17 @@ export type RowActionsLayout = 'table' | 'phone' | 'next';
 export interface FleetTableProps {
   /** The ships of the pages loaded, as `fleet.list` selects and orders them for the view; the table shows them as they come. */
   ships: readonly ListedShip[];
-  /** The view's and the fleet's counts; undefined until counted. */
-  counts?: FleetCounts;
   /** Whether argo is the fleet's only active ship: the empty state. */
   isOnlyArgo: boolean;
-  /** The fleet's ship types, for the Type filter. */
-  types: readonly string[];
   /** The next page: Load more while more ships follow (decision 4 of the performance design). */
   more?: { hasMore: boolean; isLoading: boolean; isFailed: boolean; onLoad: () => void };
-  /** Search and filters, kept by the page in the URL. */
-  view: FleetView;
-  onViewChange: (view: FleetView) => void;
+  /** The column the list is sorted by, kept by the page in the address. */
+  sort: FleetSort | null;
+  onSortChange: (sort: FleetSort | null) => void;
+  /** Stands in for the rows when the bar's search and filters select no ship: the header stays, the message in the table. */
+  noMatch?: ReactNode;
+  /** A new result is coming: the rows shown are the previous one, dimmed. */
+  isUpdating?: boolean;
   /** Ready shows the ships, or the empty state when argo is the only ship. */
   state: 'ready' | 'loading' | 'error';
   /** The error state's technical reason and retry. */
@@ -78,7 +57,7 @@ export interface FleetTableProps {
   emptyAction?: ReactNode;
   /** With squadrons on, each flagship's and member's squadron, by ship id. */
   squadronsOf?: ReadonlyMap<string, ShipInSquadron>;
-  /** The fleet's labels, once read (#102): chips on rows and the label filter. */
+  /** The fleet's labels, once read (#102): chips on rows. */
   labels?: LabelContext;
   /** The ships the console's plugins run as: squadrons' and the trierarch plugin's, each with a plugin chip (#368). */
   pluginShipIds?: ReadonlySet<string>;
@@ -86,38 +65,6 @@ export interface FleetTableProps {
 
 /** The labels cell's character budget before the rest fold into a link to the ship page. */
 const ROW_LABELS_WIDTH = 22;
-
-/** The view with one more label value picked, one taken out, or none. */
-function withLabels(view: FleetView, labelValueIds: readonly LabelValueId[]): FleetView {
-  return { ...view, filters: { ...view.filters, labelValueIds } };
-}
-
-function isStatusFilter(value: string): value is StatusFilter {
-  return Object.hasOwn(STATUS_WORDS, value);
-}
-
-/** The crew request filter's choices, in the order of a request's life. */
-function crewRequestItemsOf(crewStatuses: readonly CrewStatus[]): Record<string, string> {
-  return Object.fromEntries(crewRequestKeysOf(crewStatuses).map((key) => [key, crewRequestKeyWord(key)]));
-}
-
-function isCrewRequestFilter(value: string, items: Record<string, string>): value is CrewRequestKey {
-  return Object.hasOwn(items, value);
-}
-
-/** Values that are their own words, such as ship types and squadron ids. */
-function wordsOf(values: readonly string[]): Record<string, string> {
-  return Object.fromEntries(values.map((value) => [value, value]));
-}
-
-/** What the no-results action clears: the search, the filters, or both. */
-function clearLabel(query: string, filters: FleetFilters): string {
-  const isFiltered = activeFilterCount(filters) > 0;
-  if (query === '') {
-    return 'Clear filters';
-  }
-  return isFiltered ? 'Clear search and filters' : 'Clear search';
-}
 
 /**
  * The chip beside a ship's name: argo's operator kind chip, the viewer ship's
@@ -221,335 +168,6 @@ function ReportCell({ ship, now, viewerFleetId, next }: { ship: ListedShip; now:
   );
 }
 
-function FilterControls({
-  types,
-  view,
-  onViewChange,
-  size,
-  squadronsOf,
-  labels,
-}: Pick<FleetTableProps, 'types' | 'view' | 'onViewChange' | 'squadronsOf' | 'labels'> & { size: 'sm' | 'touch' }) {
-  const crewRequestItems = crewRequestItemsOf(useConsoleConstants().crewStatuses);
-  const { filters } = view;
-  const change = (next: Partial<FleetFilters>) => {
-    onViewChange({ ...view, filters: { ...filters, ...next } });
-  };
-  const isTouch = size === 'touch';
-  return (
-    <>
-      <FilterSelect
-        label="Status"
-        items={STATUS_WORDS}
-        picked={filters.status}
-        onPickedChange={(picked) => {
-          change({ status: picked.filter(isStatusFilter) });
-        }}
-        size={size}
-        testId={isTouch ? undefined : 'fleet-filter-status'}
-      />
-      <FilterSelect
-        label="Crew request"
-        items={crewRequestItems}
-        picked={filters.crewRequest}
-        onPickedChange={(picked) => {
-          change({ crewRequest: picked.filter((value) => isCrewRequestFilter(value, crewRequestItems)) });
-        }}
-        size={size}
-        testId={isTouch ? undefined : 'fleet-filter-crew-request'}
-      />
-      <FilterSelect
-        label="Kind"
-        items={AGENT_KIND_WORDS}
-        picked={filters.kind}
-        onPickedChange={(picked) => {
-          change({ kind: picked.filter(isAgentKind) });
-        }}
-        size={size}
-        testId={isTouch ? undefined : 'fleet-filter-kind'}
-      />
-      <FilterSelect
-        label="Type"
-        items={wordsOf(types)}
-        picked={filters.type}
-        onPickedChange={(picked) => {
-          change({ type: picked });
-        }}
-        size={size}
-        valueClassName="font-mono"
-        testId={isTouch ? undefined : 'fleet-filter-type'}
-      />
-      {squadronsOf && (
-        <FilterSelect
-          label="Squadron"
-          items={wordsOf(fleetSquadrons(squadronsOf))}
-          picked={filters.squadron}
-          onPickedChange={(picked) => {
-            change({ squadron: picked });
-          }}
-          size={size}
-          testId={isTouch ? undefined : 'fleet-filter-squadron'}
-        />
-      )}
-      {labels === undefined || isTouch ? null : (
-        <LabelFilterButton
-          groups={filterGroupsOf(labels)}
-          picked={pickedChips(filters.labelValueIds, labels)}
-          onPick={(valueId) => {
-            onViewChange(withLabels(view, [...filters.labelValueIds, valueId]));
-          }}
-        />
-      )}
-      {activeFilterLabels(filters).length > 0 && !isTouch ? (
-        <Button
-          variant="ghost"
-          size="xs"
-          data-testid="fleet-filters-clear"
-          onClick={() => {
-            onViewChange({ ...view, filters: DEFAULT_FLEET_VIEW.filters });
-          }}
-        >
-          Clear filters
-        </Button>
-      ) : null}
-    </>
-  );
-}
-
-/** Show retired on desktop: it sits with the ship count at the end of the filter bar's first row, however the filters wrap. */
-/** "(n)" after Show retired, once counted. */
-function retiredCountWords(counts: FleetCounts | undefined): string {
-  return counts === undefined ? '' : ` (${String(counts.retired)})`;
-}
-
-function ShowRetiredSwitch({ counts, view, onViewChange }: Pick<FleetTableProps, 'counts' | 'view' | 'onViewChange'>) {
-  const switchId = 'fleet-show-retired';
-  return (
-    <div className="inline-flex items-center gap-2">
-      <Switch
-        id={switchId}
-        data-testid="fleet-show-retired"
-        checked={view.filters.isRetiredShown}
-        onCheckedChange={(isChecked) => {
-          onViewChange({ ...view, filters: { ...view.filters, isRetiredShown: isChecked } });
-        }}
-      />
-      <Label htmlFor={switchId} className="text-meta font-normal text-muted-foreground">
-        Show retired{retiredCountWords(counts)}
-      </Label>
-    </div>
-  );
-}
-
-/**
- * The phone's filters in a bottom Sheet (canvas, MOverviewFilters): Status as
- * segments, Crew request, Kind, Type and Squadron as chips, each picking several values (#815), Show retired ships, and Show N ships
- * to close it. Reset puts every filter back; the search stays.
- */
-function PhoneFilters({
-  types,
-  counts,
-  view,
-  onViewChange,
-  squadronsOf,
-  labels,
-}: Pick<FleetTableProps, 'types' | 'counts' | 'view' | 'onViewChange' | 'squadronsOf' | 'labels'>) {
-  const crewRequestItems = crewRequestItemsOf(useConsoleConstants().crewStatuses);
-  const { filters } = view;
-  const change = (next: Partial<FleetFilters>) => {
-    onViewChange({ ...view, filters: { ...filters, ...next } });
-  };
-  const active = activeFilterCount(filters);
-  return (
-    <Sheet>
-      <SheetTrigger
-        render={
-          <Button
-            size="touch"
-            isIconOnly
-            aria-label={active > 0 ? `Filter ships, ${String(active)} active` : 'Filter ships'}
-            data-testid="fleet-filters-open"
-            icon={<SlidersHorizontal />}
-            className="relative sm:hidden"
-          >
-            {active > 0 ? <span aria-hidden className="absolute top-1.5 right-1.5 size-2 rounded-full bg-primary" /> : null}
-          </Button>
-        }
-      />
-      <SheetContent side="bottom">
-        <SheetHeader className="flex-row items-center justify-between">
-          <SheetTitle>Filter ships</SheetTitle>
-          <Button
-            variant="ghost"
-            size="touch"
-            data-testid="fleet-filters-reset"
-            onClick={() => {
-              onViewChange({ ...view, filters: DEFAULT_FLEET_VIEW.filters });
-            }}
-          >
-            Reset
-          </Button>
-        </SheetHeader>
-        <SheetBody className="flex flex-col gap-4 pb-4">
-          <FilterToggles
-            label="Status"
-            layout="segments"
-            items={STATUS_WORDS}
-            picked={filters.status}
-            onPickedChange={(picked) => {
-              change({ status: picked.filter(isStatusFilter) });
-            }}
-          />
-          <FilterToggles
-            label="Crew request"
-            items={crewRequestItems}
-            picked={filters.crewRequest}
-            onPickedChange={(picked) => {
-              change({ crewRequest: picked.filter((value) => isCrewRequestFilter(value, crewRequestItems)) });
-            }}
-          />
-          <FilterToggles
-            label="Kind"
-            items={AGENT_KIND_WORDS}
-            picked={filters.kind}
-            onPickedChange={(picked) => {
-              change({ kind: picked.filter(isAgentKind) });
-            }}
-            testId="fleet-filter-kind-touch"
-          />
-          <FilterToggles
-            label="Type"
-            allLabel="All types"
-            items={wordsOf(types)}
-            picked={filters.type}
-            onPickedChange={(picked) => {
-              change({ type: picked });
-            }}
-          />
-          {squadronsOf && (
-            <FilterToggles
-              label="Squadron"
-              items={wordsOf(fleetSquadrons(squadronsOf))}
-              picked={filters.squadron}
-              onPickedChange={(picked) => {
-                change({ squadron: picked });
-              }}
-            />
-          )}
-          {labels === undefined ? null : (
-            <PhoneLabelFilter
-              groups={filterGroupsOf(labels)}
-              picked={pickedChips(filters.labelValueIds, labels)}
-              onPick={(valueId) => {
-                onViewChange(withLabels(view, [...filters.labelValueIds, valueId]));
-              }}
-              onRemove={(valueId) => {
-                onViewChange(withLabels(view, filters.labelValueIds.filter((each) => each !== valueId)));
-              }}
-            />
-          )}
-          <div className="flex items-center justify-between gap-2 py-1">
-            <Label htmlFor="fleet-show-retired-touch" className="text-body-touch font-normal">
-              Show retired ships <span className="text-muted-foreground">{retiredCountWords(counts)}</span>
-            </Label>
-            <Switch
-              id="fleet-show-retired-touch"
-              checked={filters.isRetiredShown}
-              onCheckedChange={(isChecked) => {
-                change({ isRetiredShown: isChecked });
-              }}
-            />
-          </div>
-          <SheetClose render={<Button size="touch" data-testid="fleet-filters-apply" />}>
-            {counts === undefined ? 'Show ships' : counts.shown === 1 ? 'Show 1 ship' : `Show ${String(counts.shown)} ships`}
-          </SheetClose>
-        </SheetBody>
-      </SheetContent>
-    </Sheet>
-  );
-}
-
-/** The filters in force as chips under the phone's search, with Clear filters. */
-function PhoneFilterChips({ view, onViewChange, labels }: Pick<FleetTableProps, 'view' | 'onViewChange' | 'labels'>) {
-  const words = activeFilterLabels(view.filters);
-  const picked = labels === undefined ? [] : pickedChips(view.filters.labelValueIds, labels);
-  if (words.length === 0 && picked.length === 0) {
-    return null;
-  }
-  return (
-    <div className="flex w-full flex-wrap items-center gap-1.5 sm:hidden" data-testid="fleet-filter-chips">
-      {words.map((word) => (
-        <Badge key={word} variant="outline" className="max-w-full truncate">
-          {word}
-        </Badge>
-      ))}
-      {picked.map((chip) => (
-        <LabelChip
-          key={chip.valueId}
-          chip={chip}
-          onRemove={() => {
-            onViewChange(withLabels(view, view.filters.labelValueIds.filter((each) => each !== chip.valueId)));
-          }}
-        />
-      ))}
-      <Button
-        variant="ghost"
-        size="touch"
-        onClick={() => {
-          onViewChange({ ...view, filters: DEFAULT_FLEET_VIEW.filters });
-        }}
-      >
-        Clear filters
-      </Button>
-    </div>
-  );
-}
-
-function Toolbar({
-  types,
-  counts,
-  view,
-  onViewChange,
-  squadronsOf,
-  labels,
-}: Pick<FleetTableProps, 'types' | 'counts' | 'view' | 'onViewChange' | 'squadronsOf' | 'labels'>) {
-  return (
-    // On desktop one row (docs/design/png/FleetTable.png): the search and the filters wrap within their own group, Show retired and the count stay at the end of the first row (#1116).
-    <div data-slot="fleet-toolbar" className="flex flex-wrap items-center gap-2 sm:flex-nowrap sm:items-start">
-      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-        <div className="w-60 max-sm:min-w-0 max-sm:flex-1">
-          <Input
-            type="search"
-            aria-label="Search ships by name or type"
-            placeholder="Search ships by name"
-            data-testid="fleet-search"
-            value={view.query}
-            onChange={(event) => {
-              onViewChange({ ...view, query: event.target.value });
-            }}
-            leadingIcon={<Search />}
-            className="h-(--size-control-sm) text-meta max-sm:h-(--size-control-touch) max-sm:text-input-touch"
-          />
-        </div>
-        <div className="max-sm:hidden sm:contents">
-          <FilterControls types={types} view={view} onViewChange={onViewChange} squadronsOf={squadronsOf} labels={labels} size="sm" />
-        </div>
-        <PhoneFilters types={types} counts={counts} view={view} onViewChange={onViewChange} squadronsOf={squadronsOf} labels={labels} />
-      </div>
-      <PhoneFilterChips view={view} onViewChange={onViewChange} labels={labels} />
-      <div className="flex shrink-0 items-center gap-2 max-sm:w-full sm:h-(--size-control-sm)">
-        <div className="max-sm:hidden">
-          <ShowRetiredSwitch counts={counts} view={view} onViewChange={onViewChange} />
-        </div>
-        {counts === undefined ? null : (
-          <p aria-live="polite" className="text-meta text-muted-foreground tabular-nums" data-testid="fleet-count">
-            {counts.shown} of {counts.total} ships
-          </p>
-        )}
-      </div>
-    </div>
-  );
-}
-
 function ShipNameCell({ ship }: { ship: ListedShip }) {
   return (
     <ShipName name={ship.name} shipId={ship.id} isSuffixShown={ship.status === 'retired'} href={ship.kind === 'operator' ? '/inbox' : `/ships/${ship.id}`} className="[&_a]:max-sm:whitespace-normal [&_a]:max-sm:break-all [&_a]:max-sm:text-body-touch" />
@@ -577,8 +195,11 @@ function DesktopTable({
   pluginShipIds,
   sort,
   onSort,
+  empty,
 }: Pick<FleetTableProps, 'highlightedShipIds' | 'now' | 'viewerFleetId' | 'renderRowActions' | 'squadronsOf' | 'labels' | 'pluginShipIds'> & {
   ships: readonly ListedShip[];
+  /** Stands in for the rows while there are none, under the header. */
+  empty?: ReactNode;
   /** The column the rows are sorted by; with no `onSort`, the headers are plain. */
   sort?: FleetSort | null;
   onSort?: (column: SortColumn) => void;
@@ -619,6 +240,13 @@ function DesktopTable({
           </TableRow>
         </TableHeader>
         <TableBody>
+          {ships.length === 0 && empty !== undefined ? (
+            <TableRow className="hover:bg-transparent">
+              <TableCell colSpan={HEADS.length + 1} className="p-3 whitespace-normal">
+                {empty}
+              </TableCell>
+            </TableRow>
+          ) : null}
           {ships.map((ship) => (
             <TableRow
               key={ship.id}
@@ -726,12 +354,12 @@ function PhoneList({
  */
 export function FleetTable({
   ships,
-  counts,
   isOnlyArgo,
-  types,
   more,
-  view,
-  onViewChange,
+  sort,
+  onSortChange,
+  noMatch,
+  isUpdating = false,
   state,
   error,
   highlightedShipIds,
@@ -780,56 +408,25 @@ export function FleetTable({
     );
   }
 
-  const query = view.query.trim();
   return (
-    <div data-slot="fleet-table" data-state="ready" className="flex flex-col gap-3">
-      <Toolbar types={types} counts={counts} view={view} onViewChange={onViewChange} squadronsOf={squadronsOf} labels={labels} />
-      {labels === undefined ? null : (
-        <PickedLabels
-          groups={filterGroupsOf(labels)}
-          picked={pickedChips(view.filters.labelValueIds, labels)}
-          onPick={(valueId) => {
-            onViewChange(withLabels(view, [...view.filters.labelValueIds, valueId]));
-          }}
-          onRemove={(valueId) => {
-            onViewChange(withLabels(view, view.filters.labelValueIds.filter((each) => each !== valueId)));
-          }}
-          onClear={() => {
-            onViewChange(withLabels(view, []));
-          }}
-        />
-      )}
-      {ships.length === 0 ? (
-        <EmptyState
-          variant="no-results"
-          title={query === '' ? 'No ships match these filters.' : `No ships match “${query}”.`}
-          action={
-            <Button
-              size="xs"
-              data-testid="fleet-clear-filters"
-              onClick={() => {
-                onViewChange({ ...DEFAULT_FLEET_VIEW, sort: view.sort });
-              }}
-            >
-              {clearLabel(query, view.filters)}
-            </Button>
-          }
-        />
-      ) : (
-        <>
-          <DesktopTable
-            ships={ships}
-            labels={labels}
-            sort={view.sort}
-            onSort={(column) => {
-              onViewChange({ ...view, sort: nextSort(view.sort, column) });
-            }}
-            {...rows}
-          />
-          <PhoneList ships={ships} {...rows} />
-          {more?.hasMore === true ? <LoadMore what="more ships" isLoading={more.isLoading} isFailed={more.isFailed} onLoad={more.onLoad} area="fleet" /> : null}
-        </>
-      )}
+    <div
+      data-slot="fleet-table"
+      data-state="ready"
+      aria-busy={isUpdating}
+      className={classNames('flex flex-col gap-3 transition-opacity duration-(--duration-fast) motion-reduce:transition-none', isUpdating ? 'opacity-55' : undefined)}
+    >
+      <DesktopTable
+        ships={ships}
+        labels={labels}
+        sort={sort}
+        onSort={(column) => {
+          onSortChange(nextSort(sort, column));
+        }}
+        empty={noMatch}
+        {...rows}
+      />
+      {ships.length === 0 ? <div className="sm:hidden">{noMatch}</div> : <PhoneList ships={ships} {...rows} />}
+      {more?.hasMore === true ? <LoadMore what="more ships" isLoading={more.isLoading} isFailed={more.isFailed} onLoad={more.onLoad} area="fleet" /> : null}
     </div>
   );
 }
