@@ -92,6 +92,30 @@ export const TypeOpen: Story = {
   },
 };
 
+/**
+ * The Labels menu open (docs/design/fleet-overview, "Labels open"): its
+ * trigger reads like State and Type; Find a label narrows the values, each
+ * under its key with how many ships carry it; a pick checks it and shows
+ * under the bar as "Ships with".
+ */
+export const LabelsOpen: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByTestId('fleet-filter-labels')).toHaveTextContent(/^Labels$/);
+    await userEvent.click(canvas.getByTestId('fleet-filter-labels'));
+    const popover = within(await within(canvasElement.ownerDocument.body).findByTestId('fleet-filter-labels-popover'));
+    await userEvent.type(popover.getByRole('textbox', { name: 'Find a label' }), 'hem');
+    await expect(popover.getByRole('group', { name: 'project' })).toBeVisible();
+    await expect(popover.queryByRole('group', { name: 'area' })).toBeNull();
+    await userEvent.click(popover.getByRole('button', { name: /^hemma\s*\d+$/ }));
+    await expect(popover.getByRole('button', { name: /^hemma\s*\d+$/ })).toHaveAttribute('aria-pressed', 'true');
+    await expect(canvas.getByTestId('fleet-filter-labels')).toHaveTextContent('Labels1 picked');
+    await expect(canvas.getByTestId('fleet-picked-labels')).toHaveTextContent('Ships with');
+  },
+};
+
+export const LabelsOpenDark: Story = { ...LabelsOpen, globals: { theme: 'dark' } };
+
 /** A label value picked: "Ships with project=hemma" under the bar. */
 export const LabelPicked: Story = {
   args: { view: { ...DEFAULT_FLEET_VIEW, filters: { state: [], type: [], labelValueIds: [carried(PROJECT, 'hemma').valueId] } }, shown: 3 },
