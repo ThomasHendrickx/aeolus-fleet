@@ -684,18 +684,18 @@ export const MockupRowsPhone: Story = {
 
 export const MockupRowsPhoneDark: Story = { ...MockupRowsPhone, globals: { ...MockupRowsPhone.globals, theme: 'dark' } };
 
-function reportOf(state: 'working' | 'blocked' | 'idle', note: string, minutesBack: number): ListedShip['report'] {
+function reportOf({ state, note, minutesBack }: { state: 'working' | 'blocked' | 'idle'; note: string; minutesBack: number }): ListedShip['report'] {
   const at = new Date(NOW.getTime() - minutesBack * 60_000).toISOString();
   return { state, note, task: null, step: null, reportedAt: at, reportChangedAt: at, detailsVersion: 0 };
 }
 
 /** The state-colours sheet's console list (docs/design/state-colours): a ship of every state and status. */
 const STATE_ROWS: ListedShip[] = [
-  ship('s1aa', { name: 'ecosystem-relationships', openAlertCount: 1, report: reportOf('working', 'Drafting the partner list', 120) }),
+  ship('s1aa', { name: 'ecosystem-relationships', openAlertCount: 1, report: reportOf({ state: 'working', note: 'Drafting the partner list', minutesBack: 120 }) }),
   ship('s1ab', { name: 'walker-3', status: 'awaitingCrew', lastSeenAt: null, harness: null, model: null }),
-  ship('s1ac', { name: 'builder-gateway', report: reportOf('blocked', 'Waiting for release 0.37.0', 25) }),
-  ship('s1ad', { name: 'orchestrator-1', report: reportOf('working', 'Cutting #189 into slices', 0) }),
-  ship('s1ae', { name: 'aeolus-guide', report: reportOf('idle', 'Nothing open', 7 * 24 * 60) }),
+  ship('s1ac', { name: 'builder-gateway', report: reportOf({ state: 'blocked', note: 'Waiting for release 0.37.0', minutesBack: 25 }) }),
+  ship('s1ad', { name: 'orchestrator-1', report: reportOf({ state: 'working', note: 'Cutting #189 into slices', minutesBack: 0 }) }),
+  ship('s1ae', { name: 'aeolus-guide', report: reportOf({ state: 'idle', note: 'Nothing open', minutesBack: 7 * 24 * 60 }) }),
   ship('s1af', { name: 'old-scout', status: 'retired', retiredAt: new Date(NOW.getTime() - 16 * 24 * HOUR_MS).toISOString() }),
 ];
 
