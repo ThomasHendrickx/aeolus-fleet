@@ -81,36 +81,40 @@ export function handDelivery(delivery: Delivery, handOver: { crew: CrewOfShip; a
   return countAttempt(delivery, { ...handOver, handOverNumber: null });
 }
 
+/** What a push receive does with one delivery: a new receipt to store, or the crew's own held one, read. */
+export type PushReceipt = { outcome: 'received'; delivery: Delivery; events: NewEvent[] } | { outcome: 'held'; delivery: Delivery };
+
 /**
  * A push receive takes a delivery for the crew's computer side, which hands
  * it to the agent later (decision 0040). A pending one becomes received, in
  * flight with the crew's ship and lease, with no attempt counted and no
- * hand-over number yet. One of the crew's own in flight, received or handed,
- * is received again: nothing changes, and DeliveryReceived marked again says
- * so. The repository returns nothing else to a push receive.
+ * hand-over number yet: DeliveryReceived. One the crew already holds,
+ * received or handed, is held: returned as it is, a read with nothing to
+ * store and no event (#1650), so received is the first handing to a crew
+ * and the history shows one receipt per crew. The repository returns
+ * nothing else to a push receive.
  */
-export function pushReceiveDelivery(
-  delivery: Delivery,
-  receipt: { crew: CrewOfShip; at: Date },
-): { delivery: Delivery; events: NewEvent[] } {
+export function pushReceiveDelivery(delivery: Delivery, receipt: { crew: CrewOfShip; at: Date }): PushReceipt {
   const { crew, at } = receipt;
-  const isAgain = delivery.state !== 'pending';
-  const event: NewEvent = {
-    fleetId: delivery.fleetId,
-    type: 'DeliveryReceived',
-    occurredAt: at,
-    actor: crewActor(crew),
-    shipId: crew.shipId,
-    messageId: delivery.messageId,
-    deliveryId: delivery.id,
-    details: { leaseId: crew.leaseId, ...(isAgain && { again: true }) },
+  if (delivery.state !== 'pending') {
+    return { outcome: 'held', delivery };
+  }
+  return {
+    outcome: 'received',
+    delivery: { ...delivery, state: 'received', claimedByShipId: crew.shipId, claimedByLeaseId: crew.leaseId, handOverNumber: null },
+    events: [
+      {
+        fleetId: delivery.fleetId,
+        type: 'DeliveryReceived',
+        occurredAt: at,
+        actor: crewActor(crew),
+        shipId: crew.shipId,
+        messageId: delivery.messageId,
+        deliveryId: delivery.id,
+        details: { leaseId: crew.leaseId },
+      },
+    ],
   };
-  return isAgain
-    ? { delivery, events: [event] }
-    : {
-        delivery: { ...delivery, state: 'received', claimedByShipId: crew.shipId, claimedByLeaseId: crew.leaseId, handOverNumber: null },
-        events: [event],
-      };
 }
 
 export type HandOverRefusal = DomainError<
