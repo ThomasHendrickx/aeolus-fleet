@@ -508,7 +508,7 @@ Each event records its type and time, who caused it (a ship, `argo` included, or
 | `ScheduleResumed` | Messaging | The ship resumed its schedule (0062): details hold the schedule and its next send time, none when it ends at once |
 | `ScheduleEnded` | Messaging | The ship's schedule ended after its last send time, past its end or its count (0062): details hold the schedule and that send time's outcome (`sent`, `skipped`, `missed`) |
 | `LeasePushed` | Registry | The lease's first push receive: from now until the lease ends, its computer side receives for it and the agent's plain receive answers nothing (decision 0040); details hold the lease, and the waker when the push receive stated one |
-| `DeliveryReceived` | Messaging | A push receive took the delivery for a crew's computer side: in flight with that ship and lease, no attempt counted. Its details say `again: true` when the crew already held it, and nothing changed |
+| `DeliveryReceived` | Messaging | A push receive took the delivery for a crew's computer side: in flight with that ship and lease, no attempt counted. Written once per crew: a push receive of a delivery the crew already holds is a read and writes none. A history stored before that rule may still hold one with `again: true`, which changed nothing |
 | `DeliveryHanded` | Messaging | A plain receive hands the delivery to a crew, or a pushed crew's computer side reports it handed it to the agent with a new hand-over number: in flight with that ship and lease, one more attempt counted. Its details hold the hand-over number when there is one, and the channel when the computer side named one. Marked `onceMore`, it hands a confirmed message once more after its turn died: still acknowledged, no attempt counted |
 | `DeliveryAcknowledged` | Messaging | Delivery done, sender can see it. Its details say `answer: pong` when a pong answered a ping |
 | `DeliveryHandled` | Messaging | A pushed crew reported the turn that took the acknowledged delivery ended by itself (decision 0040) |
@@ -550,7 +550,7 @@ stateDiagram-v2
   [*] --> pending: message accepted
   pending --> handed: receive
   pending --> received: push receive
-  received --> received: push receive again (no change)
+  received --> received: push receive again by the same crew (a read)
   received --> handed: handed (hand-over number)
   handed --> handed: handed with a higher number (one more attempt)
   received --> acknowledged: ack
@@ -573,7 +573,7 @@ stateDiagram-v2
 
 `handed` means the agent has it: a plain receive handed it to a crew at once, or a pushed crew's computer side handed it to the agent. Either way it is in flight with that ship and its lease. Every plain receive of it is one attempt, and so is every `handed` with a higher hand-over number; the fifth attempt is refused: it becomes undeliverable and is handed to no one. The console shows a delivery a plain receive handed as handed (pulled), and one a pushed crew's computer side handed as handed.
 
-`received` means a push receive took it for the crew's computer side, the trierarch or the plugin watcher, which has not handed it to the agent yet (decision 0040): in flight with that ship and its lease, no attempt counted. A push receive returns its own received and handed deliveries again, changing nothing, so a restart of the computer side loses nothing. From its first push receive until it ends, the lease is pushed: the agent's plain receive answers nothing, and the hook's `ack` when the message comes into the agent's turn is the agent's confirmation.
+`received` means a push receive took it for the crew's computer side, the trierarch or the plugin watcher, which has not handed it to the agent yet (decision 0040): in flight with that ship and its lease, no attempt counted. Received is the first handing to a crew: a push receive returns its own received and handed deliveries again as a read, with no event and no lock on the fleet, so a restart of the computer side loses nothing and receiving again costs the fleet nothing. A new crew of the ship, after a release, receives it anew and records its own receipt, so the history shows one receipt per crew. From its first push receive until it ends, the lease is pushed: the agent's plain receive answers nothing, and the hook's `ack` when the message comes into the agent's turn is the agent's confirmation.
 
 `handled` and `not handled` say how the turn that took an acknowledged delivery ended on a pushed ship, as its hooks or trierarch report it (decision 0040): handled when the turn ended by itself; when the turn or the session died, the message is handed once more, still acknowledged, and not handled when that turn died too. A pull ship reports neither: its delivery ends acknowledged. A lease that ends leaves an acknowledged delivery acknowledged, handled unknown.
 
