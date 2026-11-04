@@ -1,6 +1,6 @@
 # Crew settings: a request's MCP servers
 
-Design, mockups for approval. Docs only. [Issue 1653](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1653). Nothing is built until Thomas approves the before and after below; once approved, they are the acceptance criteria.
+Design, approved by Thomas on 4 Nov. Docs only. [Issue 1653](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1653). The after screens below are its acceptance criteria.
 
 ## 1. Purpose
 
