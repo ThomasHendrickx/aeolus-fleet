@@ -65,6 +65,16 @@ export const NeedsCrewWithPlugin: Story = {
 };
 export const WaitingForAssignment: Story = { args: { stage: { kind: 'needsCrew', requestedAt: minutesAgo(1), reason: null }, hasTrierarchs: true, settingsRows: ROWS, onEdit: () => undefined } };
 export const RunningWithPlugin: Story = { args: { ...Running.args, hasTrierarchs: true, settingsRows: ROWS, onEdit: () => undefined } };
+/** A request that names no MCP server: the row says None, as Squadron does. */
+export const RunningWithoutMcpServers: Story = {
+  args: {
+    ...RunningWithPlugin.args,
+    settingsRows: ROWS.map((row) => (row.label === 'MCP servers' ? { ...row, value: null } : row)),
+  },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getByText('MCP servers').parentElement).toHaveTextContent('None');
+  },
+};
 export const CrashedWithPlugin: Story = { args: { ...Crashed.args, hasTrierarchs: true, settingsRows: ROWS, onEdit: () => undefined } };
 /** A request for machines carrying os=linux and arch=arm64, which none does: it waits, and says why (canvas LbBlockNoMatch). */
 export const NoMachineMatches: Story = {

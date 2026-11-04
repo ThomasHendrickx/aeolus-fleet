@@ -82,6 +82,8 @@ export const WithMcpServer: Story = {
     await userEvent.click(await screen.findByTestId('mcp-servers-add'));
     await userEvent.click(await screen.findByRole('menuitem', { name: 'company-graph' }));
     await expect(await screen.findByTestId('mcp-server')).toHaveTextContent('company-graph');
+    // The menu hands focus back to Add server; the approved mockup has it on Name.
+    screen.getByTestId('commission-name').focus();
   },
 };
 export const WithTrierarchPluginNoRoom: Story = { args: { crewRequest: { offers: OFFERS, check: { kind: 'noRoom', reason: 'no trierarch with room: all 1 that fit are full' }, onSettingsChange: () => undefined } } };

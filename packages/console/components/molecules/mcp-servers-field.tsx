@@ -2,7 +2,7 @@
 
 import { Plus, X } from 'lucide-react';
 
-import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@aeolus-fleet/ui';
+import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Tooltip, TooltipContent, TooltipTrigger } from '@aeolus-fleet/ui';
 
 interface McpServersFieldProps {
   shipName: string;
@@ -41,12 +41,17 @@ function ServerChip({ server, onRemove }: { server: string; onRemove: (() => voi
  * A crew request's MCP servers (docs/design/crew-mcp-servers, Q1 to Q3): "None"
  * when empty; each server picked a mono chip with ×, then Add server, which
  * offers only what the answering machines offer for the harness, so a
- * request cannot wait on a server no machine gives. Add server goes once
- * every server offered is picked.
+ * request cannot wait on a server no machine gives. Once every server offered
+ * is picked, Add server stays, off, and says why, so the field keeps its shape.
  */
 export function McpServersField({ shipName, picked, offered, isDisabled = false, onAdd, onRemove }: McpServersFieldProps) {
   const remaining = offered.filter((server) => !picked.includes(server));
   const isAllPicked = offered.length > 0 && remaining.length === 0;
+  const addServer = (
+    <Button type="button" variant="ghost" size="xs" icon={<Plus />} disabled={isDisabled || isAllPicked} focusableWhenDisabled={isAllPicked && !isDisabled} data-testid="mcp-servers-add">
+      Add server
+    </Button>
+  );
   return (
     <div className="flex flex-col gap-1.5" data-testid="mcp-servers">
       <span className="text-body font-medium">
@@ -67,9 +72,15 @@ export function McpServersField({ shipName, picked, offered, isDisabled = false,
             }
           />
         ))}
-        {isAllPicked ? null : (
+        {isAllPicked ? (
+          <Tooltip>
+            {/* Focusable while off, so hover and focus say why. */}
+            <TooltipTrigger render={addServer} />
+            <TooltipContent>Every offered server is added.</TooltipContent>
+          </Tooltip>
+        ) : (
           <DropdownMenu>
-            <DropdownMenuTrigger render={<Button type="button" variant="ghost" size="xs" icon={<Plus />} disabled={isDisabled} data-testid="mcp-servers-add" />}>Add server</DropdownMenuTrigger>
+            <DropdownMenuTrigger render={addServer} />
             <DropdownMenuContent align="start">
               {remaining.length === 0 ? (
                 <p data-testid="mcp-servers-none-offered" className="max-w-64 px-2 py-1.5 text-meta text-muted-foreground">

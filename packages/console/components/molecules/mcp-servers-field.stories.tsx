@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
-import { expect, fn, userEvent, within } from 'storybook/test';
+import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
 
 import { McpServersField } from './mcp-servers-field';
 
@@ -58,9 +58,11 @@ export const AllOfferedPicked: Story = {
   args: { picked: ['company-graph', 'jira'] },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByTestId('mcp-servers-add')).toBeDisabled();
-    canvas.getByTestId('mcp-servers-add-reason').focus();
-    await expect(await within(canvasElement.ownerDocument.body).findByText('Every offered server is added.')).toBeVisible();
+    await expect(canvas.getByTestId('mcp-servers-add')).toHaveAttribute('aria-disabled', 'true');
+    canvas.getByTestId('mcp-servers-add').focus();
+    await waitFor(async () => {
+      await expect(within(canvasElement.ownerDocument.body).getByText('Every offered server is added.')).toBeVisible();
+    });
   },
 };
 
