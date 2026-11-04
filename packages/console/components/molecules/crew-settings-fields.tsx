@@ -8,7 +8,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Textarea } from '../atoms/textarea';
 import { InlineError } from './inline-error';
 import { MachineLabelsField } from './machine-labels-field';
-import { McpServersField } from './mcp-servers-field';
 
 interface CrewSettingsFieldsProps {
   offers: readonly HarnessOffer[];
@@ -145,7 +144,6 @@ export function CrewSettingsFields({ offers, values, onChange, firstPromptMaxByt
           }}
         />
       )}
-      <McpServersField shipName={machineLabels?.shipName ?? 'this ship'} picked={['company-graph']} isDisabled={isDisabled} />
       {(offer?.options ?? []).map((option, index) => (
         <Field key={option.name} id={`${ids.options}-${String(index)}`} label={option.name} error={index === 0 ? errorOf('options') : undefined}>
           <Pick

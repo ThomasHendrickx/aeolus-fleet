@@ -55,7 +55,6 @@ const ROWS = [
   { label: 'Workspace', value: 'aeolus-fleet', meta: 'New worktree' },
   { label: 'model', value: 'claude-opus-5-5', isMono: true },
   { label: 'effort', value: 'high', isMono: true },
-  { label: 'MCP servers', value: 'company-graph', isMono: true },
   { label: 'First prompt', value: '112 B' },
   { label: 'Squadron', value: null, isMono: true },
 ];
