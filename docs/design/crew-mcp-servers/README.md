@@ -43,6 +43,8 @@ Drawn with the console's own parts (CommissionDialog, RequestCrewDialog, FormSqu
 
 ## 4. Questions for Thomas
 
+Thomas answered Q1 to Q3 on 4 Nov, each option 1: the after mockups draw every answer.
+
 ### Q1. The control
 
 1. **Chips with ×, then Add server (pick)**, as machine labels (L4). Compact when there are none, and the same look as the field above it.
@@ -70,3 +72,5 @@ Answer: 1.
 3. None of these.
 
 Pick: 1. The grid reads the same for every request.
+
+Answer: 1.
