@@ -51,6 +51,8 @@ Drawn with the console's own parts (CommissionDialog, RequestCrewDialog, FormSqu
 
 Pick: 1. One look for the two fields that decide placement.
 
+Answer: 1.
+
 ### Q2. What Add server offers
 
 1. **The servers the answering machines offer for the picked harness (pick)**, as workspaces and options are (L3). A server no machine offers cannot be picked, so the request cannot wait on it unseen.

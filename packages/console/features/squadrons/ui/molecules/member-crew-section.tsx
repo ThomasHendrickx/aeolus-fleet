@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Textarea } from '../../../../components/atoms/textarea';
 import { InlineError } from '../../../../components/molecules/inline-error';
 import { MachineLabelsField } from '../../../../components/molecules/machine-labels-field';
+import { McpServersField } from '../../../../components/molecules/mcp-servers-field';
 
 interface MemberCrewSectionProps {
   member: MemberValues;
@@ -201,6 +202,7 @@ export function MemberCrewSection({ member, offers, workspaces, machineLabels, i
               }}
             />
           )}
+          <McpServersField shipName={member.slot} picked={['company-graph']} isDisabled={isDisabled} />
           <Field id={ids.firstPrompt} label="First prompt" hint="The session starts with it, on its first start only.">
             <Textarea
               id={ids.firstPrompt}
