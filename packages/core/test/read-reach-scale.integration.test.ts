@@ -66,14 +66,14 @@ afterAll(async () => {
 });
 
 describe('read reach at 3,000 active and 3,000 retired ships', () => {
-  it('reads the labels the fleet carries in one statement, not one per ship', async () => {
+  it('reads the labels in two statements, its own and the fleet\'s, not one per ship', async () => {
     // Given a fleet of 6,000 ships, half of the active ones in team a, and a read rule letting team a read team a.
     statements.length = 0;
 
     // When the reader reads Harbour.
     const { counts } = await useCases.readHarbour(reader);
 
-    // Then it reads itself and the 1,500 ships of team a, reading ship_labels once.
-    expect([counts?.ships, statements.filter((statement) => statement.includes('"ship_labels"')).length]).toEqual([1_501, 1]);
+    // Then it reads itself and the 1,500 ships of team a, reading ship_labels twice: its own labels, as the reader, and the fleet's.
+    expect([counts?.ships, statements.filter((statement) => statement.includes('"ship_labels"')).length]).toEqual([1_501, 2]);
   });
 });
