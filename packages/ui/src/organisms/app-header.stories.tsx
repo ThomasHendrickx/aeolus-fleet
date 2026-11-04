@@ -68,6 +68,7 @@ export const FleetSearchFieldNoAvatar: Story = {
     await expect(canvas.getByTestId('app-switcher')).toHaveTextContent(/^Acme$/);
     await expect(canvas.queryByTestId('avatar-menu')).toBeNull();
     const search = canvas.getByTestId('header-search');
+    await expect(search).toHaveAttribute('data-slot', 'button');
     await expect(search).toHaveTextContent(/^Search$/);
     await expect(search.compareDocumentPosition(canvas.getByRole('button', { name: 'Compose' }))).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     await userEvent.click(search);
