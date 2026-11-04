@@ -37,7 +37,18 @@ describe('offersOf', () => {
     });
 
     expect(offersOf([aMachine('mc01'), other], NO_RULE)).toEqual([
-      { harness: 'claude-code', repositories: ['aeolus-fleet', 'hemma'], folders: ['notes'], options: [{ name: 'model', values: ['opus', 'sonnet', 'haiku'], defaultValue: 'opus' }] },
+      { harness: 'claude-code', repositories: ['aeolus-fleet', 'hemma'], folders: ['notes'], options: [{ name: 'model', values: ['opus', 'sonnet', 'haiku'], defaultValue: 'opus' }], mcpServers: [] },
+    ]);
+  });
+
+  it('offers the MCP servers any answering machine offers for the harness, a machine that reports none offering none', () => {
+    const graph = aMachine('mc01', { details: { harnesses: [{ ...CLAUDE, mcpServers: ['company-graph'] }, { harness: 'codex', options: {}, flags: [], mcpServers: ['wiki'] }] } });
+    const jira = aMachine('mb02', { details: { harnesses: [{ ...CLAUDE, mcpServers: ['jira', 'company-graph'] }] } });
+    const older = aMachine('md03', { details: { harnesses: [CLAUDE] } });
+
+    expect(offersOf([graph, jira, older], NO_RULE).map((offer) => [offer.harness, offer.mcpServers])).toEqual([
+      ['claude-code', ['company-graph', 'jira']],
+      ['codex', ['wiki']],
     ]);
   });
 
