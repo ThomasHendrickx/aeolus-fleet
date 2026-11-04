@@ -244,6 +244,7 @@ function CommissionDialogBody({ types, taken, onTypedChange, isPending, error, s
         </p>
         {hasCrewSettings ? (
           <CrewSettingsFields
+            shipName={name.trim() === '' ? 'this ship' : name.trim()}
             offers={crewRequest.offers}
             values={crewValues}
             firstPromptMaxBytes={firstPromptMaxBytes}
@@ -254,7 +255,7 @@ function CommissionDialogBody({ types, taken, onTypedChange, isPending, error, s
             squadrons={crewRequest.squadrons}
             refusal={refusal}
             isDisabled={isPending}
-            {...(crewRequest.machineLabels === undefined ? {} : { machineLabels: { ...crewRequest.machineLabels, shipName: name.trim() === '' ? 'this ship' : name.trim() } })}
+            {...(crewRequest.machineLabels === undefined ? {} : { machineLabels: crewRequest.machineLabels })}
           />
         ) : null}
       </div>

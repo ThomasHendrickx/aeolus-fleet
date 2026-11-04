@@ -38,7 +38,7 @@ export const AddsAnOfferedServer: Story = {
     const page = within(canvasElement.ownerDocument.body);
     await userEvent.click(page.getByTestId('mcp-servers-add'));
     await expect(page.queryByRole('menuitem', { name: 'company-graph' })).toBeNull();
-    await userEvent.click(page.getByRole('menuitem', { name: 'jira' }));
+    await userEvent.click(await page.findByRole('menuitem', { name: 'jira' }));
     await expect(args.onAdd).toHaveBeenCalledWith('jira');
   },
 };
@@ -59,7 +59,7 @@ export const NoneOffered: Story = {
   play: async ({ canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body);
     await userEvent.click(page.getByTestId('mcp-servers-add'));
-    await expect(page.getByTestId('mcp-servers-none-offered')).toHaveTextContent('No machine offers an MCP server for this harness yet.');
+    await expect(await page.findByTestId('mcp-servers-none-offered')).toHaveTextContent('No machine offers an MCP server for this harness yet.');
   },
 };
 
