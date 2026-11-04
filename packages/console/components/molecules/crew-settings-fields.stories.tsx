@@ -6,8 +6,8 @@ import { defaultValues, type HarnessOffer } from '../../lib/crew-settings-form';
 import { CrewSettingsFields } from './crew-settings-fields';
 
 const OFFERS: HarnessOffer[] = [
-  { harness: 'claude-code', repositories: ['aeolus-fleet', 'hemma'], folders: ['notes'], options: [{ name: 'model', values: ['claude-opus-5-5', 'claude-sonnet-5'], defaultValue: 'claude-opus-5-5' }] },
-  { harness: 'codex', repositories: ['aeolus-fleet'], folders: [], options: [] },
+  { harness: 'claude-code', repositories: ['aeolus-fleet', 'hemma'], folders: ['notes'], options: [{ name: 'model', values: ['claude-opus-5-5', 'claude-sonnet-5'], defaultValue: 'claude-opus-5-5' }], mcpServers: ['company-graph', 'jira'] },
+  { harness: 'codex', repositories: ['aeolus-fleet'], folders: [], options: [], mcpServers: [] },
 ];
 
 /** The fields, holding their own values, as a form does. */

@@ -30,6 +30,7 @@ const DETAILS: NonNullable<Machine['details']> = {
       riskyFlags: ['--dangerously-skip-permissions'],
       version: '2.1.293',
       modelsConfirmedAt: new Date(NOW.getTime() - 3 * 60 * 60 * 1000).toISOString(),
+      mcpServers: ['company-graph', 'jira'],
     },
     { harness: 'codex', options: { type: 'object', properties: { model: { enum: ['gpt-6-sol', 'gpt-6'], default: 'gpt-6-sol' } }, additionalProperties: false }, flags: ['--search'], version: '0.160.1', modelsConfirmedAt: null },
   ],

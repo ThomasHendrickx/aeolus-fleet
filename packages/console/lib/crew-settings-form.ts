@@ -17,6 +17,8 @@ export interface HarnessOffer {
   repositories: string[];
   folders: string[];
   options: HarnessOption[];
+  /** The MCP servers any machine offering the harness can start it with, by name. */
+  mcpServers: string[];
 }
 
 function union(into: string[], values: readonly string[]): void {
@@ -66,11 +68,12 @@ function reportedOffersOf(machines: readonly Machine[]): HarnessOffer[] {
     for (const reported of machine.details.harnesses) {
       let offer = offers.find((each) => each.harness === reported.harness);
       if (offer === undefined) {
-        offer = { harness: reported.harness, repositories: [], folders: [], options: [] };
+        offer = { harness: reported.harness, repositories: [], folders: [], options: [], mcpServers: [] };
         offers.push(offer);
       }
       union(offer.repositories, machine.details.workspaces.repositories);
       union(offer.folders, machine.details.workspaces.folders);
+      union(offer.mcpServers, reported.mcpServers ?? []);
       for (const option of harnessOptions(reported.options)) {
         const held = offer.options.find((each) => each.name === option.name);
         if (held === undefined) {
