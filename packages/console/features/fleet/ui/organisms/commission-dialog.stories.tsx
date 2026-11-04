@@ -75,6 +75,15 @@ export const Phone: Story = { globals: { viewport: { value: 'mobile1' } } };
 
 /** With the trierarch plugin on: Request a crew carries the crew request's settings. */
 export const WithTrierarchPlugin: Story = { args: { crewRequest: { offers: OFFERS, squadrons: ['hemma-feature-63p5sx'], machineLabels: MACHINE_LABELS, onSettingsChange: () => undefined } } };
+/** An MCP server picked under Machine labels, from what the machines offer for the harness. */
+export const WithMcpServer: Story = {
+  args: WithTrierarchPlugin.args,
+  play: async () => {
+    await userEvent.click(await screen.findByTestId('mcp-servers-add'));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'company-graph' }));
+    await expect(await screen.findByTestId('mcp-server')).toHaveTextContent('company-graph');
+  },
+};
 export const WithTrierarchPluginNoRoom: Story = { args: { crewRequest: { offers: OFFERS, check: { kind: 'noRoom', reason: 'no trierarch with room: all 1 that fit are full' }, onSettingsChange: () => undefined } } };
 /** A machine label no machine carries, picked while commissioning: the request still goes, and waits for such a machine (#357). */
 export const WithMachineLabelNoMachineCarries: Story = {
