@@ -61,6 +61,8 @@ Answer: 1.
 
 Pick: 1. The form already offers only what machines offer; a request that can never be placed should not be one click away.
 
+Answer: 1.
+
 ### Q3. The card when a request names none
 
 1. **The row says None (pick)**, as Squadron does: the card shows every setting the request can carry.
