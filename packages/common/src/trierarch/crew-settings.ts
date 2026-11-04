@@ -21,8 +21,8 @@ export type TrierarchWorkspace = z.infer<typeof trierarchWorkspaceSchema>;
 /**
  * A crew request's settings as a trierarch reads them (decision 0027): the
  * fixed core of an optional harness, workspace, an optional squadron, an
- * optional first prompt and options. Without a harness, the trierarch it
- * goes to crews it with its default: the first in its configuration. The server refuses a request whose settings this schema refuses (#809) but never acts on them; the trierarch
+ * optional first prompt, options, optional machine labels and optional MCP
+ * servers. Without a harness, the trierarch it goes to crews it with its default: the first in its configuration. The server refuses a request whose settings this schema refuses (#809) but never acts on them; the trierarch
  * plugin and the trierarch parse them with this schema. Never a path or a
  * command-line flag: a workspace names a repository or folder, options pick
  * named settings, and a first prompt never starts with `-`.
@@ -47,6 +47,13 @@ export const crewSettingsSchema = z.strictObject({
    * machine carries at most 20, so no more can match. None: any machine.
    */
   machineLabels: z.array(idSchema('labelValue')).max(SHIP_LABELS_MAX).optional(),
+  /**
+   * The MCP servers the session starts with, each named on the trierarch
+   * plugin's server list (aeolus-fleet-trierarch's
+   * docs/design/crew-mcp-servers.md, M2 and M3): names, never a definition
+   * or a path. None: no crew-time server.
+   */
+  mcpServers: z.array(trierarchNameSchema).optional(),
 });
 
 /**

@@ -94,6 +94,14 @@ describe('requesting a crew for a ship', () => {
     expect(crewRequestOf(scoutId)?.settings).toEqual({ ...settings, machineLabels });
   });
 
+  it('takes the MCP servers it names and reads them back with the ship (#1649)', async () => {
+    const withServers = { ...settings, mcpServers: ['company-graph', 'docs'] };
+
+    unwrap(await registry.requestCrew(argo, { shipId: scoutId, settings: withServers }));
+
+    await expect(registry.getShip(argo, { shipId: scoutId })).resolves.toMatchObject({ value: { crewRequest: { settings: withServers } } });
+  });
+
   it('takes a first prompt of exactly 8 KB', async () => {
     await expect(registry.requestCrew(argo, { shipId: scoutId, settings: { ...settings, firstPrompt: 'x'.repeat(8 * 1024) } })).resolves.toMatchObject({ isOk: true });
   });
@@ -148,6 +156,20 @@ describe('a crew request refused', () => {
     await expectRefused(
       { shipId: scoutId, settings: { ...settings, flags: ['--yolo'] } },
       { kind: 'CREW_REQUEST_SETTINGS_INVALID', message: 'settings are not valid crew settings: Unrecognized key: "flags"' },
+    );
+  });
+
+  it('refuses MCP servers that are not a list: one name alone (#1649)', async () => {
+    await expectRefused(
+      { shipId: scoutId, settings: { ...settings, mcpServers: 'company-graph' } },
+      { kind: 'CREW_REQUEST_SETTINGS_INVALID', message: 'settings are not valid crew settings: mcpServers: Invalid input: expected array, received string' },
+    );
+  });
+
+  it('refuses an MCP server that is not a name: a path (#1649)', async () => {
+    await expectRefused(
+      { shipId: scoutId, settings: { ...settings, mcpServers: ['company-graph', '../servers/graph.json'] } },
+      { kind: 'CREW_REQUEST_SETTINGS_INVALID', message: 'settings are not valid crew settings: mcpServers.1: A name is lowercase letters, digits, dots, hyphens and underscores, and never a path' },
     );
   });
 
