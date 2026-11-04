@@ -159,11 +159,11 @@ describe('a new crew of the ship, after a release', () => {
 });
 
 describe('a crew receiving its held deliveries again while another ship of its type receives', () => {
-  it('never shares a delivery: the held stay its own, the one pending goes to one of them, with one event', async () => {
+  it('never shares a delivery: the held stay its own, the one pending goes to one of them, with one receipt', async () => {
     const lookout = await crewedReviewer('lookout');
     const held = await scoutHolds(2);
     const pending = await sendTo({ kind: 'type', type: 'reviewer' });
-    const eventsBefore = await eventCount();
+    const receiptsBefore = await prisma.event.count({ where: { fleetId, type: 'DeliveryReceived' } });
     const racing = createPushReceiveDeliveries({
       sealing: unsealedFleetsOnly,
       uow: racingUnitOfWork({ prisma, transactions: 2 }, (tx, allArrived) => ({
@@ -190,7 +190,8 @@ describe('a crew receiving its held deliveries again while another ship of its t
     expect(scoutGot.slice(0, 2)).toEqual(held);
     expect(lookoutGot.filter((deliveryId) => held.includes(deliveryId))).toEqual([]);
     expect([...scoutGot, ...lookoutGot].filter((deliveryId) => deliveryId === pending)).toEqual([pending]);
-    await expect(eventCount()).resolves.toBe(eventsBefore + 1);
+    // The lookout's first push receive also writes LeasePushed; the receipts are what the race is about.
+    await expect(prisma.event.count({ where: { fleetId, type: 'DeliveryReceived' } })).resolves.toBe(receiptsBefore + 1);
     await expect(prisma.event.count({ where: { fleetId, type: 'DeliveryReceived', deliveryId: pending } })).resolves.toBe(1);
   });
 });

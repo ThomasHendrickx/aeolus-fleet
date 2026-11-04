@@ -163,7 +163,6 @@ describe("reading a message's way through", () => {
       ['DeliveryHandled', null, null, false],
       ['DeliveryAcknowledged', null, null, false],
       ['DeliveryHanded', 'pluginWatcher', 1, false],
-      ['DeliveryReceived', 'pluginWatcher', null, true],
       ['DeliveryReceived', 'pluginWatcher', null, false],
       ['MessageAccepted', null, null, false],
     ]);

@@ -255,7 +255,6 @@ describe('the history reads on Postgres', () => {
     expect(message.delivery.history.map((step) => [step.type, step.by, step.handOverNumber, step.isAgain, step.overdue])).toEqual([
       ['DeliveryOverdue', null, null, false, { clock: 'notConfirmed', minutes: 10 }],
       ['DeliveryHanded', atMacMini, 1, false, null],
-      ['DeliveryReceived', atMacMini, null, true, null],
       ['DeliveryReceived', atMacMini, null, false, null],
       ['MessageAccepted', null, null, false, null],
     ]);

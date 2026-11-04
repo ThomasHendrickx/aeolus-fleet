@@ -52,8 +52,8 @@ interface PushReceiptDeps {
 /**
  * Takes up to `max` deliveries for the crew in one unit of work: marks its
  * lease pushed (LeasePushed the first time), holds it, then takes its own in
- * flight, received or handed,
- * and then the oldest pending for its ship or its type, each received.
+ * flight, received or handed, read as they are, and then the oldest
+ * pending for its ship or its type, each received.
  */
 async function pushReceiptForCrew(
   deps: PushReceiptDeps,
@@ -78,19 +78,21 @@ async function pushReceiptForCrew(
   });
   const received: PushReceivedDelivery[] = [];
   for (const { delivery, message } of taken) {
-    const { delivery: changed, events } = pushReceiveDelivery(delivery, { crew, at });
-    await tx.deliveries.update(changed);
-    for (const event of events) {
-      await recordEvent({ events: tx.events, ids }, event);
+    const receipt = pushReceiveDelivery(delivery, { crew, at });
+    if (receipt.outcome === 'received') {
+      await tx.deliveries.update(receipt.delivery);
+      for (const event of receipt.events) {
+        await recordEvent({ events: tx.events, ids }, event);
+      }
     }
-    const handedOut = await receivedDeliveryOf(deps, { delivery: changed, message });
+    const handedOut = await receivedDeliveryOf(deps, { delivery: receipt.delivery, message });
     if (!handedOut.isOk) {
       return handedOut;
     }
     received.push({
       ...handedOut.value,
-      state: changed.state === 'handed' ? 'handed' : 'received',
-      handOverNumber: changed.handOverNumber,
+      state: receipt.delivery.state === 'handed' ? 'handed' : 'received',
+      handOverNumber: receipt.delivery.handOverNumber,
     });
   }
   return ok({ ship: ship.value, deliveries: received });
@@ -103,8 +105,9 @@ async function pushReceiptForCrew(
  * runs. Each look is one unit of work (see `pushReceiptForCrew`). A pending
  * delivery becomes received, in flight with the crew's ship and lease, and
  * counts no attempt; the computer side reports handed once it hands it to
- * the agent. Its own in flight comes again first, changing nothing, so a
- * restart or a lost answer loses nothing. With shouldSkipHanded, handed
+ * the agent. Its own in flight comes again first, a read that writes nothing
+ * and records no event, so a restart or a lost answer loses nothing and
+ * receiving again costs the fleet no lock (#1650). With shouldSkipHanded, handed
  * deliveries are left out before the limit, while received ones still return.
  * Its own in flight named in excluding is left out too, so a crew holding
  * 10 or more reaches the next one.
