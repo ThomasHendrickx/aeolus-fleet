@@ -6,7 +6,8 @@ import type { Recipient } from '../shared/selector.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { actorAsItIs, rulesInForceOf, type CheckReachTx } from './check-reach.js';
 import { allowsReach, type ReachingShip } from './network-settings.js';
-import type { ShipRepository } from './ports.js';
+import type { LabelRepository, ShipRepository } from './ports.js';
+import type { ShipLabel } from './label.js';
 import type { Ship } from './ship.js';
 
 /**
@@ -20,7 +21,7 @@ export type ReadReach = { kind: 'every' } | { kind: 'some'; shipIds: ReadonlySet
 export interface ReadReachTx {
   networkSettings: CheckReachTx['networkSettings'];
   ships: Pick<ShipRepository, 'find' | 'list'>;
-  labels: CheckReachTx['labels'];
+  labels: CheckReachTx['labels'] & Pick<LabelRepository, 'carriedInFleet'>;
   declaredNetworkRules: CheckReachTx['declaredNetworkRules'];
 }
 
@@ -63,9 +64,11 @@ export function createReadReachOf(deps: { uow: UnitOfWork<ReadReachTx> }): ReadR
       }
       const ships = await tx.ships.list(fleetId);
       const kinds = new Map(ships.map((ship) => [ship.id, ship.kind]));
+      // The fleet's labels read once: a read per ship grew every read with every ship the fleet ever had (#1646).
+      const carried = labelsByShip(await tx.labels.carriedInFleet(fleetId));
       const read: Ship[] = [];
       for (const ship of ships) {
-        const recipient = await reachingOf(tx, { ship, ownerKind: ship.owner === null ? undefined : kinds.get(ship.owner) });
+        const recipient = reachingOf({ ship, ownerKind: ship.owner === null ? undefined : kinds.get(ship.owner), labels: carried.get(ship.id) ?? [] });
         if (ship.id === readerShip?.id || (reader && allowsReach(inForce, { verb: 'read', sender: reader.reaching, recipient, isAnswerToSender: false }))) {
           read.push(ship);
         }
@@ -81,10 +84,18 @@ export function createReadReachOf(deps: { uow: UnitOfWork<ReadReachTx> }): ReadR
   };
 }
 
-/** A ship as a read check sees it, its owner's kind taken from the fleet's list rather than read again. */
-async function reachingOf(tx: Pick<ReadReachTx, 'labels'>, of: { ship: Ship; ownerKind: ShipKind | undefined }): Promise<ReachingShip> {
-  const { ship, ownerKind } = of;
-  const labels = (await tx.labels.carriedBy(ship.fleetId, ship.id)).map(({ labelId, valueId }) => ({ labelId, valueId }));
+/** The values each ship carries, by ship. */
+function labelsByShip(carried: readonly ShipLabel[]): Map<ShipId, ReachingShip['labels']> {
+  const byShip = new Map<ShipId, ReachingShip['labels']>();
+  for (const { shipId, labelId, valueId } of carried) {
+    byShip.set(shipId, [...(byShip.get(shipId) ?? []), { labelId, valueId }]);
+  }
+  return byShip;
+}
+
+/** A ship as a read check sees it, its owner's kind and its labels taken from the fleet's reads rather than read again. */
+function reachingOf(of: { ship: Ship; ownerKind: ShipKind | undefined; labels: ReachingShip['labels'] }): ReachingShip {
+  const { ship, ownerKind, labels } = of;
   return { id: ship.id, owner: ship.owner, kind: ship.kind, isOwnedByPerson: ownerKind === 'person', labels };
 }
 

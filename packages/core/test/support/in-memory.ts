@@ -1104,6 +1104,13 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       },
       carriedBy: (fleetId, shipId) =>
         Promise.resolve(state.shipLabels.filter((held) => held.fleetId === fleetId && held.shipId === shipId).map((held) => ({ ...held }))),
+      carriedInFleet: (fleetId) =>
+        Promise.resolve(
+          state.shipLabels
+            .filter((held) => held.fleetId === fleetId)
+            .sort((first, second) => first.shipId.localeCompare(second.shipId) || first.valueId.localeCompare(second.valueId))
+            .map((held) => ({ ...held })),
+        ),
       carriersOf: (fleetId, labelId) =>
         Promise.resolve(
           state.shipLabels
