@@ -232,17 +232,28 @@ describe('received again', () => {
     expect(stored(deliveryId)).toEqual(before);
   });
 
-  it('writes DeliveryReceived marked again', async () => {
+  it('writes no event: the history shows one receipt per crew', async () => {
     const deliveryId = await sendTo(toScout());
     await pushReceive(scout);
+    const eventsBefore = core.state.events.length;
 
-    await pushReceive(scout);
+    expect(await pushReceive(scout)).toEqual([deliveryId]);
 
-    expect(eventsOf('DeliveryReceived').map((event) => event.details)).toEqual([
-      { leaseId: scout.leaseId },
-      { leaseId: scout.leaseId, again: true },
+    expect(core.state.events).toHaveLength(eventsBefore);
+    expect(eventsOf('DeliveryReceived').map((event) => ({ deliveryId: event.deliveryId, details: event.details }))).toEqual([
+      { deliveryId, details: { leaseId: scout.leaseId } },
     ]);
-    expect(eventsOf('DeliveryReceived').map((event) => event.deliveryId)).toEqual([deliveryId, deliveryId]);
+  });
+
+  it('records a new receipt for a new crew of the ship, after a release', async () => {
+    const deliveryId = await sendTo(toScout());
+    await pushReceive(scout);
+    await endLeaseOf(scout);
+    const nextCrew = crewAboard(core, { fleetId, shipId: scoutId });
+
+    expect(await pushReceive(nextCrew)).toEqual([deliveryId]);
+
+    expect(eventsOf('DeliveryReceived').map((event) => event.details)).toEqual([{ leaseId: scout.leaseId }, { leaseId: nextCrew.leaseId }]);
   });
 
   it('returns its own handed delivery with the state handed and its hand-over number, changing nothing', async () => {
