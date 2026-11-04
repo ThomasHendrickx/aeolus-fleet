@@ -400,6 +400,8 @@ export interface LabelRepository {
   remove(fleetId: FleetId, labelId: LabelId): Promise<void>;
   /** The values the ship carries. */
   carriedBy(fleetId: FleetId, shipId: ShipId): Promise<ShipLabel[]>;
+  /** The values every ship of the fleet carries, in one read: for a check over every ship, never a read per ship. */
+  carriedInFleet(fleetId: FleetId): Promise<ShipLabel[]>;
   /** Every ship's assignment of a value of this label, by ship. */
   carriersOf(fleetId: FleetId, labelId: LabelId): Promise<ShipLabel[]>;
   /** The ship carries the value, beside the values it carries. */

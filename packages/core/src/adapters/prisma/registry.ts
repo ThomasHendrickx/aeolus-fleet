@@ -281,6 +281,7 @@ export function createPrismaLabelRepository(db: Db): LabelRepository {
       await db.label.deleteMany({ where: { fleetId, id: labelId } });
     },
     carriedBy: async (fleetId, shipId) => (await db.shipLabel.findMany({ where: { fleetId, shipId }, orderBy: { valueId: 'asc' } })).map(toShipLabel),
+    carriedInFleet: async (fleetId) => (await db.shipLabel.findMany({ where: { fleetId }, orderBy: [{ shipId: 'asc' }, { valueId: 'asc' }] })).map(toShipLabel),
     carriersOf: async (fleetId, labelId) =>
       (await db.shipLabel.findMany({ where: { fleetId, labelId }, orderBy: [{ shipId: 'asc' }, { valueId: 'asc' }] })).map(toShipLabel),
     assign: async (assignment) => {
