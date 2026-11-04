@@ -53,6 +53,17 @@ export const RemovesAServer: Story = {
   },
 };
 
+/** Every server offered is picked: Add server stays, off, and says why on focus. */
+export const AllOfferedPicked: Story = {
+  args: { picked: ['company-graph', 'jira'] },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByTestId('mcp-servers-add')).toBeDisabled();
+    canvas.getByTestId('mcp-servers-add-reason').focus();
+    await expect(await within(canvasElement.ownerDocument.body).findByText('Every offered server is added.')).toBeVisible();
+  },
+};
+
 /** No answering machine offers a server for the harness: Add server says so. Not drawn in the approved mockups. */
 export const NoneOffered: Story = {
   args: { offered: [] },
