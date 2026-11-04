@@ -386,7 +386,7 @@ One meaning per term in code, database, API, UI and talk (decision 0050). Other 
 | Trierarch plugin | The plugin that brings computers in and assigns crew requests (0030), placing only the fleet's enabled models when the fleet enables any (0063) | trierarch plugin |
 | Computer | The laptop or server a trierarch runs on, labelled from its report. Not "machine" | trierarch plugin |
 | Crew request | Declared state on a ship: keep it crewed with these settings; written by its requester, the trierarch plugin and the assigned trierarch (0029) | core |
-| Crew settings | Harness, workspace, squadron, first prompt and options, size-limited (0027) | core |
+| Crew settings | Harness, workspace, squadron, first prompt, options and MCP servers, size-limited (0027) | core |
 | Assignment | Which trierarch crews a ship, the trierarch plugin's part of the crew request | core |
 | Clear request | A request that a trierarch clear a worktree it kept, by ship and repository (0032) | core |
 | Worktree | A ship's git worktree a trierarch crews it in | trierarch |
