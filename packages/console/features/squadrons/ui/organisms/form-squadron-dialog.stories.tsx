@@ -33,7 +33,7 @@ const DRAFTS: MemberDraft[] = [
     slot: 'planner-1',
     role: 'planner',
     template: { repository: 'github.com/tidewater-labs/squadron-templates', name: 'planner', version: 4 },
-    crew: { harness: 'claude-code', workspace: { kind: 'worktree', repository: 'aeolus-fleet' }, options: { model: 'claude-opus-5-5' } },
+    crew: { harness: 'claude-code', workspace: { kind: 'worktree', repository: 'aeolus-fleet' }, options: { model: 'claude-opus-5-5' }, mcpServers: ['company-graph'] },
     parameters: [{ name: 'area', description: 'The part the features touch, such as the tide tables', value: null }],
   },
   {

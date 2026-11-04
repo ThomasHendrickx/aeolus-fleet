@@ -8,8 +8,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Textarea } from '../atoms/textarea';
 import { InlineError } from './inline-error';
 import { MachineLabelsField } from './machine-labels-field';
+import { McpServersField } from './mcp-servers-field';
 
 interface CrewSettingsFieldsProps {
+  /** The ship the request crews, as the placement hints name it. */
+  shipName: string;
   offers: readonly HarnessOffer[];
   values: CrewSettingsValues;
   onChange: (values: CrewSettingsValues) => void;
@@ -21,7 +24,7 @@ interface CrewSettingsFieldsProps {
   refusal?: { field: string; reason: string };
   isDisabled?: boolean;
   /** The fleet's labels and machines, for the request's machine labels; the field is left out without them. */
-  machineLabels?: MachineLabelsInput & { shipName: string };
+  machineLabels?: MachineLabelsInput;
 }
 
 const NONE = '';
@@ -87,11 +90,12 @@ function Pick({ id, items, value, onPick, isDisabled, testId }: { id: string; it
 /**
  * A crew request's settings as fields (canvas CrRequestForm; #245, S3): the
  * harness, the workspace, with the fleet's labels its machine labels (#102),
+ * its MCP servers (docs/design/crew-mcp-servers),
  * each option the harness offers, a first prompt and, with squadrons, a
  * squadron with its hint (decision 12). Built from what the
  * answering machines offer; a field the trierarch plugin refused shows why.
  */
-export function CrewSettingsFields({ offers, values, onChange, firstPromptMaxBytes, squadrons, refusal, isDisabled = false, machineLabels }: CrewSettingsFieldsProps) {
+export function CrewSettingsFields({ shipName, offers, values, onChange, firstPromptMaxBytes, squadrons, refusal, isDisabled = false, machineLabels }: CrewSettingsFieldsProps) {
   const ids = { harness: useId(), workspace: useId(), options: useId(), firstPrompt: useId(), squadron: useId() };
   const offer = offers.find((each) => each.harness === values.harness);
   const errorOf = (field: string) => (refusal?.field === field ? refusal.reason : undefined);
@@ -130,7 +134,7 @@ export function CrewSettingsFields({ offers, values, onChange, firstPromptMaxByt
       </Field>
       {machineLabels === undefined ? null : (
         <MachineLabelsField
-          shipName={machineLabels.shipName}
+          shipName={shipName}
           picked={machineLabels.chipsOf(values.machineLabels)}
           groups={machineLabels.groups}
           match={machineLabels.matchOf(values.machineLabels)}
@@ -144,6 +148,18 @@ export function CrewSettingsFields({ offers, values, onChange, firstPromptMaxByt
           }}
         />
       )}
+      <McpServersField
+        shipName={shipName}
+        picked={values.mcpServers}
+        offered={offer?.mcpServers ?? []}
+        isDisabled={isDisabled}
+        onAdd={(server) => {
+          onChange({ ...values, mcpServers: [...values.mcpServers, server] });
+        }}
+        onRemove={(server) => {
+          onChange({ ...values, mcpServers: values.mcpServers.filter((each) => each !== server) });
+        }}
+      />
       {(offer?.options ?? []).map((option, index) => (
         <Field key={option.name} id={`${ids.options}-${String(index)}`} label={option.name} error={index === 0 ? errorOf('options') : undefined}>
           <Pick

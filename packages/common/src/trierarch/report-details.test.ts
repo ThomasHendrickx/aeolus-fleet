@@ -79,6 +79,35 @@ describe('trierarchReportDetailsSchema', () => {
     expect(trierarchReportDetailsSchema.parse(details)).toEqual(details);
   });
 
+  it('takes the MCP servers each harness offers, by name (crew-time MCP servers, slice 3)', () => {
+    const details = {
+      harnesses: [
+        { harness: 'claude-code', options: {}, flags: [], mcpServers: ['company-graph', 'jira'] },
+        { harness: 'codex', options: {}, flags: [], mcpServers: [] },
+      ],
+      workspaces: { repositories: [], folders: [] },
+      caps: { ships: 2, running: 1 },
+      kept: [],
+      orphans: [],
+      version: '0.38.0',
+    };
+
+    expect(trierarchReportDetailsSchema.parse(details)).toEqual(details);
+  });
+
+  it('refuses an offered MCP server named by a path (crew-time MCP servers, M2)', () => {
+    const details = {
+      harnesses: [{ harness: 'claude-code', options: {}, flags: [], mcpServers: ['/etc/mcp.json'] }],
+      workspaces: { repositories: [], folders: [] },
+      caps: { ships: 2, running: 1 },
+      kept: [],
+      orphans: [],
+      version: '0.38.0',
+    };
+
+    expect(trierarchReportDetailsSchema.safeParse(details).success).toBe(false);
+  });
+
   it('refuses a time its models were confirmed that is no ISO 8601 time (#365)', () => {
     const details = {
       harnesses: [{ harness: 'claude-code', options: {}, flags: [], version: '2.1.293', modelsConfirmedAt: 'yesterday' }],

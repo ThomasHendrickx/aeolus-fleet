@@ -109,6 +109,14 @@ export const trierarchReportDetailsSchema = z.strictObject({
        * state, never the key (K7, K8), with since when (ISO 8601 in UTC) where
        * the trierarch knows it. None from a trierarch before 0.34.0.
        */
+      /**
+       * The MCP servers on its list it can start this harness with, by name
+       * (aeolus-fleet-trierarch's docs/design/crew-mcp-servers.md, M4): the
+       * console offers only these, and placement leaves out a machine that
+       * does not offer every one a request names. None from a trierarch
+       * before crew-time MCP servers, which offers none.
+       */
+      mcpServers: z.array(trierarchNameSchema).optional(),
       login: z.strictObject({ default: sessionLoginSchema, key: z.enum(KEY_STATES), keyStateAt: z.iso.datetime().optional() }).optional(),
     }),
   ),

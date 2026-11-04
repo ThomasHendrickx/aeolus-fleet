@@ -14,8 +14,9 @@ const OFFERS: HarnessOffer[] = [
       { name: 'model', values: ['claude-opus-5-5', 'claude-sonnet-5'], defaultValue: 'claude-opus-5-5' },
       { name: 'effort', values: ['low', 'medium', 'high'] },
     ],
+    mcpServers: ['company-graph', 'jira'],
   },
-  { harness: 'codex', repositories: ['tidewater'], folders: [], options: [] },
+  { harness: 'codex', repositories: ['tidewater'], folders: [], options: [], mcpServers: [] },
 ];
 
 const WORKSPACES = { 'worktree:tidewater': 'tidewater · new worktree', 'folder:notes': 'notes · folder, as it is' };
@@ -30,6 +31,7 @@ const READY: MemberValues = {
   options: { model: 'claude-opus-5-5', effort: 'high' },
   machineLabels: [],
   unknownLabels: [],
+  mcpServers: ['company-graph'],
   parameters: [],
 };
 

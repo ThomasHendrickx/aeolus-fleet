@@ -23,6 +23,7 @@ export interface MemberDraft {
     firstPrompt?: string;
     options: Record<string, OptionValue>;
     machineLabels?: { key: string; value: string }[];
+    mcpServers?: string[];
   };
   parameters: { name: string; description: string; value: string | null }[];
 }
@@ -42,6 +43,8 @@ export interface MemberValues {
   machineLabels: string[];
   /** Machine labels from the files the fleet does not have, as `key=value`: forming refuses them. */
   unknownLabels: string[];
+  /** The MCP servers the session starts with, by name. */
+  mcpServers: string[];
   parameters: { name: string; description: string; value: string }[];
 }
 
@@ -71,6 +74,7 @@ export function membersOf(drafts: readonly MemberDraft[], context: LabelContext 
       options: { ...draft.crew.options },
       machineLabels: labels.flatMap((label) => valueIdOf(label, context) ?? []),
       unknownLabels: labels.filter((label) => valueIdOf(label, context) === undefined).map((label) => `${label.key}=${label.value}`),
+      mcpServers: [...(draft.crew.mcpServers ?? [])],
       parameters: draft.parameters.map((parameter) => ({ name: parameter.name, description: parameter.description, value: parameter.value ?? '' })),
     };
   });
@@ -105,7 +109,10 @@ function labelNamesOf(member: MemberValues, context: LabelContext | undefined): 
 export function formMembersOf(
   members: readonly MemberValues[],
   context: LabelContext | undefined,
-): Record<string, { crew: { harness?: string; workspace?: WorkspaceChoice; firstPrompt?: string; options: Record<string, OptionValue>; machineLabels: { key: string; value: string }[] }; parameters: Record<string, string> }> {
+): Record<
+  string,
+  { crew: { harness?: string; workspace?: WorkspaceChoice; firstPrompt?: string; options: Record<string, OptionValue>; machineLabels: { key: string; value: string }[]; mcpServers?: string[] }; parameters: Record<string, string> }
+> {
   return Object.fromEntries(
     members.map((member) => [
       member.slot,
@@ -116,6 +123,7 @@ export function formMembersOf(
           ...(member.firstPrompt.trim() === '' ? {} : { firstPrompt: member.firstPrompt }),
           options: member.options,
           machineLabels: labelNamesOf(member, context),
+          ...(member.mcpServers.length === 0 ? {} : { mcpServers: member.mcpServers }),
         },
         parameters: Object.fromEntries(member.parameters.map((parameter) => [parameter.name, parameter.value])),
       },

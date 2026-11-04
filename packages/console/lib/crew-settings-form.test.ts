@@ -37,7 +37,18 @@ describe('offersOf', () => {
     });
 
     expect(offersOf([aMachine('mc01'), other], NO_RULE)).toEqual([
-      { harness: 'claude-code', repositories: ['aeolus-fleet', 'hemma'], folders: ['notes'], options: [{ name: 'model', values: ['opus', 'sonnet', 'haiku'], defaultValue: 'opus' }] },
+      { harness: 'claude-code', repositories: ['aeolus-fleet', 'hemma'], folders: ['notes'], options: [{ name: 'model', values: ['opus', 'sonnet', 'haiku'], defaultValue: 'opus' }], mcpServers: [] },
+    ]);
+  });
+
+  it('offers the MCP servers any answering machine offers for the harness, a machine that reports none offering none', () => {
+    const graph = aMachine('mc01', { details: { harnesses: [{ ...CLAUDE, mcpServers: ['company-graph'] }, { harness: 'codex', options: {}, flags: [], mcpServers: ['wiki'] }] } });
+    const jira = aMachine('mb02', { details: { harnesses: [{ ...CLAUDE, mcpServers: ['jira', 'company-graph'] }] } });
+    const older = aMachine('md03', { details: { harnesses: [CLAUDE] } });
+
+    expect(offersOf([graph, jira, older], NO_RULE).map((offer) => [offer.harness, offer.mcpServers])).toEqual([
+      ['claude-code', ['company-graph', 'jira']],
+      ['codex', ['wiki']],
     ]);
   });
 
@@ -94,7 +105,7 @@ describe('the form values', () => {
   const offers = offersOf([aMachine('mc01', { details: { harnesses: [CLAUDE, { harness: 'codex', options: {}, flags: [] }], workspaces: { repositories: [], folders: ['notes'] } } })], NO_RULE);
 
   it('start at the first harness, its first workspace and its options at their defaults', () => {
-    expect(defaultValues(offers)).toEqual({ harness: 'claude-code', workspace: { kind: 'folder', name: 'notes' }, options: { model: 'opus' }, firstPrompt: '', squadron: '', machineLabels: [] });
+    expect(defaultValues(offers)).toEqual({ harness: 'claude-code', workspace: { kind: 'folder', name: 'notes' }, options: { model: 'opus' }, firstPrompt: '', squadron: '', machineLabels: [], mcpServers: [] });
   });
 
   it('keep the workspace on another harness that offers it, with that harness’s options', () => {
@@ -113,14 +124,22 @@ describe('the form values', () => {
     expect(withHarness(picked, { harness: 'codex', offers })).toMatchObject({ machineLabels: [LINUX] });
   });
 
+  it('carry the MCP servers picked into the settings, and keep them on another harness', () => {
+    const picked = { ...defaultValues(offers), mcpServers: ['company-graph', 'jira'] };
+
+    expect(settingsOf(picked)).toMatchObject({ mcpServers: ['company-graph', 'jira'] });
+    expect(settingsOf(defaultValues(offers))).not.toHaveProperty('mcpServers');
+    expect(withHarness(picked, { harness: 'codex', offers })).toMatchObject({ mcpServers: ['company-graph', 'jira'] });
+  });
+
   it('make no settings until a workspace is picked', () => {
     expect(settingsOf({ ...defaultValues(offers), workspace: undefined })).toBeUndefined();
   });
 
   it('fill from the settings a request holds, for Edit; settings that are none start a new form', () => {
-    const held: CrewSettings = { harness: 'codex', workspace: { kind: 'worktree', repository: 'hemma' }, options: { model: 'gpt-6' }, firstPrompt: 'Go', machineLabels: [LINUX] };
+    const held: CrewSettings = { harness: 'codex', workspace: { kind: 'worktree', repository: 'hemma' }, options: { model: 'gpt-6' }, firstPrompt: 'Go', machineLabels: [LINUX], mcpServers: ['company-graph'] };
 
-    expect(valuesOf(held, { offers, enabledModels: NO_RULE })).toEqual({ harness: 'codex', workspace: { kind: 'worktree', repository: 'hemma' }, options: { model: 'gpt-6' }, firstPrompt: 'Go', squadron: '', machineLabels: [LINUX] });
+    expect(valuesOf(held, { offers, enabledModels: NO_RULE })).toEqual({ harness: 'codex', workspace: { kind: 'worktree', repository: 'hemma' }, options: { model: 'gpt-6' }, firstPrompt: 'Go', squadron: '', machineLabels: [LINUX], mcpServers: ['company-graph'] });
     expect(valuesOf(null, { offers, enabledModels: NO_RULE })).toEqual(defaultValues(offers));
   });
 
@@ -130,14 +149,21 @@ describe('the form values', () => {
 });
 
 describe('settingsRows', () => {
-  it('shows a request’s settings as rows: harness, workspace, each option, the first prompt’s size and the squadron', () => {
+  it('shows a request’s settings as rows: harness, workspace, each option, its MCP servers, the first prompt’s size and the squadron', () => {
     expect(settingsRows({ harness: 'claude-code', workspace: { kind: 'worktree', repository: 'aeolus-fleet' }, options: { model: 'opus' }, firstPrompt: 'x'.repeat(112) })).toEqual([
       { label: 'Harness', value: 'claude-code' },
       { label: 'Workspace', value: 'aeolus-fleet', meta: 'New worktree' },
       { label: 'model', value: 'opus', isMono: true },
+      { label: 'MCP servers', value: null, isMono: true },
       { label: 'First prompt', value: '112 B' },
       { label: 'Squadron', value: null, isMono: true },
     ]);
+  });
+
+  it('shows the MCP servers a request names in one row, in the order named', () => {
+    const rows = settingsRows({ workspace: { kind: 'folder', name: 'notes' }, options: {}, mcpServers: ['company-graph', 'jira'] });
+
+    expect(rows?.find((row) => row.label === 'MCP servers')).toEqual({ label: 'MCP servers', value: 'company-graph, jira', isMono: true });
   });
 
   it('shows a request without a harness as taking its trierarch’s default (#343)', () => {

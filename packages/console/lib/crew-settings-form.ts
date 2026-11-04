@@ -17,6 +17,8 @@ export interface HarnessOffer {
   repositories: string[];
   folders: string[];
   options: HarnessOption[];
+  /** The MCP servers any machine offering the harness can start it with, by name. */
+  mcpServers: string[];
 }
 
 function union(into: string[], values: readonly string[]): void {
@@ -66,11 +68,12 @@ function reportedOffersOf(machines: readonly Machine[]): HarnessOffer[] {
     for (const reported of machine.details.harnesses) {
       let offer = offers.find((each) => each.harness === reported.harness);
       if (offer === undefined) {
-        offer = { harness: reported.harness, repositories: [], folders: [], options: [] };
+        offer = { harness: reported.harness, repositories: [], folders: [], options: [], mcpServers: [] };
         offers.push(offer);
       }
       union(offer.repositories, machine.details.workspaces.repositories);
       union(offer.folders, machine.details.workspaces.folders);
+      union(offer.mcpServers, reported.mcpServers ?? []);
       for (const option of harnessOptions(reported.options)) {
         const held = offer.options.find((each) => each.name === option.name);
         if (held === undefined) {
@@ -97,6 +100,8 @@ export interface CrewSettingsValues {
   squadron: string;
   /** The label value ids a machine must carry, every one; none for any machine. */
   machineLabels: LabelValueId[];
+  /** The MCP servers the session starts with, by name, in the order picked; none for no crew-time server. */
+  mcpServers: string[];
 }
 
 /** Each option at its default, or its first value when it has none. */
@@ -119,7 +124,7 @@ function firstWorkspace(offer: HarnessOffer | undefined): WorkspaceChoice | unde
 /** A new form: the first harness offered, its first workspace and its options at their defaults. */
 export function defaultValues(offers: readonly HarnessOffer[]): CrewSettingsValues {
   const [offer] = offers;
-  return { harness: offer?.harness ?? '', workspace: firstWorkspace(offer), options: defaultOptions(offer), firstPrompt: '', squadron: '', machineLabels: [] };
+  return { harness: offer?.harness ?? '', workspace: firstWorkspace(offer), options: defaultOptions(offer), firstPrompt: '', squadron: '', machineLabels: [], mcpServers: [] };
 }
 
 /** The form after picking a harness: its workspace kept while that harness offers it, its options back at their defaults. */
@@ -142,7 +147,7 @@ export function valuesOf(settings: CrewSettings | null | undefined, offered: { o
   if (settings === undefined || settings === null) {
     return defaultValues(offers);
   }
-  const { harness, workspace, options, firstPrompt, squadron, machineLabels } = settings;
+  const { harness, workspace, options, firstPrompt, squadron, machineLabels, mcpServers } = settings;
   // Without a harness a trierarch crews with its first; the form picks the first offered (#343).
   const picked = harness ?? defaultValues(offers).harness;
   const held: Record<string, string> = Object.fromEntries(Object.entries(options).flatMap(([name, value]) => (typeof value === 'string' ? [[name, value]] : [])));
@@ -157,6 +162,7 @@ export function valuesOf(settings: CrewSettings | null | undefined, offered: { o
     firstPrompt: firstPrompt ?? '',
     squadron: squadron ?? '',
     machineLabels: [...(machineLabels ?? [])],
+    mcpServers: [...(mcpServers ?? [])],
   };
 }
 
@@ -172,6 +178,7 @@ export function settingsOf(values: CrewSettingsValues): CrewSettings | undefined
     ...(values.firstPrompt === '' ? {} : { firstPrompt: values.firstPrompt }),
     ...(values.squadron === '' ? {} : { squadron: values.squadron }),
     ...(values.machineLabels.length === 0 ? {} : { machineLabels: values.machineLabels }),
+    ...(values.mcpServers.length === 0 ? {} : { mcpServers: values.mcpServers }),
   };
 }
 
@@ -202,13 +209,14 @@ export function settingsRows(settings: CrewSettings | null | undefined): Setting
   if (settings === undefined || settings === null) {
     return undefined;
   }
-  const { harness, workspace, options, firstPrompt, squadron } = settings;
+  const { harness, workspace, options, firstPrompt, squadron, mcpServers = [] } = settings;
   return [
     { label: 'Harness', value: harness ?? 'Trierarch default' },
     workspace.kind === 'worktree'
       ? { label: 'Workspace', value: workspace.repository, meta: 'New worktree' }
       : { label: 'Workspace', value: workspace.name, meta: 'Folder, as it is' },
     ...Object.entries(options).map(([name, value]) => ({ label: name, value: typeof value === 'string' ? value : JSON.stringify(value), isMono: true })),
+    { label: 'MCP servers', value: mcpServers.length === 0 ? null : mcpServers.join(', '), isMono: true },
     { label: 'First prompt', value: firstPrompt === undefined ? null : byteSize(promptBytes(firstPrompt)) },
     { label: 'Squadron', value: squadron ?? null, isMono: true },
   ];

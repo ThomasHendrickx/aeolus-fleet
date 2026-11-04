@@ -125,6 +125,7 @@ function RequestCrewForm(props: Omit<RequestCrewDialogProps, 'isOpen' | 'onOpenC
         </Banner>
       ) : null}
       {offers.length === 0 ? null : <CrewSettingsFields
+          shipName={shipName}
           offers={offers}
           values={values}
           firstPromptMaxBytes={firstPromptMaxBytes}
@@ -132,7 +133,7 @@ function RequestCrewForm(props: Omit<RequestCrewDialogProps, 'isOpen' | 'onOpenC
           squadrons={squadrons}
           refusal={refusal}
           isDisabled={isPending}
-          {...(machineLabels === undefined ? {} : { machineLabels: { ...machineLabels, shipName } })}
+          {...(machineLabels === undefined ? {} : { machineLabels })}
         />}
       {error === undefined ? null : <InlineError title={mode === 'edit' ? 'Couldn’t save the settings' : 'Couldn’t request crew'} description={`${error} Nothing changed.`} />}
       <DialogFooter className="items-center">

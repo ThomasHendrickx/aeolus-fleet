@@ -30,6 +30,7 @@ const DETAILS: NonNullable<Machine['details']> = {
       riskyFlags: ['--dangerously-skip-permissions'],
       version: '2.1.293',
       modelsConfirmedAt: new Date(NOW.getTime() - 3 * 60 * 60 * 1000).toISOString(),
+      mcpServers: ['company-graph', 'jira'],
     },
     { harness: 'codex', options: { type: 'object', properties: { model: { enum: ['gpt-6-sol', 'gpt-6'], default: 'gpt-6-sol' } }, additionalProperties: false }, flags: ['--search'], version: '0.160.1', modelsConfirmedAt: null },
   ],
@@ -175,7 +176,7 @@ export const JOINED: JoinedMachine = {
 export const OFFERS = offersOf(MACHINES, []);
 
 /** Crew settings as the plugin's form makes them. */
-export const SETTINGS = { harness: 'claude-code', workspace: { kind: 'worktree' as const, repository: 'aeolus-fleet' }, options: { model: 'claude-opus-5-5', effort: 'high' }, firstPrompt: 'Triage new GitHub issues on aeolus-fleet and send argo a summary each morning.' };
+export const SETTINGS = { harness: 'claude-code', workspace: { kind: 'worktree' as const, repository: 'aeolus-fleet' }, options: { model: 'claude-opus-5-5', effort: 'high' }, firstPrompt: 'Triage new GitHub issues on aeolus-fleet and send argo a summary each morning.', mcpServers: ['company-graph'] };
 
 /** A plain agent ship awaiting crew, for the Needs crew stories. */
 const AWAITING: ListedShip = {

@@ -41,8 +41,15 @@ describe('membersOf (#343)', () => {
       options: { effort: 'high', model: 'claude-opus-5-5' },
       machineLabels: [LINUX],
       unknownLabels: [],
+      mcpServers: [],
       parameters: [],
     });
+  });
+
+  it('starts each member with the MCP servers its files name', () => {
+    const [member] = membersOf([aDraft({ crew: { options: {}, mcpServers: ['company-graph'] } })], CONTEXT);
+
+    expect(member).toMatchObject({ mcpServers: ['company-graph'] });
   });
 
   it('keeps a machine label the fleet does not have apart, as key=value, for a warning', () => {
@@ -114,6 +121,15 @@ describe('formMembersOf', () => {
     }
 
     expect(formMembersOf([member], CONTEXT)['implementer-1']?.crew).toEqual({ workspace: { kind: 'folder', name: 'notes' }, options: {}, machineLabels: [] });
+  });
+
+  it("gives forming each member's MCP servers when it names any", () => {
+    const [member] = membersOf([aDraft()], CONTEXT);
+    if (member === undefined) {
+      throw new Error('no member');
+    }
+
+    expect(formMembersOf([{ ...member, mcpServers: ['company-graph', 'jira'] }], CONTEXT)['implementer-1']?.crew).toMatchObject({ mcpServers: ['company-graph', 'jira'] });
   });
 });
 

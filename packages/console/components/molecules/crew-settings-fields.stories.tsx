@@ -6,14 +6,14 @@ import { defaultValues, type HarnessOffer } from '../../lib/crew-settings-form';
 import { CrewSettingsFields } from './crew-settings-fields';
 
 const OFFERS: HarnessOffer[] = [
-  { harness: 'claude-code', repositories: ['aeolus-fleet', 'hemma'], folders: ['notes'], options: [{ name: 'model', values: ['claude-opus-5-5', 'claude-sonnet-5'], defaultValue: 'claude-opus-5-5' }] },
-  { harness: 'codex', repositories: ['aeolus-fleet'], folders: [], options: [] },
+  { harness: 'claude-code', repositories: ['aeolus-fleet', 'hemma'], folders: ['notes'], options: [{ name: 'model', values: ['claude-opus-5-5', 'claude-sonnet-5'], defaultValue: 'claude-opus-5-5' }], mcpServers: ['company-graph', 'jira'] },
+  { harness: 'codex', repositories: ['aeolus-fleet'], folders: [], options: [], mcpServers: [] },
 ];
 
 /** The fields, holding their own values, as a form does. */
 function Fields(props: { squadrons?: readonly string[]; refusal?: { field: string; reason: string } }) {
   const [values, setValues] = useState(() => defaultValues(OFFERS));
-  return <CrewSettingsFields offers={OFFERS} values={values} onChange={setValues} firstPromptMaxBytes={FIRST_PROMPT_MAX_BYTES} {...props} />;
+  return <CrewSettingsFields shipName="triage-bot" offers={OFFERS} values={values} onChange={setValues} firstPromptMaxBytes={FIRST_PROMPT_MAX_BYTES} {...props} />;
 }
 
 const meta = {
