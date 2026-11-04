@@ -40,15 +40,16 @@ interface AppHeaderProps {
 export function AppHeader({ switcher, switcherLayout = 'full', account, onSearch, searchLabel = 'Search or jump to', search = 'trigger', children, actions, className }: AppHeaderProps) {
   const searchTrigger = onSearch ? (
     search === 'field' ? (
-      <button
-        type="button"
+      <Button
+        variant="secondary"
+        size="md"
+        icon={<Search aria-hidden />}
         data-testid="header-search"
         onClick={onSearch}
-        className="flex h-(--size-control) w-50 items-center gap-2 rounded-md border border-input bg-card px-3 text-body text-muted-foreground shadow-sm outline-none transition-colors duration-(--duration-fast) hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring [&_svg]:size-(--size-icon) [&_svg]:shrink-0"
+        className="w-50 justify-start font-normal text-muted-foreground outline-none focus-visible:outline-2 focus-visible:outline-ring"
       >
-        <Search aria-hidden />
         <span className="truncate">{searchLabel}</span>
-      </button>
+      </Button>
     ) : (
       <Button size="sm" icon={<Search aria-hidden />} data-testid="header-search" className="w-60 justify-start font-normal text-muted-foreground max-lg:w-auto" onClick={onSearch}>
         <span className="grow text-left max-lg:sr-only">{searchLabel}</span>
