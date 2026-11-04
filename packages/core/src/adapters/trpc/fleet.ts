@@ -259,7 +259,7 @@ export const fleetRouter = router({
     }),
 
   /** A new starting prompt for a ship awaiting crew. Its secret invalidates the previous one. */
-  getStartingPrompt: ownPersonShipOrAnyScopeProcedure({ isShipCallOtherwise: true }, 'fleet:manage', 'crew:run')
+  getStartingPrompt: ownPersonShipOrAnyScopeProcedure('fleet:manage', 'crew:run')
     .meta({
       description: [
         'Needs fleet:manage, or crew:run for a ship whose crew request is assigned to yours; an account needs nothing for its own person ship. A new starting prompt, one crew line per harness and the secret for a ship awaiting crew; its new secret stops any earlier one working.',
@@ -295,7 +295,7 @@ export const fleetRouter = router({
    * stop working, and what it held in flight returns to pending for the next
    * crew. Never argo; a ship awaiting crew gets a new starting prompt instead.
    */
-  release: ownPersonShipOrAnyScopeProcedure({ isShipCallOtherwise: false }, 'fleet:manage', 'crew:run')
+  release: ownPersonShipOrAnyScopeProcedure('fleet:manage', 'crew:run')
     .meta({
       description: [
         'Needs fleet:manage, or crew:run for a ship whose crew request is assigned to yours; an account needs nothing for its own person ship. Frees a crewed ship from its session: its crew token and secret stop working, and what it held in flight returns to pending.',

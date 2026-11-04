@@ -2,7 +2,7 @@
 
 import { CircleAlert, Info, RotateCw } from 'lucide-react';
 import type { CrewLine } from '@aeolus-fleet/common';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 import { shortDateTime } from '../../lib/relative-time';
 import { SOURCE_URL } from '../../lib/source';
@@ -15,6 +15,11 @@ import { PluginInstallLinks } from '../molecules/plugin-install-links';
 
 /** Where connecting a ChatGPT chat to the fleet is described, step by step. */
 const CHATGPT_GUIDE_URL = `${SOURCE_URL}/blob/main/docs/guides/chatgpt.md`;
+
+/** The server's message as a sentence: its messages carry no full stop. */
+function asSentence(message: string): string {
+  return /[.!?]$/.test(message) ? message : `${message}.`;
+}
 
 /** issuing: the server is issuing it; shown: the prompt, once; error: nothing was issued. */
 export type StartingPromptDialogState = 'issuing' | 'shown' | 'error';
@@ -88,6 +93,7 @@ function IssuedPrompt({ shipName, prompt, crewLines }: { shipName: string; promp
 export function StartingPromptDialog(props: StartingPromptDialogProps) {
   const { shipName, state, prompt, crewLines, replacesUnclaimed, error, isOpen, onOpenChange, onConfirm } = props;
   const isIssuing = state === 'issuing';
+  const guideLink = useRef<HTMLAnchorElement>(null);
 
   return (
     <Dialog
@@ -98,13 +104,22 @@ export function StartingPromptDialog(props: StartingPromptDialogProps) {
         }
       }}
     >
-      <DialogContent size="md" data-testid="starting-prompt-dialog" className={dialogSurface.phoneFullScreen}>
+      <DialogContent
+        size="md"
+        data-testid="starting-prompt-dialog"
+        className={dialogSurface.phoneFullScreen}
+        // The design draws the focus ring on this link whichever way the dialog opened, as a keyboard open does.
+        initialFocus={() => {
+          guideLink.current?.focus({ focusVisible: true });
+          return false;
+        }}
+      >
         <DialogHeader>
           <DialogTitle>Starting prompt for {shipName}</DialogTitle>
           <DialogDescription>
             Paste the crew instructions into a chat (ChatGPT, Claude chat), or a crew line into Claude Code, Codex or
-            Copilot with the Aeolus Fleet plugin. Any earlier prompt for {shipName} stops working now.{' '}
-            <a href={CHATGPT_GUIDE_URL} target="_blank" rel="noreferrer" data-testid="starting-prompt-chatgpt-guide" className="underline underline-offset-2">
+            Copilot with the Aeolus Fleet plugin.{state === 'error' ? null : ` Any earlier prompt for ${shipName} stops working now.`}{' '}
+            <a ref={guideLink} href={CHATGPT_GUIDE_URL} target="_blank" rel="noreferrer" data-testid="starting-prompt-chatgpt-guide" className="underline underline-offset-2">
               Connect a ChatGPT chat
             </a>
             .
@@ -131,7 +146,7 @@ export function StartingPromptDialog(props: StartingPromptDialogProps) {
         {state === 'error' ? (
           <InlineError
             title="Couldn’t issue a starting prompt"
-            description={`${error ?? 'The server did not answer.'} No new secret was created; any earlier prompt still works.`}
+            description={`${asSentence(error ?? 'The server did not answer.')} No new secret was created; any earlier prompt still works.`}
           />
         ) : null}
 
