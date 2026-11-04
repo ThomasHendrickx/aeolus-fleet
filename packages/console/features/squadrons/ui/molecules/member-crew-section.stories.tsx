@@ -31,6 +31,7 @@ const READY: MemberValues = {
   options: { model: 'claude-opus-5-5', effort: 'high' },
   machineLabels: [],
   unknownLabels: [],
+  mcpServers: ['company-graph'],
   parameters: [],
 };
 

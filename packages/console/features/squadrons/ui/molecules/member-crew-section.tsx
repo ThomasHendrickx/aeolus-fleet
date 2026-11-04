@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Textarea } from '../../../../components/atoms/textarea';
 import { InlineError } from '../../../../components/molecules/inline-error';
 import { MachineLabelsField } from '../../../../components/molecules/machine-labels-field';
+import { McpServersField } from '../../../../components/molecules/mcp-servers-field';
 
 interface MemberCrewSectionProps {
   member: MemberValues;
@@ -80,7 +81,7 @@ function optionText(value: unknown): string {
  * One member's crew settings in the forming form (#343, S4): a header with
  * its slot, template and what it still needs, folding its fields away once
  * it needs nothing; then its workspace (required), harness, options, first
- * prompt, machine labels and the parameters its role left to fill
+ * prompt, machine labels, MCP servers and the parameters its role left to fill
  * (required). Starts from its files; every change is the form's, nearest wins.
  */
 export function MemberCrewSection({ member, offers, workspaces, machineLabels, isOpen, onOpenChange, isDisabled, error, onChange }: MemberCrewSectionProps) {
@@ -201,6 +202,18 @@ export function MemberCrewSection({ member, offers, workspaces, machineLabels, i
               }}
             />
           )}
+          <McpServersField
+            shipName={member.slot}
+            picked={member.mcpServers}
+            offered={offer?.mcpServers ?? []}
+            isDisabled={isDisabled}
+            onAdd={(server) => {
+              onChange({ ...member, mcpServers: [...member.mcpServers, server] });
+            }}
+            onRemove={(server) => {
+              onChange({ ...member, mcpServers: member.mcpServers.filter((each) => each !== server) });
+            }}
+          />
           <Field id={ids.firstPrompt} label="First prompt" hint="The session starts with it, on its first start only.">
             <Textarea
               id={ids.firstPrompt}

@@ -145,6 +145,7 @@ export const memberDraftSchema = z.object({
     firstPrompt: z.string().optional(),
     options: z.record(z.string(), z.unknown()),
     machineLabels: z.array(z.object({ key: z.string(), value: z.string() })).optional(),
+    mcpServers: z.array(z.string()).optional(),
   }),
   parameters: z.array(z.object({ name: z.string(), description: z.string(), value: z.string().nullable() })),
 });
