@@ -42,6 +42,14 @@ export interface AvatarMenuProps {
   entries?: readonly AvatarMenuEntry[];
 }
 
+interface AvatarMenuLayout {
+  /** avatar: the avatar alone, last in a header. row: the avatar, the name and the caption, in an app's sidebar foot. */
+  layout?: 'avatar' | 'row';
+  /** row: the line under the name, such as the fleet in view ("Acme fleet"). */
+  caption?: string;
+  className?: string;
+}
+
 const THEME_LABELS: Record<Theme, string> = { light: 'Light', dark: 'Dark', system: 'System' };
 const THEME_ICONS: Record<Theme, LucideIcon> = { light: Sun, dark: Moon, system: Monitor };
 
@@ -142,27 +150,46 @@ function ShortcutsDialog({ isOpen, onOpenChange, shortcuts }: { isOpen: boolean;
 }
 
 /**
- * The avatar menu on desktop (header design H8, H10, H13): the avatar opens a
+ * The avatar menu on desktop (header design H8, H10, H13): the avatar, last in
+ * a header, or a row of the avatar, the name and a caption in an app's sidebar
+ * foot (docs/design/fleet-overview), opens a
  * DropdownMenu with who is signed in here and how, the account's own pages
  * in Account, the app's entries, the theme (applied at once), keyboard
  * shortcuts, help and sign out, which shows "Signing out" until it ends.
  */
-export function AvatarMenu(props: AvatarMenuProps) {
-  const { name, signedInAs, accountUrl, theme, themes, hasTheme, onThemeChange, shortcuts, helpUrl, onSignOut, isSigningOut, entries = [] } = props;
+export function AvatarMenu(props: AvatarMenuProps & AvatarMenuLayout) {
+  const { name, signedInAs, accountUrl, theme, themes, hasTheme, onThemeChange, shortcuts, helpUrl, onSignOut, isSigningOut, entries = [], layout = 'avatar', caption, className } = props;
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
   const shown = displayNameOf(name, signedInAs);
   const label = `Account menu, ${shown}${signedInAs === undefined ? '' : `, ${signedInAsOf(signedInAs)}`}`;
   return (
     <>
       <DropdownMenu>
-        <DropdownMenuTrigger
-          data-testid="avatar-menu"
-          aria-label={label}
-          className="inline-flex size-(--size-control) shrink-0 items-center justify-center rounded-full outline-none focus-visible:outline-2 focus-visible:outline-ring"
-        >
-          <Avatar kind={signedInAs === 'argo' ? 'argo' : 'account'} size={28} name={shown} />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-64">
+        {layout === 'row' ? (
+          <DropdownMenuTrigger
+            data-testid="avatar-menu"
+            aria-label={label}
+            className={classNames(
+              'flex w-full min-w-0 items-center gap-2.5 rounded-md p-2 text-left outline-none transition-colors duration-(--duration-fast) hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring aria-expanded:bg-accent',
+              className,
+            )}
+          >
+            <Avatar kind={signedInAs === 'argo' ? 'argo' : 'account'} size={28} name={shown} />
+            <span data-slot="avatar-menu-words" className="flex min-w-0 flex-col">
+              <span className="truncate text-body font-medium text-foreground">{shown}</span>
+              {caption === undefined ? null : <span className="truncate text-caption text-muted-foreground">{caption}</span>}
+            </span>
+          </DropdownMenuTrigger>
+        ) : (
+          <DropdownMenuTrigger
+            data-testid="avatar-menu"
+            aria-label={label}
+            className={classNames('inline-flex size-(--size-control) shrink-0 items-center justify-center rounded-full outline-none focus-visible:outline-2 focus-visible:outline-ring', className)}
+          >
+            <Avatar kind={signedInAs === 'argo' ? 'argo' : 'account'} size={28} name={shown} />
+          </DropdownMenuTrigger>
+        )}
+        <DropdownMenuContent align={layout === 'row' ? 'start' : 'end'} side={layout === 'row' ? 'top' : 'bottom'} className="w-64">
           <WhoHeader name={name} signedInAs={signedInAs} session={props.session} />
           {accountUrl === undefined
             ? null

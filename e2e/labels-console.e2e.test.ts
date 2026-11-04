@@ -133,9 +133,9 @@ describe('Labels in the console', () => {
   it('shows each ship’s labels on its row, filters by every value picked, and keeps the filter in the URL', async () => {
     const page = await signedIn();
     // Yours by key: area first; project=hemma folds into "+1", whose title names it.
-    await expect.poll(() => page.getByTestId('fleet-row-hemma-api').getByTestId('fleet-labels').textContent(), WITHIN).toContain('area=backend');
+    await expect.poll(() => page.getByTestId('fleet-row-hemma-api').getByTestId('fleet-labels').textContent(), WITHIN).toContain('area: backend');
     const overflow = page.getByTestId('fleet-row-hemma-api').getByRole('link', { name: 'View 1 more labels' });
-    await expect(overflow.getAttribute('title')).resolves.toBe('project=hemma, by you');
+    await expect(overflow.getAttribute('title')).resolves.toBe('project: hemma, by you');
     await expect(overflow.getAttribute('href')).resolves.toBe(`/ships/${shipIdOf('hemma-api')}`);
 
     await page.getByTestId('fleet-filter-labels').click();
@@ -149,7 +149,7 @@ describe('Labels in the console', () => {
 
     await page.reload();
     await expect.poll(() => listed(page), WITHIN).toEqual(['hemma-api']);
-    await page.getByRole('button', { name: 'Remove area=backend' }).click();
+    await page.getByRole('button', { name: 'Remove area: backend' }).click();
     await expect.poll(() => listed(page), WITHIN).toEqual(['hemma-api', 'hemma-web']);
   });
 
@@ -158,11 +158,11 @@ describe('Labels in the console', () => {
     await page.getByTestId('fleet-row-hemma-web').waitFor();
 
     unwrap(await useCases.assignLabel(argo, { shipId: shipIdOf('hemma-web'), valueId: idOf('area=frontend') }));
-    await expect.poll(() => page.getByTestId('fleet-row-hemma-web').getByTestId('fleet-labels').textContent(), WITHIN).toContain('area=frontend');
+    await expect.poll(() => page.getByTestId('fleet-row-hemma-web').getByTestId('fleet-labels').textContent(), WITHIN).toContain('area: frontend');
 
     await page.goto(`/ships/${shipIdOf('hemma-api')}`);
-    await expect.poll(() => page.getByTestId('ship-labels').textContent(), WITHIN).toContain('area=backend');
-    await expect(page.getByTestId('ship-labels').textContent()).resolves.toContain('project=hemma');
+    await expect.poll(() => page.getByTestId('ship-labels').textContent(), WITHIN).toContain('area: backend');
+    await expect(page.getByTestId('ship-labels').textContent()).resolves.toContain('project: hemma');
   });
 
   it('defines a label on the Labels page, changes its values at once, refuses removing a value ships carry, and deletes a label no ship carries', async () => {
@@ -215,7 +215,7 @@ describe('Labels in the console', () => {
     const add = page.getByTestId('ship-labels-add-popover');
     await add.getByTestId('label-picker-key').filter({ hasText: 'area' }).click();
     await add.getByTestId('label-picker-value').filter({ hasText: 'frontend' }).click();
-    await expect.poll(() => labels.textContent(), WITHIN).toContain('area=frontend');
+    await expect.poll(() => labels.textContent(), WITHIN).toContain('area: frontend');
   });
 
   it('puts one of argo’s labels on a ship from its page, changes its value, names it in the retire confirm and takes it off', async () => {
@@ -228,12 +228,12 @@ describe('Labels in the console', () => {
     const add = page.getByTestId('ship-labels-add-popover');
     await add.getByTestId('label-picker-key').filter({ hasText: 'project' }).click();
     await add.getByTestId('label-picker-value').filter({ hasText: 'hemma' }).click();
-    await expect.poll(() => labels.textContent(), WITHIN).toContain('project=hemma');
+    await expect.poll(() => labels.textContent(), WITHIN).toContain('project: hemma');
 
     await labels.getByTestId('ship-label-yours').click();
     await page.getByTestId('ship-label-menu').getByTestId('ship-label-value').filter({ hasText: 'aeolus' }).click();
-    await expect.poll(() => labels.textContent(), WITHIN).toContain('project=aeolus');
-    await expect(labels.textContent()).resolves.not.toContain('project=hemma');
+    await expect.poll(() => labels.textContent(), WITHIN).toContain('project: aeolus');
+    await expect(labels.textContent()).resolves.not.toContain('project: hemma');
 
     await page.getByTestId('fleet-ship-retire').click();
     const retire = page.getByTestId('retire-dialog');

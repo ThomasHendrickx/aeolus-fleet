@@ -113,3 +113,48 @@ export const PhoneOpening: Story = {
     await expect(labs).toHaveTextContent('Opening Labs');
   },
 };
+
+/** The fleet alone, as the console's breadcrumb starts (docs/design/fleet-overview): "Acme" opens one menu, the fleets then the apps. */
+export const FleetOnly: Story = {
+  args: { layout: 'fleet' },
+  play: async ({ canvasElement }) => {
+    const switcher = within(canvasElement).getByTestId('app-switcher');
+    await expect(switcher).toHaveTextContent(/^Acme$/);
+    await userEvent.click(within(switcher).getByRole('button'));
+    await expect((await screen.findAllByTestId('app-switcher-fleet')).map((fleet) => fleet.textContent)).toEqual(['Acme', 'Labs']);
+    await expect(screen.getAllByTestId('app-switcher-app').map((app) => app.textContent)).toEqual(['Console', 'Gateway', 'Account']);
+  },
+};
+
+/** The fleet alone without anywhere else to go: plain text. */
+export const FleetOnlyNothingToSwitch: Story = {
+  args: { layout: 'fleet', switcher: appSwitcherOf({ list: undefined, fleet: { id: ACME, name: 'Acme' }, app: 'console' }) },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getByTestId('app-switcher')).toHaveTextContent(/^Acme$/);
+    await expect(within(canvasElement).queryByRole('button')).toBeNull();
+  },
+};
+
+/** Phone, titled by the page ("Fleet" on the fleet overview): the title opens the same Sheet. */
+export const PhoneTitled: Story = {
+  args: { layout: 'compact', title: 'Fleet' },
+  globals: { viewport: { value: 'mobile1' } },
+  play: async ({ canvasElement }) => {
+    const switcher = within(canvasElement).getByTestId('app-switcher');
+    await expect(switcher).toHaveTextContent(/^Fleet$/);
+    await userEvent.click(switcher);
+    const sheet = await screen.findByTestId('app-switcher-sheet');
+    await expect(within(sheet).getAllByTestId('app-switcher-app')).toHaveLength(3);
+  },
+};
+
+/** Phone, titled, without anywhere else to go: the title as plain text. */
+export const PhoneTitledNothingToSwitch: Story = {
+  args: { layout: 'compact', title: 'Fleet', switcher: appSwitcherOf({ list: undefined, fleet: { id: ACME, name: 'Acme' }, app: 'console' }) },
+  play: async ({ canvasElement }) => {
+    const switcher = within(canvasElement).getByTestId('app-switcher');
+    await expect(switcher).toHaveTextContent(/^Fleet$/);
+    // A title, as large as the one that opens the Sheet (text-title-touch), not body text.
+    await expect(Number.parseFloat(getComputedStyle(switcher).fontSize)).toBeGreaterThanOrEqual(20);
+  },
+};

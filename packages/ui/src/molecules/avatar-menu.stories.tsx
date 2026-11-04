@@ -164,3 +164,22 @@ export const PhoneManyEntries: Story = {
     await waitFor(() => expect(cancel.getBoundingClientRect().bottom).toBeLessThanOrEqual(sheet.getBoundingClientRect().bottom));
   },
 };
+
+/** In an app's sidebar foot (docs/design/fleet-overview): the avatar, the name and a caption open the same menu. */
+export const Row: Story = {
+  args: { layout: 'row', caption: 'Acme fleet' },
+  decorators: [
+    (Story) => (
+      <div className="flex min-h-160 w-64 flex-col justify-end p-4">
+        <Story />
+      </div>
+    ),
+  ],
+  play: async ({ canvasElement }) => {
+    const trigger = within(canvasElement).getByTestId('avatar-menu');
+    await expect(trigger).toHaveTextContent('charlotte@acme.example');
+    await expect(trigger).toHaveTextContent('Acme fleet');
+    await userEvent.click(trigger);
+    await expect(await screen.findByTestId('avatar-menu-signed-in-as')).toHaveTextContent('Signed in as your account');
+  },
+};

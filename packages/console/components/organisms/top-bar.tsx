@@ -11,6 +11,8 @@ interface TopBarProps {
   title: string;
   /** Root mode: the switcher, compact (header design H6); undefined until the session is read. */
   switcher?: AppSwitcherModel;
+  /** Root mode: the switcher reads the title in place of the app's name, as the fleet overview's "Fleet" (docs/design/fleet-overview). */
+  isTitled?: boolean;
   live: LiveState;
   /** Up to two icon-only Buttons, each with its aria-label. */
   actions?: ReactNode;
@@ -27,14 +29,14 @@ interface TopBarProps {
 
 /**
  * Phone top bar (docs/design/png/TopBar.png), 56 px. Root mode: the
- * switcher, the app's name with ▾ that opens the fleets and apps in a bottom
+ * switcher, the app's name (or the page's, titled) with ▾ that opens the fleets and apps in a bottom
  * Sheet (header design H6), the live status, the CommandPalette's search
  * icon, up to two icon actions and the avatar menu, always last, which opens
  * as a bottom Sheet. Detail mode: a back link
  * labelled with the previous page, the title and the live status. Modal mode
  * comes with the pages that need it.
  */
-export function TopBar({ title, live, actions, back, switcher, account, onSearch }: TopBarProps) {
+export function TopBar({ title, live, actions, back, switcher, isTitled = false, account, onSearch }: TopBarProps) {
   const search = onSearch && !back ? onSearch : undefined;
   return (
     <header
@@ -55,9 +57,13 @@ export function TopBar({ title, live, actions, back, switcher, account, onSearch
         </>
       ) : (
         // Until the session is read the console's own name stands in: the switcher only adds where else to go.
-        switcher ? <AppSwitcher switcher={switcher} layout="compact" className="min-w-0" /> : <p className="truncate px-1.5 text-title-touch font-semibold text-foreground">Console</p>
+        switcher ? (
+          <AppSwitcher switcher={switcher} layout="compact" {...(isTitled ? { title } : {})} className="min-w-0" />
+        ) : (
+          <p className="truncate px-1.5 text-title-touch font-semibold text-foreground">{isTitled ? title : 'Console'}</p>
+        )
       )}
-      <LiveStatus state={live} />
+      <LiveStatus state={live} className={isTitled && !back ? 'ml-auto' : undefined} />
       {actions || search || (account && !back) ? (
         <div className="ml-auto flex items-center gap-1">
           {search ? (

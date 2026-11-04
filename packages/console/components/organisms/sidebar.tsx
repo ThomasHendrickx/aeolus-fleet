@@ -1,12 +1,11 @@
 'use client';
 
-import { Activity, ChartColumn, CodeXml, Inbox, ListChecks, Network, Settings, Shapes, Ship, ShipWheel } from 'lucide-react';
+import { Activity, ChartColumn, Inbox, Network, Settings2, Shapes, Ship, ShipWheel, Users } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
-import { Avatar } from '@aeolus-fleet/ui';
+import { Avatar, AvatarMenu, type AvatarMenuProps } from '@aeolus-fleet/ui';
 import { Badge } from '../atoms/badge';
-import { SOURCE_URL } from '../../lib/source';
 import { NavLinkIcon } from '../molecules/nav-link-icon';
 
 /** The console's destinations so far. */
@@ -31,10 +30,14 @@ interface SidebarProps {
   hasNetwork?: boolean;
   /** Whether Settings is offered: it holds the plugins, and only a session that manages the fleet changes them. */
   hasSettings?: boolean;
+  /** The avatar menu, in the foot; unset, no foot. */
+  account?: AvatarMenuProps;
+  /** The fleet in view, under the name in the foot; undefined until the session is read. */
+  fleetName?: string;
 }
 
 const ITEM =
-  'relative flex h-7.5 items-center gap-2.5 rounded-md px-2.5 text-body text-muted-foreground transition-colors duration-(--duration-fast) hover:bg-accent hover:text-foreground aria-[current=page]:bg-accent aria-[current=page]:font-medium aria-[current=page]:text-foreground max-lg:justify-center max-lg:px-0 [&_svg]:size-(--size-icon) [&_svg]:shrink-0';
+  'relative flex h-7.5 items-center gap-2.5 rounded-md px-2.5 text-body text-foreground transition-colors duration-(--duration-fast) hover:bg-accent aria-[current=page]:bg-accent aria-[current=page]:font-medium aria-[current=page]:[&_svg]:text-primary max-lg:justify-center max-lg:px-0 [&_svg]:size-(--size-icon) [&_svg]:shrink-0';
 
 function NavItem({
   href,
@@ -70,7 +73,7 @@ function InboxCount({ count, testId = 'nav-inbox-count' }: { count: number | und
   }
   return (
     <>
-      <Badge variant="count" data-testid={testId} className="max-lg:sr-only">
+      <Badge variant="count" data-testid={testId} className="h-4.5 min-w-4.5 max-lg:sr-only">
         {count}
         <span className="sr-only"> open</span>
       </Badge>
@@ -86,7 +89,7 @@ function NeedsCrewCount({ count }: { count: number | undefined }) {
   }
   return (
     <>
-      <Badge variant="count-neutral" data-testid="nav-needs-crew-count" className="max-lg:sr-only">
+      <Badge variant="count-neutral" data-testid="nav-needs-crew-count" className="h-4.5 min-w-4.5 max-lg:sr-only">
         {count}
         <span className="sr-only"> need crew</span>
       </Badge>
@@ -105,7 +108,7 @@ function AttentionCount({ count, testId, words }: { count: number | undefined; t
   }
   return (
     <>
-      <Badge variant="count-attention" data-testid={testId} className="max-lg:sr-only">
+      <Badge variant="count-attention" data-testid={testId} className="h-4.5 min-w-4.5 max-lg:sr-only">
         {count}
         <span className="sr-only"> {words}</span>
       </Badge>
@@ -115,33 +118,30 @@ function AttentionCount({ count, testId, words }: { count: number | undefined; t
 }
 
 /**
- * Desktop navigation (docs/design/png/Sidebar.png): the brand and the
- * destinations; the avatar menu sits in the header (header design). 256 px
- * from 1024 px; a 64 px rail from 640 to 1023 px, labels kept for assistive
- * technology and dots instead of numbers. Destinations so far: Fleet overview;
- * Health, which counts the stuck deliveries in the attention tone (#304);
- * Needs crew, which counts the ships on it (#245); and
- * Inbox, which counts its open questions and open messages in --primary. A
- * count simply hides until it is known. With squadrons on, Squadrons
- * comes second; with the trierarch plugin on, Trierarchs follows, counting its
- * silent machines in the attention tone (#245), and Usage after it. Settings, which holds the
- * plugins, sits with the link to the source on GitHub at the foot,
- * after Network, the networking plugin's rules, for argo while it is connected.
+ * Desktop navigation (docs/design/fleet-overview/console-desktop.html): the
+ * mark and "Aeolus", then the destinations in one list. 256 px from 1024 px; a
+ * 64 px rail from 640 to 1023 px, labels kept for assistive technology and
+ * dots instead of numbers. Destinations: Fleet overview; Health, which counts
+ * the stuck deliveries in the attention tone (#304); Needs crew, which counts
+ * the ships on it (#245); with squadrons on, Squadrons; with the trierarch
+ * plugin on, Trierarchs, counting its silent machines in the attention tone
+ * (#245), and Usage; Operator inbox, which counts its open questions and open
+ * messages in --primary; Network, the networking plugin's rules, for argo
+ * while it is connected; and Settings, which holds the plugins. A count simply
+ * hides until it is known. The foot holds the avatar menu: who is signed in,
+ * and the fleet in view.
  */
-export function Sidebar({ active, inboxCount, stuckCount, needsCrewCount, hasSquadrons = false, hasTrierarchs = false, trierarchsCount, hasNetwork = false, hasSettings = false }: SidebarProps) {
+export function Sidebar({ active, inboxCount, stuckCount, needsCrewCount, hasSquadrons = false, hasTrierarchs = false, trierarchsCount, hasNetwork = false, hasSettings = false, account, fleetName }: SidebarProps) {
   return (
     <aside
       data-slot="sidebar"
-      className="sticky top-0 hidden h-dvh w-(--size-rail) shrink-0 flex-col border-r border-border bg-sidebar text-sidebar-foreground sm:flex lg:w-(--size-sidebar)"
+      className="sticky top-0 hidden h-dvh w-(--size-rail) shrink-0 flex-col border-r border-border bg-sidebar p-3 text-sidebar-foreground sm:flex lg:w-(--size-sidebar)"
     >
-      <div className="flex h-(--size-header) items-center gap-2.5 px-4 max-lg:justify-center max-lg:px-0">
+      <div className="mb-2.5 flex h-10 items-center gap-2.5 px-2 max-lg:justify-center max-lg:px-0">
         <Avatar kind="app" size={28} />
-        <div className="flex flex-col max-lg:sr-only">
-          <span className="text-body font-semibold text-foreground">Aeolus</span>
-          <span className="text-caption text-muted-foreground">Operator console</span>
-        </div>
+        <span className="text-body font-semibold text-foreground max-lg:sr-only">Aeolus</span>
       </div>
-      <nav aria-label="Console" className="flex grow flex-col gap-0.5 px-2.5 py-2">
+      <nav aria-label="Console" className="flex grow flex-col gap-0.5">
         <NavItem
           href="/"
           label="Fleet overview"
@@ -160,7 +160,7 @@ export function Sidebar({ active, inboxCount, stuckCount, needsCrewCount, hasSqu
         <NavItem
           href="/needs-crew"
           label="Needs crew"
-          icon={<ListChecks aria-hidden />}
+          icon={<Users aria-hidden />}
           isActive={active === 'needs-crew'}
           testId="nav-needs-crew"
           count={<NeedsCrewCount count={needsCrewCount} />}
@@ -181,22 +181,20 @@ export function Sidebar({ active, inboxCount, stuckCount, needsCrewCount, hasSqu
         {hasTrierarchs && <NavItem href="/usage" label="Usage" icon={<ChartColumn aria-hidden />} isActive={active === 'usage'} testId="nav-usage" />}
         <NavItem
           href="/inbox"
-          label="Inbox"
+          label="Operator inbox"
           icon={<Inbox aria-hidden />}
           isActive={active === 'inbox'}
           testId="nav-inbox"
           count={<InboxCount count={inboxCount} />}
         />
-      </nav>
-      <div className="px-2.5 pb-2">
         {hasNetwork && <NavItem href="/network" label="Network" icon={<Network aria-hidden />} isActive={active === 'network'} testId="nav-network" />}
-        {hasSettings && <NavItem href="/settings" label="Settings" icon={<Settings aria-hidden />} isActive={active === 'settings'} testId="nav-settings" />}
-        <a href={SOURCE_URL} target="_blank" rel="noreferrer" data-testid="nav-source" className={ITEM}>
-          <CodeXml aria-hidden />
-          <span className="grow max-lg:sr-only">Source on GitHub</span>
-          <span className="sr-only"> (opens in a new tab)</span>
-        </a>
-      </div>
+        {hasSettings && <NavItem href="/settings" label="Settings" icon={<Settings2 aria-hidden />} isActive={active === 'settings'} testId="nav-settings" />}
+      </nav>
+      {account === undefined ? null : (
+        <div className="border-t border-border pt-2">
+          <AvatarMenu {...account} layout="row" {...(fleetName === undefined ? {} : { caption: fleetName })} className="max-lg:justify-center max-lg:[&_[data-slot=avatar-menu-words]]:sr-only" />
+        </div>
+      )}
     </aside>
   );
 }

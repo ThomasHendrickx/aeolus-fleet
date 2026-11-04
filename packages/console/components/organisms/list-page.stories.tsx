@@ -95,3 +95,21 @@ export const ActionInTitleRowPhone: Story = {
     await expect(action.top).toBeLessThan(title.bottom);
   },
 };
+
+/**
+ * The fleet overview on phone (docs/design/fleet-overview/console-phone.html): the TopBar reads "Fleet" and opens the
+ * switcher, with no search or Compose icons, and the page's title row gives way to it, its heading kept for assistive technology.
+ */
+export const PhoneTitledPhone: Story = {
+  args: { phoneTitle: 'Fleet' },
+  globals: { viewport: { value: 'mobile1' } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getAllByTestId('app-switcher').find((switcher) => switcher.closest('[data-slot="top-bar"]') !== null)).toHaveTextContent(/^Fleet$/);
+    await expect(canvas.queryByTestId('top-bar-search')).toBeNull();
+    await expect(canvas.queryByTestId('top-bar-compose')).toBeNull();
+    // Kept for assistive technology, out of sight: clipped to a pixel by the title row (sr-only).
+    await expect(canvas.getByRole('heading', { level: 1 }).parentElement?.parentElement?.parentElement?.getBoundingClientRect().height).toBeLessThanOrEqual(1);
+    await expect(canvas.getByRole('button', { name: 'Commission ship', hidden: true })).not.toBeVisible();
+  },
+};

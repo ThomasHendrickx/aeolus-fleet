@@ -56,3 +56,22 @@ export const Search: Story = {
     await expect(args.onSearch).toHaveBeenCalled();
   },
 };
+
+/**
+ * The console's header (docs/design/fleet-overview): the fleet alone before the app's part, a search field
+ * reading "Search" before the app's controls, and no avatar menu, which the console shows in its sidebar foot.
+ */
+export const FleetSearchFieldNoAvatar: Story = {
+  args: { switcherLayout: 'fleet', search: 'field', searchLabel: 'Search', account: undefined, actions: <button type="button">Compose</button> },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByTestId('app-switcher')).toHaveTextContent(/^Acme$/);
+    await expect(canvas.queryByTestId('avatar-menu')).toBeNull();
+    const search = canvas.getByTestId('header-search');
+    await expect(search).toHaveAttribute('data-slot', 'button');
+    await expect(search).toHaveTextContent(/^Search$/);
+    await expect(search.compareDocumentPosition(canvas.getByRole('button', { name: 'Compose' }))).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    await userEvent.click(search);
+    await expect(args.onSearch).toHaveBeenCalled();
+  },
+};

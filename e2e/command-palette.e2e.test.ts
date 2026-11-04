@@ -134,6 +134,8 @@ describe('the CommandPalette', () => {
 
   it('opens full screen from the TopBar on phone and goes to a page', async () => {
     const page = await signedInPage({ isPhone: true });
+    // The fleet overview's TopBar reads "Fleet" without the search icon (docs/design/fleet-overview); the inbox's has it.
+    await page.goto('/inbox');
 
     await page.getByTestId('top-bar-search').click();
     await palette(page).getByTestId('command-palette-input').fill('health');

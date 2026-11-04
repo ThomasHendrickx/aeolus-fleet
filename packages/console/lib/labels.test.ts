@@ -87,15 +87,15 @@ describe('chipsOf', () => {
 
 describe('chipTitleOf', () => {
   it('names you as the owner of your own label', () => {
-    expect(chipTitleOf({ key: 'project', value: 'hemma', mark: 'none', ownerName: 'argo' })).toBe('project=hemma, by you');
+    expect(chipTitleOf({ key: 'project', value: 'hemma', mark: 'none', ownerName: 'argo' })).toBe('project: hemma, by you');
   });
 
   it('names the owner of another ship’s label', () => {
-    expect(chipTitleOf({ key: 'cost', value: 'low', mark: 'ship', ownerName: 'orchestrator' })).toBe('cost=low, by orchestrator');
+    expect(chipTitleOf({ key: 'cost', value: 'low', mark: 'ship', ownerName: 'orchestrator' })).toBe('cost: low, by orchestrator');
   });
 
   it('says plainly that the label no longer exists', () => {
-    expect(chipTitleOf({ key: 'tier', value: 'gold', mark: 'gone', ownerName: '' })).toBe('tier=gold, a label that no longer exists');
+    expect(chipTitleOf({ key: 'tier', value: 'gold', mark: 'gone', ownerName: '' })).toBe('tier: gold, a label that no longer exists');
   });
 });
 

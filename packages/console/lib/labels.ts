@@ -86,9 +86,9 @@ export function chipsOf(ship: Pick<ListedShip, 'labels'>, context: LabelContext)
     .toSorted((one, other) => Number(isYours(other)) - Number(isYours(one)) || one.key.localeCompare(other.key) || one.value.localeCompare(other.value));
 }
 
-/** A chip's title: `key=value` and whose label it is, or that the label no longer exists. */
+/** A chip's title: `key: value` and whose label it is, or that the label no longer exists. */
 export function chipTitleOf(chip: Pick<LabelChip, 'key' | 'value' | 'mark' | 'ownerName'>): string {
-  const text = `${chip.key}=${chip.value}`;
+  const text = `${chip.key}: ${chip.value}`;
   switch (chip.mark) {
     case 'none':
       return `${text}, by you`;

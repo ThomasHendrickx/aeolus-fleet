@@ -88,7 +88,7 @@ export const WithALabelDeletedSince: Story = {
     ],
   },
   play: async ({ canvasElement }) => {
-    await expect(within(canvasElement).getAllByTestId('network-refusal-label')[0]).toHaveAttribute('title', 'tier=gold, a label that no longer exists');
+    await expect(within(canvasElement).getAllByTestId('network-refusal-label')[0]).toHaveAttribute('title', 'tier: gold, a label that no longer exists');
   },
 };
 /** Neither ship carried a label then. */
