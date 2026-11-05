@@ -11,7 +11,6 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const App: Story = { args: { kind: 'app' } };
 export const Account: Story = { args: { kind: 'account', name: 'operator' } };
 export const Ship: Story = { args: { kind: 'ship' } };
 export const Argo: Story = { args: { kind: 'argo', name: 'argo' } };

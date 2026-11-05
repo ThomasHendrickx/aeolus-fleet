@@ -4,8 +4,9 @@ import { Activity, ChartColumn, Inbox, Network, Settings2, Shapes, Ship, ShipWhe
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
-import { Avatar, AvatarMenu, type AvatarMenuProps } from '@aeolus-fleet/ui';
+import { AvatarMenu, type AvatarMenuProps } from '@aeolus-fleet/ui';
 import { Badge } from '../atoms/badge';
+import { BrandLogo } from '../atoms/brand-logo';
 import { NavLinkIcon } from '../molecules/nav-link-icon';
 
 /** The console's destinations so far. */
@@ -137,9 +138,9 @@ export function Sidebar({ active, inboxCount, stuckCount, needsCrewCount, hasSqu
       data-slot="sidebar"
       className="sticky top-0 hidden h-dvh w-(--size-rail) shrink-0 flex-col border-r border-border bg-sidebar p-3 text-sidebar-foreground sm:flex lg:w-(--size-sidebar)"
     >
-      <div className="mb-2.5 flex h-10 items-center gap-2.5 px-2 max-lg:justify-center max-lg:px-0">
-        <Avatar kind="app" size={28} />
-        <span className="text-body font-semibold text-foreground max-lg:sr-only">Aeolus</span>
+      <div className="mb-2.5 flex h-10 items-center px-2 max-lg:justify-center max-lg:px-0">
+        <BrandLogo kind="wordmark" className="h-6 max-lg:hidden" />
+        <BrandLogo kind="mark" className="size-7 lg:hidden" />
       </div>
       <nav aria-label="Console" className="flex grow flex-col gap-0.5">
         <NavItem
