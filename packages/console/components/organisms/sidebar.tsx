@@ -139,8 +139,12 @@ export function Sidebar({ active, inboxCount, stuckCount, needsCrewCount, hasSqu
       className="sticky top-0 hidden h-dvh w-(--size-rail) shrink-0 flex-col border-r border-border bg-sidebar p-3 text-sidebar-foreground sm:flex lg:w-(--size-sidebar)"
     >
       <div className="mb-2.5 flex h-10 items-center px-2 max-lg:justify-center max-lg:px-0">
-        <BrandLogo kind="wordmark" className="h-6 max-lg:hidden" />
-        <BrandLogo kind="mark" className="size-7 lg:hidden" />
+        <span className="max-lg:hidden">
+          <BrandLogo kind="wordmark" className="h-6" />
+        </span>
+        <span className="lg:hidden">
+          <BrandLogo kind="mark" className="size-7" />
+        </span>
       </div>
       <nav aria-label="Console" className="flex grow flex-col gap-0.5">
         <NavItem
