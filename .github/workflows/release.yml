@@ -3,7 +3,8 @@
 # version on npm always matches a tag in git. It publishes the tarballs a run of
 # candidate.yml packed, the ones staging walked, and builds nothing itself. Then
 # creates the GitHub Release for the tag, with notes from the merged pull
-# requests carrying the label <version>.
+# requests carrying the label <version>. The milestone "core <version>" must have no
+# open issues before anything is published, and is closed after the release.
 #
 # The only way the packages can be published: npm trusted publishing (OIDC) is
 # configured for exactly this file name, and tokens are disallowed (ADR 0011).
@@ -37,6 +38,8 @@ permissions:
   actions: read
   # To read the staging-walk status the walker set on the released commit.
   statuses: read
+  # To read the release's milestone and close it.
+  issues: write
 
 concurrency:
   group: release
@@ -131,6 +134,31 @@ jobs:
           gh run view "$RUN_ID" --json workflowName,conclusion,headSha \
             | node scripts/candidate-check.ts "$VERSION" "$GITHUB_SHA" "$RUNNER_TEMP/candidate"
 
+      # The milestone "core <version>" is the release's scope: open issues in it
+      # stop the run before anything is published. A hotfix without one goes on.
+      # A lookup that fails fails the run (shell: bash adds pipefail).
+      - name: Check the release's milestone has no open issues
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        shell: bash
+        run: |
+          MILESTONE="core $VERSION"
+          number=$(gh api --paginate "repos/$GITHUB_REPOSITORY/milestones?state=all&per_page=100" \
+            | jq -r --arg title "$MILESTONE" '.[] | select(.title == $title) | .number')
+          if [[ -z "$number" ]]; then
+            echo "No milestone named '$MILESTONE': going on without one." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          open=$(gh api --paginate "repos/$GITHUB_REPOSITORY/issues?milestone=$number&state=open&per_page=100" \
+            | jq -r '.[] | "#\(.number) \(.title)"')
+          if [[ -n "$open" ]]; then
+            echo "::error::Milestone '$MILESTONE' has open issues, nothing is published:"
+            echo "$open"
+            exit 1
+          fi
+          echo "Milestone '$MILESTONE' has no open issues." | tee -a "$GITHUB_STEP_SUMMARY"
+
       # Catch a problem in any tarball before the first one is published. A dry
       # run refuses a version on npm already too, so it skips those, as the
       # publish steps below do.
@@ -218,3 +246,22 @@ jobs:
             printf '\n**Released without a passed staging walk**, by %s: %s\n' "$GITHUB_ACTOR" "$OVERRIDE_REASON" >> "$RUNNER_TEMP/release-notes.md"
           fi
           gh release create "v$VERSION" --verify-tag --title "v$VERSION" --notes-file "$RUNNER_TEMP/release-notes.md"
+
+      # After the release is out, so a run that failed before it leaves the
+      # milestone open. Closing a closed milestone changes nothing, as when a
+      # release is dispatched again.
+      - name: Close the release's milestone
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        shell: bash
+        run: |
+          MILESTONE="core $VERSION"
+          number=$(gh api --paginate "repos/$GITHUB_REPOSITORY/milestones?state=all&per_page=100" \
+            | jq -r --arg title "$MILESTONE" '.[] | select(.title == $title) | .number')
+          if [[ -z "$number" ]]; then
+            echo "No milestone named '$MILESTONE': nothing to close." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          gh api --method PATCH "repos/$GITHUB_REPOSITORY/milestones/$number" -f state=closed > /dev/null
+          echo "Closed milestone '$MILESTONE'." | tee -a "$GITHUB_STEP_SUMMARY"
