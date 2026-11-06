@@ -210,7 +210,7 @@ Defined in `@aeolus-fleet/common`, checked by core on every call and by the clie
 | 8 ships | Ships the command palette lists before anything is typed | [features/commands/services/command-palette.ts](../packages/console/features/commands/services/command-palette.ts) `SHIPS_BEFORE_QUERY` | none recorded |
 | 1.5 s | A copy button shows its check | [components/atoms/copy-button.tsx](../packages/console/components/atoms/copy-button.tsx) `COPIED_FOR_MS` | [design/README.md](design/README.md) |
 | 500 ms | A tooltip opens after hovering | [ui atoms/tooltip.tsx](../packages/ui/src/atoms/tooltip.tsx) `HOVER_DELAY_MS` | [design/README.md](design/README.md) |
-| 5 s; errors until dismissed | A toast closes by itself | [components/atoms/toast.tsx](../packages/console/components/atoms/toast.tsx) `SUCCESS_DURATION_MS` | none recorded |
+| 5 s; errors until dismissed | A toast closes by itself | [ui/src/atoms/toast.tsx](../packages/ui/src/atoms/toast.tsx) `SUCCESS_DURATION_MS` | none recorded |
 
 ## Other release trains
 
