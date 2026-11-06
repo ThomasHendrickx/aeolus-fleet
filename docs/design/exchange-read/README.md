@@ -84,6 +84,8 @@ Each has options and my pick. Thomas answers each.
 
 **Pick 1.** The need is a person's client. Every ship would add a row write per delivery fleet-wide, up to 6,000 for one label send to 3,000 ships, for a list no agent reads. It can widen later.
 
+**Thomas: 1** (6 Nov).
+
 ### E5 What the rollup counts as not yet acknowledged
 
 1. **Every delivery from the other ship to the caller that is pending, received or handed**, whatever its content type.
