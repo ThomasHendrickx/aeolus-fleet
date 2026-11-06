@@ -20,6 +20,7 @@ import type { MarkDone } from '../../domain/messaging/mark-done.js';
 import type { MarkRead } from '../../domain/messaging/mark-read.js';
 import type { HandOverDelivery } from '../../domain/messaging/hand-over-delivery.js';
 import type { ReadDelivery } from '../../domain/messaging/read-delivery.js';
+import type { AcknowledgeUpTo } from '../../domain/messaging/acknowledge-up-to.js';
 import type { ReadExchange } from '../../domain/messaging/read-exchange.js';
 import type { ReadExchanges } from '../../domain/messaging/read-exchanges.js';
 import type { ReadRecord } from '../../domain/messaging/read-record.js';
@@ -276,6 +277,7 @@ export interface UseCases {
   readExchanges: ReadExchanges;
   reportNotHandled: ReportNotHandled;
   acknowledgeDelivery: AcknowledgeDelivery;
+  acknowledgeUpTo: AcknowledgeUpTo;
   answerPing: AnswerPing;
   pingShip: PingShip;
   checkInbox: CheckInbox;

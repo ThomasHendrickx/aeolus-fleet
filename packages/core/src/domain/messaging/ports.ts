@@ -241,6 +241,14 @@ export interface DeliveryRepository {
    */
   findExchangePage(query: ExchangeQuery): Promise<ExchangedDelivery[]>;
   /**
+   * The other ship's deliveries that reached the ship, up to and including
+   * the one named, not yet acknowledged (pending, received or handed), each
+   * with its message, oldest first. Each is locked until the unit of work
+   * ends, in that order, waiting for one another unit of work holds, so none
+   * is skipped and two such reads take turns.
+   */
+  findUnacknowledgedUpToForUpdate(query: { fleetId: FleetId; shipId: ShipId; otherShipId: ShipId; upTo: DeliveryId }): Promise<ExchangedDelivery[]>;
+  /**
    * A page of the ship's record: the deliveries to it and those of its type
    * it claimed, in any state and whichever lease took them, each with its
    * message, newest first by id, after the delivery the cursor names. Only

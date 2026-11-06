@@ -22,6 +22,8 @@ import {
   exchangeOutputSchema,
   exchangesInputSchema,
   exchangesOutputSchema,
+  ackUpToInputSchema,
+  ackUpToOutputSchema,
   handledInputSchema,
   handledOutputSchema,
   inboxInputSchema,
@@ -663,6 +665,25 @@ export const shipRouter = router({
       okOrThrow(await ctx.useCases.acknowledgeDelivery(ctx.crew, input));
       return {};
     }),
+
+  /**
+   * Seen up to here (docs/design/exchange-read, E6, E7): a person ship's crew
+   * acknowledges the other ship's plain deliveries to it up to one message,
+   * in one transaction.
+   */
+  ackUpTo: scopedCrewProcedure('messages:receive')
+    .meta({
+      description: [
+        "Needs messages:receive, and a person ship's crew. Marks your exchange with one other ship seen up to one of its messages to you:",
+        'every delivery of the other ship\'s messages to your ship up to and including that messageId, pending, received or handed, is acknowledged at once, each with its event.',
+        'Questions, steps, alerts and notices, and their withdrawals, replacements, answers and outcomes, stay as they are: each has its own way to be done.',
+        'Answers how many it acknowledged; again changes nothing and answers 0.',
+        'A message that is not the other ship\'s to your ship is refused as MESSAGE_NOT_FOUND; any other ship\'s crew as FORBIDDEN.',
+      ].join(' '),
+    })
+    .input(ackUpToInputSchema)
+    .output(ackUpToOutputSchema)
+    .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.acknowledgeUpTo(ctx.crew, input))),
 
   /**
    * Answers a ping the ship received: acknowledges it and marks the session

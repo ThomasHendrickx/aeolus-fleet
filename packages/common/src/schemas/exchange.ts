@@ -93,3 +93,13 @@ export const exchangesEntrySchema = z.object({
 export const exchangesOutputSchema = pageOutputOf(exchangesEntrySchema, idSchema('message'));
 
 export type ExchangesOutput = z.infer<typeof exchangesOutputSchema>;
+
+/** Input of `ship.ackUpTo`: the other ship, and the message of it to the caller to mark the exchange seen up to (E6). */
+export const ackUpToInputSchema = z.object({ otherShipId: idSchema('ship'), messageId: idSchema('message') });
+
+export type AckUpToInput = z.infer<typeof ackUpToInputSchema>;
+
+/** Output of `ship.ackUpTo`: how many deliveries it acknowledged; none again. */
+export const ackUpToOutputSchema = z.object({ acknowledged: z.int().min(0) });
+
+export type AckUpToOutput = z.infer<typeof ackUpToOutputSchema>;

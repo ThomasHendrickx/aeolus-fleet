@@ -239,6 +239,29 @@ export function createPrismaDeliveryRepository(db: Db, rollups: ExchangeRollups)
       const newestFirst = toward === 'older' ? deliveries : deliveries.toReversed();
       return withMessages(db, { fleetId, deliveries: newestFirst });
     },
+    findUnacknowledgedUpToForUpdate: async ({ fleetId, shipId, otherShipId, upTo }) => {
+      // Found along the indexes of what is open: the ship's own on (fleet_id,
+      // recipient_ship_id, state), and those of a type it claimed, in flight,
+      // on the claiming ship's. Locked in id order, waiting for a row another
+      // unit of work holds; once it is free its state is read again, so one
+      // acknowledged meanwhile is left out.
+      const rows = await db.$queryRaw<unknown[]>`
+        SELECT ${DELIVERY_COLUMNS}
+        FROM deliveries
+        WHERE fleet_id = ${fleetId} AND state IN ('pending', 'received', 'handed')
+          AND id IN (
+            SELECT id FROM deliveries
+            WHERE fleet_id = ${fleetId} AND recipient_ship_id = ${shipId} AND state IN ('pending', 'received', 'handed')
+              AND sender_ship_id = ${otherShipId} AND is_in_exchange AND id <= ${upTo}
+            UNION ALL
+            SELECT id FROM deliveries
+            WHERE fleet_id = ${fleetId} AND claimed_by_ship_id = ${shipId} AND recipient_type IS NOT NULL AND state IN ('received', 'handed')
+              AND sender_ship_id = ${otherShipId} AND is_in_exchange AND id <= ${upTo}
+          )
+        ORDER BY id
+        FOR UPDATE`;
+      return withMessages(db, { fleetId, deliveries: rows.map(toDeliveryFromSql) });
+    },
     findRecordPage: async ({ fleetId, shipId, cursor, limit }) => {
       // Two halves, each read newest first along its own index and cut at one
       // past the page: the deliveries to the ship (fleet_id, recipient_ship_id,

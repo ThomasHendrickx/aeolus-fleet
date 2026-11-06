@@ -58,6 +58,7 @@ const SHIP_TOOLS = [
   'handled',
   'notHandled',
   'ack',
+  'ackUpTo',
   'pong',
   'report',
   'turn',

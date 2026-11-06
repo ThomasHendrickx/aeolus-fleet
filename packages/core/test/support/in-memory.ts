@@ -1650,6 +1650,22 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
           .slice(0, limit);
         return Promise.resolve(toward === 'older' ? rows : rows.toReversed());
       },
+      findUnacknowledgedUpToForUpdate: ({ fleetId, shipId, otherShipId, upTo }) => {
+        const rows = state.deliveries
+          .filter(
+            (held) =>
+              held.fleetId === fleetId &&
+              held.id <= upTo &&
+              (held.state === 'pending' || held.state === 'received' || held.state === 'handed') &&
+              (held.recipient.kind === 'ship' ? held.recipient.shipId === shipId : held.claimedByShipId === shipId),
+          )
+          .toSorted((first, second) => first.id.localeCompare(second.id))
+          .flatMap((delivery) => {
+            const message = state.messages.find((held) => held.fleetId === fleetId && held.id === delivery.messageId);
+            return message?.senderShipId === otherShipId && isInExchange(message) ? [{ delivery: structuredClone(delivery), message: structuredClone(message) }] : [];
+          });
+        return Promise.resolve(rows);
+      },
       findRecordPage: ({ fleetId, shipId, cursor, limit }) => {
         const rows = state.deliveries
           .filter(

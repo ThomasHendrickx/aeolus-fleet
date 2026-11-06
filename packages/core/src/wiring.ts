@@ -63,6 +63,7 @@ import { createSignOut, type SignOut } from './domain/identity/sign-out.js';
 import { createAcknowledgeDelivery, type AcknowledgeDelivery } from './domain/messaging/acknowledge-delivery.js';
 import { createHandOverDelivery, type HandOverDelivery } from './domain/messaging/hand-over-delivery.js';
 import { createReadDelivery, type ReadDelivery } from './domain/messaging/read-delivery.js';
+import { createAcknowledgeUpTo, type AcknowledgeUpTo } from './domain/messaging/acknowledge-up-to.js';
 import { createReadExchange, type ReadExchange } from './domain/messaging/read-exchange.js';
 import { createReadExchanges, type ReadExchanges } from './domain/messaging/read-exchanges.js';
 import { createReadRecord, type ReadRecord } from './domain/messaging/read-record.js';
@@ -329,6 +330,7 @@ export interface UseCases {
   /** Makes a new data key current in every sealed fleet whose current one is 30 days old (decision 0068); core runs it, never the API. */
   rotateDataKeys: RotateDataKeys;
   acknowledgeDelivery: AcknowledgeDelivery;
+  acknowledgeUpTo: AcknowledgeUpTo;
   answerPing: AnswerPing;
   pingShip: PingShip;
   checkInbox: CheckInbox;
@@ -613,6 +615,7 @@ export function createUseCases(options: {
     sealStoredPayloads: createSealStoredPayloads({ sealings, uow, clock, ids, hasher: sha256Hasher, sealing }),
     rotateDataKeys: createRotateDataKeys({ sealings, uow, clock, ids, dataKeys: sealing.dataKeys }),
     acknowledgeDelivery: createAcknowledgeDelivery({ uow, clock, ids }),
+    acknowledgeUpTo: createAcknowledgeUpTo({ uow, clock, ids }),
     answerPing: createAnswerPing({ uow, clock, ids }),
     pingShip: createPingShip({ uow, clock, ids, hasher: sha256Hasher, sealing }),
     checkInbox: createCheckInbox({ uow, clock, wakeups, fleetNews }),
