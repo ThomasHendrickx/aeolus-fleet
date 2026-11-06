@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { Archive, Ban, Hourglass, TriangleAlert } from 'lucide-react';
-import { useState } from 'react';
+import { Archive, Ban, Hourglass, TriangleAlert } from "lucide-react";
+import { useState } from "react";
 
-import { isTypedMatch } from '../../../../lib/ship-dialogs';
+import { isTypedMatch } from "../../../../lib/ship-dialogs";
 import {
   AlertDialog,
   AlertDialogClose,
@@ -12,11 +12,12 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '../../../../components/atoms/alert-dialog';
-import { Button, dialogSurface } from '@aeolus-fleet/ui';
-import { ConsequenceList } from '../../../../components/molecules/consequence-list';
-import { InlineError } from '../../../../components/molecules/inline-error';
-import { TypedConfirm } from '../../../../components/molecules/typed-confirm';
+  Button,
+  dialogSurface,
+} from "@aeolus-fleet/ui";
+import { ConsequenceList } from "../../../../components/molecules/consequence-list";
+import { InlineError } from "../../../../components/molecules/inline-error";
+import { TypedConfirm } from "../../../../components/molecules/typed-confirm";
 
 interface StandDownDialogProps {
   squadronId: string;
@@ -35,18 +36,31 @@ interface StandDownDialogProps {
 }
 
 function deliveriesText(count: number): string {
-  return `${String(count)} ${count === 1 ? 'delivery' : 'deliveries'}`;
+  return `${String(count)} ${count === 1 ? "delivery" : "deliveries"}`;
 }
 
 /** The open dialog's body: its typed text lives here, so it starts empty each time the dialog opens. */
 function StandDownBody(props: StandDownDialogProps) {
-  const { squadronId, memberCount, openDeliveries, inFlightDeliveries, isForced = false, isPending, error, onConfirm } = props;
-  const [typed, setTyped] = useState('');
+  const {
+    squadronId,
+    memberCount,
+    openDeliveries,
+    inFlightDeliveries,
+    isForced = false,
+    isPending,
+    error,
+    onConfirm,
+  } = props;
+  const [typed, setTyped] = useState("");
   const isTypingNeeded = isForced && openDeliveries > 0;
   const isConfirmed = !isTypingNeeded || isTypedMatch(squadronId, typed);
-  const failed = error === undefined ? null : (
-    <InlineError title="Couldn’t stand down the squadron" description={`${error} Nothing changed; the squadron still sails.`} />
-  );
+  const failed =
+    error === undefined ? null : (
+      <InlineError
+        title="Couldn’t stand down the squadron"
+        description={`${error} Nothing changed; the squadron still sails.`}
+      />
+    );
 
   if (!isForced) {
     return (
@@ -54,21 +68,39 @@ function StandDownBody(props: StandDownDialogProps) {
         <AlertDialogHeader>
           <AlertDialogTitle>Stand down {squadronId}?</AlertDialogTitle>
           <AlertDialogDescription>
-            Its {memberCount} {memberCount === 1 ? 'member winds' : 'members wind'} down on their own. This can&apos;t be undone.
+            Its {memberCount}{" "}
+            {memberCount === 1 ? "member winds" : "members wind"} down on their
+            own. This can&apos;t be undone.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <ConsequenceList
           consequences={[
-            { icon: Ban, text: 'No new work reaches its members; hand-offs stop.' },
-            { icon: Hourglass, text: `Members finish their open work: ${deliveriesText(openDeliveries)}.` },
-            { icon: Archive, text: 'Then each member ship and the flagship retire and the squadron is disbanded. History stays read-only.' },
+            {
+              icon: Ban,
+              text: "No new work reaches its members; hand-offs stop.",
+            },
+            {
+              icon: Hourglass,
+              text: `Members finish their open work: ${deliveriesText(openDeliveries)}.`,
+            },
+            {
+              icon: Archive,
+              text: "Then each member ship and the flagship retire and the squadron is disbanded. History stays read-only.",
+            },
           ]}
         />
         {failed}
         <AlertDialogFooter>
-          <AlertDialogClose render={<Button disabled={isPending} />}>Cancel</AlertDialogClose>
-          <Button variant="destructive" isLoading={isPending} onClick={onConfirm} data-testid="stand-down-confirm">
-            {isPending ? 'Standing down' : 'Stand down squadron'}
+          <AlertDialogClose render={<Button disabled={isPending} />}>
+            Cancel
+          </AlertDialogClose>
+          <Button
+            variant="destructive"
+            isLoading={isPending}
+            onClick={onConfirm}
+            data-testid="stand-down-confirm"
+          >
+            {isPending ? "Standing down" : "Stand down squadron"}
           </Button>
         </AlertDialogFooter>
       </>
@@ -79,27 +111,62 @@ function StandDownBody(props: StandDownDialogProps) {
     <>
       <AlertDialogHeader>
         <AlertDialogTitle>Force stand down {squadronId}?</AlertDialogTitle>
-        <AlertDialogDescription>The squadron disbands right away. This can&apos;t be undone.</AlertDialogDescription>
+        <AlertDialogDescription>
+          The squadron disbands right away. This can&apos;t be undone.
+        </AlertDialogDescription>
       </AlertDialogHeader>
       {openDeliveries > 0 ? (
-        <div role="alert" className="flex gap-2 rounded-lg border border-tone-attention-border bg-tone-attention-bg p-3 text-meta text-tone-attention-fg">
-          <TriangleAlert aria-hidden className="mt-0.5 size-(--size-icon-sm) shrink-0" />
+        <div
+          role="alert"
+          className="flex gap-2 rounded-lg border border-tone-attention-border bg-tone-attention-bg p-3 text-meta text-tone-attention-fg"
+        >
+          <TriangleAlert
+            aria-hidden
+            className="mt-0.5 size-(--size-icon-sm) shrink-0"
+          />
           <div className="flex flex-col gap-0.5">
-            <p className="font-medium">{deliveriesText(openDeliveries)} will be abandoned</p>
+            <p className="font-medium">
+              {deliveriesText(openDeliveries)} will be abandoned
+            </p>
             <p className="text-foreground">
-              Members and the flagship retire now, without finishing. {openDeliveries - inFlightDeliveries} pending, {inFlightDeliveries} in flight.
+              Members and the flagship retire now, without finishing.{" "}
+              {openDeliveries - inFlightDeliveries} pending,{" "}
+              {inFlightDeliveries} in flight.
             </p>
           </div>
         </div>
       ) : (
-        <ConsequenceList consequences={[{ icon: Archive, text: 'Every member ship and the flagship retire now and the squadron is disbanded. No open work is lost.' }]} />
+        <ConsequenceList
+          consequences={[
+            {
+              icon: Archive,
+              text: "Every member ship and the flagship retire now and the squadron is disbanded. No open work is lost.",
+            },
+          ]}
+        />
       )}
-      {isTypingNeeded ? <TypedConfirm expected={squadronId} value={typed} onValueChange={setTyped} /> : null}
+      {isTypingNeeded ? (
+        <TypedConfirm
+          expected={squadronId}
+          value={typed}
+          onValueChange={setTyped}
+        />
+      ) : null}
       {failed}
       <AlertDialogFooter>
-        <AlertDialogClose render={<Button disabled={isPending} />}>Cancel</AlertDialogClose>
-        <Button variant="destructive" isLoading={isPending} disabled={!isConfirmed} onClick={onConfirm} data-testid="force-stand-down-confirm">
-          {openDeliveries > 0 ? `Stand down now and abandon ${deliveriesText(openDeliveries)}` : 'Force stand down'}
+        <AlertDialogClose render={<Button disabled={isPending} />}>
+          Cancel
+        </AlertDialogClose>
+        <Button
+          variant="destructive"
+          isLoading={isPending}
+          disabled={!isConfirmed}
+          onClick={onConfirm}
+          data-testid="force-stand-down-confirm"
+        >
+          {openDeliveries > 0
+            ? `Stand down now and abandon ${deliveriesText(openDeliveries)}`
+            : "Force stand down"}
         </Button>
       </AlertDialogFooter>
     </>
@@ -124,7 +191,10 @@ export function StandDownDialog(props: StandDownDialogProps) {
         }
       }}
     >
-      <AlertDialogContent data-testid={isForced ? 'force-stand-down-dialog' : 'stand-down-dialog'} className={dialogSurface.phoneSheet}>
+      <AlertDialogContent
+        data-testid={isForced ? "force-stand-down-dialog" : "stand-down-dialog"}
+        className={dialogSurface.phoneSheet}
+      >
         <StandDownBody {...props} />
       </AlertDialogContent>
     </AlertDialog>

@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { CircleDashed, FileKey, KeyRound, Undo2 } from 'lucide-react';
+import { CircleDashed, FileKey, KeyRound, Undo2 } from "lucide-react";
 
-import { inFlightLine } from '../../../lib/ship-dialogs';
+import { inFlightLine } from "../../../lib/ship-dialogs";
 import {
   AlertDialog,
   AlertDialogClose,
@@ -11,10 +11,14 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '../../../components/atoms/alert-dialog';
-import { Button, dialogSurface } from '@aeolus-fleet/ui';
-import { ConsequenceList, type Consequence } from '../../../components/molecules/consequence-list';
-import { InlineError } from '../../../components/molecules/inline-error';
+  Button,
+  dialogSurface,
+} from "@aeolus-fleet/ui";
+import {
+  ConsequenceList,
+  type Consequence,
+} from "../../../components/molecules/consequence-list";
+import { InlineError } from "../../../components/molecules/inline-error";
 
 interface ReleaseDialogProps {
   shipName: string;
@@ -23,7 +27,7 @@ interface ReleaseDialogProps {
   /** What the crew holds in flight: what returns to pending. */
   inFlightCount: number;
   /** Release frees the ship; recrew also hands out a new starting prompt in the same step. */
-  mode?: 'release' | 'recrew';
+  mode?: "release" | "recrew";
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
   isPending: boolean;
@@ -34,29 +38,40 @@ interface ReleaseDialogProps {
 
 const WORDS = {
   release: {
-    title: 'Release',
-    action: 'Release ship',
-    busy: 'Releasing',
-    failed: 'Couldn’t release the ship',
-    testId: 'release-dialog',
+    title: "Release",
+    action: "Release ship",
+    busy: "Releasing",
+    failed: "Couldn’t release the ship",
+    testId: "release-dialog",
   },
   recrew: {
-    title: 'Re-crew',
-    action: 'Re-crew ship',
-    busy: 'Re-crewing',
-    failed: 'Couldn’t re-crew the ship',
-    testId: 'recrew-dialog',
+    title: "Re-crew",
+    action: "Re-crew ship",
+    busy: "Re-crewing",
+    failed: "Couldn’t re-crew the ship",
+    testId: "recrew-dialog",
   },
 } as const;
 
-function consequencesOf(props: Pick<ReleaseDialogProps, 'shipName' | 'inFlightCount' | 'mode'>): Consequence[] {
-  const { shipName, inFlightCount, mode = 'release' } = props;
+function consequencesOf(
+  props: Pick<ReleaseDialogProps, "shipName" | "inFlightCount" | "mode">,
+): Consequence[] {
+  const { shipName, inFlightCount, mode = "release" } = props;
   return [
-    { icon: KeyRound, text: 'Its secret and crew token stop working, so that session cannot come back.' },
+    {
+      icon: KeyRound,
+      text: "Its secret and crew token stop working, so that session cannot come back.",
+    },
     { icon: Undo2, text: inFlightLine(inFlightCount) },
-    mode === 'release'
-      ? { icon: CircleDashed, text: `${shipName} shows as Awaiting crew until you get a new starting prompt.` }
-      : { icon: FileKey, text: 'A new starting prompt and its crew lines are shown once, for the new crew.' },
+    mode === "release"
+      ? {
+          icon: CircleDashed,
+          text: `${shipName} shows as Awaiting crew until you get a new starting prompt.`,
+        }
+      : {
+          icon: FileKey,
+          text: "A new starting prompt and its crew lines are shown once, for the new crew.",
+        },
   ];
 }
 
@@ -69,9 +84,20 @@ function consequencesOf(props: Pick<ReleaseDialogProps, 'shipName' | 'inFlightCo
  * Desktop: a dialog; phone: a bottom sheet.
  */
 export function ReleaseDialog(props: ReleaseDialogProps) {
-  const { shipName, sessionLocation, mode = 'release', isOpen, onOpenChange, isPending, error, onConfirm } = props;
+  const {
+    shipName,
+    sessionLocation,
+    mode = "release",
+    isOpen,
+    onOpenChange,
+    isPending,
+    error,
+    onConfirm,
+  } = props;
   const words = WORDS[mode];
-  const who = sessionLocation ? `The session on ${sessionLocation}` : 'The session crewing it';
+  const who = sessionLocation
+    ? `The session on ${sessionLocation}`
+    : "The session crewing it";
 
   return (
     <AlertDialog
@@ -82,19 +108,29 @@ export function ReleaseDialog(props: ReleaseDialogProps) {
         }
       }}
     >
-      <AlertDialogContent data-testid={words.testId} className={dialogSurface.phoneSheet}>
+      <AlertDialogContent
+        data-testid={words.testId}
+        className={dialogSurface.phoneSheet}
+      >
         <AlertDialogHeader>
           <AlertDialogTitle>
             {words.title} {shipName}?
           </AlertDialogTitle>
-          <AlertDialogDescription>{who} loses this ship now.</AlertDialogDescription>
+          <AlertDialogDescription>
+            {who} loses this ship now.
+          </AlertDialogDescription>
         </AlertDialogHeader>
         <ConsequenceList consequences={consequencesOf(props)} />
         {error === undefined ? null : (
-          <InlineError title={words.failed} description={`${error} Nothing changed; the session still holds the ship.`} />
+          <InlineError
+            title={words.failed}
+            description={`${error} Nothing changed; the session still holds the ship.`}
+          />
         )}
         <AlertDialogFooter>
-          <AlertDialogClose render={<Button disabled={isPending} />}>Cancel</AlertDialogClose>
+          <AlertDialogClose render={<Button disabled={isPending} />}>
+            Cancel
+          </AlertDialogClose>
           <Button variant="primary" isLoading={isPending} onClick={onConfirm}>
             {isPending ? words.busy : words.action}
           </Button>

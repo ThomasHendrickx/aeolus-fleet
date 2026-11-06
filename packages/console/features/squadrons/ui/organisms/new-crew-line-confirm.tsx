@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import {
   AlertDialog,
@@ -8,8 +8,9 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '../../../../components/atoms/alert-dialog';
-import { Button, dialogSurface } from '@aeolus-fleet/ui';
+  Button,
+  dialogSurface,
+} from "@aeolus-fleet/ui";
 
 interface NewCrewLineConfirmProps {
   memberName: string;
@@ -25,17 +26,35 @@ interface NewCrewLineConfirmProps {
  * "Destructive actions"): a normal confirm saying what the new line ends.
  * Primary, not destructive. Desktop: a dialog; phone: a bottom sheet.
  */
-export function NewCrewLineConfirm({ memberName, replacedText, isOpen, onOpenChange, onConfirm }: NewCrewLineConfirmProps) {
+export function NewCrewLineConfirm({
+  memberName,
+  replacedText,
+  isOpen,
+  onOpenChange,
+  onConfirm,
+}: NewCrewLineConfirmProps) {
   return (
     <AlertDialog open={isOpen} onOpenChange={onOpenChange}>
-      <AlertDialogContent data-testid="new-crew-line-confirm" className={dialogSurface.phoneSheet}>
+      <AlertDialogContent
+        data-testid="new-crew-line-confirm"
+        className={dialogSurface.phoneSheet}
+      >
         <AlertDialogHeader>
-          <AlertDialogTitle>Get a new crew line for {memberName}?</AlertDialogTitle>
-          <AlertDialogDescription>{replacedText ?? 'Its new secret is shown once, with its launch note.'}</AlertDialogDescription>
+          <AlertDialogTitle>
+            Get a new crew line for {memberName}?
+          </AlertDialogTitle>
+          <AlertDialogDescription>
+            {replacedText ??
+              "Its new secret is shown once, with its launch note."}
+          </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogClose render={<Button />}>Cancel</AlertDialogClose>
-          <Button variant="primary" data-testid="new-crew-line-confirm-submit" onClick={onConfirm}>
+          <Button
+            variant="primary"
+            data-testid="new-crew-line-confirm-submit"
+            onClick={onConfirm}
+          >
             Get new crew line
           </Button>
         </AlertDialogFooter>

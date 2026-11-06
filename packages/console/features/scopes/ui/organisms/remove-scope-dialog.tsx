@@ -1,8 +1,17 @@
-'use client';
+"use client";
 
-import { Button, dialogSurface } from '@aeolus-fleet/ui';
-import { AlertDialog, AlertDialogClose, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../../../../components/atoms/alert-dialog';
-import { InlineError } from '../../../../components/molecules/inline-error';
+import {
+  AlertDialog,
+  AlertDialogClose,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  Button,
+  dialogSurface,
+} from "@aeolus-fleet/ui";
+import { InlineError } from "../../../../components/molecules/inline-error";
 
 interface RemoveScopeDialogProps {
   /** The fleet scope to remove; the confirm is open while one is given. */
@@ -19,7 +28,13 @@ interface RemoveScopeDialogProps {
  * and the last of a namespace frees it. Refused while a ship holds the scope,
  * the server naming how many; the refusal shows inline.
  */
-export function RemoveScopeDialog({ scope, onOpenChange, isPending, error, onRemove }: RemoveScopeDialogProps) {
+export function RemoveScopeDialog({
+  scope,
+  onOpenChange,
+  isPending,
+  error,
+  onRemove,
+}: RemoveScopeDialogProps) {
   return (
     <AlertDialog
       open={scope !== undefined}
@@ -29,16 +44,29 @@ export function RemoveScopeDialog({ scope, onOpenChange, isPending, error, onRem
         }
       }}
     >
-      <AlertDialogContent data-testid="remove-scope-dialog" className={dialogSurface.phoneSheet}>
+      <AlertDialogContent
+        data-testid="remove-scope-dialog"
+        className={dialogSurface.phoneSheet}
+      >
         <AlertDialogHeader>
           <AlertDialogTitle>
             Remove <span className="font-mono">{scope}</span>?
           </AlertDialogTitle>
-          <AlertDialogDescription>No ship can be granted it any more. Only a scope no ship holds is removed: revoke it from them first.</AlertDialogDescription>
+          <AlertDialogDescription>
+            No ship can be granted it any more. Only a scope no ship holds is
+            removed: revoke it from them first.
+          </AlertDialogDescription>
         </AlertDialogHeader>
-        {error === undefined ? null : <InlineError title="Couldn’t remove the scope" description={`Refused: ${error}. Nothing changed.`} />}
+        {error === undefined ? null : (
+          <InlineError
+            title="Couldn’t remove the scope"
+            description={`Refused: ${error}. Nothing changed.`}
+          />
+        )}
         <AlertDialogFooter>
-          <AlertDialogClose render={<Button disabled={isPending} />}>Cancel</AlertDialogClose>
+          <AlertDialogClose render={<Button disabled={isPending} />}>
+            Cancel
+          </AlertDialogClose>
           <Button
             variant="destructive"
             isLoading={isPending}
@@ -49,7 +77,7 @@ export function RemoveScopeDialog({ scope, onOpenChange, isPending, error, onRem
               }
             }}
           >
-            {isPending ? 'Removing…' : 'Remove scope'}
+            {isPending ? "Removing…" : "Remove scope"}
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>

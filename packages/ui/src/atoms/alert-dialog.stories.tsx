@@ -1,7 +1,7 @@
-import { Button } from '@aeolus-fleet/ui';
-import type { Meta, StoryObj } from '@storybook/nextjs-vite';
-import { CircleAlert } from 'lucide-react';
+import type { Meta, StoryObj } from "@storybook/react-vite";
+import { CircleAlert } from "lucide-react";
 
+import { Button } from "./button.js";
 import {
   AlertDialog,
   AlertDialogClose,
@@ -10,12 +10,12 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from './alert-dialog';
+} from "./alert-dialog.js";
 
 const meta = {
-  title: 'Atoms/AlertDialog',
+  title: "Atoms/AlertDialog",
   component: AlertDialog,
-  parameters: { layout: 'fullscreen' },
+  parameters: { layout: "fullscreen" },
   decorators: [
     (Story) => (
       <div className="min-h-96">
@@ -28,27 +28,43 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-function ReleaseConfirm({ isBusy = false, hasError = false }: { isBusy?: boolean; hasError?: boolean }) {
+function ReleaseConfirm({
+  isBusy = false,
+  hasError = false,
+}: {
+  isBusy?: boolean;
+  hasError?: boolean;
+}) {
   return (
     <AlertDialog defaultOpen>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Release reviewer-01?</AlertDialogTitle>
-          <AlertDialogDescription>The session on hetzner-1 loses this ship now.</AlertDialogDescription>
+          <AlertDialogDescription>
+            The session on hetzner-1 loses this ship now.
+          </AlertDialogDescription>
         </AlertDialogHeader>
         {hasError ? (
           <div
             role="alert"
             className="flex gap-2.5 rounded-lg border border-tone-attention-border bg-tone-attention-bg px-3.5 py-3 text-meta text-tone-attention-fg"
           >
-            <CircleAlert aria-hidden className="mt-0.5 size-(--size-icon-sm) shrink-0" />
-            <span>Couldn’t release the ship. The server did not answer. Nothing changed; try again.</span>
+            <CircleAlert
+              aria-hidden
+              className="mt-0.5 size-(--size-icon-sm) shrink-0"
+            />
+            <span>
+              Couldn’t release the ship. The server did not answer. Nothing
+              changed; try again.
+            </span>
           </div>
         ) : null}
         <AlertDialogFooter>
-          <AlertDialogClose render={<Button disabled={isBusy} />}>Cancel</AlertDialogClose>
+          <AlertDialogClose render={<Button disabled={isBusy} />}>
+            Cancel
+          </AlertDialogClose>
           <Button variant="primary" isLoading={isBusy}>
-            {isBusy ? 'Releasing' : 'Release ship'}
+            {isBusy ? "Releasing" : "Release ship"}
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>
@@ -58,4 +74,6 @@ function ReleaseConfirm({ isBusy = false, hasError = false }: { isBusy?: boolean
 
 export const Confirm: Story = { render: () => <ReleaseConfirm /> };
 export const ConfirmBusy: Story = { render: () => <ReleaseConfirm isBusy /> };
-export const ConfirmError: Story = { render: () => <ReleaseConfirm hasError /> };
+export const ConfirmError: Story = {
+  render: () => <ReleaseConfirm hasError />,
+};
