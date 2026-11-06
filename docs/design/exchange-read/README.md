@@ -93,6 +93,8 @@ Each has options and my pick. Thomas answers each.
 
 **Pick 1.** Unseen is unseen: a new question is the first thing the person must see. What waits on them is the gateway's count, not this one.
 
+**Thomas: 1** (6 Nov).
+
 ### E6 Which deliveries seen up to here acknowledges
 
 1. **The other ship's deliveries to the caller up to and including the named message, pending, received or handed, of every content type but the conventions** (question, step, alert, notice, and their withdrawals, replacements, answers and outcomes), in one transaction, each writing its `DeliveryAcknowledged`, the rollup in step. Again changes nothing. A message not from the other ship to the caller is refused as not found.
