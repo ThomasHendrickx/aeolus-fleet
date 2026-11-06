@@ -67,6 +67,7 @@ const SHIP_TOOLS = [
   'sentMessage',
   'delivery',
   'record',
+  'exchange',
   'inbox',
   'deregister',
   'fleet_list',
