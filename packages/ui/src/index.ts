@@ -4,6 +4,7 @@
  * imports its styles from `@aeolus-fleet/ui/tokens.css` and scans this
  * package for Tailwind classes.
  */
+export * from './atoms/alert-dialog.js';
 export * from './atoms/avatar.js';
 export * from './atoms/button.js';
 export * from './atoms/checkbox.js';

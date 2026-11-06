@@ -4,7 +4,8 @@ import { AlertDialog as AlertDialogPrimitive } from '@base-ui/react/alert-dialog
 import type { VariantProps } from 'class-variance-authority';
 import type { ComponentProps } from 'react';
 
-import { classNames, dialogSurface } from '@aeolus-fleet/ui';
+import { classNames } from '../class-names.js';
+import { dialogSurface } from './dialog-surface.js';
 
 /**
  * shadcn AlertDialog on Base UI: a confirm that the scrim does not dismiss

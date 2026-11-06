@@ -1,7 +1,16 @@
 'use client';
 
-import { Button, dialogSurface } from '@aeolus-fleet/ui';
-import { AlertDialog, AlertDialogClose, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../../../../components/atoms/alert-dialog';
+import {
+  AlertDialog,
+  AlertDialogClose,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  Button,
+  dialogSurface,
+} from '@aeolus-fleet/ui';
 import { InlineError } from '../../../../components/molecules/inline-error';
 
 /** A Switch that changes the whole fleet: the first model enabled starts the rule, the last disabled ends it. */

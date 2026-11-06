@@ -10,8 +10,9 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '../../../../components/atoms/alert-dialog';
-import { Button, dialogSurface } from '@aeolus-fleet/ui';
+  Button,
+  dialogSurface,
+} from '@aeolus-fleet/ui';
 import { InlineError } from '../../../../components/molecules/inline-error';
 
 export interface NetworkRulesApplyProps {

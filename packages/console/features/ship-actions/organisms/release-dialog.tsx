@@ -11,8 +11,9 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '../../../components/atoms/alert-dialog';
-import { Button, dialogSurface } from '@aeolus-fleet/ui';
+  Button,
+  dialogSurface,
+} from '@aeolus-fleet/ui';
 import { ConsequenceList, type Consequence } from '../../../components/molecules/consequence-list';
 import { InlineError } from '../../../components/molecules/inline-error';
 

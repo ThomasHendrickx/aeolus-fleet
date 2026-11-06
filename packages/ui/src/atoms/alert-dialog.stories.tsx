@@ -1,5 +1,4 @@
-import { Button } from '@aeolus-fleet/ui';
-import type { Meta, StoryObj } from '@storybook/nextjs-vite';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 import { CircleAlert } from 'lucide-react';
 
 import {
@@ -10,7 +9,8 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from './alert-dialog';
+} from './alert-dialog.js';
+import { Button } from './button.js';
 
 const meta = {
   title: 'Atoms/AlertDialog',
