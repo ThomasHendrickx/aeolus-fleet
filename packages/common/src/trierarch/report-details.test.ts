@@ -296,6 +296,37 @@ describe('trierarchReportDetailsSchema', () => {
     expect(trierarchReportDetailsSchema.safeParse(change({ ...details })).success).toBe(false);
   });
 
+  describe('the sealing key (aeolus-fleet-trierarch crew-mcp-servers design)', () => {
+    const KEY_32_BYTES = Buffer.alloc(32, 7).toString('base64');
+    const withSealingKey = (sealingKey: unknown) => {
+      const details = documentedDetails();
+      if (typeof details !== 'object' || details === null || Array.isArray(details)) {
+        throw new TypeError('the documented details are an object');
+      }
+      return { ...details, sealingKey };
+    };
+
+    it('takes a report without one', () => {
+      expect(trierarchReportDetailsSchema.safeParse(documentedDetails()).success).toBe(true);
+    });
+
+    it('takes a nacl-sealed-box key of 32 bytes in base64', () => {
+      const details = withSealingKey({ scheme: 'nacl-sealed-box', publicKey: KEY_32_BYTES });
+
+      expect(trierarchReportDetailsSchema.parse(details)).toEqual(details);
+    });
+
+    it.each([
+      ['a scheme it does not know', { scheme: 'age', publicKey: KEY_32_BYTES }],
+      ['a key of 31 bytes', { scheme: 'nacl-sealed-box', publicKey: Buffer.alloc(31, 7).toString('base64') }],
+      ['a key of 33 bytes', { scheme: 'nacl-sealed-box', publicKey: Buffer.alloc(33, 7).toString('base64') }],
+      ['a key that is not base64', { scheme: 'nacl-sealed-box', publicKey: 'not base64 at all!!' }],
+      ['a field it does not know', { scheme: 'nacl-sealed-box', publicKey: KEY_32_BYTES, privateKey: KEY_32_BYTES }],
+    ])('refuses %s', (_label, sealingKey) => {
+      expect(trierarchReportDetailsSchema.safeParse(withSealingKey(sealingKey)).success).toBe(false);
+    });
+  });
+
   describe('the logins sessions run on (aeolus-fleet-trierarch api keys K8)', () => {
     const SHIP = 'shp_01m473j7hp3x6gha0gzs1mnf88';
     const OTHER_SHIP = 'shp_01m473j7hp3x6gha0gzs1mnf89';
