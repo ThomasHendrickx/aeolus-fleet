@@ -111,6 +111,8 @@ Each has options and my pick. Thomas answers each.
 
 **Pick 1.** Only a person ship's crew acts for a person; an agent's ack must stay the agent's confirmation of what was handed (0040).
 
+**Thomas: 1** (6 Nov).
+
 ### E8 Is an acknowledged person-ship message finished for retention?
 
 1. **Yes, for a plain message**: acknowledged at a person ship is final, since a chat message is never handled. Conventions stay as they are.
