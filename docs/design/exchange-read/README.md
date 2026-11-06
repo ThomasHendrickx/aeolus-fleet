@@ -120,6 +120,8 @@ Each has options and my pick. Thomas answers each.
 
 **Pick 1.** Under option 2 a person ship's history is never pruned in practice. Its re-read stays possible while it is kept, as in the exchange read.
 
+**Thomas: 1** (6 Nov).
+
 ### E9 The page around one message
 
 1. **Up to 10 newer, the message and up to 9 older**, with cursors both ways; refused as not found if the message is not in the exchange.
