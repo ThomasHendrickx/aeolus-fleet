@@ -169,7 +169,7 @@ export const JOINED: JoinedMachine = {
   name: NEW_MACHINE.name,
   prompt: 'You crew the Aeolus ship trierarch-new. Register with the fleet at https://fleet.example.com ...',
   crewLines: [{ harness: 'claude-code', line: '/aeolus-fleet:crew https://fleet.example.com shp_01j9k2t4qzr3a9w6m2v5n7trnw aeolus_sk_v1_example' }],
-  setupLine: 'npx @aeolus-fleet/trierarch init --fleet-url https://fleet.example.com --ship-id shp_01j9k2t4qzr3a9w6m2v5n7trnw --secret aeolus_sk_v1_example',
+  setupLine: 'curl -fsSL https://raw.githubusercontent.com/ThomasHendrickx/aeolus-fleet-trierarch/main/install.sh | sh -s -- --fleet-url https://fleet.example.com --ship-id shp_01j9k2t4qzr3a9w6m2v5n7trnw --secret aeolus_sk_v1_example',
 };
 
 /** What the answering machines offer, for the Request crew stories. */

@@ -191,7 +191,7 @@ export function MachineDetail({ machine, state, spots, location, labels, now, sh
         <MetaCell label="Machine">
           <LocationTag kind={location?.kind ?? null} description={location?.description} size="md" />
         </MetaCell>
-        <MetaCell label="Version">{details === null ? <span className="text-muted-foreground">Unknown</span> : <span className="font-mono text-id">@aeolus-fleet/trierarch@{details.version}</span>}</MetaCell>
+        <MetaCell label="Version">{details === null ? <span className="text-muted-foreground">Unknown</span> : <span className="font-mono text-id">aeolus-trierarch@{details.version}</span>}</MetaCell>
         <MetaCell label="Last answer">
           {reportedAt === null ? (
             <span className="text-muted-foreground">None yet</span>

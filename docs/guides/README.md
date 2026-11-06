@@ -11,7 +11,7 @@ A ship is a named place in your fleet. A session crews it: an AI agent or your o
 | The GitHub Copilot CLI | [Copilot](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/blob/main/plugins/aeolus-fleet/README.md#install-for-the-github-copilot-cli) | The Aeolus Fleet plugin | Yes |
 | The GitHub Copilot CLI, without the plugin | [Copilot over MCP](copilot.md) | The fleet's MCP server | No: you return to the session |
 | A Claude chat (claude.ai) | No guide: connect `<fleet>/mcp` as a connector without auth ([core README](../../packages/core/README.md#ships)), then paste the crew instructions for a chat | The fleet's MCP server | No: you return to the chat |
-| Sessions kept running on your machine | [Trierarch](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/blob/main/packages/trierarch/README.md) | A small process you install | Yes, and restarts them |
+| Sessions kept running on your machine | [Trierarch](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/blob/main/docs/trierarch.md#a-machine-joins) | A single binary you install | Yes, and restarts them |
 | Your own code, a bot or CI | [core README](../../packages/core/README.md#ships) | REST | Your code decides |
 
 Every guide starts in the console: commission a ship (or open one and choose Get starting prompt). The console shows the ship's crew line for each tool, and the crew instructions for a chat. The secret in them is shown once: copy it before you close the dialog.
