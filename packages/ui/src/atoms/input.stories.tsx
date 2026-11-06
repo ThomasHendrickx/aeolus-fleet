@@ -2,7 +2,6 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import { Check, CircleX, Search } from 'lucide-react';
 
 import { Input } from './input.js';
-import { Label } from './label.js';
 
 const meta = {
   title: 'Atoms/Input',
