@@ -7,7 +7,7 @@ import { useConsoleConstants } from '../../../lib/console-constants';
 import { useAccess } from '../../../lib/access';
 import { useAssignLabel, useLabelContext, useUnassignLabel } from '../../../lib/fleet';
 import { assignKeysOf, canAssignLabelsTo, chipsOf, labelLimitOf } from '../../../lib/labels';
-import { Skeleton } from '../../../components/atoms/skeleton';
+import { Skeleton } from '@aeolus-fleet/ui';
 import { ShipLabels } from '../../../components/molecules/ship-labels';
 import { ShipLabelsEdit } from '../ui/organisms/ship-labels-edit';
 

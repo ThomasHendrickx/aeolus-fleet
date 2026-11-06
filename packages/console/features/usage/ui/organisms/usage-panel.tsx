@@ -1,8 +1,7 @@
 'use client';
 
-import { Button } from '@aeolus-fleet/ui';
+import { Button, Skeleton } from '@aeolus-fleet/ui';
 
-import { Skeleton } from '../../../../components/atoms/skeleton';
 import { EmptyState } from '../../../../components/molecules/empty-state';
 import { InlineError } from '../../../../components/molecules/inline-error';
 import type { TimeFormat, UsageChart, UsageTotals } from '../../services/usage-chart';

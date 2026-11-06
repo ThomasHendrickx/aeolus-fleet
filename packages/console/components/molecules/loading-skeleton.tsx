@@ -1,5 +1,4 @@
-import { classNames } from '@aeolus-fleet/ui';
-import { Skeleton } from '../atoms/skeleton';
+import { classNames, Skeleton } from '@aeolus-fleet/ui';
 
 const DEFAULT_ROWS = 4;
 const METRIC_CARDS = 4;

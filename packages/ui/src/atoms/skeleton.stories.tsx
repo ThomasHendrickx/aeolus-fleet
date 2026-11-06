@@ -1,6 +1,6 @@
-import type { Meta, StoryObj } from '@storybook/nextjs-vite';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 
-import { Skeleton } from './skeleton';
+import { Skeleton } from './skeleton.js';
 
 const meta = {
   title: 'Atoms/Skeleton',
