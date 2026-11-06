@@ -1,10 +1,10 @@
-"use client";
+'use client';
 
-import { Archive, CircleCheck, TriangleAlert, Users } from "lucide-react";
-import { useState } from "react";
+import { Archive, CircleCheck, TriangleAlert, Users } from 'lucide-react';
+import { useState } from 'react';
 
-import { abandonedLine, isTypedMatch } from "../../lib/ship-dialogs";
-import { counted } from "../../lib/sentence";
+import { abandonedLine, isTypedMatch } from '../../lib/ship-dialogs';
+import { counted } from '../../lib/sentence';
 import {
   AlertDialog,
   AlertDialogClose,
@@ -15,12 +15,12 @@ import {
   AlertDialogTitle,
   Button,
   dialogSurface,
-} from "@aeolus-fleet/ui";
-import { ConsequenceList } from "../molecules/consequence-list";
-import { InlineError } from "../molecules/inline-error";
-import { TypedConfirm } from "../molecules/typed-confirm";
+} from '@aeolus-fleet/ui';
+import { ConsequenceList } from '../molecules/consequence-list';
+import { InlineError } from '../molecules/inline-error';
+import { TypedConfirm } from '../molecules/typed-confirm';
 
-const DELIVERIES = { one: "delivery", many: "deliveries" };
+const DELIVERIES = { one: 'delivery', many: 'deliveries' };
 
 interface RemoveMemberDialogProps {
   squadronId: string;
@@ -40,36 +40,15 @@ interface RemoveMemberDialogProps {
   onConfirm: () => void;
 }
 
-function afterText({
-  role,
-  othersOfRole,
-  blueprint,
-}: Pick<RemoveMemberDialogProps, "othersOfRole" | "blueprint"> & {
-  role: string;
-}): string {
-  const after =
-    othersOfRole.length === 0
-      ? `no ${role}`
-      : `${String(othersOfRole.length)} ${role}`;
-  return blueprint === undefined
-    ? `The squadron then has ${after}.`
-    : `The squadron then has ${after}; blueprint ${blueprint.label} has ${String(blueprint.count)}.`;
+function afterText({ role, othersOfRole, blueprint }: Pick<RemoveMemberDialogProps, 'othersOfRole' | 'blueprint'> & { role: string }): string {
+  const after = othersOfRole.length === 0 ? `no ${role}` : `${String(othersOfRole.length)} ${role}`;
+  return blueprint === undefined ? `The squadron then has ${after}.` : `The squadron then has ${after}; blueprint ${blueprint.label} has ${String(blueprint.count)}.`;
 }
 
 /** The open dialog's body: its typed text lives here, so it starts empty each time the dialog opens. */
 function RemoveMemberBody(props: RemoveMemberDialogProps) {
-  const {
-    squadronId,
-    member,
-    othersOfRole,
-    blueprint,
-    openDeliveries,
-    inFlightDeliveries,
-    isPending,
-    error,
-    onConfirm,
-  } = props;
-  const [typed, setTyped] = useState("");
+  const { squadronId, member, othersOfRole, blueprint, openDeliveries, inFlightDeliveries, isPending, error, onConfirm } = props;
+  const [typed, setTyped] = useState('');
   const isTypingNeeded = openDeliveries > 0;
   const isConfirmed = !isTypingNeeded || isTypedMatch(member.name, typed);
   const isLastOfRole = othersOfRole.length === 0;
@@ -81,59 +60,34 @@ function RemoveMemberBody(props: RemoveMemberDialogProps) {
           Remove {member.name} from {squadronId}?
         </AlertDialogTitle>
         <AlertDialogDescription>
-          {isTypingNeeded ? (
-            <>Its ship is retired for good. This can&apos;t be undone.</>
-          ) : (
-            <>This can&apos;t be undone. Add a member to get the role back.</>
-          )}
+          {isTypingNeeded ? <>Its ship is retired for good. This can&apos;t be undone.</> : <>This can&apos;t be undone. Add a member to get the role back.</>}
         </AlertDialogDescription>
       </AlertDialogHeader>
       {isTypingNeeded ? (
-        <div
-          role="alert"
-          className="flex gap-2 rounded-lg border border-tone-attention-border bg-tone-attention-bg p-3 text-meta text-tone-attention-fg"
-        >
-          <TriangleAlert
-            aria-hidden
-            className="mt-0.5 size-(--size-icon-sm) shrink-0"
-          />
+        <div role="alert" className="flex gap-2 rounded-lg border border-tone-attention-border bg-tone-attention-bg p-3 text-meta text-tone-attention-fg">
+          <TriangleAlert aria-hidden className="mt-0.5 size-(--size-icon-sm) shrink-0" />
           <div className="flex flex-col gap-0.5">
             <p className="font-medium">{abandonedLine(openDeliveries)}</p>
             <p className="text-foreground">
-              {openDeliveries - inFlightDeliveries} pending,{" "}
-              {inFlightDeliveries} in flight in its inbox. Each is marked
-              Abandoned and its sender can see that.
+              {openDeliveries - inFlightDeliveries} pending, {inFlightDeliveries} in flight in its inbox. Each is marked Abandoned and its sender can see that.
             </p>
           </div>
         </div>
       ) : (
         <ConsequenceList
           consequences={[
-            {
-              icon: Archive,
-              text: `Its ship ${member.name} is retired. Its history stays read-only.`,
-            },
-            {
-              icon: Users,
-              text: afterText({ role: member.role, othersOfRole, blueprint }),
-            },
+            { icon: Archive, text: `Its ship ${member.name} is retired. Its history stays read-only.` },
+            { icon: Users, text: afterText({ role: member.role, othersOfRole, blueprint }) },
           ]}
         />
       )}
       {isLastOfRole && (
-        <p
-          data-testid="remove-member-last-of-role"
-          className="flex items-start gap-2 rounded-lg border border-tone-waiting-border bg-tone-waiting-bg px-3 py-2 text-meta text-tone-waiting-fg"
-        >
-          <TriangleAlert
-            aria-hidden
-            className="mt-0.5 size-(--size-icon-sm) shrink-0"
-          />
+        <p data-testid="remove-member-last-of-role" className="flex items-start gap-2 rounded-lg border border-tone-waiting-border bg-tone-waiting-bg px-3 py-2 text-meta text-tone-waiting-fg">
+          <TriangleAlert aria-hidden className="mt-0.5 size-(--size-icon-sm) shrink-0" />
           <span>
-            <span className="font-medium">The last {member.role}.</span>{" "}
+            <span className="font-medium">The last {member.role}.</span>{' '}
             <span className="text-foreground">
-              {afterText({ role: member.role, othersOfRole, blueprint })} Work
-              for the role waits until a member is added.
+              {afterText({ role: member.role, othersOfRole, blueprint })} Work for the role waits until a member is added.
             </span>
           </span>
         </p>
@@ -144,33 +98,12 @@ function RemoveMemberBody(props: RemoveMemberDialogProps) {
           Its inbox is empty, so no deliveries are affected.
         </p>
       )}
-      {isTypingNeeded ? (
-        <TypedConfirm
-          expected={member.name}
-          value={typed}
-          onValueChange={setTyped}
-        />
-      ) : null}
-      {error !== undefined && (
-        <InlineError
-          title="Couldn’t remove the member"
-          description={`${error} Nothing changed.`}
-        />
-      )}
+      {isTypingNeeded ? <TypedConfirm expected={member.name} value={typed} onValueChange={setTyped} /> : null}
+      {error !== undefined && <InlineError title="Couldn’t remove the member" description={`${error} Nothing changed.`} />}
       <AlertDialogFooter>
-        <AlertDialogClose render={<Button disabled={isPending} />}>
-          Cancel
-        </AlertDialogClose>
-        <Button
-          variant="destructive"
-          isLoading={isPending}
-          disabled={!isConfirmed}
-          onClick={onConfirm}
-          data-testid="remove-member-confirm"
-        >
-          {isTypingNeeded
-            ? `Remove and abandon ${counted(openDeliveries, DELIVERIES)}`
-            : "Remove member"}
+        <AlertDialogClose render={<Button disabled={isPending} />}>Cancel</AlertDialogClose>
+        <Button variant="destructive" isLoading={isPending} disabled={!isConfirmed} onClick={onConfirm} data-testid="remove-member-confirm">
+          {isTypingNeeded ? `Remove and abandon ${counted(openDeliveries, DELIVERIES)}` : 'Remove member'}
         </Button>
       </AlertDialogFooter>
     </>
@@ -195,10 +128,7 @@ export function RemoveMemberDialog(props: RemoveMemberDialogProps) {
         }
       }}
     >
-      <AlertDialogContent
-        data-testid="remove-member-dialog"
-        className={dialogSurface.phoneSheet}
-      >
+      <AlertDialogContent data-testid="remove-member-dialog" className={dialogSurface.phoneSheet}>
         <RemoveMemberBody {...props} />
       </AlertDialogContent>
     </AlertDialog>

@@ -1,11 +1,11 @@
-"use client";
+'use client';
 
-import { AlertDialog as AlertDialogPrimitive } from "@base-ui/react/alert-dialog";
-import type { VariantProps } from "class-variance-authority";
-import type { ComponentProps } from "react";
+import { AlertDialog as AlertDialogPrimitive } from '@base-ui/react/alert-dialog';
+import type { VariantProps } from 'class-variance-authority';
+import type { ComponentProps } from 'react';
 
-import { classNames } from "../class-names.js";
-import { dialogSurface } from "./dialog-surface.js";
+import { classNames } from '../class-names.js';
+import { dialogSurface } from './dialog-surface.js';
 
 /**
  * shadcn AlertDialog on Base UI: a confirm that the scrim does not dismiss
@@ -18,15 +18,11 @@ function AlertDialog(props: AlertDialogPrimitive.Root.Props) {
 }
 
 function AlertDialogTrigger(props: AlertDialogPrimitive.Trigger.Props) {
-  return (
-    <AlertDialogPrimitive.Trigger data-slot="alert-dialog-trigger" {...props} />
-  );
+  return <AlertDialogPrimitive.Trigger data-slot="alert-dialog-trigger" {...props} />;
 }
 
 function AlertDialogClose(props: AlertDialogPrimitive.Close.Props) {
-  return (
-    <AlertDialogPrimitive.Close data-slot="alert-dialog-close" {...props} />
-  );
+  return <AlertDialogPrimitive.Close data-slot="alert-dialog-close" {...props} />;
 }
 
 function AlertDialogContent({
@@ -34,14 +30,10 @@ function AlertDialogContent({
   size,
   children,
   ...props
-}: AlertDialogPrimitive.Popup.Props &
-  VariantProps<typeof dialogSurface.popup>) {
+}: AlertDialogPrimitive.Popup.Props & VariantProps<typeof dialogSurface.popup>) {
   return (
     <AlertDialogPrimitive.Portal>
-      <AlertDialogPrimitive.Backdrop
-        data-slot="alert-dialog-overlay"
-        className={dialogSurface.overlay}
-      />
+      <AlertDialogPrimitive.Backdrop data-slot="alert-dialog-overlay" className={dialogSurface.overlay} />
       <AlertDialogPrimitive.Popup
         data-slot="alert-dialog-content"
         className={classNames(dialogSurface.popup({ size }), className)}
@@ -53,30 +45,15 @@ function AlertDialogContent({
   );
 }
 
-function AlertDialogHeader({ className, ...props }: ComponentProps<"div">) {
-  return (
-    <div
-      data-slot="alert-dialog-header"
-      className={classNames(dialogSurface.header, className)}
-      {...props}
-    />
-  );
+function AlertDialogHeader({ className, ...props }: ComponentProps<'div'>) {
+  return <div data-slot="alert-dialog-header" className={classNames(dialogSurface.header, className)} {...props} />;
 }
 
-function AlertDialogFooter({ className, ...props }: ComponentProps<"div">) {
-  return (
-    <div
-      data-slot="alert-dialog-footer"
-      className={classNames(dialogSurface.footer, className)}
-      {...props}
-    />
-  );
+function AlertDialogFooter({ className, ...props }: ComponentProps<'div'>) {
+  return <div data-slot="alert-dialog-footer" className={classNames(dialogSurface.footer, className)} {...props} />;
 }
 
-function AlertDialogTitle({
-  className,
-  ...props
-}: AlertDialogPrimitive.Title.Props) {
+function AlertDialogTitle({ className, ...props }: AlertDialogPrimitive.Title.Props) {
   return (
     <AlertDialogPrimitive.Title
       data-slot="alert-dialog-title"
@@ -86,10 +63,7 @@ function AlertDialogTitle({
   );
 }
 
-function AlertDialogDescription({
-  className,
-  ...props
-}: AlertDialogPrimitive.Description.Props) {
+function AlertDialogDescription({ className, ...props }: AlertDialogPrimitive.Description.Props) {
   return (
     <AlertDialogPrimitive.Description
       data-slot="alert-dialog-description"

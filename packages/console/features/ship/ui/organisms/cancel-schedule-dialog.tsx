@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import {
   AlertDialog,
@@ -10,8 +10,8 @@ import {
   AlertDialogTitle,
   Button,
   dialogSurface,
-} from "@aeolus-fleet/ui";
-import { InlineError } from "../../../../components/molecules/inline-error";
+} from '@aeolus-fleet/ui';
+import { InlineError } from '../../../../components/molecules/inline-error';
 
 interface CancelScheduleDialogProps {
   /** Whom the schedule sends to and when, such as "To chief-of-staff" and "Every 6 h"; the confirm is open while one is given. */
@@ -27,13 +27,7 @@ interface CancelScheduleDialogProps {
  * Cancel a ship's schedule (decision 0062, S10): it sends nothing more, and
  * nothing brings it back; its ship schedules anew to send again.
  */
-export function CancelScheduleDialog({
-  schedule,
-  onOpenChange,
-  isPending,
-  error,
-  onConfirm,
-}: CancelScheduleDialogProps) {
+export function CancelScheduleDialog({ schedule, onOpenChange, isPending, error, onConfirm }: CancelScheduleDialogProps) {
   return (
     <AlertDialog
       open={schedule !== undefined}
@@ -43,35 +37,18 @@ export function CancelScheduleDialog({
         }
       }}
     >
-      <AlertDialogContent
-        data-testid="cancel-schedule-dialog"
-        className={dialogSurface.phoneSheet}
-      >
+      <AlertDialogContent data-testid="cancel-schedule-dialog" className={dialogSurface.phoneSheet}>
         <AlertDialogHeader>
           <AlertDialogTitle>Cancel this schedule?</AlertDialogTitle>
           <AlertDialogDescription>
-            {schedule === undefined
-              ? null
-              : `${schedule.recipient}: ${schedule.timing}. It sends nothing more, and it cannot be resumed: its ship schedules anew to send again.`}
+            {schedule === undefined ? null : `${schedule.recipient}: ${schedule.timing}. It sends nothing more, and it cannot be resumed: its ship schedules anew to send again.`}
           </AlertDialogDescription>
         </AlertDialogHeader>
-        {error === undefined ? null : (
-          <InlineError
-            title="Couldn’t cancel the schedule"
-            description={`${error}. Nothing changed: try again.`}
-          />
-        )}
+        {error === undefined ? null : <InlineError title="Couldn’t cancel the schedule" description={`${error}. Nothing changed: try again.`} />}
         <AlertDialogFooter>
-          <AlertDialogClose render={<Button disabled={isPending} />}>
-            Keep it
-          </AlertDialogClose>
-          <Button
-            variant="destructive"
-            isLoading={isPending}
-            data-testid="cancel-schedule-confirm"
-            onClick={onConfirm}
-          >
-            {isPending ? "Cancelling…" : "Cancel schedule"}
+          <AlertDialogClose render={<Button disabled={isPending} />}>Keep it</AlertDialogClose>
+          <Button variant="destructive" isLoading={isPending} data-testid="cancel-schedule-confirm" onClick={onConfirm}>
+            {isPending ? 'Cancelling…' : 'Cancel schedule'}
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>

@@ -1,21 +1,9 @@
-"use client";
+'use client';
 
-import {
-  CircleCheck,
-  KeyRound,
-  Tag,
-  Tags,
-  TriangleAlert,
-  UserX,
-  Users,
-} from "lucide-react";
-import { useState } from "react";
+import { CircleCheck, KeyRound, Tag, Tags, TriangleAlert, UserX, Users } from 'lucide-react';
+import { useState } from 'react';
 
-import {
-  abandonedLine,
-  isTypedMatch,
-  retireButtonLabel,
-} from "../../../lib/ship-dialogs";
+import { abandonedLine, isTypedMatch, retireButtonLabel } from '../../../lib/ship-dialogs';
 import {
   AlertDialog,
   AlertDialogClose,
@@ -26,13 +14,10 @@ import {
   AlertDialogTitle,
   Button,
   dialogSurface,
-} from "@aeolus-fleet/ui";
-import {
-  ConsequenceList,
-  type Consequence,
-} from "../../../components/molecules/consequence-list";
-import { InlineError } from "../../../components/molecules/inline-error";
-import { TypedConfirm } from "../../../components/molecules/typed-confirm";
+} from '@aeolus-fleet/ui';
+import { ConsequenceList, type Consequence } from '../../../components/molecules/consequence-list';
+import { InlineError } from '../../../components/molecules/inline-error';
+import { TypedConfirm } from '../../../components/molecules/typed-confirm';
 
 interface RetireDialogProps {
   shipName: string;
@@ -50,24 +35,13 @@ interface RetireDialogProps {
   labelLines?: readonly string[];
 }
 
-function consequencesOf(
-  isCrewed: boolean,
-  labelLines: readonly string[],
-): Consequence[] {
+function consequencesOf(isCrewed: boolean, labelLines: readonly string[]): Consequence[] {
   return [
-    ...(isCrewed
-      ? [{ icon: UserX, text: "The session crewing it loses it now." }]
-      : []),
+    ...(isCrewed ? [{ icon: UserX, text: 'The session crewing it loses it now.' }] : []),
     ...labelLines.map((text) => ({ icon: Tags, text })),
-    { icon: KeyRound, text: "Its secret stops working." },
-    {
-      icon: Tag,
-      text: "It is never crewed or messaged again, and its name is free for a new ship.",
-    },
-    {
-      icon: Users,
-      text: "Deliveries to its type stay, for the other ships of the type.",
-    },
+    { icon: KeyRound, text: 'Its secret stops working.' },
+    { icon: Tag, text: 'It is never crewed or messaged again, and its name is free for a new ship.' },
+    { icon: Users, text: 'Deliveries to its type stay, for the other ships of the type.' },
   ];
 }
 
@@ -83,15 +57,10 @@ function DeliveriesNote({ openDeliveries }: { openDeliveries: number }) {
   }
   return (
     <div className="flex gap-2 rounded-lg border border-tone-attention-border bg-tone-attention-bg p-3 text-tone-attention-fg">
-      <TriangleAlert
-        aria-hidden
-        className="mt-0.5 size-(--size-icon) shrink-0"
-      />
+      <TriangleAlert aria-hidden className="mt-0.5 size-(--size-icon) shrink-0" />
       <div className="flex flex-col gap-1">
         <p className="text-body font-medium">{abandonedLine(openDeliveries)}</p>
-        <p className="text-meta text-foreground">
-          Each is marked Abandoned and its sender can see that.
-        </p>
+        <p className="text-meta text-foreground">Each is marked Abandoned and its sender can see that.</p>
       </div>
     </div>
   );
@@ -102,9 +71,8 @@ function DeliveriesNote({ openDeliveries }: { openDeliveries: number }) {
  * time the dialog opens.
  */
 function RetireDialogBody(props: RetireDialogProps) {
-  const { shipName, openDeliveries, isCrewed, isPending, error, onConfirm } =
-    props;
-  const [typed, setTyped] = useState("");
+  const { shipName, openDeliveries, isCrewed, isPending, error, onConfirm } = props;
+  const [typed, setTyped] = useState('');
   const isTypingNeeded = openDeliveries > 0;
   const isConfirmed = !isTypingNeeded || isTypedMatch(shipName, typed);
 
@@ -113,37 +81,18 @@ function RetireDialogBody(props: RetireDialogProps) {
       <AlertDialogHeader>
         <AlertDialogTitle>Retire {shipName}?</AlertDialogTitle>
         <AlertDialogDescription>
-          Retiring ends this ship for good. Its history stays available
-          read-only. This can’t be undone.
+          Retiring ends this ship for good. Its history stays available read-only. This can’t be undone.
         </AlertDialogDescription>
       </AlertDialogHeader>
       <DeliveriesNote openDeliveries={openDeliveries} />
-      <ConsequenceList
-        consequences={consequencesOf(isCrewed, props.labelLines ?? [])}
-      />
-      {isTypingNeeded ? (
-        <TypedConfirm
-          expected={shipName}
-          value={typed}
-          onValueChange={setTyped}
-        />
-      ) : null}
+      <ConsequenceList consequences={consequencesOf(isCrewed, props.labelLines ?? [])} />
+      {isTypingNeeded ? <TypedConfirm expected={shipName} value={typed} onValueChange={setTyped} /> : null}
       {error === undefined ? null : (
-        <InlineError
-          title="Couldn’t retire the ship"
-          description={`${error} Nothing changed.`}
-        />
+        <InlineError title="Couldn’t retire the ship" description={`${error} Nothing changed.`} />
       )}
       <AlertDialogFooter>
-        <AlertDialogClose render={<Button disabled={isPending} />}>
-          Cancel
-        </AlertDialogClose>
-        <Button
-          variant="destructive"
-          isLoading={isPending}
-          disabled={!isConfirmed}
-          onClick={onConfirm}
-        >
+        <AlertDialogClose render={<Button disabled={isPending} />}>Cancel</AlertDialogClose>
+        <Button variant="destructive" isLoading={isPending} disabled={!isConfirmed} onClick={onConfirm}>
           {retireButtonLabel(openDeliveries)}
         </Button>
       </AlertDialogFooter>
@@ -170,10 +119,7 @@ export function RetireDialog(props: RetireDialogProps) {
         }
       }}
     >
-      <AlertDialogContent
-        data-testid="retire-dialog"
-        className={dialogSurface.phoneSheet}
-      >
+      <AlertDialogContent data-testid="retire-dialog" className={dialogSurface.phoneSheet}>
         <RetireDialogBody {...props} />
       </AlertDialogContent>
     </AlertDialog>

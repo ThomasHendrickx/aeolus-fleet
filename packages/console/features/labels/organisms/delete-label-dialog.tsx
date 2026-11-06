@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import type { LabelRow } from "../../../lib/labels";
+import type { LabelRow } from '../../../lib/labels';
 import {
   AlertDialog,
   AlertDialogClose,
@@ -11,8 +11,8 @@ import {
   AlertDialogTitle,
   Button,
   dialogSurface,
-} from "@aeolus-fleet/ui";
-import { InlineError } from "../../../components/molecules/inline-error";
+} from '@aeolus-fleet/ui';
+import { InlineError } from '../../../components/molecules/inline-error';
 
 interface DeleteLabelDialogProps {
   /** Your label no ship carries; the confirm is open while one is given. */
@@ -21,7 +21,7 @@ interface DeleteLabelDialogProps {
   isPending: boolean;
   /** Why the server refused it, naming the ships that carry it; nothing changed. */
   error?: string;
-  onDelete: (labelId: LabelRow["labelId"]) => void;
+  onDelete: (labelId: LabelRow['labelId']) => void;
 }
 
 /**
@@ -29,13 +29,7 @@ interface DeleteLabelDialogProps {
  * goes with its values, and its key is free again. Offered only while no ship
  * carries it; the server refuses it otherwise, naming the ships.
  */
-export function DeleteLabelDialog({
-  row,
-  onOpenChange,
-  isPending,
-  error,
-  onDelete,
-}: DeleteLabelDialogProps) {
+export function DeleteLabelDialog({ row, onOpenChange, isPending, error, onDelete }: DeleteLabelDialogProps) {
   return (
     <AlertDialog
       open={row !== undefined}
@@ -45,30 +39,18 @@ export function DeleteLabelDialog({
         }
       }}
     >
-      <AlertDialogContent
-        data-testid="delete-label-dialog"
-        className={dialogSurface.phoneSheet}
-      >
+      <AlertDialogContent data-testid="delete-label-dialog" className={dialogSurface.phoneSheet}>
         <AlertDialogHeader>
           <AlertDialogTitle>
             Delete <span className="font-mono">{row?.key}</span>?
           </AlertDialogTitle>
           <AlertDialogDescription>
-            {row === undefined
-              ? null
-              : `Its ${row.values.length === 1 ? "value goes" : `${String(row.values.length)} values go`} with it, and its key is free again. No ship carries it, so no ship changes.`}
+            {row === undefined ? null : `Its ${row.values.length === 1 ? 'value goes' : `${String(row.values.length)} values go`} with it, and its key is free again. No ship carries it, so no ship changes.`}
           </AlertDialogDescription>
         </AlertDialogHeader>
-        {error === undefined ? null : (
-          <InlineError
-            title="Couldn’t delete the label"
-            description={`Refused: ${error}. Nothing changed.`}
-          />
-        )}
+        {error === undefined ? null : <InlineError title="Couldn’t delete the label" description={`Refused: ${error}. Nothing changed.`} />}
         <AlertDialogFooter>
-          <AlertDialogClose render={<Button disabled={isPending} />}>
-            Cancel
-          </AlertDialogClose>
+          <AlertDialogClose render={<Button disabled={isPending} />}>Cancel</AlertDialogClose>
           <Button
             variant="destructive"
             isLoading={isPending}

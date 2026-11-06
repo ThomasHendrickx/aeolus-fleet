@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import {
   AlertDialog,
@@ -10,8 +10,8 @@ import {
   AlertDialogTitle,
   Button,
   dialogSurface,
-} from "@aeolus-fleet/ui";
-import { InlineError } from "../../../../components/molecules/inline-error";
+} from '@aeolus-fleet/ui';
+import { InlineError } from '../../../../components/molecules/inline-error';
 
 /** The kept worktree to delete, as its machine's page shows it. */
 export interface WorktreeToClear {
@@ -37,13 +37,7 @@ interface ClearWorktreeDialogProps {
  * worktree on its next pass; until then the worktree shows Clearing. A
  * request is never withdrawn.
  */
-export function ClearWorktreeDialog({
-  worktree,
-  onOpenChange,
-  isPending,
-  error,
-  onClear,
-}: ClearWorktreeDialogProps) {
+export function ClearWorktreeDialog({ worktree, onOpenChange, isPending, error, onClear }: ClearWorktreeDialogProps) {
   return (
     <AlertDialog
       open={worktree !== undefined}
@@ -53,15 +47,10 @@ export function ClearWorktreeDialog({
         }
       }}
     >
-      <AlertDialogContent
-        data-testid="clear-worktree-dialog"
-        className={dialogSurface.phoneSheet}
-      >
+      <AlertDialogContent data-testid="clear-worktree-dialog" className={dialogSurface.phoneSheet}>
         <AlertDialogHeader>
           <AlertDialogTitle>
-            Delete the kept{" "}
-            <span className="font-mono">{worktree?.repository}</span> worktree
-            of {worktree?.shipName}?
+            Delete the kept <span className="font-mono">{worktree?.repository}</span> worktree of {worktree?.shipName}?
           </AlertDialogTitle>
           <AlertDialogDescription>
             {worktree === undefined
@@ -69,22 +58,10 @@ export function ClearWorktreeDialog({
               : `${worktree.machineName} removes it on its next pass, with its uncommitted changes. They can't be recovered, and the request can't be withdrawn.`}
           </AlertDialogDescription>
         </AlertDialogHeader>
-        {error === undefined ? null : (
-          <InlineError
-            title="Couldn’t delete the worktree"
-            description={`Refused: ${error}. Nothing changed.`}
-          />
-        )}
+        {error === undefined ? null : <InlineError title="Couldn’t delete the worktree" description={`Refused: ${error}. Nothing changed.`} />}
         <AlertDialogFooter>
-          <AlertDialogClose render={<Button disabled={isPending} />}>
-            Cancel
-          </AlertDialogClose>
-          <Button
-            variant="destructive"
-            isLoading={isPending}
-            data-testid="clear-worktree-confirm"
-            onClick={onClear}
-          >
+          <AlertDialogClose render={<Button disabled={isPending} />}>Cancel</AlertDialogClose>
+          <Button variant="destructive" isLoading={isPending} data-testid="clear-worktree-confirm" onClick={onClear}>
             Delete worktree
           </Button>
         </AlertDialogFooter>
