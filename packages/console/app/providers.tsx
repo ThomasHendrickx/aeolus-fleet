@@ -5,7 +5,7 @@ import { onlineManager, QueryClient, QueryClientProvider } from '@tanstack/react
 import { createTRPCClient, createWSClient, httpLink, splitLink, wsLink } from '@trpc/client';
 import { useState, type ReactNode } from 'react';
 
-import { Toaster } from '../components/atoms/toast';
+import { Toaster } from '@aeolus-fleet/ui';
 import { AnalyticsContext, useAnalyticsPageviews } from '../lib/analytics-client';
 import { ConsoleConstantsContext, type ConsoleConstants } from '../lib/console-constants';
 import { trpcErrorCode } from '../lib/errors';

@@ -12,7 +12,7 @@ import { machineLabelsInputOf } from '../../../lib/machine-labels';
 import { useSquadronsConnection } from '../../../lib/squadrons';
 import { useSquadrons } from '../../../lib/squadrons-api';
 import { useCrewSettingsCheck, useEnabledModels, useMachines } from '../../../lib/trierarch-plugin';
-import { showToast } from '../../../components/atoms/toast';
+import { showToast } from '@aeolus-fleet/ui';
 
 // Dialogs load when first opened, not with the page.
 const RequestCrewDialog = lazyDialog(() => import('../ui/organisms/request-crew-dialog').then((module) => module.RequestCrewDialog), (props) => props.isOpen);

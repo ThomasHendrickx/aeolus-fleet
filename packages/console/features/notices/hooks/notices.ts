@@ -1,7 +1,7 @@
 import type { NoticeLink } from '@aeolus-fleet/common';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { showToast } from '../../../components/atoms/toast';
+import { showToast } from '@aeolus-fleet/ui';
 import type { Notice } from '../molecules/notice-banner';
 import { useSignOut } from '../../../lib/session';
 import { useTRPC } from '../../../lib/trpc';

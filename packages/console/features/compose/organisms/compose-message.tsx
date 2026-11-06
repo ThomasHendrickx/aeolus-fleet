@@ -8,7 +8,7 @@ import { composeShips, sendInputOf, useSendMessage } from '../hooks/compose';
 import { useListedShips } from '../../../lib/listed-ships';
 import { useShipSearch } from '../../../lib/ship-search';
 import { useShipTypes, useTypeShipCount } from '../../../lib/ship-types';
-import { showToast } from '../../../components/atoms/toast';
+import { showToast } from '@aeolus-fleet/ui';
 import { useFleetLimits } from '../../../lib/fleet-limits';
 import { useHostedAccountUrl } from '../../../lib/hosted-account';
 import { messageLimitReached } from '../../../lib/limits';

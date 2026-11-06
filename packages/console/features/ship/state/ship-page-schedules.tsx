@@ -3,7 +3,7 @@
 import type { MessageId, ScheduleId, ShipId } from '@aeolus-fleet/common';
 import { useState } from 'react';
 
-import { showToast } from '../../../components/atoms/toast';
+import { showToast } from '@aeolus-fleet/ui';
 import { LoadMore } from '../../../components/molecules/load-more';
 import { useCancelSchedule, usePauseSchedule, useShipSchedules } from '../hooks/use-ship-schedules';
 import { scheduleRowOf } from '../services/schedule-row';

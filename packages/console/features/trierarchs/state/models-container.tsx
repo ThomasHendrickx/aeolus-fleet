@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 
-import { showToast } from '../../../components/atoms/toast';
+import { showToast } from '@aeolus-fleet/ui';
 import { useAccess } from '../../../lib/access';
 import { useEnabledModels, useMachines, useSetModelEnabled } from '../../../lib/trierarch-plugin';
 import { fleetWideChangeOf, modelRowsOf } from '../services/model-rows';

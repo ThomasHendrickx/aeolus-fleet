@@ -4,8 +4,7 @@ import type { MessageId, ShipId } from '@aeolus-fleet/common';
 import { Copy, Ellipsis, MailOpen, Ship } from 'lucide-react';
 import Link from 'next/link';
 
-import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@aeolus-fleet/ui';
-import { showToast } from '../../../../components/atoms/toast';
+import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, showToast } from '@aeolus-fleet/ui';
 
 interface MessageMenuProps {
   messageId: MessageId;

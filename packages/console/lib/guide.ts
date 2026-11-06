@@ -4,7 +4,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useLayoutEffect, useRef, useSyncExternalStore } from 'react';
 import type { z } from 'zod';
 
-import { showToast } from '../components/atoms/toast';
+import { showToast } from '@aeolus-fleet/ui';
 import { useAnalytics } from './analytics-client';
 import { useTRPC } from './trpc';
 
