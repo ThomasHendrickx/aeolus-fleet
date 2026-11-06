@@ -57,6 +57,8 @@ Each has options and my pick. Thomas answers each.
 
 **Pick 1.** A chat shows what reached the person, however it was addressed; a type send claimed by the person ship is part of the talk.
 
+**Thomas: 1** (6 Nov).
+
 ### E2 How the other ship is named
 
 1. **By ship id**; the list of exchanges answers each other ship's id, current name, type and kind.
