@@ -1,8 +1,8 @@
 # A ship's exchange with one other ship
 
-Design for [#1694](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1694). New core fleet functionality, so it goes purpose first. Thomas approved the need, and one new core read rather than the gateway merging two reads (6 Nov). The lessons and questions below are for review; nothing past the purpose is decided until Thomas agrees the purpose. No code.
+Design for [#1694](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1694). New core fleet functionality, so it goes purpose first. Thomas approved the need, and one new core read rather than the gateway merging two reads (6 Nov). Thomas agreed the purpose (6 Nov). The questions below are for review; nothing past the purpose is decided until Thomas answers them. No code.
 
-## 1. Purpose (to agree)
+## 1. Purpose (agreed)
 
 A person's client shows what their person ship and each other ship said to each other as one chat, the way a messaging app does: a list of the ships it talks with, newest first, each with what is still unseen, and per ship the messages both ways, a page at a time. The person marks a chat as seen up to where they read in one action. Core answers it; the client keeps no copy.
 
@@ -48,7 +48,7 @@ Not the purpose:
 
 ## 4. Questions
 
-Each has options and my pick. They follow once the purpose is agreed.
+Each has options and my pick. Thomas answers each.
 
 ### E1 What belongs to the exchange of A and B?
 
