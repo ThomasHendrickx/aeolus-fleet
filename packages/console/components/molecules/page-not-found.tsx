@@ -1,7 +1,6 @@
 import Link from 'next/link';
 
-import { Button } from '@aeolus-fleet/ui';
-import { EmptyState } from './empty-state';
+import { Button, EmptyState } from '@aeolus-fleet/ui';
 
 /**
  * The console's Not found, inside the ConsoleFrame (feature flags console

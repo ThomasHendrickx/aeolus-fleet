@@ -1,12 +1,11 @@
 'use client';
 
 import type { ShipId } from '@aeolus-fleet/common';
-import { Harbour, HarbourNumbers } from '@aeolus-fleet/ui';
+import { EmptyState, Harbour, HarbourNumbers } from '@aeolus-fleet/ui';
 import { Ship } from 'lucide-react';
 import Link from 'next/link';
 import type { AnchorHTMLAttributes, ReactNode } from 'react';
 
-import { EmptyState } from '../../../components/molecules/empty-state';
 import { useLabelContext } from '../../../lib/fleet';
 import { useNow } from '../../../lib/now';
 import { usePluginShipIds } from '../../../lib/plugin-ships';

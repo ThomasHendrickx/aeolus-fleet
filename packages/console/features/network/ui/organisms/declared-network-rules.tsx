@@ -2,9 +2,9 @@ import type { SelectorTerm } from '@aeolus-fleet/common';
 import { ArrowRight, CircleAlert } from 'lucide-react';
 import { Fragment } from 'react';
 
+import { EmptyState } from '@aeolus-fleet/ui';
 import type { LabelContext } from '../../../../lib/labels';
 import { selectorOf, TERM_MEANINGS, termKeyOf, VERB_WORDS, type RuleSide } from '../../../../lib/network-rules';
-import { EmptyState } from '../../../../components/molecules/empty-state';
 import { InlineError } from '../../../../components/molecules/inline-error';
 import { LabelChip } from '../../../../components/molecules/label-chip';
 import { LoadingSkeleton } from '../../../../components/molecules/loading-skeleton';

@@ -2,9 +2,8 @@ import type { MessageId, ScheduleId, ScheduleItem } from '@aeolus-fleet/common';
 import { CalendarClock, CircleX, Pause, RotateCw } from 'lucide-react';
 import type { ReactNode } from 'react';
 
-import { Button } from '@aeolus-fleet/ui';
+import { Button, EmptyState } from '@aeolus-fleet/ui';
 import { scheduleRowOf, type ScheduleRow } from '../../services/schedule-row';
-import { EmptyState } from '../../../../components/molecules/empty-state';
 import { InlineError } from '../../../../components/molecules/inline-error';
 import { LoadingSkeleton } from '../../../../components/molecules/loading-skeleton';
 import { StatusBadge } from '../../../../components/molecules/status-badge';

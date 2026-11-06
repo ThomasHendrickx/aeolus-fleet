@@ -16,10 +16,10 @@ import {
   AlertDialogTitle,
   Button,
   dialogSurface,
+  EmptyState,
   Input,
   Label,
 } from '@aeolus-fleet/ui';
-import { EmptyState } from '../../../../components/molecules/empty-state';
 import { InlineError } from '../../../../components/molecules/inline-error';
 import { LoadingSkeleton } from '../../../../components/molecules/loading-skeleton';
 import { RepositoryName } from '../../../../components/molecules/repository-name';

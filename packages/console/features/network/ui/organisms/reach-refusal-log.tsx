@@ -1,10 +1,10 @@
 import type { ReachRefusal } from '@aeolus-fleet/common';
 import type { ReactNode } from 'react';
 
+import { EmptyState } from '@aeolus-fleet/ui';
 import { chipsOf, type LabelContext } from '../../../../lib/labels';
 import { refusalCauseOf, refusalSentenceOf, refusedActorName } from '../../services/reach-refusals';
 import { fullDateTime, relativeTime } from '../../../../lib/relative-time';
-import { EmptyState } from '../../../../components/molecules/empty-state';
 import { InlineError } from '../../../../components/molecules/inline-error';
 import { LabelChip } from '../../../../components/molecules/label-chip';
 import { LoadingSkeleton } from '../../../../components/molecules/loading-skeleton';
