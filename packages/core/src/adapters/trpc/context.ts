@@ -21,6 +21,7 @@ import type { MarkRead } from '../../domain/messaging/mark-read.js';
 import type { HandOverDelivery } from '../../domain/messaging/hand-over-delivery.js';
 import type { ReadDelivery } from '../../domain/messaging/read-delivery.js';
 import type { ReadExchange } from '../../domain/messaging/read-exchange.js';
+import type { ReadExchanges } from '../../domain/messaging/read-exchanges.js';
 import type { ReadRecord } from '../../domain/messaging/read-record.js';
 import type { ReportHandled } from '../../domain/messaging/report-handled.js';
 import type { ReportNotHandled } from '../../domain/messaging/report-not-handled.js';
@@ -272,6 +273,7 @@ export interface UseCases {
   readDelivery: ReadDelivery;
   readRecord: ReadRecord;
   readExchange: ReadExchange;
+  readExchanges: ReadExchanges;
   reportNotHandled: ReportNotHandled;
   acknowledgeDelivery: AcknowledgeDelivery;
   answerPing: AnswerPing;

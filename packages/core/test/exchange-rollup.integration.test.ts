@@ -148,7 +148,7 @@ describe('the rollup of exchanges on Postgres', () => {
       if (!taken.isOk) {
         return;
       }
-      await Promise.all(taken.value.map((delivery) => core.useCases.acknowledgeDelivery(crew, { deliveryId: delivery.deliveryId })));
+      await Promise.all(taken.value.deliveries.map((delivery) => core.useCases.acknowledgeDelivery(crew, { deliveryId: delivery.deliveryId })));
     };
     await Promise.all([...sendAll(6), takeAndAck(thomas), takeAndAck(maria), takeAndAck(maria), core.useCases.releaseShip(argo, { shipId: thomas.shipId })]);
 

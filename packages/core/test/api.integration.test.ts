@@ -296,6 +296,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_alerts$/),
       expect.stringMatching(/^\d{14}_ship_expectations$/),
       expect.stringMatching(/^\d{14}_delivery_record_index$/),
+      expect.stringMatching(/^\d{14}_delivery_exchange$/),
     ]);
   });
 });

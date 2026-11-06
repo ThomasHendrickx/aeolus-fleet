@@ -17,6 +17,7 @@ import type { ShipFilter } from '@aeolus-fleet/common/rules';
 import { COLUMNS_SHOWN_OUTSIDE_READ_REACH, isValueDescending, type ShipSort } from '../../domain/registry/ship-order.js';
 import type { ReadReach } from '../../domain/registry/read-reach.js';
 import type { Db } from './client.js';
+import { addChangedDelivery, type ExchangeRollups } from './exchange-rollups.js';
 import { readHarbourOf } from './harbour.js';
 import { Prisma } from './generated/client.js';
 import {
@@ -111,6 +112,7 @@ export function createPrismaFleetRepository(db: Db): FleetRepository {
       await db.$executeRaw`DELETE FROM health_snapshots WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM events WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM overdue_deliveries WHERE fleet_id = ${fleetId}`;
+      await db.$executeRaw`DELETE FROM exchanges WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM deliveries WHERE fleet_id = ${fleetId}`;
       // A schedule names the messages it replies to and sent, and a message the schedule it was sent for.
       await db.$executeRaw`UPDATE messages SET in_reply_to_message_id = NULL, resend_of_message_id = NULL, schedule_id = NULL, send_time = NULL WHERE fleet_id = ${fleetId}`;
@@ -606,21 +608,34 @@ export function createPrismaLeaseRepository(db: Db): LeaseRepository {
   };
 }
 
-export function createPrismaInFlightDeliveries(db: Db): InFlightDeliveries {
+export function createPrismaInFlightDeliveries(db: Db, rollups: ExchangeRollups): InFlightDeliveries {
   return {
     returnToPending: async (fleetId, leaseId) => {
       // One statement, on the index of a lease's claims. The lease has just
       // ended in this transaction, after any receive holding it FOR SHARE
       // committed, so read committed sees every claim made under it. Only the
       // claim and its hand-over number are cleared: recipient and attempts stay.
+      // Each row as it was goes to the rollup with it: one of a type no longer
+      // reaches the ship that claimed it (exchange-rollups.ts).
       const rows = await db.$queryRaw<unknown[]>`
-        WITH returned AS (
-          UPDATE deliveries SET state = 'pending', claimed_by_ship_id = NULL, claimed_by_lease_id = NULL, hand_over_number = NULL
+        WITH held AS (
+          SELECT id, state::text AS state, reached_ship_id FROM deliveries
           WHERE fleet_id = ${fleetId} AND claimed_by_lease_id = ${leaseId} AND state IN ('received', 'handed')
-          RETURNING id, fleet_id, message_id, recipient_ship_id, recipient_type, state::text AS state,
-                    claimed_by_ship_id, claimed_by_lease_id, attempts, hand_over_number, handed_once_more_at, is_forced, created_at
+          FOR UPDATE
+        ),
+        returned AS (
+          UPDATE deliveries d SET state = 'pending', claimed_by_ship_id = NULL, claimed_by_lease_id = NULL, hand_over_number = NULL
+          FROM held
+          WHERE d.fleet_id = ${fleetId} AND d.id = held.id
+          RETURNING d.id, d.fleet_id, d.message_id, d.recipient_ship_id, d.recipient_type, d.state::text AS state,
+                    d.claimed_by_ship_id, d.claimed_by_lease_id, d.attempts, d.hand_over_number, d.handed_once_more_at, d.is_forced, d.created_at,
+                    d.sender_ship_id, d.is_in_exchange, held.state AS before_state, held.reached_ship_id AS before_reached_ship_id,
+                    d.state::text AS after_state, d.reached_ship_id AS after_reached_ship_id
         )
         SELECT * FROM returned ORDER BY created_at, id`;
+      for (const row of rows) {
+        addChangedDelivery(rollups, row);
+      }
       return rows
         .map(toDeliveryFromSql)
         .map(({ id, messageId, recipient, attempts }) => ({ deliveryId: id, messageId, recipient, attempts }));
@@ -629,7 +644,11 @@ export function createPrismaInFlightDeliveries(db: Db): InFlightDeliveries {
       const rows = await db.$queryRaw<unknown[]>`
         UPDATE deliveries SET state = 'abandoned'
         WHERE fleet_id = ${fleetId} AND recipient_ship_id = ${shipId} AND state = 'pending'
-        RETURNING id, message_id, created_at`;
+        RETURNING id, message_id, created_at, fleet_id, sender_ship_id, is_in_exchange, 'pending' AS before_state,
+                  reached_ship_id AS before_reached_ship_id, state::text AS after_state, reached_ship_id AS after_reached_ship_id`;
+      for (const row of rows) {
+        addChangedDelivery(rollups, row);
+      }
       return rows
         .map(toAbandonedDelivery)
         .sort((first, second) => first.createdAt.getTime() - second.createdAt.getTime() || first.deliveryId.localeCompare(second.deliveryId))

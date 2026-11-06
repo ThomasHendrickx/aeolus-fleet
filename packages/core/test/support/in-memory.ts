@@ -130,7 +130,7 @@ import { plainBytesOf, type StoredPayload } from '../../src/domain/messaging/sea
 import { createInMemoryKeyVault } from './in-memory-key-vault.js';
 import type { KeyVaultWorld } from './key-vault-contract.js';
 import { inMemoryPayloadSealer } from './in-memory-payload-sealer.js';
-import type { FleetSealingRepository } from '../../src/domain/messaging/ports.js';
+import type { ExchangeList, FleetSealingRepository } from '../../src/domain/messaging/ports.js';
 
 /**
  * In-memory ports for unit tests of the core. Every repository reads and writes
@@ -267,6 +267,7 @@ export interface InMemoryTx {
   signInTickets: SignInTicketRepository;
   messages: MessageRepository;
   deliveries: DeliveryRepository;
+  exchanges: ExchangeList;
   meetings: MeetingRepository;
   schedules: ScheduleRepository;
   overdueDeliveries: OverdueDeliveryRepository;
@@ -1549,6 +1550,39 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       find: (fleetId, messageId) => {
         const found = state.messages.find((held) => held.fleetId === fleetId && held.id === messageId);
         return Promise.resolve(found && structuredClone(found));
+      },
+    },
+    exchanges: {
+      // Counted from the deliveries: the fake keeps no rollup.
+      page: ({ fleetId, shipId, cursor, limit }) => {
+        const ship = state.ships.find((held) => held.fleetId === fleetId && held.id === shipId);
+        if (ship?.kind !== 'person') {
+          return Promise.resolve({ items: [], nextCursor: null });
+        }
+        const rows = new Map<ShipId, { newestMessage: Message; unacknowledged: number }>();
+        for (const delivery of state.deliveries.filter((held) => held.fleetId === fleetId)) {
+          const message = state.messages.find((held) => held.fleetId === fleetId && held.id === delivery.messageId);
+          const reached = delivery.recipient.kind === 'ship' ? delivery.recipient.shipId : delivery.claimedByShipId;
+          const otherShipId = message?.senderShipId === shipId ? reached : reached === shipId ? message?.senderShipId : null;
+          if (!message || !isInExchange(message) || otherShipId === null || otherShipId === undefined) {
+            continue;
+          }
+          const row = rows.get(otherShipId);
+          const isOpen = reached === shipId && (delivery.state === 'pending' || delivery.state === 'received' || delivery.state === 'handed');
+          rows.set(otherShipId, {
+            newestMessage: row && row.newestMessage.id > message.id ? row.newestMessage : structuredClone(message),
+            unacknowledged: (row?.unacknowledged ?? 0) + (isOpen ? 1 : 0),
+          });
+        }
+        const listed = [...rows.entries()]
+          .flatMap(([otherShipId, row]) => {
+            const other = state.ships.find((held) => held.fleetId === fleetId && held.id === otherShipId);
+            return other?.retiredAt === null ? [{ otherShip: { id: other.id, name: other.name, type: other.type, kind: other.kind }, ...row }] : [];
+          })
+          .filter((row) => cursor === undefined || row.newestMessage.id < cursor)
+          .toSorted((first, second) => second.newestMessage.id.localeCompare(first.newestMessage.id))
+          .slice(0, limit + 1);
+        return Promise.resolve(pageOf(listed, { limit, cursorOf: (row) => row.newestMessage.id }));
       },
     },
     deliveries: {

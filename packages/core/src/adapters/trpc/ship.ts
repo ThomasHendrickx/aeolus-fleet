@@ -20,6 +20,8 @@ import {
   recordOutputSchema,
   exchangeInputSchema,
   exchangeOutputSchema,
+  exchangesInputSchema,
+  exchangesOutputSchema,
   handledInputSchema,
   handledOutputSchema,
   inboxInputSchema,
@@ -852,6 +854,34 @@ export const shipRouter = router({
           sendTime: entry.sendTime?.toISOString() ?? null,
         })),
         nextCursor: page.nextCursor,
+      };
+    }),
+
+  /**
+   * A page of the crew's ship's list of exchanges (docs/design/exchange-read):
+   * per other ship, the newest message and how many of its messages wait,
+   * read from the rollup kept for person ships. Records nothing.
+   */
+  exchanges: scopedCrewProcedure('messages:receive')
+    .meta({
+      description: [
+        'Needs messages:receive. Lists the ships your person ship exchanged messages with, newest exchange first: each other ship by id with its name, type and kind,',
+        'unacknowledged, how many of its messages to you are not yet acknowledged (of any content type), and the newest message between you, whole.',
+        'Retired ships are left out; read an exchange with one by id with exchange. Only a person ship has a list: any other ship\'s is empty.',
+        `At most ${String(RECORD_PAGE_SIZE_MAX)} per page, ${String(RECORD_PAGE_SIZE_DEFAULT)} unless you pass limit; pass the nextCursor it answers as cursor for the next page, null on the last.`,
+        'It changes nothing.',
+      ].join(' '),
+    })
+    .input(exchangesInputSchema)
+    .output(exchangesOutputSchema)
+    .query(async ({ ctx, input }) => {
+      const page = okOrThrow(await ctx.useCases.readExchanges(ctx.crew, input ?? {}));
+      return {
+        ...page,
+        items: page.items.map((entry) => ({
+          ...entry,
+          newestMessage: { ...entry.newestMessage, ...listedPayloadOutputOf(entry.newestMessage.payload), sentAt: entry.newestMessage.sentAt.toISOString() },
+        })),
       };
     }),
 

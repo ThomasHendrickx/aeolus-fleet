@@ -160,6 +160,9 @@ describe('sending a message on Postgres', () => {
       handedOnceMoreAt: null,
       isForced: false,
       reachableShipIds: [],
+      senderShipId: argoId,
+      isInExchange: true,
+      reachedShipId: scoutId,
       readAt: null,
       createdAt: core.clock.now(),
     });

@@ -1,4 +1,4 @@
-import type { DataKeyId, DeliveryId, FleetId, LeaseId, MeetingId, MessageId, ScheduleId, ScheduleState, ShipId } from '@aeolus-fleet/common';
+import type { DataKeyId, DeliveryId, FleetId, LeaseId, MeetingId, MessageId, ScheduleId, ScheduleState, ShipId, ShipKind } from '@aeolus-fleet/common';
 
 import type { Page, PageQuery } from '../shared/page.js';
 import type { DataKeyAge, FleetSealing, KeyAvailability, StoredDataKey } from './fleet-sealing.js';
@@ -211,6 +211,23 @@ export interface ExchangeQuery {
   from?: DeliveryId;
   isFromIncluded?: boolean;
   limit: number;
+}
+
+/** A row of a person ship's list of exchanges: the other ship as it is now, the newest message between them, and how many of the other ship's deliveries to it are not yet acknowledged. */
+export interface ListedExchange {
+  otherShip: { id: ShipId; name: string; type: string; kind: ShipKind };
+  newestMessage: Message;
+  unacknowledged: number;
+}
+
+/**
+ * Outbound port: the rollup of the person ships' lists of exchanges
+ * (docs/design/exchange-read, E4, E5), written with the deliveries it counts.
+ * Read without a lock.
+ */
+export interface ExchangeList {
+  /** A page of the ship's rows, newest message first, after the newest message the cursor names, retired other ships left out (E10). */
+  page(query: { fleetId: FleetId; shipId: ShipId } & PageQuery<MessageId>): Promise<Page<ListedExchange, MessageId>>;
 }
 
 /** Outbound port: deliveries, always within one fleet. */

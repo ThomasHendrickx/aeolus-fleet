@@ -1,8 +1,9 @@
 import { z } from 'zod';
 
-import { deliveryStateSchema } from '../fleet/index.js';
+import { deliveryStateSchema, shipKindSchema } from '../fleet/index.js';
 import { idSchema } from '../ids/index.js';
 import { RECORD_PAGE_SIZE_MAX } from '../rules/page-size.js';
+import { pageOutputOf } from './page.js';
 
 /**
  * The exchange read (docs/design/exchange-read): what the calling ship and
@@ -57,3 +58,38 @@ export const exchangeOutputSchema = z.object({
 });
 
 export type ExchangeOutput = z.infer<typeof exchangeOutputSchema>;
+
+/** Input of `ship.exchanges`: the cursor the last page answered, none for the newest, and the page size (E10). */
+export const exchangesInputSchema = z
+  .object({ cursor: idSchema('message').optional(), limit: z.int().min(1).max(RECORD_PAGE_SIZE_MAX).optional() })
+  .optional();
+
+export type ExchangesInput = z.infer<typeof exchangesInputSchema>;
+
+/**
+ * One exchange of `ship.exchanges`: the other ship by id with its current
+ * name, type and kind (E2), how many of its messages to the caller are not
+ * yet acknowledged, of any content type (E5), and the newest message between
+ * them, whole.
+ */
+export const exchangesEntrySchema = z.object({
+  otherShipId: idSchema('ship'),
+  otherShipName: z.string(),
+  otherShipType: z.string(),
+  otherShipKind: shipKindSchema,
+  unacknowledged: z.int().min(0),
+  newestMessage: z.object({
+    messageId: idSchema('message'),
+    senderShipId: idSchema('ship'),
+    payload: z.string(),
+    isPayloadUnreadable: z.boolean(),
+    contentType: z.string(),
+    /** When the message was sent. ISO 8601 in UTC. */
+    sentAt: z.iso.datetime(),
+  }),
+});
+
+/** Output of `ship.exchanges`: a page of exchanges, newest first, and the cursor of the next; null on the last. */
+export const exchangesOutputSchema = pageOutputOf(exchangesEntrySchema, idSchema('message'));
+
+export type ExchangesOutput = z.infer<typeof exchangesOutputSchema>;

@@ -1,6 +1,7 @@
 import { idSchema, type MessageId, type ShipId } from '@aeolus-fleet/common';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { createPrismaExchangeRollups } from '../src/adapters/prisma/exchange-rollups.js';
 import { createPrismaDeliveryRepository } from '../src/adapters/prisma/messaging.js';
 import type { Crew, ShipCaller } from '../src/domain/shared/caller.js';
 import type { Selector } from '../src/domain/shared/selector.js';
@@ -119,7 +120,7 @@ describe('the exchange read on Postgres', () => {
     const elsewhere = idSchema('fleet').parse(`flt_${'0'.repeat(26)}`);
 
     // When the same exchange is read in another fleet.
-    const rows = await createPrismaDeliveryRepository(core.prisma).findExchangePage({ fleetId: elsewhere, shipId: thomas.shipId, otherShipId: lookout.shipId, toward: 'older', limit: 20 });
+    const rows = await createPrismaDeliveryRepository(core.prisma, createPrismaExchangeRollups(core.prisma)).findExchangePage({ fleetId: elsewhere, shipId: thomas.shipId, otherShipId: lookout.shipId, toward: 'older', limit: 20 });
 
     // Then it holds nothing.
     expect(rows).toEqual([]);

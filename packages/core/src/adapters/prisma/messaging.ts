@@ -4,6 +4,7 @@ import { isInExchange } from '../../domain/messaging/exchange.js';
 import type { Delivery, Message } from '../../domain/messaging/message.js';
 import type { DeliveryRepository, MessageRepository } from '../../domain/messaging/ports.js';
 import type { Db } from './client.js';
+import { addChangedDelivery, type ExchangeRollups } from './exchange-rollups.js';
 import { Prisma } from './generated/client.js';
 import { payloadColumnsOf, toDeliveryFromSql, toMessage } from './rows.js';
 import { plainBytesOf } from '../../domain/messaging/sealed-payload.js';
@@ -125,10 +126,20 @@ async function withMessages(db: Db, { fleetId, deliveries }: { fleetId: FleetId;
   });
 }
 
-export function createPrismaDeliveryRepository(db: Db): DeliveryRepository {
+export function createPrismaDeliveryRepository(db: Db, rollups: ExchangeRollups): DeliveryRepository {
   return {
     create: async (delivery, message) => {
       const { recipient } = delivery;
+      if (isInExchange(message)) {
+        rollups.add(delivery.fleetId, {
+          after: {
+            messageId: delivery.messageId,
+            senderShipId: message.senderShipId,
+            reachedShipId: recipient.kind === 'ship' ? recipient.shipId : delivery.claimedByShipId,
+            state: delivery.state,
+          },
+        });
+      }
       await db.delivery.create({
         data: {
           id: delivery.id,
@@ -303,17 +314,25 @@ export function createPrismaDeliveryRepository(db: Db): DeliveryRepository {
       return row ? toMessage(row) : undefined;
     },
     update: async (delivery) => {
-      await db.delivery.updateMany({
-        where: { fleetId: delivery.fleetId, id: delivery.id },
-        data: {
-          state: delivery.state,
-          claimedByShipId: delivery.claimedByShipId,
-          claimedByLeaseId: delivery.claimedByLeaseId,
-          attempts: delivery.attempts,
-          handOverNumber: delivery.handOverNumber,
-          handedOnceMoreAt: delivery.handedOnceMoreAt,
-        },
-      });
+      // The row as it was, locked, so the rollup learns what the change takes
+      // and adds: the reached ship follows the claim (exchange-rollups.ts).
+      const rows = await db.$queryRaw<unknown[]>`
+        WITH before AS (
+          SELECT id, state::text AS state, reached_ship_id FROM deliveries
+          WHERE fleet_id = ${delivery.fleetId} AND id = ${delivery.id}
+          FOR UPDATE
+        )
+        UPDATE deliveries d
+        SET state = ${delivery.state}::delivery_state, claimed_by_ship_id = ${delivery.claimedByShipId}::text,
+            claimed_by_lease_id = ${delivery.claimedByLeaseId}::text, attempts = ${delivery.attempts}::int,
+            hand_over_number = ${delivery.handOverNumber}::int, handed_once_more_at = ${delivery.handedOnceMoreAt}::timestamptz
+        FROM before
+        WHERE d.fleet_id = ${delivery.fleetId} AND d.id = before.id
+        RETURNING d.fleet_id, d.message_id, d.sender_ship_id, d.is_in_exchange, before.state AS before_state,
+                  before.reached_ship_id AS before_reached_ship_id, d.state::text AS after_state, d.reached_ship_id AS after_reached_ship_id`;
+      for (const row of rows) {
+        addChangedDelivery(rollups, row);
+      }
     },
     markRead: async ({ fleetId, deliveryId, at }) => {
       await db.delivery.updateMany({ where: { fleetId, id: deliveryId, readAt: null }, data: { readAt: at } });
