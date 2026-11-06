@@ -163,6 +163,8 @@ jobs:
       - run: npm run build
       # The console ships bundled third-party code: its tarball must carry their licence notices.
       - run: node packages/console/scripts/check-third-party-notices.ts
+      # The standalone server serves public/ from beside it: its tarball must carry every file there.
+      - run: node packages/console/scripts/check-public-files.ts
       - run: npm publish --dry-run --access public --tag dry-run --workspace @aeolus-fleet/common
       - run: npm publish --dry-run --access public --tag dry-run --workspace @aeolus-fleet/ui
       - run: npm publish --dry-run --access public --tag dry-run --workspace @aeolus-fleet/core
