@@ -1,4 +1,4 @@
-import { idSchema, QUESTION_CONTENT_TYPE, type DeliveryState } from '@aeolus-fleet/common';
+import { idSchema, NOTICE_CONTENT_TYPE, QUESTION_CONTENT_TYPE, STEP_CONTENT_TYPE, type DeliveryState } from '@aeolus-fleet/common';
 import { describe, expect, it } from 'vitest';
 
 import { isFinalDelivery, isFinished, pruningCutoff, type CandidateDelivery, type PruneCandidate } from './history-pruning.js';
@@ -71,6 +71,14 @@ describe('a finished message (R2)', () => {
 
   it('waits for the next pass while another transaction holds its rows', () => {
     expect(isFinished(aCandidate({ isLocked: true }))).toBe(false);
+  });
+
+  it('is a plain message acknowledged at a person ship, its pushed lease open: a chat message is never handled (exchange read, E8)', () => {
+    expect(isFinished(aCandidate({ deliveries: [{ state: 'acknowledged', claimingLease: 'openPushed', isAtPersonShip: true }] }))).toBe(true);
+  });
+
+  it.each([NOTICE_CONTENT_TYPE, STEP_CONTENT_TYPE])('is not %s acknowledged at a person ship while its pushed lease is open: a convention stays as it was (E8)', (contentType) => {
+    expect(isFinished(aCandidate({ contentType, deliveries: [{ state: 'acknowledged', claimingLease: 'openPushed', isAtPersonShip: true }] }))).toBe(false);
   });
 
   it('waits for the next pass while the newest snapshot has not folded one of its events (R7)', () => {
