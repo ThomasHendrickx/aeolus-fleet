@@ -74,6 +74,8 @@ jobs:
         run: npm run set-version -- "$VERSION"
 
       - run: npm run build
+      # The console's tarball must carry every file under public/, which its standalone server serves.
+      - run: node packages/console/scripts/check-public-files.ts
 
       # integrity.json: each tarball's name, version, file and sha512 integrity, which npm's dist.integrity equals once published.
       - name: Pack common, ui, core and console
