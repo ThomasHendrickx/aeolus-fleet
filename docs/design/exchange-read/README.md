@@ -1,6 +1,6 @@
 # A ship's exchange with one other ship
 
-Design for [#1694](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1694). New core fleet functionality, so it goes purpose first. Thomas approved the need, and one new core read rather than the gateway merging two reads (6 Nov). Thomas agreed the purpose and answered E1 to E11, each with its pick (6 Nov). No code.
+Design for [#1694](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1694). New core fleet functionality, so it goes purpose first. Thomas approved the need, and one new core read rather than the gateway merging two reads (6 Nov). Approved by Thomas (6 Nov): the purpose, and E1 to E11 each as picked. No code.
 
 ## 1. Purpose (agreed)
 
