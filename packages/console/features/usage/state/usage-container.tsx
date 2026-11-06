@@ -3,7 +3,7 @@
 import { usePathname, useRouter } from 'next/navigation';
 import { startTransition, useOptimistic } from 'react';
 
-import { EmptyState } from '../../../components/molecules/empty-state';
+import { EmptyState } from '@aeolus-fleet/ui';
 import { ListPage } from '../../../components/organisms/list-page';
 import { useConsoleFrame } from '../../../lib/console-frame';
 import { useLiveFleet } from '../../../lib/live-fleet';

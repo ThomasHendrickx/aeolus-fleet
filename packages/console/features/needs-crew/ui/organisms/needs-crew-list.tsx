@@ -3,11 +3,11 @@ import { ListChecks, ShipWheel } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
+import { EmptyState } from '@aeolus-fleet/ui';
 import { crewRequestStage } from '../../../../lib/crew-request';
 import { handCrewOf } from '../../../../lib/needs-crew';
 import { clockTime, fullDateTime, relativeTime, shortDateTime } from '../../../../lib/relative-time';
 import { Badge } from '../../../../components/atoms/badge';
-import { EmptyState } from '../../../../components/molecules/empty-state';
 import { InlineError } from '../../../../components/molecules/inline-error';
 import { LoadMore } from '../../../../components/molecules/load-more';
 import { LoadingSkeleton } from '../../../../components/molecules/loading-skeleton';

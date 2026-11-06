@@ -1,8 +1,8 @@
-import type { Meta, StoryObj } from '@storybook/nextjs-vite';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 import { Plus, Ship } from 'lucide-react';
 
-import { Button } from '@aeolus-fleet/ui';
-import { EmptyState } from './empty-state';
+import { Button } from '../atoms/button.js';
+import { EmptyState } from './empty-state.js';
 
 const meta = {
   title: 'Molecules/EmptyState',

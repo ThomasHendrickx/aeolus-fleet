@@ -1,5 +1,4 @@
-import { Skeleton } from '@aeolus-fleet/ui';
-import { EmptyState } from '../../../../components/molecules/empty-state';
+import { EmptyState, Skeleton } from '@aeolus-fleet/ui';
 import { InlineError } from '../../../../components/molecules/inline-error';
 import { LoadMore } from '../../../../components/molecules/load-more';
 import type { WindowChart } from '../../services/subscription-windows';

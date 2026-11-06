@@ -1,8 +1,7 @@
 import { Unplug } from 'lucide-react';
 import Link from 'next/link';
 
-import { Button } from '@aeolus-fleet/ui';
-import { EmptyState } from '../../../../components/molecules/empty-state';
+import { Button, EmptyState } from '@aeolus-fleet/ui';
 
 /**
  * A squadrons page while squadrons is configured but not connected: a normal

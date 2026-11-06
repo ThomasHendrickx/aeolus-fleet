@@ -3,11 +3,11 @@ import { Info, Inbox } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
+import { EmptyState } from '@aeolus-fleet/ui';
 import type { BlueprintVersion, Squadron, TemplateVersion } from '../../../../lib/squadrons-schemas';
 import { lastSeen } from '../../../../lib/relative-time';
 import { checkInText, membersByRole } from '../../../../lib/squadrons-view';
 import { CompactCrewLine } from '../../../../components/molecules/compact-crew-line';
-import { EmptyState } from '../../../../components/molecules/empty-state';
 import { HealthIndicator } from '../../../../components/molecules/health-indicator';
 import { LaunchNote } from '../../../../components/molecules/launch-note';
 import { LocationTag } from '../../../../components/molecules/location-tag';

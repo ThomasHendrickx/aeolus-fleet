@@ -4,8 +4,7 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 
 import { Badge } from '../../../../components/atoms/badge';
-import { Button } from '@aeolus-fleet/ui';
-import { EmptyState } from '../../../../components/molecules/empty-state';
+import { Button, EmptyState } from '@aeolus-fleet/ui';
 import { InlineError } from '../../../../components/molecules/inline-error';
 import { LoadingSkeleton } from '../../../../components/molecules/loading-skeleton';
 import { StatusBadge, statusLabel } from '../../../../components/molecules/status-badge';

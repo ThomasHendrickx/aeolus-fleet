@@ -4,8 +4,7 @@ import Link from 'next/link';
 
 import { spotsOf } from '../../../../lib/machines';
 import type { Machine } from '../../../../lib/trierarch-plugin-schemas';
-import { Button } from '@aeolus-fleet/ui';
-import { EmptyState } from '../../../../components/molecules/empty-state';
+import { Button, EmptyState } from '@aeolus-fleet/ui';
 import { InlineError } from '../../../../components/molecules/inline-error';
 import { LoadingSkeleton } from '../../../../components/molecules/loading-skeleton';
 import { MachineCard } from './machine-card';

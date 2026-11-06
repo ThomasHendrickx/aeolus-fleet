@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 
-import { classNames } from '@aeolus-fleet/ui';
+import { classNames } from '../class-names.js';
 
 interface EmptyStateProps {
   /** Says what is empty: "No ships besides argo yet". */
