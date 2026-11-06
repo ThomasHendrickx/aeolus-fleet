@@ -1,6 +1,6 @@
 'use client';
 
-import { Tabs, TabsList, TabsTrigger } from '../../../../components/atoms/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@aeolus-fleet/ui';
 
 export interface SegmentedOption<T extends string> {
   value: T;

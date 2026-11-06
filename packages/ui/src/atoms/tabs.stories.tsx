@@ -1,6 +1,6 @@
-import type { Meta, StoryObj } from '@storybook/nextjs-vite';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 
-import { Tabs, TabsContent, TabsCount, TabsList, TabsTrigger } from './tabs';
+import { Tabs, TabsContent, TabsCount, TabsList, TabsTrigger } from './tabs.js';
 
 const meta = {
   title: 'Atoms/Tabs',
@@ -58,6 +58,19 @@ export const PayloadView: Story = {
       <TabsList aria-label="Payload view">
         <TabsTrigger value="formatted">Formatted</TabsTrigger>
         <TabsTrigger value="raw">Raw</TabsTrigger>
+      </TabsList>
+    </Tabs>
+  ),
+};
+
+export const Disabled: Story = {
+  render: () => (
+    <Tabs defaultValue="open">
+      <TabsList aria-label="Messages">
+        <TabsTrigger value="open">Open</TabsTrigger>
+        <TabsTrigger value="done" disabled>
+          Done
+        </TabsTrigger>
       </TabsList>
     </Tabs>
   ),

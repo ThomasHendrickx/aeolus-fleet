@@ -1,7 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { fn } from 'storybook/test';
 
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../atoms/tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@aeolus-fleet/ui';
+
 import { ConsoleFrame } from './console-frame';
 import { DetailPage } from './detail-page';
 import { AVATAR_MENU, SWITCHER } from '../../lib/fixtures/header.fixtures';

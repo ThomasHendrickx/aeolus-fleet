@@ -1,7 +1,7 @@
 'use client';
 
 import type { ListedShip, ShipId } from '@aeolus-fleet/common';
-import { Label } from '@aeolus-fleet/ui';
+import { Label, Tabs, TabsList, TabsTrigger } from '@aeolus-fleet/ui';
 import { CircleAlert, Search, Tag } from 'lucide-react';
 import { useId } from 'react';
 
@@ -9,7 +9,6 @@ import { locationKindWord } from '../../../lib/location';
 import { counted } from '../../../lib/sentence';
 import { asHandle } from '../../../lib/ship-name';
 import { Combobox, type ComboboxOption } from '../../../components/atoms/combobox';
-import { Tabs, TabsList, TabsTrigger } from '../../../components/atoms/tabs';
 import { StatusBadge } from '../../../components/molecules/status-badge';
 
 /** Who a message goes to: one ship, or any ship of a type. */

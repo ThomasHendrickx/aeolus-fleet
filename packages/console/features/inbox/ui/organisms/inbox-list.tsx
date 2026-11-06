@@ -1,9 +1,8 @@
 import type { DeliveryId, InboxFilter } from '@aeolus-fleet/common';
 import type { ReactNode } from 'react';
 
-import { classNames } from '@aeolus-fleet/ui';
+import { classNames, Tabs, TabsCount, TabsList, TabsTrigger } from '@aeolus-fleet/ui';
 import { Badge } from '../../../../components/atoms/badge';
-import { Tabs, TabsCount, TabsList, TabsTrigger } from '../../../../components/atoms/tabs';
 import type { InboxView } from '../../services/inbox-view';
 import { InboxRow } from '../molecules/inbox-row';
 import { PluginGroup } from '../molecules/plugin-group';
