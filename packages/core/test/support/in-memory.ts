@@ -22,6 +22,7 @@ import type {
 import type { Meeting } from '../../src/domain/messaging/meeting.js';
 import type { Schedule } from '../../src/domain/messaging/schedule.js';
 import type { Delivery, Message } from '../../src/domain/messaging/message.js';
+import { isInExchange } from '../../src/domain/messaging/exchange.js';
 import type { Overdue, PushedCrew, WaitingDelivery } from '../../src/domain/messaging/overdue.js';
 import type {
   DeliveryRepository,
@@ -129,7 +130,7 @@ import { plainBytesOf, type StoredPayload } from '../../src/domain/messaging/sea
 import { createInMemoryKeyVault } from './in-memory-key-vault.js';
 import type { KeyVaultWorld } from './key-vault-contract.js';
 import { inMemoryPayloadSealer } from './in-memory-payload-sealer.js';
-import type { FleetSealingRepository } from '../../src/domain/messaging/ports.js';
+import type { ExchangeList, FleetSealingRepository } from '../../src/domain/messaging/ports.js';
 
 /**
  * In-memory ports for unit tests of the core. Every repository reads and writes
@@ -266,6 +267,7 @@ export interface InMemoryTx {
   signInTickets: SignInTicketRepository;
   messages: MessageRepository;
   deliveries: DeliveryRepository;
+  exchanges: ExchangeList;
   meetings: MeetingRepository;
   schedules: ScheduleRepository;
   overdueDeliveries: OverdueDeliveryRepository;
@@ -1550,6 +1552,39 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         return Promise.resolve(found && structuredClone(found));
       },
     },
+    exchanges: {
+      // Counted from the deliveries: the fake keeps no rollup.
+      page: ({ fleetId, shipId, cursor, limit }) => {
+        const ship = state.ships.find((held) => held.fleetId === fleetId && held.id === shipId);
+        if (ship?.kind !== 'person') {
+          return Promise.resolve({ items: [], nextCursor: null });
+        }
+        const rows = new Map<ShipId, { newestMessage: Message; unacknowledged: number }>();
+        for (const delivery of state.deliveries.filter((held) => held.fleetId === fleetId)) {
+          const message = state.messages.find((held) => held.fleetId === fleetId && held.id === delivery.messageId);
+          const reached = delivery.recipient.kind === 'ship' ? delivery.recipient.shipId : delivery.claimedByShipId;
+          const otherShipId = message?.senderShipId === shipId ? reached : reached === shipId ? message?.senderShipId : null;
+          if (!message || !isInExchange(message) || otherShipId === null || otherShipId === undefined) {
+            continue;
+          }
+          const row = rows.get(otherShipId);
+          const isOpen = reached === shipId && (delivery.state === 'pending' || delivery.state === 'received' || delivery.state === 'handed');
+          rows.set(otherShipId, {
+            newestMessage: row && row.newestMessage.id > message.id ? row.newestMessage : structuredClone(message),
+            unacknowledged: (row?.unacknowledged ?? 0) + (isOpen ? 1 : 0),
+          });
+        }
+        const listed = [...rows.entries()]
+          .flatMap(([otherShipId, row]) => {
+            const other = state.ships.find((held) => held.fleetId === fleetId && held.id === otherShipId);
+            return other?.retiredAt === null ? [{ otherShip: { id: other.id, name: other.name, type: other.type, kind: other.kind }, ...row }] : [];
+          })
+          .filter((row) => cursor === undefined || row.newestMessage.id < cursor)
+          .toSorted((first, second) => second.newestMessage.id.localeCompare(first.newestMessage.id))
+          .slice(0, limit + 1);
+        return Promise.resolve(pageOf(listed, { limit, cursorOf: (row) => row.newestMessage.id }));
+      },
+    },
     deliveries: {
       create: (delivery) => {
         state.deliveries.push(structuredClone(delivery));
@@ -1597,6 +1632,39 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       find: (fleetId, deliveryId) => {
         const found = state.deliveries.find((held) => held.fleetId === fleetId && held.id === deliveryId);
         return Promise.resolve(found && structuredClone(found));
+      },
+      findExchangePage: ({ fleetId, shipId, otherShipId, toward, from, isFromIncluded, limit }) => {
+        const reachedShipIdOf = (delivery: Delivery) => (delivery.recipient.kind === 'ship' ? delivery.recipient.shipId : delivery.claimedByShipId);
+        const isOnTheWay = (id: string) =>
+          from === undefined || (toward === 'older' ? id < from : id > from) || (isFromIncluded === true && id === from);
+        const rows = state.deliveries
+          .filter((held) => held.fleetId === fleetId && isOnTheWay(held.id))
+          .flatMap((delivery) => {
+            const message = state.messages.find((held) => held.fleetId === fleetId && held.id === delivery.messageId);
+            const reached = reachedShipIdOf(delivery);
+            const isBetween =
+              (message?.senderShipId === otherShipId && reached === shipId) || (message?.senderShipId === shipId && reached === otherShipId);
+            return message && isBetween && isInExchange(message) ? [{ delivery: structuredClone(delivery), message: structuredClone(message) }] : [];
+          })
+          .toSorted((first, second) => (toward === 'older' ? second.delivery.id.localeCompare(first.delivery.id) : first.delivery.id.localeCompare(second.delivery.id)))
+          .slice(0, limit);
+        return Promise.resolve(toward === 'older' ? rows : rows.toReversed());
+      },
+      findUnacknowledgedUpToForUpdate: ({ fleetId, shipId, otherShipId, upTo }) => {
+        const rows = state.deliveries
+          .filter(
+            (held) =>
+              held.fleetId === fleetId &&
+              held.id <= upTo &&
+              (held.state === 'pending' || held.state === 'received' || held.state === 'handed') &&
+              (held.recipient.kind === 'ship' ? held.recipient.shipId === shipId : held.claimedByShipId === shipId),
+          )
+          .toSorted((first, second) => first.id.localeCompare(second.id))
+          .flatMap((delivery) => {
+            const message = state.messages.find((held) => held.fleetId === fleetId && held.id === delivery.messageId);
+            return message?.senderShipId === otherShipId && isInExchange(message) ? [{ delivery: structuredClone(delivery), message: structuredClone(message) }] : [];
+          });
+        return Promise.resolve(rows);
       },
       findRecordPage: ({ fleetId, shipId, cursor, limit }) => {
         const rows = state.deliveries

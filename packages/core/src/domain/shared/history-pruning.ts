@@ -1,4 +1,5 @@
 import {
+  isConventionContentType,
   QUESTION_CONTENT_TYPE,
   type ConsoleSessionId,
   type CredentialId,
@@ -29,6 +30,8 @@ export type ClaimingLease = 'none' | 'ended' | 'open' | 'openPushed';
 export interface CandidateDelivery {
   state: DeliveryState;
   claimingLease: ClaimingLease;
+  /** Whether the ship it reached is a person ship, where a plain message acknowledged is never handled (docs/design/exchange-read, E8). */
+  isAtPersonShip: boolean;
 }
 
 /** A message older than the cutoff that the port offers, with what decides whether it is finished. */
@@ -51,17 +54,20 @@ export interface PruneCandidate {
 
 /**
  * Final: handled, dismissed, abandoned, or acknowledged where no re-read can
- * come, its claiming lease ended or never pushed (R2). Pending, received,
- * handed, undeliverable and not handled never are (L1, L2).
+ * come, its claiming lease ended or never pushed (R2), or acknowledged at a
+ * person ship when its message is a plain one, not a convention: a chat
+ * message is never handled, and its re-read stays possible while it is kept
+ * (docs/design/exchange-read, E8). Pending, received, handed, undeliverable
+ * and not handled never are (L1, L2).
  */
-export function isFinalDelivery(delivery: CandidateDelivery): boolean {
+export function isFinalDelivery(delivery: CandidateDelivery, of: { contentType: string }): boolean {
   switch (delivery.state) {
     case 'handled':
     case 'dismissed':
     case 'abandoned':
       return true;
     case 'acknowledged':
-      return delivery.claimingLease !== 'openPushed';
+      return delivery.claimingLease !== 'openPushed' || (delivery.isAtPersonShip && !isConventionContentType(of.contentType));
     case 'pending':
     case 'received':
     case 'handed':
@@ -85,7 +91,7 @@ export function isFinished(candidate: PruneCandidate): boolean {
   if (candidate.contentType === QUESTION_CONTENT_TYPE && !candidate.isAnswered) {
     return false;
   }
-  return candidate.deliveries.every(isFinalDelivery);
+  return candidate.deliveries.every((delivery) => isFinalDelivery(delivery, candidate));
 }
 
 /**

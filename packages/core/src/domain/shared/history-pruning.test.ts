@@ -1,4 +1,4 @@
-import { idSchema, QUESTION_CONTENT_TYPE, type DeliveryState } from '@aeolus-fleet/common';
+import { idSchema, NOTICE_CONTENT_TYPE, QUESTION_CONTENT_TYPE, STEP_CONTENT_TYPE, type DeliveryState } from '@aeolus-fleet/common';
 import { describe, expect, it } from 'vitest';
 
 import { isFinalDelivery, isFinished, pruningCutoff, type CandidateDelivery, type PruneCandidate } from './history-pruning.js';
@@ -13,30 +13,30 @@ function aCandidate(overrides: Partial<PruneCandidate> = {}): PruneCandidate {
     isNamedBySchedule: false,
     isLocked: false,
     hasUnfoldedEvent: false,
-    deliveries: [{ state: 'handled', claimingLease: 'ended' }],
+    deliveries: [{ state: 'handled', claimingLease: 'ended', isAtPersonShip: false }],
     ...overrides,
   };
 }
 
 function aDelivery(state: DeliveryState, claimingLease: CandidateDelivery['claimingLease'] = 'ended'): CandidateDelivery {
-  return { state, claimingLease };
+  return { state, claimingLease, isAtPersonShip: false };
 }
 
 describe('a final delivery (R2)', () => {
   it.each<DeliveryState>(['handled', 'dismissed', 'abandoned'])('is %s', (state) => {
-    expect(isFinalDelivery(aDelivery(state))).toBe(true);
+    expect(isFinalDelivery(aDelivery(state), { contentType: 'text/plain' })).toBe(true);
   });
 
   it.each<DeliveryState>(['pending', 'received', 'handed', 'undeliverable', 'notHandled'])('is never %s', (state) => {
-    expect(isFinalDelivery(aDelivery(state))).toBe(false);
+    expect(isFinalDelivery(aDelivery(state), { contentType: 'text/plain' })).toBe(false);
   });
 
   it.each<CandidateDelivery['claimingLease']>(['ended', 'open', 'none'])('is acknowledged when its claiming lease is %s: no re-read can come', (claimingLease) => {
-    expect(isFinalDelivery(aDelivery('acknowledged', claimingLease))).toBe(true);
+    expect(isFinalDelivery(aDelivery('acknowledged', claimingLease), { contentType: 'text/plain' })).toBe(true);
   });
 
   it('is not acknowledged on an open pushed lease, whose crew may still re-read it (L2)', () => {
-    expect(isFinalDelivery(aDelivery('acknowledged', 'openPushed'))).toBe(false);
+    expect(isFinalDelivery(aDelivery('acknowledged', 'openPushed'), { contentType: 'text/plain' })).toBe(false);
   });
 });
 
@@ -71,6 +71,14 @@ describe('a finished message (R2)', () => {
 
   it('waits for the next pass while another transaction holds its rows', () => {
     expect(isFinished(aCandidate({ isLocked: true }))).toBe(false);
+  });
+
+  it('is a plain message acknowledged at a person ship, its pushed lease open: a chat message is never handled (exchange read, E8)', () => {
+    expect(isFinished(aCandidate({ deliveries: [{ state: 'acknowledged', claimingLease: 'openPushed', isAtPersonShip: true }] }))).toBe(true);
+  });
+
+  it.each([NOTICE_CONTENT_TYPE, STEP_CONTENT_TYPE])('is not %s acknowledged at a person ship while its pushed lease is open: a convention stays as it was (E8)', (contentType) => {
+    expect(isFinished(aCandidate({ contentType, deliveries: [{ state: 'acknowledged', claimingLease: 'openPushed', isAtPersonShip: true }] }))).toBe(false);
   });
 
   it('waits for the next pass while the newest snapshot has not folded one of its events (R7)', () => {

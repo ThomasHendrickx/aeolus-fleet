@@ -5,7 +5,7 @@ import type {
   OperatorAccountRepository,
   SignInTicketRepository,
 } from '../../domain/identity/ports.js';
-import type { DeliveryRepository, FleetSealingRepository, MeetingRepository, OverdueDeliveryRepository, ScheduleNotifier, ScheduleRepository } from '../../domain/messaging/ports.js';
+import type { DeliveryRepository, ExchangeList, FleetSealingRepository, MeetingRepository, OverdueDeliveryRepository, ScheduleNotifier, ScheduleRepository } from '../../domain/messaging/ports.js';
 import type {
   ClearRequestRepository,
   CrewRequestRepository,
@@ -35,6 +35,7 @@ import type { HistoryPruner } from '../../domain/shared/history-pruning.js';
 import { BULK_TRANSACTION_TIME_MS, type Db, type PrismaClient } from './client.js';
 import { createPrismaNotifier } from './delivery-notices.js';
 import { createPrismaEventLog, type BufferedEventLog } from './event-log.js';
+import { createPrismaExchangeList, createPrismaExchangeRollups, type ExchangeRollups } from './exchange-rollups.js';
 import { createPrismaHealthSnapshots } from './health-snapshots.js';
 import { createPrismaHistoryPruner } from './history-pruner.js';
 import {
@@ -97,6 +98,9 @@ export interface PrismaTx {
   schedules: ScheduleRepository;
   overdueDeliveries: OverdueDeliveryRepository;
   events: BufferedEventLog;
+  /** The rollup of the list of exchanges, written at commit. */
+  exchangeRollups: ExchangeRollups;
+  exchanges: ExchangeList;
   notifier: Notifier;
   scheduleNotifier: ScheduleNotifier;
   installationRequests: InstallationRequestRepository;
@@ -106,7 +110,10 @@ export interface PrismaTx {
 }
 
 export function createPrismaTx(db: Db): PrismaTx {
+  const exchangeRollups = createPrismaExchangeRollups(db);
   return {
+    exchangeRollups,
+    exchanges: createPrismaExchangeList(db),
     fleets: createPrismaFleetRepository(db),
     ships: createPrismaShipRepository(db),
     leases: createPrismaLeaseRepository(db),
@@ -122,13 +129,13 @@ export function createPrismaTx(db: Db): PrismaTx {
     alerts: createPrismaAlertRepository(db),
     expectations: createPrismaExpectationsRepository(db),
     reachRefusals: createPrismaReachRefusalRepository(db),
-    inFlightDeliveries: createPrismaInFlightDeliveries(db),
+    inFlightDeliveries: createPrismaInFlightDeliveries(db, exchangeRollups),
     credentials: createPrismaCredentialRepository(db),
     operatorAccounts: createPrismaOperatorAccountRepository(db),
     consoleSessions: createPrismaConsoleSessionRepository(db),
     signInTickets: createPrismaSignInTicketRepository(db),
     messages: createPrismaMessageRepository(db),
-    deliveries: createPrismaDeliveryRepository(db),
+    deliveries: createPrismaDeliveryRepository(db, exchangeRollups),
     meetings: createPrismaMeetingRepository(db),
     sealings: createPrismaFleetSealingRepository(db),
     featureFlags: createPrismaFeatureFlagRepository(db),
@@ -152,8 +159,9 @@ class Refused extends Error {
 /**
  * Runs each use case in one interactive transaction (read committed). Every
  * write, events included, commits together; the events are written last, so
- * their numbers follow commit order (event-log.ts), and the messages are
- * counted on their days after them (messaging.ts). A refusal or a thrown error rolls
+ * their numbers follow commit order (event-log.ts), the messages are
+ * counted on their days after them (messaging.ts), and the exchanges'
+ * rollup is written last (exchange-rollups.ts). A refusal or a thrown error rolls
  * all of it back; Prisma rolls back only on a throw, so a refusal is thrown
  * inside the transaction and returned outside it.
  */
@@ -190,6 +198,7 @@ function createUnitOfWork(prisma: PrismaClient, options: { timeout?: number; iso
           }
           await unit.events.flush();
           await unit.messages.flush();
+          await unit.exchangeRollups.flush();
           return result;
         }, options);
       } catch (error) {

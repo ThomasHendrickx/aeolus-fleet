@@ -140,6 +140,7 @@ describe('migrations', () => {
       'defined_scopes',
       'deliveries',
       'events',
+      'exchanges',
       'fleet_feature_flags',
       'fleets',
       'guide_progress',
@@ -1307,7 +1308,7 @@ describe('deliveries', () => {
     const shipId = await createShip(fleetId);
     const messageId = await createMessage(fleetId);
     const delivery = (recipient: { recipientShipId?: ShipId; recipientType?: string }) =>
-      database.delivery.create({ data: { id: newId('delivery'), fleetId, messageId, createdAt: now, ...recipient } });
+      database.delivery.create({ data: { id: newId('delivery'), fleetId, messageId, senderShipId: shipId, createdAt: now, ...recipient } });
 
     await expect(delivery({})).rejects.toThrow(/deliveries_one_recipient/);
     await expect(delivery({ recipientShipId: shipId, recipientType: 'reviewer' })).rejects.toThrow(
@@ -1328,6 +1329,7 @@ describe('deliveries', () => {
           id: newId('delivery'),
           fleetId,
           messageId,
+          senderShipId: shipId,
           recipientShipId: shipId,
           state: 'dismissed',
           readAt: now,
@@ -1347,7 +1349,7 @@ describe('deliveries', () => {
       claimedByLeaseId?: string;
     }) =>
       database.delivery.create({
-        data: { id: newId('delivery'), fleetId, messageId: await createMessage(fleetId), recipientShipId: shipId, createdAt: now, ...claim },
+        data: { id: newId('delivery'), fleetId, messageId: await createMessage(fleetId), senderShipId: shipId, recipientShipId: shipId, createdAt: now, ...claim },
       });
 
     await expect(delivery({ state: 'handed' })).rejects.toThrow(/deliveries_claim/);
@@ -1376,6 +1378,7 @@ describe('deliveries', () => {
           id: newId('delivery'),
           fleetId,
           messageId: await createMessage(fleetId),
+          senderShipId: shipId,
           recipientShipId: shipId,
           state: 'handed',
           claimedByShipId: shipId,
@@ -1391,9 +1394,9 @@ describe('deliveries', () => {
     const shipId = await createShip(fleetId);
     const messageId = await createMessage(fleetId);
     const toShip = () =>
-      database.delivery.create({ data: { id: newId('delivery'), fleetId, messageId, recipientShipId: shipId, createdAt: now } });
+      database.delivery.create({ data: { id: newId('delivery'), fleetId, messageId, senderShipId: shipId, recipientShipId: shipId, createdAt: now } });
     const toType = () =>
-      database.delivery.create({ data: { id: newId('delivery'), fleetId, messageId, recipientType: 'reviewer', createdAt: now } });
+      database.delivery.create({ data: { id: newId('delivery'), fleetId, messageId, senderShipId: shipId, recipientType: 'reviewer', createdAt: now } });
 
     await toShip();
     await expect(toShip()).rejects.toThrow(/Unique constraint/);

@@ -1,4 +1,4 @@
-import type { DataKeyId, DeliveryId, FleetId, LeaseId, MeetingId, MessageId, ScheduleId, ScheduleState, ShipId } from '@aeolus-fleet/common';
+import type { DataKeyId, DeliveryId, FleetId, LeaseId, MeetingId, MessageId, ScheduleId, ScheduleState, ShipId, ShipKind } from '@aeolus-fleet/common';
 
 import type { Page, PageQuery } from '../shared/page.js';
 import type { DataKeyAge, FleetSealing, KeyAvailability, StoredDataKey } from './fleet-sealing.js';
@@ -191,9 +191,63 @@ export interface RecordedDelivery {
   message: Message;
 }
 
+/** A delivery in an exchange, with the message it carries (docs/design/exchange-read). */
+export interface ExchangedDelivery {
+  delivery: Delivery;
+  message: Message;
+}
+
+/**
+ * Which part of an exchange to read: the deliveries of the messages the ship
+ * and the other ship sent that reached each other, older or newer than the
+ * delivery `from` names (or it too, when included), at most `limit`, the
+ * ones nearest `from` (the newest without it).
+ */
+export interface ExchangeQuery {
+  fleetId: FleetId;
+  shipId: ShipId;
+  otherShipId: ShipId;
+  toward: 'older' | 'newer';
+  from?: DeliveryId;
+  isFromIncluded?: boolean;
+  limit: number;
+}
+
+/** A row of a person ship's list of exchanges: the other ship as it is now, the newest message between them, and how many of the other ship's deliveries to it are not yet acknowledged. */
+export interface ListedExchange {
+  otherShip: { id: ShipId; name: string; type: string; kind: ShipKind };
+  newestMessage: Message;
+  unacknowledged: number;
+}
+
+/**
+ * Outbound port: the rollup of the person ships' lists of exchanges
+ * (docs/design/exchange-read, E4, E5), written with the deliveries it counts.
+ * Read without a lock.
+ */
+export interface ExchangeList {
+  /** A page of the ship's rows, newest message first, after the newest message the cursor names, retired other ships left out (E10). */
+  page(query: { fleetId: FleetId; shipId: ShipId } & PageQuery<MessageId>): Promise<Page<ListedExchange, MessageId>>;
+}
+
 /** Outbound port: deliveries, always within one fleet. */
 export interface DeliveryRepository {
-  create(delivery: Delivery): Promise<void>;
+  /** Stores the delivery of the message, with its sender and whether it is in an exchange (E3). */
+  create(delivery: Delivery, message: Pick<Message, 'senderShipId' | 'meetingId' | 'contentType'>): Promise<void>;
+  /**
+   * A part of the exchange of the ship and the other ship (E1, E3), each
+   * delivery with its message, newest first by id. Only what the fleet still
+   * keeps. Locks nothing.
+   */
+  findExchangePage(query: ExchangeQuery): Promise<ExchangedDelivery[]>;
+  /**
+   * The other ship's deliveries that reached the ship, up to and including
+   * the one named, not yet acknowledged (pending, received or handed), each
+   * with its message, oldest first. Each is locked until the unit of work
+   * ends, in that order, waiting for one another unit of work holds, so none
+   * is skipped and two such reads take turns.
+   */
+  findUnacknowledgedUpToForUpdate(query: { fleetId: FleetId; shipId: ShipId; otherShipId: ShipId; upTo: DeliveryId }): Promise<ExchangedDelivery[]>;
   /**
    * A page of the ship's record: the deliveries to it and those of its type
    * it claimed, in any state and whichever lease took them, each with its

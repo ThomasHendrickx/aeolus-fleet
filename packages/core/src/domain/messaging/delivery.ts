@@ -388,6 +388,48 @@ export function acknowledgeDelivery(
   }
 }
 
+/**
+ * A person ship's crew marks the delivery seen, as part of seen up to here
+ * (docs/design/exchange-read, E6, E7): one pending, received or handed moves
+ * to acknowledged at once, whichever of its ship's leases holds it, with no
+ * attempt counted and no hand-over; a pending one is then held by the crew's
+ * ship and lease, as an acknowledged one names who took it. Any other state
+ * stays as it is, with no event. Only a person's action may skip the
+ * hand-over: an agent's ack stays its confirmation of what was handed (0040).
+ */
+export function acknowledgeSeen(delivery: Delivery, seen: { crew: CrewOfShip; at: Date }): { delivery: Delivery; events: NewEvent[] } {
+  const { crew, at } = seen;
+  switch (delivery.state) {
+    case 'pending':
+    case 'received':
+    case 'handed': {
+      const claim = delivery.state === 'pending' ? { claimedByShipId: crew.shipId, claimedByLeaseId: crew.leaseId } : {};
+      return {
+        delivery: { ...delivery, ...claim, state: 'acknowledged' },
+        events: [
+          {
+            fleetId: delivery.fleetId,
+            type: 'DeliveryAcknowledged',
+            occurredAt: at,
+            actor: crewActor(crew),
+            shipId: crew.shipId,
+            messageId: delivery.messageId,
+            deliveryId: delivery.id,
+            details: { leaseId: crew.leaseId },
+          },
+        ],
+      };
+    }
+    case 'acknowledged':
+    case 'handled':
+    case 'notHandled':
+    case 'undeliverable':
+    case 'dismissed':
+    case 'abandoned':
+      return { delivery, events: [] };
+  }
+}
+
 export type RereadRefusal = DomainError<'DELIVERY_NOT_FOUND' | 'DELIVERY_NOT_ACKNOWLEDGED'>;
 
 /**

@@ -18,6 +18,12 @@ import {
   deliveryOutputSchema,
   recordInputSchema,
   recordOutputSchema,
+  exchangeInputSchema,
+  exchangeOutputSchema,
+  exchangesInputSchema,
+  exchangesOutputSchema,
+  ackUpToInputSchema,
+  ackUpToOutputSchema,
   handledInputSchema,
   handledOutputSchema,
   inboxInputSchema,
@@ -661,6 +667,25 @@ export const shipRouter = router({
     }),
 
   /**
+   * Seen up to here (docs/design/exchange-read, E6, E7): a person ship's crew
+   * acknowledges the other ship's plain deliveries to it up to one message,
+   * in one transaction.
+   */
+  ackUpTo: scopedCrewProcedure('messages:receive')
+    .meta({
+      description: [
+        "Needs messages:receive, and a person ship's crew. Marks your exchange with one other ship seen up to one of its messages to you:",
+        'every delivery of the other ship\'s messages to your ship up to and including that messageId, pending, received or handed, is acknowledged at once, each with its event.',
+        'Questions, steps, alerts and notices, and their withdrawals, replacements, answers and outcomes, stay as they are: each has its own way to be done.',
+        'Answers how many it acknowledged; again changes nothing and answers 0.',
+        'A message that is not the other ship\'s to your ship is refused as MESSAGE_NOT_FOUND; any other ship\'s crew as FORBIDDEN.',
+      ].join(' '),
+    })
+    .input(ackUpToInputSchema)
+    .output(ackUpToOutputSchema)
+    .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.acknowledgeUpTo(ctx.crew, input))),
+
+  /**
    * Answers a ping the ship received: acknowledges it and marks the session
    * seen at that moment, so the operator sees the ship's model is working.
    */
@@ -851,6 +876,58 @@ export const shipRouter = router({
         })),
         nextCursor: page.nextCursor,
       };
+    }),
+
+  /**
+   * A page of the crew's ship's list of exchanges (docs/design/exchange-read):
+   * per other ship, the newest message and how many of its messages wait,
+   * read from the rollup kept for person ships. Records nothing.
+   */
+  exchanges: scopedCrewProcedure('messages:receive')
+    .meta({
+      description: [
+        'Needs messages:receive. Lists the ships your person ship exchanged messages with, newest exchange first: each other ship by id with its name, type and kind,',
+        'unacknowledged, how many of its messages to you are not yet acknowledged (of any content type), and the newest message between you, whole.',
+        'Retired ships are left out; read an exchange with one by id with exchange. Only a person ship has a list: any other ship\'s is empty.',
+        `At most ${String(RECORD_PAGE_SIZE_MAX)} per page, ${String(RECORD_PAGE_SIZE_DEFAULT)} unless you pass limit; pass the nextCursor it answers as cursor for the next page, null on the last.`,
+        'It changes nothing.',
+      ].join(' '),
+    })
+    .input(exchangesInputSchema)
+    .output(exchangesOutputSchema)
+    .query(async ({ ctx, input }) => {
+      const page = okOrThrow(await ctx.useCases.readExchanges(ctx.crew, input ?? {}));
+      return {
+        ...page,
+        items: page.items.map((entry) => ({
+          ...entry,
+          newestMessage: { ...entry.newestMessage, ...listedPayloadOutputOf(entry.newestMessage.payload), sentAt: entry.newestMessage.sentAt.toISOString() },
+        })),
+      };
+    }),
+
+  /**
+   * A page of the crew's ship's exchange with one other ship
+   * (docs/design/exchange-read): what the two said to each other, both ways,
+   * newest first. Records nothing.
+   */
+  exchange: scopedCrewProcedure('messages:receive')
+    .meta({
+      description: [
+        'Needs messages:receive. Reads your exchange with one other ship, by its otherShipId (shp_...): every message it sent that reached your ship,',
+        'by name, by your type once your ship claimed it, or by label, and every message you sent that reached it, each whole, newest first; meetings and pings are left out.',
+        'On your own messages, deliveryState says where its delivery to the other ship stands; null on the other ship\'s.',
+        `At most ${String(RECORD_PAGE_SIZE_MAX)} per page, ${String(RECORD_PAGE_SIZE_DEFAULT)} unless you pass limit.`,
+        'Pass olderCursor as before for the older page and newerCursor as after for the newer one, each null while none lie that way;',
+        'or pass around with a messageId to open the page at that message: half the page newer, then it and the older ones.',
+        'A ship not in your fleet is refused as SHIP_NOT_FOUND; a message not in this exchange as MESSAGE_NOT_FOUND. It changes nothing.',
+      ].join(' '),
+    })
+    .input(exchangeInputSchema)
+    .output(exchangeOutputSchema)
+    .query(async ({ ctx, input }) => {
+      const page = okOrThrow(await ctx.useCases.readExchange(ctx.crew, input));
+      return { ...page, items: page.items.map((entry) => ({ ...entry, ...listedPayloadOutputOf(entry.payload), sentAt: entry.sentAt.toISOString() })) };
     }),
 
   /**

@@ -85,7 +85,7 @@ export async function tellParticipant(deps: MeetingNoticeDeps, notice: MeetingNo
     return message;
   }
   await tx.messages.create(message.value);
-  await tx.deliveries.create(delivery);
+  await tx.deliveries.create(delivery, message.value);
   for (const event of events) {
     await recordEvent({ events: tx.events, ids }, event);
   }

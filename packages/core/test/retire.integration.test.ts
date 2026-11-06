@@ -163,8 +163,8 @@ describe('a send racing a retire', () => {
       ...tx,
       deliveries: {
         ...tx.deliveries,
-        create: async (delivery) => {
-          await tx.deliveries.create(delivery);
+        create: async (delivery, message) => {
+          await tx.deliveries.create(delivery, message);
           await hold();
         },
       },

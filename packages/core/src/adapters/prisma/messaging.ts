@@ -1,7 +1,10 @@
-import { PING_CONTENT_TYPE, type FleetId } from '@aeolus-fleet/common';
+import { PING_CONTENT_TYPE, type DeliveryId, type FleetId, type ShipId } from '@aeolus-fleet/common';
 
+import { isInExchange } from '../../domain/messaging/exchange.js';
+import type { Delivery, Message } from '../../domain/messaging/message.js';
 import type { DeliveryRepository, MessageRepository } from '../../domain/messaging/ports.js';
 import type { Db } from './client.js';
+import { addChangedDelivery, type ExchangeRollups } from './exchange-rollups.js';
 import { Prisma } from './generated/client.js';
 import { payloadColumnsOf, toDeliveryFromSql, toMessage } from './rows.js';
 import { plainBytesOf } from '../../domain/messaging/sealed-payload.js';
@@ -105,15 +108,115 @@ function countedDays(counted: readonly CountedMessage[]): { fleetId: FleetId; da
   return [...days.entries()].toSorted(([a], [b]) => a.localeCompare(b)).map(([, sum]) => sum);
 }
 
-export function createPrismaDeliveryRepository(db: Db): DeliveryRepository {
+/** The columns a delivery is read back with. */
+const DELIVERY_COLUMNS = Prisma.sql`id, fleet_id, message_id, recipient_ship_id, recipient_type, state::text AS state,
+  claimed_by_ship_id, claimed_by_lease_id, attempts, hand_over_number, handed_once_more_at, is_forced, created_at`;
+
+/** Each delivery with its message, in the deliveries' order. */
+async function withMessages(db: Db, { fleetId, deliveries }: { fleetId: FleetId; deliveries: readonly Delivery[] }): Promise<{ delivery: Delivery; message: Message }[]> {
+  const messages = await db.message.findMany({ where: { fleetId, id: { in: deliveries.map((delivery) => delivery.messageId) } } });
+  const byId = new Map(messages.map((row) => [row.id, toMessage(row)]));
+  return deliveries.map((delivery) => {
+    const message = byId.get(delivery.messageId);
+    if (!message) {
+      // The foreign key keeps every delivery's message in its fleet.
+      throw new Error(`Delivery ${delivery.id} has no message ${delivery.messageId}`);
+    }
+    return { delivery, message };
+  });
+}
+
+/**
+ * One page of an exchange: two halves, each read along the exchange index
+ * from the cursor and cut at the page: the other ship's deliveries that
+ * reached the ship, and the ship's that reached the other. A delivery is in
+ * one half only.
+ */
+export function exchangePageStatement({
+  fleetId,
+  shipId,
+  otherShipId,
+  toward,
+  from,
+  isFromIncluded,
+  limit,
+}: {
+  fleetId: FleetId;
+  shipId: ShipId;
+  otherShipId: ShipId;
+  toward: 'older' | 'newer';
+  from?: DeliveryId | undefined;
+  isFromIncluded?: boolean | undefined;
+  limit: number;
+}): Prisma.Sql {
+  const bound =
+    from === undefined
+      ? Prisma.empty
+      : toward === 'older'
+        ? isFromIncluded === true
+          ? Prisma.sql`AND id <= ${from}`
+          : Prisma.sql`AND id < ${from}`
+        : Prisma.sql`AND id > ${from}`;
+  const order = toward === 'older' ? Prisma.sql`DESC` : Prisma.sql`ASC`;
+  const half = (reachedShipId: ShipId, senderShipId: ShipId) => Prisma.sql`
+    (SELECT ${DELIVERY_COLUMNS}
+     FROM deliveries
+     WHERE fleet_id = ${fleetId} AND is_in_exchange AND reached_ship_id = ${reachedShipId} AND sender_ship_id = ${senderShipId} ${bound}
+     ORDER BY id ${order}
+     LIMIT ${limit})`;
+  return Prisma.sql`
+    SELECT * FROM (${half(shipId, otherShipId)} UNION ALL ${half(otherShipId, shipId)}) AS exchange
+    ORDER BY id ${order}
+    LIMIT ${limit}`;
+}
+
+/**
+ * What the other ship sent the ship that is still open, up to a delivery,
+ * locked in id order. Found along the indexes of what is open: the ship's own
+ * on (fleet_id, recipient_ship_id, state), and those of a type it claimed, in
+ * flight, on deliveries_in_flight_claimed_idx. Waits for a row another unit of
+ * work holds; once it is free its state is read again, so one acknowledged
+ * meanwhile is left out.
+ */
+export function unacknowledgedUpToStatement({ fleetId, shipId, otherShipId, upTo }: { fleetId: FleetId; shipId: ShipId; otherShipId: ShipId; upTo: DeliveryId }): Prisma.Sql {
+  return Prisma.sql`
+    SELECT ${DELIVERY_COLUMNS}
+    FROM deliveries
+    WHERE fleet_id = ${fleetId} AND state IN ('pending', 'received', 'handed')
+      AND id IN (
+        SELECT id FROM deliveries
+        WHERE fleet_id = ${fleetId} AND recipient_ship_id = ${shipId} AND state IN ('pending', 'received', 'handed')
+          AND sender_ship_id = ${otherShipId} AND is_in_exchange AND id <= ${upTo}
+        UNION ALL
+        SELECT id FROM deliveries
+        WHERE fleet_id = ${fleetId} AND claimed_by_ship_id = ${shipId} AND recipient_type IS NOT NULL AND state IN ('received', 'handed')
+          AND sender_ship_id = ${otherShipId} AND is_in_exchange AND id <= ${upTo}
+      )
+    ORDER BY id
+    FOR UPDATE`;
+}
+
+export function createPrismaDeliveryRepository(db: Db, rollups: ExchangeRollups): DeliveryRepository {
   return {
-    create: async (delivery) => {
+    create: async (delivery, message) => {
       const { recipient } = delivery;
+      if (isInExchange(message)) {
+        rollups.add(delivery.fleetId, {
+          after: {
+            messageId: delivery.messageId,
+            senderShipId: message.senderShipId,
+            reachedShipId: recipient.kind === 'ship' ? recipient.shipId : delivery.claimedByShipId,
+            state: delivery.state,
+          },
+        });
+      }
       await db.delivery.create({
         data: {
           id: delivery.id,
           fleetId: delivery.fleetId,
           messageId: delivery.messageId,
+          senderShipId: message.senderShipId,
+          isInExchange: isInExchange(message),
           recipientShipId: recipient.kind === 'ship' ? recipient.shipId : null,
           recipientType: recipient.kind === 'type' ? recipient.type : null,
           state: delivery.state,
@@ -178,6 +281,16 @@ export function createPrismaDeliveryRepository(db: Db): DeliveryRepository {
         }
         return { delivery, message };
       });
+    },
+    findExchangePage: async (query) => {
+      const rows = await db.$queryRaw<unknown[]>(exchangePageStatement(query));
+      const deliveries = rows.map(toDeliveryFromSql);
+      const newestFirst = query.toward === 'older' ? deliveries : deliveries.toReversed();
+      return withMessages(db, { fleetId: query.fleetId, deliveries: newestFirst });
+    },
+    findUnacknowledgedUpToForUpdate: async (query) => {
+      const rows = await db.$queryRaw<unknown[]>(unacknowledgedUpToStatement(query));
+      return withMessages(db, { fleetId: query.fleetId, deliveries: rows.map(toDeliveryFromSql) });
     },
     findRecordPage: async ({ fleetId, shipId, cursor, limit }) => {
       // Two halves, each read newest first along its own index and cut at one
@@ -254,17 +367,25 @@ export function createPrismaDeliveryRepository(db: Db): DeliveryRepository {
       return row ? toMessage(row) : undefined;
     },
     update: async (delivery) => {
-      await db.delivery.updateMany({
-        where: { fleetId: delivery.fleetId, id: delivery.id },
-        data: {
-          state: delivery.state,
-          claimedByShipId: delivery.claimedByShipId,
-          claimedByLeaseId: delivery.claimedByLeaseId,
-          attempts: delivery.attempts,
-          handOverNumber: delivery.handOverNumber,
-          handedOnceMoreAt: delivery.handedOnceMoreAt,
-        },
-      });
+      // The row as it was, locked, so the rollup learns what the change takes
+      // and adds: the reached ship follows the claim (exchange-rollups.ts).
+      const rows = await db.$queryRaw<unknown[]>`
+        WITH before AS (
+          SELECT id, state::text AS state, reached_ship_id FROM deliveries
+          WHERE fleet_id = ${delivery.fleetId} AND id = ${delivery.id}
+          FOR UPDATE
+        )
+        UPDATE deliveries d
+        SET state = ${delivery.state}::delivery_state, claimed_by_ship_id = ${delivery.claimedByShipId}::text,
+            claimed_by_lease_id = ${delivery.claimedByLeaseId}::text, attempts = ${delivery.attempts}::int,
+            hand_over_number = ${delivery.handOverNumber}::int, handed_once_more_at = ${delivery.handedOnceMoreAt}::timestamptz
+        FROM before
+        WHERE d.fleet_id = ${delivery.fleetId} AND d.id = before.id
+        RETURNING d.fleet_id, d.message_id, d.sender_ship_id, d.is_in_exchange, before.state AS before_state,
+                  before.reached_ship_id AS before_reached_ship_id, d.state::text AS after_state, d.reached_ship_id AS after_reached_ship_id`;
+      for (const row of rows) {
+        addChangedDelivery(rollups, row);
+      }
     },
     markRead: async ({ fleetId, deliveryId, at }) => {
       await db.delivery.updateMany({ where: { fleetId, id: deliveryId, readAt: null }, data: { readAt: at } });

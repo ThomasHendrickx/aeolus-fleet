@@ -184,7 +184,7 @@ export function createResendDelivery(deps: {
       }
       const message = sealed.value;
       await tx.messages.create(message);
-      await tx.deliveries.create(resent);
+      await tx.deliveries.create(resent, message);
       await tx.deliveries.update(dismissed.value.delivery);
       for (const event of [...events, ...dismissed.value.events]) {
         await recordEvent({ events: tx.events, ids: deps.ids }, event);

@@ -95,8 +95,8 @@ async function seedTraffic({ fleetId, from, copies }: { fleetId: FleetId; from: 
     FROM messages m, generate_series(1, ${copies}) AS n
     WHERE m.fleet_id = ${fleetId} AND m.id = ${from}`;
   await database.$executeRaw`
-    INSERT INTO deliveries (id, fleet_id, message_id, recipient_ship_id, recipient_type, state, attempts, created_at)
-    SELECT ${idOf('dlv')}, d.fleet_id, ${idOf('msg')}, d.recipient_ship_id, d.recipient_type, d.state, d.attempts, d.created_at
+    INSERT INTO deliveries (id, fleet_id, message_id, sender_ship_id, recipient_ship_id, recipient_type, state, attempts, created_at)
+    SELECT ${idOf('dlv')}, d.fleet_id, ${idOf('msg')}, d.sender_ship_id, d.recipient_ship_id, d.recipient_type, d.state, d.attempts, d.created_at
     FROM deliveries d, generate_series(1, ${copies}) AS n
     WHERE d.fleet_id = ${fleetId} AND d.message_id = ${from}`;
   // Thousands of rows in one statement leave the planner's statistics behind,
