@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { Check, CircleX, Search } from 'lucide-react';
 
 import { Input } from './input';
-import { Label } from './label';
+import { Label } from '@aeolus-fleet/ui';
 
 const meta = {
   title: 'Atoms/Input',

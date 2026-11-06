@@ -4,10 +4,9 @@ import { UserRound, X } from 'lucide-react';
 import { useId, useState } from 'react';
 
 import { useConsoleConstants } from '../../../lib/console-constants';
-import { Button, classNames, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@aeolus-fleet/ui';
+import { Button, classNames, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Label } from '@aeolus-fleet/ui';
 import { labelTextProblem } from '../../../lib/labels';
 import { Input } from '../../../components/atoms/input';
-import { Label } from '../../../components/atoms/label';
 import { InlineError } from '../../../components/molecules/inline-error';
 
 interface DefineLabelDialogProps {

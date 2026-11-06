@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 
-import { Label } from './label';
+import { Label } from '@aeolus-fleet/ui';
 import { Switch } from './switch';
 
 function ShowRetired({ isChecked, isDisabled = false }: { isChecked: boolean; isDisabled?: boolean }) {

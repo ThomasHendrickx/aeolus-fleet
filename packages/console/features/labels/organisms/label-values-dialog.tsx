@@ -5,10 +5,9 @@ import Link from 'next/link';
 import { Fragment, useId, useState } from 'react';
 
 import { useConsoleConstants } from '../../../lib/console-constants';
-import { Button, classNames, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@aeolus-fleet/ui';
+import { Button, classNames, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Label } from '@aeolus-fleet/ui';
 import { labelTextProblem, type LabelRow } from '../../../lib/labels';
 import { Input } from '../../../components/atoms/input';
-import { Label } from '../../../components/atoms/label';
 import { InlineError } from '../../../components/molecules/inline-error';
 
 /** What the dialog is doing: the value being added or removed. */

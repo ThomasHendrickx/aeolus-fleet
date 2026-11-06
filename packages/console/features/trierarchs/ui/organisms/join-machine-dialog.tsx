@@ -4,12 +4,11 @@ import { CircleAlert, CircleCheck, CircleX } from 'lucide-react';
 import { useId, useState } from 'react';
 
 import { useConsoleConstants } from '../../../../lib/console-constants';
-import { Button, classNames, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, dialogSurface, DialogTitle } from '@aeolus-fleet/ui';
+import { Button, classNames, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, dialogSurface, DialogTitle, Label } from '@aeolus-fleet/ui';
 import { asHandle, checkShipName } from '../../../../lib/ship-name';
 import type { JoinedMachine } from '../../../../lib/trierarch-plugin-schemas';
 import { CodeBlock } from '../../../../components/atoms/code-block';
 import { Input } from '../../../../components/atoms/input';
-import { Label } from '../../../../components/atoms/label';
 import { CrewLines } from '../../../../components/molecules/crew-lines';
 import { InlineError } from '../../../../components/molecules/inline-error';
 import { SetupLineBlock } from '../molecules/setup-line-block';

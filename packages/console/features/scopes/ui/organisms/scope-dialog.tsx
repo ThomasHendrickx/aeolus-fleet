@@ -2,10 +2,9 @@
 
 import { useId, useState } from 'react';
 
-import { Button, classNames, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@aeolus-fleet/ui';
+import { Button, classNames, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Label } from '@aeolus-fleet/ui';
 import { useConsoleConstants } from '../../../../lib/console-constants';
 import { Input } from '../../../../components/atoms/input';
-import { Label } from '../../../../components/atoms/label';
 import { InlineError } from '../../../../components/molecules/inline-error';
 
 interface ScopeDialogProps {

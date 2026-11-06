@@ -6,8 +6,7 @@ import { Send } from 'lucide-react';
 import { useId, useState } from 'react';
 
 import { sendShortcutAria, submitOnSendShortcut, useShortcutPlatform } from '../../../lib/send-shortcut';
-import { Button, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, dialogSurface, DialogTitle } from '@aeolus-fleet/ui';
-import { Label } from '../../../components/atoms/label';
+import { Button, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, dialogSurface, DialogTitle, Label } from '@aeolus-fleet/ui';
 import { Textarea } from '../../../components/atoms/textarea';
 import { InlineError } from '../../../components/molecules/inline-error';
 import { LimitNotice } from '../../../components/molecules/limit-notice';
