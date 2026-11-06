@@ -46,6 +46,11 @@ export function createInMemoryHistoryPruner(state: InMemoryState): HistoryPruner
     return row;
   };
 
+  const isAtPersonShip = (delivery: Delivery): boolean => {
+    const reached = delivery.recipient.kind === 'ship' ? delivery.recipient.shipId : delivery.claimedByShipId;
+    return state.ships.some((ship) => ship.fleetId === delivery.fleetId && ship.id === reached && ship.kind === 'person');
+  };
+
   const claimingLease = (delivery: Delivery): ClaimingLease => {
     const lease = state.leases.find((held) => held.fleetId === delivery.fleetId && held.id === delivery.claimedByLeaseId);
     if (lease === undefined) {
@@ -87,7 +92,7 @@ export function createInMemoryHistoryPruner(state: InMemoryState): HistoryPruner
       hasUnfoldedEvent: hasUnfoldedEvent(message),
       deliveries: state.deliveries
         .filter((delivery) => delivery.fleetId === message.fleetId && delivery.messageId === message.id)
-        .map((delivery) => ({ state: delivery.state, claimingLease: claimingLease(delivery) })),
+        .map((delivery) => ({ state: delivery.state, claimingLease: claimingLease(delivery), isAtPersonShip: isAtPersonShip(delivery) })),
     };
   };
 

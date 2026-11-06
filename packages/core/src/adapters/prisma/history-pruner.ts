@@ -41,6 +41,7 @@ const deliveryRows = z.array(
     messageId: idSchema('message'),
     state: deliveryStateSchema,
     claimingLease: z.enum(['none', 'ended', 'open', 'openPushed']),
+    isAtPersonShip: z.boolean(),
   }),
 );
 
@@ -91,9 +92,11 @@ export function createPrismaHistoryPruner(db: Db): HistoryPruner {
       const deliveries = deliveryRows.parse(
         await db.$queryRaw`
           SELECT d.message_id AS "messageId", d.state::text AS state,
-            CASE WHEN l.id IS NULL THEN 'none' WHEN l.ended_at IS NOT NULL THEN 'ended' WHEN l.pushed_at IS NOT NULL THEN 'openPushed' ELSE 'open' END AS "claimingLease"
+            CASE WHEN l.id IS NULL THEN 'none' WHEN l.ended_at IS NOT NULL THEN 'ended' WHEN l.pushed_at IS NOT NULL THEN 'openPushed' ELSE 'open' END AS "claimingLease",
+            COALESCE(s.kind = 'person', false) AS "isAtPersonShip"
           FROM deliveries d
           LEFT JOIN leases l ON l.fleet_id = d.fleet_id AND l.id = d.claimed_by_lease_id
+          LEFT JOIN ships s ON s.fleet_id = d.fleet_id AND s.id = d.reached_ship_id
           WHERE d.fleet_id = ${fleetId} AND d.message_id = ANY(${ids})
           FOR UPDATE OF d SKIP LOCKED`,
       );
@@ -130,7 +133,7 @@ export function createPrismaHistoryPruner(db: Db): HistoryPruner {
           ORDER BY m.created_at, m.id`,
       );
       return messages.map(({ deliveries: count, ...message }): PruneCandidate => {
-        const own = deliveries.filter((delivery) => delivery.messageId === message.id).map(({ state, claimingLease }) => ({ state, claimingLease }));
+        const own = deliveries.filter((delivery) => delivery.messageId === message.id).map(({ state, claimingLease, isAtPersonShip }) => ({ state, claimingLease, isAtPersonShip }));
         return { ...message, isLocked: !lockedIds.includes(message.id) || own.length < count, deliveries: own };
       });
     },
@@ -244,6 +247,30 @@ export function createPrismaHistoryPruner(db: Db): HistoryPruner {
         .array(z.object({ id: z.string() }))
         .parse(await db.$queryRaw`SELECT id FROM deliveries WHERE fleet_id = ${fleetId} AND message_id = ANY(${messageIds})`)
         .map((row) => row.id);
+      // An exchange whose newest message goes points at its newest kept one,
+      // read along the exchange index both ways, or goes when none of it is
+      // kept (docs/design/exchange-read, E10). Its count stays: what goes is
+      // finished, so none of it was counted.
+      await db.$executeRaw`
+        UPDATE exchanges e SET newest_message_id = kept.message_id
+        FROM (
+          SELECT g.ship_id, g.other_ship_id,
+            (SELECT max(newest.message_id) FROM (
+              (SELECT d.message_id FROM deliveries d
+               WHERE d.fleet_id = ${fleetId} AND d.is_in_exchange AND d.reached_ship_id = g.ship_id AND d.sender_ship_id = g.other_ship_id
+                 AND NOT (d.message_id = ANY(${messageIds}))
+               ORDER BY d.id DESC LIMIT 1)
+              UNION ALL
+              (SELECT d.message_id FROM deliveries d
+               WHERE d.fleet_id = ${fleetId} AND d.is_in_exchange AND d.reached_ship_id = g.other_ship_id AND d.sender_ship_id = g.ship_id
+                 AND NOT (d.message_id = ANY(${messageIds}))
+               ORDER BY d.id DESC LIMIT 1)
+            ) newest) AS message_id
+          FROM exchanges g
+          WHERE g.fleet_id = ${fleetId} AND g.newest_message_id = ANY(${messageIds})
+        ) kept
+        WHERE e.fleet_id = ${fleetId} AND e.ship_id = kept.ship_id AND e.other_ship_id = kept.other_ship_id AND kept.message_id IS NOT NULL`;
+      await db.$executeRaw`DELETE FROM exchanges WHERE fleet_id = ${fleetId} AND newest_message_id = ANY(${messageIds})`;
       // Children first: every foreign key restricts deletes.
       const messageEvents = await db.$executeRaw`DELETE FROM events WHERE fleet_id = ${fleetId} AND message_id = ANY(${messageIds})`;
       const deliveryEvents = await db.$executeRaw`DELETE FROM events WHERE fleet_id = ${fleetId} AND delivery_id = ANY(${deliveryIds})`;

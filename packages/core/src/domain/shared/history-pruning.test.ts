@@ -13,30 +13,30 @@ function aCandidate(overrides: Partial<PruneCandidate> = {}): PruneCandidate {
     isNamedBySchedule: false,
     isLocked: false,
     hasUnfoldedEvent: false,
-    deliveries: [{ state: 'handled', claimingLease: 'ended' }],
+    deliveries: [{ state: 'handled', claimingLease: 'ended', isAtPersonShip: false }],
     ...overrides,
   };
 }
 
 function aDelivery(state: DeliveryState, claimingLease: CandidateDelivery['claimingLease'] = 'ended'): CandidateDelivery {
-  return { state, claimingLease };
+  return { state, claimingLease, isAtPersonShip: false };
 }
 
 describe('a final delivery (R2)', () => {
   it.each<DeliveryState>(['handled', 'dismissed', 'abandoned'])('is %s', (state) => {
-    expect(isFinalDelivery(aDelivery(state))).toBe(true);
+    expect(isFinalDelivery(aDelivery(state), { contentType: 'text/plain' })).toBe(true);
   });
 
   it.each<DeliveryState>(['pending', 'received', 'handed', 'undeliverable', 'notHandled'])('is never %s', (state) => {
-    expect(isFinalDelivery(aDelivery(state))).toBe(false);
+    expect(isFinalDelivery(aDelivery(state), { contentType: 'text/plain' })).toBe(false);
   });
 
   it.each<CandidateDelivery['claimingLease']>(['ended', 'open', 'none'])('is acknowledged when its claiming lease is %s: no re-read can come', (claimingLease) => {
-    expect(isFinalDelivery(aDelivery('acknowledged', claimingLease))).toBe(true);
+    expect(isFinalDelivery(aDelivery('acknowledged', claimingLease), { contentType: 'text/plain' })).toBe(true);
   });
 
   it('is not acknowledged on an open pushed lease, whose crew may still re-read it (L2)', () => {
-    expect(isFinalDelivery(aDelivery('acknowledged', 'openPushed'))).toBe(false);
+    expect(isFinalDelivery(aDelivery('acknowledged', 'openPushed'), { contentType: 'text/plain' })).toBe(false);
   });
 });
 
