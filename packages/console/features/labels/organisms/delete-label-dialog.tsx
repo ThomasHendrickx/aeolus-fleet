@@ -11,8 +11,8 @@ import {
   AlertDialogTitle,
   Button,
   dialogSurface,
+  InlineError,
 } from '@aeolus-fleet/ui';
-import { InlineError } from '../../../components/molecules/inline-error';
 
 interface DeleteLabelDialogProps {
   /** Your label no ship carries; the confirm is open while one is given. */

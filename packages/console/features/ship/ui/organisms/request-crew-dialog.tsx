@@ -9,9 +9,8 @@ import { defaultValues, promptBytes, settingsOf, valuesOf, type CrewSettingsValu
 import type { MachineLabelsInput } from '../../../../lib/machine-labels';
 import { secondsTime } from '../../../../lib/relative-time';
 import type { SettingsCheck } from '../../../../lib/trierarch-plugin-schemas';
-import { Button, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, dialogSurface, DialogTitle } from '@aeolus-fleet/ui';
+import { Button, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, dialogSurface, DialogTitle, InlineError } from '@aeolus-fleet/ui';
 import { CrewSettingsFields } from '../../../../components/molecules/crew-settings-fields';
-import { InlineError } from '../../../../components/molecules/inline-error';
 
 /** loading: the machines are being read; unreachable: the trierarch plugin does not answer; ready: the form. */
 export type RequestCrewDialogState = 'loading' | 'unreachable' | 'ready';

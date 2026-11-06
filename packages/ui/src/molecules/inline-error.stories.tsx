@@ -1,7 +1,7 @@
-import type { Meta, StoryObj } from '@storybook/nextjs-vite';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 import { fn } from 'storybook/test';
 
-import { InlineError } from './inline-error';
+import { InlineError } from './inline-error.js';
 
 const meta = {
   title: 'Molecules/InlineError',

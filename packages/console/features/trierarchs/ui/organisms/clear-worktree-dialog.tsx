@@ -10,8 +10,8 @@ import {
   AlertDialogTitle,
   Button,
   dialogSurface,
+  InlineError,
 } from '@aeolus-fleet/ui';
-import { InlineError } from '../../../../components/molecules/inline-error';
 
 /** The kept worktree to delete, as its machine's page shows it. */
 export interface WorktreeToClear {

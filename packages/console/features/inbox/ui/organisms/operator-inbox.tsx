@@ -6,8 +6,7 @@ import { useEffect } from 'react';
 
 import type { InboxEntry } from '../../../../lib/inbox-entry';
 import type { ThreadMessage } from '../../../../lib/inbox-thread';
-import { Button, EmptyState, Kbd } from '@aeolus-fleet/ui';
-import { InlineError } from '../../../../components/molecules/inline-error';
+import { Button, EmptyState, Kbd, InlineError } from '@aeolus-fleet/ui';
 import { LoadingSkeleton } from '../../../../components/molecules/loading-skeleton';
 import type { QuestionPosition } from '../../services/inbox-moves';
 import type { InboxView } from '../../services/inbox-view';

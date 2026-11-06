@@ -6,10 +6,9 @@ import { useRef, useState } from 'react';
 
 import { shortDateTime } from '../../lib/relative-time';
 import { SOURCE_URL } from '../../lib/source';
-import { Button, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, dialogSurface, DialogTitle, Skeleton } from '@aeolus-fleet/ui';
+import { Button, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, dialogSurface, DialogTitle, Skeleton, InlineError } from '@aeolus-fleet/ui';
 import { CodeBlock } from '../atoms/code-block';
 import { CrewLines } from '../molecules/crew-lines';
-import { InlineError } from '../molecules/inline-error';
 import { PluginInstallLinks } from '../molecules/plugin-install-links';
 
 /** Where connecting a ChatGPT chat to the fleet is described, step by step. */

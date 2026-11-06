@@ -12,8 +12,8 @@ import {
   AlertDialogTitle,
   Button,
   dialogSurface,
+  InlineError,
 } from '@aeolus-fleet/ui';
-import { InlineError } from '../../../../components/molecules/inline-error';
 
 export interface NetworkRulesApplyProps {
   /** The fleet's draft, by the settings version it was saved against; null without one. */

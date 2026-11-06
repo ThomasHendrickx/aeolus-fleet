@@ -19,8 +19,8 @@ import {
   EmptyState,
   Input,
   Label,
+  InlineError,
 } from '@aeolus-fleet/ui';
-import { InlineError } from '../../../../components/molecules/inline-error';
 import { LoadingSkeleton } from '../../../../components/molecules/loading-skeleton';
 import { RepositoryName } from '../../../../components/molecules/repository-name';
 

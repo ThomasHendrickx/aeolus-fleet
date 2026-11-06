@@ -1,7 +1,6 @@
 import type { SealingOutput } from '@aeolus-fleet/common';
 
-import { Skeleton } from '@aeolus-fleet/ui';
-import { InlineError } from '../../../../components/molecules/inline-error';
+import { Skeleton, InlineError } from '@aeolus-fleet/ui';
 import { SealingKeys, type RecoveryKeyMode } from './sealing-keys';
 import { SealingOff } from './sealing-off';
 

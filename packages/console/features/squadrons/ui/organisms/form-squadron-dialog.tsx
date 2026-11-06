@@ -9,10 +9,9 @@ import type { LabelContext } from '../../../../lib/labels';
 import type { MachineLabelsInput } from '../../../../lib/machine-labels';
 import type { TemplateVersion } from '../../../../lib/squadrons-schemas';
 import { checkInText, memberCount, rolePreviews, type BlueprintChoice } from '../../../../lib/squadrons-view';
-import { Button, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, dialogSurface, DialogTitle, Label } from '@aeolus-fleet/ui';
+import { Button, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, dialogSurface, DialogTitle, Label, InlineError } from '@aeolus-fleet/ui';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../../components/atoms/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../../components/atoms/table';
-import { InlineError } from '../../../../components/molecules/inline-error';
 import { MemberCrewSection } from '../molecules/member-crew-section';
 
 interface FormSquadronDialogProps {

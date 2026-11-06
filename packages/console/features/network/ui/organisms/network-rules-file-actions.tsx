@@ -2,8 +2,7 @@
 
 import { FileDown, FileUp } from 'lucide-react';
 
-import { InlineError } from '../../../../components/molecules/inline-error';
-import { Button } from '@aeolus-fleet/ui';
+import { Button, InlineError } from '@aeolus-fleet/ui';
 
 export interface NetworkRulesFileActionsProps {
   isExporting: boolean;

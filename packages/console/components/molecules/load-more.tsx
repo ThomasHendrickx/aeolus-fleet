@@ -1,8 +1,6 @@
 import { ChevronsDown } from 'lucide-react';
 
-import { Button } from '@aeolus-fleet/ui';
-
-import { InlineError } from './inline-error';
+import { Button, InlineError } from '@aeolus-fleet/ui';
 
 interface LoadMoreProps {
   /** What the next page holds, in the list's words: "older events". */

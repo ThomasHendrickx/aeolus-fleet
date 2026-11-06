@@ -14,9 +14,9 @@ import {
   AlertDialogTitle,
   Button,
   dialogSurface,
+  InlineError,
 } from '@aeolus-fleet/ui';
 import { ConsequenceList, type Consequence } from '../molecules/consequence-list';
-import { InlineError } from '../molecules/inline-error';
 
 /** The request being released: crewed by hand, or assigned to a trierarch. */
 type ReleasedStage = Extract<CrewRequestStage, { kind: 'crewedByHand' | 'assigned' }>;

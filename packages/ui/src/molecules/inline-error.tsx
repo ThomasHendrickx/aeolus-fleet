@@ -1,7 +1,8 @@
 import { CircleAlert, CloudOff, RotateCw } from 'lucide-react';
 import type { ReactNode } from 'react';
 
-import { Button, classNames } from '@aeolus-fleet/ui';
+import { Button } from '../atoms/button.js';
+import { classNames } from '../class-names.js';
 
 interface InlineErrorProps {
   /** Page: "Couldn’t <verb> <thing>". Section: what failed. Field: the broken rule. */

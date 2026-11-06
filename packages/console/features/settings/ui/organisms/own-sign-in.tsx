@@ -4,8 +4,7 @@ import { newOperatorPasswordProblem, signInEmailProblem } from '@aeolus-fleet/co
 import { CircleCheck, KeyRound } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 
-import { Button, Input, Label } from '@aeolus-fleet/ui';
-import { InlineError } from '../../../../components/molecules/inline-error';
+import { Button, Input, Label, InlineError } from '@aeolus-fleet/ui';
 
 /** The email and password argo's own sign-in takes from here on. */
 export interface OwnSignInLogin {

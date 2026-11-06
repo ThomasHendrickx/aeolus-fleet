@@ -1,13 +1,12 @@
 import { ChevronRight, LayoutTemplate } from 'lucide-react';
 import Link from 'next/link';
 
-import { EmptyState } from '@aeolus-fleet/ui';
+import { EmptyState, InlineError } from '@aeolus-fleet/ui';
 import { dayMonth } from '../../../../lib/relative-time';
 import { versionFileUrl } from '../../../../lib/repository';
 import type { BlueprintVersion } from '../../../../lib/squadrons-schemas';
 import { blueprintsUsing, checkInText, templatePath, type TemplateChoice } from '../../../../lib/squadrons-view';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../../components/atoms/table';
-import { InlineError } from '../../../../components/molecules/inline-error';
 import { LoadingSkeleton } from '../../../../components/molecules/loading-skeleton';
 import { RepositoryName } from '../../../../components/molecules/repository-name';
 

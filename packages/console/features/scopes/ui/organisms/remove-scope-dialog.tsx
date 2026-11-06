@@ -10,8 +10,8 @@ import {
   AlertDialogTitle,
   Button,
   dialogSurface,
+  InlineError,
 } from '@aeolus-fleet/ui';
-import { InlineError } from '../../../../components/molecules/inline-error';
 
 interface RemoveScopeDialogProps {
   /** The fleet scope to remove; the confirm is open while one is given. */

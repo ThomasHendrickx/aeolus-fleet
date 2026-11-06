@@ -1,7 +1,6 @@
 import { CircleCheck, KeyRound, TriangleAlert } from 'lucide-react';
 
-import { Button } from '@aeolus-fleet/ui';
-import { InlineError } from '../../../../components/molecules/inline-error';
+import { Button, InlineError } from '@aeolus-fleet/ui';
 
 interface MissingScopesProps {
   /** The plugin in words, such as "the trierarch plugin". */

@@ -4,9 +4,8 @@ import { CircleCheck, CircleX, TriangleAlert } from 'lucide-react';
 import { useId, useState } from 'react';
 
 import { useConsoleConstants } from '../../../lib/console-constants';
-import { Button, classNames, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, dialogSurface, DialogTitle, Input, Label } from '@aeolus-fleet/ui';
+import { Button, classNames, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, dialogSurface, DialogTitle, Input, Label, InlineError } from '@aeolus-fleet/ui';
 import { asHandle, checkShipName } from '../../../lib/ship-name';
-import { InlineError } from '../../../components/molecules/inline-error';
 
 interface RenameDialogProps {
   shipName: string;
