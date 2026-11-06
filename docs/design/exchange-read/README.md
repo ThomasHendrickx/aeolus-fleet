@@ -66,6 +66,8 @@ Each has options and my pick. Thomas answers each.
 
 **Pick 1.** A retired ship's name is free at once (0070), so a name would merge two ships' history.
 
+**Thomas: 1** (6 Nov).
+
 ### E3 How one indexed query reads both ways
 
 1. **The sender's ship id on each delivery**, and the ship it reached (its recipient, or the ship of the type that claimed it), written when the delivery is made or claimed; one index on `(fleet_id, reached ship, sender ship, id)`. A page is two index range scans, one per direction, merged in one statement and limited to 21. The delivery row also holds the state the caller's own messages show.
