@@ -15,8 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '../../../../components/atoms/alert-dialog';
-import { Button, dialogSurface } from '@aeolus-fleet/ui';
-import { Input } from '../../../../components/atoms/input';
+import { Button, dialogSurface, Input } from '@aeolus-fleet/ui';
 import { Label } from '../../../../components/atoms/label';
 import { EmptyState } from '../../../../components/molecules/empty-state';
 import { InlineError } from '../../../../components/molecules/inline-error';

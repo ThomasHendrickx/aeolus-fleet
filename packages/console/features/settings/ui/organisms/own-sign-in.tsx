@@ -4,8 +4,7 @@ import { newOperatorPasswordProblem, signInEmailProblem } from '@aeolus-fleet/co
 import { CircleCheck, KeyRound } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 
-import { Button } from '@aeolus-fleet/ui';
-import { Input } from '../../../../components/atoms/input';
+import { Button, Input } from '@aeolus-fleet/ui';
 import { Label } from '../../../../components/atoms/label';
 import { InlineError } from '../../../../components/molecules/inline-error';
 
