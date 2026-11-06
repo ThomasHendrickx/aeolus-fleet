@@ -8,6 +8,7 @@ import { serverInternalUrlFrom, serverUrlFrom } from '../lib/server-url';
 import { hostedAccountUrlFrom } from '../lib/hosted-account-url';
 import { hostedSignInUrlFrom } from '../lib/hosted-sign-in';
 import { consoleConstantsOf } from '../lib/console-constants-of';
+import { CONSOLE_PAGE_TITLE } from '../lib/page-title';
 import { themeScript } from '../lib/theme';
 import { themeOfSession } from '../lib/theme-of-session';
 import { geistMono, geistSans } from './fonts';
@@ -15,7 +16,7 @@ import { Providers } from './providers';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Aeolus',
+  title: CONSOLE_PAGE_TITLE,
 };
 
 
