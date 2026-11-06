@@ -6,6 +6,7 @@
  */
 export * from './atoms/avatar.js';
 export * from './atoms/button.js';
+export * from './atoms/checkbox.js';
 export * from './atoms/dialog.js';
 export * from './atoms/dialog-surface.js';
 export * from './atoms/dropdown-menu.js';
