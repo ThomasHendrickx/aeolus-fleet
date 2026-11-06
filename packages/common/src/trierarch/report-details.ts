@@ -86,8 +86,8 @@ const harnessUsageSchema = z.strictObject({
 /** The longest reason a harness is not offered: one line for the console. */
 export const NOT_OFFERED_REASON_MAX_LENGTH = 280;
 
-/** The bytes of a NaCl public key. */
-const SEALING_PUBLIC_KEY_BYTES = 32;
+/** Standard base64 of a NaCl public key (32 bytes): 43 characters, then one "=" after a character whose low four bits are zero. No Node API, as the console parses this too. */
+const SEALING_PUBLIC_KEY_BASE64 = /^[A-Za-z0-9+/]{42}[AEIMQUYcgkosw048]=$/;
 
 /**
  * The key crew-time MCP secrets are sealed to for this trierarch
@@ -96,7 +96,7 @@ const SEALING_PUBLIC_KEY_BYTES = 32;
  */
 const sealingKeySchema = z.strictObject({
   scheme: z.literal('nacl-sealed-box'),
-  publicKey: z.base64().refine((key) => Buffer.from(key, 'base64').length === SEALING_PUBLIC_KEY_BYTES, 'A public key is 32 bytes'),
+  publicKey: z.base64().regex(SEALING_PUBLIC_KEY_BASE64, 'A public key is 32 bytes'),
 });
 
 export const trierarchReportDetailsSchema = z.strictObject({
