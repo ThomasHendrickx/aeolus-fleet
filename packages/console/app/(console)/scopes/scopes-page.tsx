@@ -3,8 +3,7 @@
 import { Plus } from 'lucide-react';
 import { useState } from 'react';
 
-import { Button } from '@aeolus-fleet/ui';
-import { showToast } from '../../../components/atoms/toast';
+import { Button, showToast } from '@aeolus-fleet/ui';
 import { DetailPage } from '../../../components/organisms/detail-page';
 import { useDefineScope, useDescribeScope, useRemoveScope } from '../../../features/scopes/hooks/scopes';
 import { namespaceSectionsOf } from '../../../features/scopes/services/scope-namespaces';

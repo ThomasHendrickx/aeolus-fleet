@@ -25,8 +25,7 @@ import { useRemoveMember, useSquadrons } from '../../../lib/squadrons-api';
 import type { Squadron } from '../../../lib/squadrons-schemas';
 import { otherMembersOfRole } from '../../../lib/squadrons-view';
 import { isUnclaimedPromptOut } from '../../../lib/starting-prompt';
-import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@aeolus-fleet/ui';
-import { showToast } from '../../../components/atoms/toast';
+import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger, showToast } from '@aeolus-fleet/ui';
 import type { StartingPromptDialogState } from '../../../components/organisms/starting-prompt-dialog';
 
 // Dialogs load when first opened, not with the page.

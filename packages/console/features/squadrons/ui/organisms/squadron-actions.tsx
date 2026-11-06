@@ -2,8 +2,7 @@ import { Copy, Ellipsis, OctagonX, SquarePen, UserPlus, Waves } from 'lucide-rea
 import type { LucideIcon } from 'lucide-react';
 
 import type { SquadronActionsOffered } from '../../../../lib/squadrons-view';
-import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@aeolus-fleet/ui';
-import { showToast } from '../../../../components/atoms/toast';
+import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger, showToast } from '@aeolus-fleet/ui';
 
 interface SquadronActionsProps {
   squadronId: string;

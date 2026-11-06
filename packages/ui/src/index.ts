@@ -20,6 +20,7 @@ export * from './atoms/ship-state.js';
 export * from './atoms/skeleton.js';
 export * from './atoms/switch.js';
 export * from './atoms/tabs.js';
+export * from './atoms/toast.js';
 export * from './atoms/tooltip.js';
 export * from './class-names.js';
 export * from './molecules/app-switcher.js';

@@ -5,7 +5,7 @@ import { useState } from 'react';
 import type { AvatarMenuProps } from '@aeolus-fleet/ui';
 import { Compass, KeyRound, Network, Settings } from 'lucide-react';
 
-import { showToast } from '../components/atoms/toast';
+import { showToast } from '@aeolus-fleet/ui';
 import { isArgoAllowedIn, useAppsList } from './app-switcher';
 import { applyTheme, sessionSince } from './theme';
 import { useConsoleConstants } from './console-constants';

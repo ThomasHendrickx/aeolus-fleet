@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 
-import { showToast } from '../../../components/atoms/toast';
+import { showToast } from '@aeolus-fleet/ui';
 import { useAccess } from '../../../lib/access';
 import { refusalOf } from '../../../lib/errors';
 import { lazyDialog } from '../../../lib/lazy-dialog';

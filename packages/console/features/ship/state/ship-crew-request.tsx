@@ -15,7 +15,7 @@ import { useCrewSettings } from '../../../lib/crew-settings';
 import { machineLabelIdsOf } from '../../../lib/machine-labels';
 import { isUnclaimedPromptOut } from '../../../lib/starting-prompt';
 import { useHasTrierarchPlugin, useMachines } from '../../../lib/trierarch-plugin';
-import { showToast } from '../../../components/atoms/toast';
+import { showToast } from '@aeolus-fleet/ui';
 import { CrewRequestCard, type CrewRequestBusy } from '../ui/organisms/crew-request-card';
 import { useRequestCrewFlow } from './request-crew-flow';
 

@@ -1,8 +1,8 @@
-import type { Meta, StoryObj } from '@storybook/nextjs-vite';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 import { RefreshCw } from 'lucide-react';
 
-import { Button } from '@aeolus-fleet/ui';
-import { showToast, ToastCard, Toaster } from './toast';
+import { Button } from './button.js';
+import { showToast, ToastCard, Toaster } from './toast.js';
 
 const meta = {
   title: 'Atoms/Toast',

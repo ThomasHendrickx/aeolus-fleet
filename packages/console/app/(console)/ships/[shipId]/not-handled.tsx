@@ -4,7 +4,7 @@ import type { DeliveryId, ShipId } from '@aeolus-fleet/common';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
-import { showToast } from '../../../../components/atoms/toast';
+import { showToast } from '@aeolus-fleet/ui';
 import { LoadMore } from '../../../../components/molecules/load-more';
 import { NeedsAttentionList } from '../../../../components/organisms/needs-attention-list';
 import { useAccess } from '../../../../lib/access';

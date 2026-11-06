@@ -3,7 +3,7 @@
 import type { DeliveryId, StuckCause } from '@aeolus-fleet/common';
 import { useState } from 'react';
 
-import { showToast } from '../../../components/atoms/toast';
+import { showToast } from '@aeolus-fleet/ui';
 import { LoadMore } from '../../../components/molecules/load-more';
 import { useAccess } from '../../../lib/access';
 import { useStuckPlaces } from '../../../lib/fleet-health';
