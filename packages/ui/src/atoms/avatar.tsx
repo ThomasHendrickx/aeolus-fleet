@@ -2,13 +2,13 @@
 
 import { Avatar as AvatarPrimitive } from '@base-ui/react/avatar';
 import { cva, type VariantProps } from 'class-variance-authority';
-import { Ship, UserRound } from 'lucide-react';
+import { UserRound } from 'lucide-react';
 
 import { classNames } from '../class-names.js';
 
 /**
  * shadcn Avatar on Base UI, used as a mark (docs/design/png/Avatar.png): the
- * app, the operator's account, a ship (two mono letters from its name), argo
+ * operator's account, a ship (two mono letters from its name), argo
  * (the operator mark) and a retired ship (dashed frame). Decorative: the name
  * is always written next to it, so it is hidden from assistive technology.
  */
@@ -17,7 +17,6 @@ const avatarVariants = cva(
   {
     variants: {
       kind: {
-        app: 'rounded-sm bg-primary text-primary-foreground',
         account: 'rounded-full bg-secondary font-sans text-foreground',
         ship: 'rounded-sm bg-secondary font-mono text-foreground',
         argo: 'rounded-sm bg-highlight text-primary',
@@ -38,9 +37,6 @@ type AvatarKind = NonNullable<VariantProps<typeof avatarVariants>['kind']>;
 const LETTERS = 2;
 
 function markOf(kind: AvatarKind, name: string) {
-  if (kind === 'app') {
-    return <Ship aria-hidden />;
-  }
   if (kind === 'argo') {
     return <UserRound aria-hidden />;
   }

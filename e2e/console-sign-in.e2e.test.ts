@@ -174,7 +174,7 @@ describe('the console sign-in', () => {
     await expect(page.getByText(/secret/i).count()).resolves.toBe(0);
   });
 
-  it('shows the app mark as the favicon, an SVG with a dark variant', async () => {
+  it('shows the Aeolus mark as the favicon, an SVG', async () => {
     const page = await newPage();
     await page.goto('/sign-in');
 
@@ -182,7 +182,7 @@ describe('the console sign-in', () => {
     const icon = await fetch(new URL(href ?? '/missing', web.url));
 
     expect(icon.headers.get('content-type')).toContain('image/svg+xml');
-    await expect(icon.text()).resolves.toContain('prefers-color-scheme: dark');
+    await expect(icon.text()).resolves.toContain('aria-label="Aeolus"');
   });
 
   it('sends a visitor without a session to the sign-in page', async () => {

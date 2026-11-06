@@ -15,6 +15,8 @@ function packagePath(name: string): string {
 // The console's parts, each with a story per meaningful state (web-frontend skill).
 const config: StorybookConfig = {
   framework: packagePath('@storybook/nextjs-vite'),
+  // The brand logo files the BrandLogo part loads from /brand.
+  staticDirs: ['../public'],
   stories: ['../components/**/*.stories.tsx', '../features/**/*.stories.tsx'],
   // Every story also runs as a test, in Vitest's browser mode (#303).
   addons: [packagePath('@storybook/addon-vitest')],

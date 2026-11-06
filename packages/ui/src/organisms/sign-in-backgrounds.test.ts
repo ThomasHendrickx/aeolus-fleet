@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { SIGN_IN_BACKGROUNDS, drawSignInBackground, pickSignInBackground, type SignInMark } from './sign-in-backgrounds.js';
 
-// Worked examples: what docs/design/sign-in-backgrounds/mockup.html draws for each tab.
+// Worked examples: what each background draws.
 const MOCKUP = [
   { background: 'from-above-1', boats: 14, lastBoat: { x: 640, y: 968, scale: 1.452 } },
   { background: 'squadrons-1', boats: 21, lastBoat: { x: 943.9230762309968, y: 292.9520952724629, scale: 0.43942814290869425 } },
