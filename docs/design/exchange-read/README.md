@@ -129,6 +129,8 @@ Each has options and my pick. Thomas answers each.
 
 **Pick 1.** It opens a chat at a reply with its context both ways.
 
+**Thomas: 1** (6 Nov).
+
 ### E10 Page size, retired ships and pruning
 
 1. **20 a page unless asked, at most 100**, as `record`. The list leaves retired ships out (0070); an exchange with a retired ship reads by id while it is kept. When pruning removes an exchange's newest message, its row goes too if nothing of the exchange is left, else points at the newest kept one.
