@@ -102,6 +102,8 @@ Each has options and my pick. Thomas answers each.
 
 **Pick 1.** One action, one transaction. At scale a backlog from one ship is thousands at most; I would measure it on staging rather than cap it now.
 
+**Thomas: 1** (6 Nov).
+
 ### E7 Acknowledging a pending delivery
 
 1. **Allowed only for a person ship's crew, in seen up to here**: pending to acknowledged directly, no attempt counted, no hand-over. A change to 0040.
