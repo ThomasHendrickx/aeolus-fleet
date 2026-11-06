@@ -20,7 +20,7 @@ async function expectMark(canvasElement: HTMLElement, { word, tone }: { word: st
   await expect(mark).toHaveAttribute('data-tone', tone ?? 'none');
 }
 
-/** The sheet's measures (sheet.html, .st and .badge): the mark's height and the gap from icon to word. */
+/** The measures of the state mark: its height and the gap from icon to word. */
 async function expectDrawn(mark: HTMLElement, { height, gap }: { height: number; gap: string }) {
   await expect(mark.getBoundingClientRect().height).toBe(height);
   await expect(getComputedStyle(mark).columnGap).toBe(gap);

@@ -1,6 +1,5 @@
 /**
- * The six backgrounds of the signed-out screens, ported from
- * docs/design/sign-in-backgrounds/mockup.html: the sea seen from above with
+ * The six backgrounds of the signed-out screens: the sea seen from above with
  * single ships, and in five of them squadrons sailing among them. Each draws
  * the same every time from its seeds, on a 1600 by 1000 canvas; one is picked
  * at random when a screen loads.

@@ -4,7 +4,7 @@ import { SignInBackground } from '@aeolus-fleet/ui';
 import { BrandLogo } from '../../components/atoms/brand-logo';
 
 /**
- * Signed-out pages (docs/design/png/SignInLayout.png): the brand above the
+ * Signed-out pages: the brand above the
  * page's AuthCard on one of the sign-in backgrounds, picked at load. No
  * Sidebar, Header or TabBar.
  */

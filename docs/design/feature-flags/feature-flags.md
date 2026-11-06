@@ -97,7 +97,7 @@ Pick 1: thin; the design does not change the table.
 Before and after, desktop and phone, light and dark, every state, a dashed box on what changed:
 
 - pagasae: Admin settings and the admin fleet page, in `docs/design/feature-flags/` on pagasae's draft PR.
-- console: [the Fleet overview and `/sealing`](mockups/console.html).
+- console: the Fleet overview and `/sealing`.
 
 ## 6. Slices, once agreed
 

@@ -2,7 +2,7 @@
 
 Design. Docs only. [Issue 1618](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1618); Thomas answered its five questions on 3 Nov (section 3).
 
-[sheet.html](sheet.html), [sheet.png](sheet.png): the mockups for approval. Every place a ship's state shows (console ship list, ship page, Needs crew, Harbour cards and list, Bridge's Your fleet), today beside proposed, light and dark, with the contrast of every tone measured in the page. The HTML stands alone, with both sets of tone tokens inlined; the PNG is that file rendered in Chromium at 1x.
+Every place a ship's state shows: console ship list, ship page, Needs crew, Harbour cards and list, Bridge's Your fleet.
 
 ## 1. Purpose (Thomas, 3 Nov)
 

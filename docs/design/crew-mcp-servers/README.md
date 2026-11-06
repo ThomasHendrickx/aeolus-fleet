@@ -1,6 +1,6 @@
 # Crew settings: a request's MCP servers
 
-Design, approved by Thomas on 4 Nov. Docs only. [Issue 1653](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1653). The after screens below are its acceptance criteria.
+Design, approved by Thomas on 4 Nov. Docs only. [Issue 1653](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1653).
 
 ## 1. Purpose
 
@@ -21,29 +21,13 @@ The console shows and edits the MCP servers a crew request names, the `mcpServer
 
 No MCP servers anywhere.
 
-| Part | 1440 light | 1440 dark | 375 light | 375 dark |
-| --- | --- | --- | --- | --- |
-| Commission | ![](today-commission-1440-light.png) | ![](today-commission-1440-dark.png) | ![](today-commission-375-light.png) | ![](today-commission-375-dark.png) |
-| Request crew (Edit) | ![](today-request-crew-1440-light.png) | ![](today-request-crew-1440-dark.png) | ![](today-request-crew-375-light.png) | ![](today-request-crew-375-dark.png) |
-| Form squadron, members | ![](today-squadron-1440-light.png) | ![](today-squadron-1440-dark.png) | ![](today-squadron-375-light.png) | ![](today-squadron-375-dark.png) |
-| Crew request card | ![](today-card-1440-light.png) | ![](today-card-1440-dark.png) | ![](today-card-375-light.png) | ![](today-card-375-dark.png) |
-
 ## 3. After
 
 Under Machine labels, the other field that decides where the ship goes, **MCP servers** (optional): each server a mono chip with ×, then **Add server**; "None" when empty. Under it: "`<ship>`'s session starts with these servers' tools, read-only. The plugin places it only on a machine that offers every one." The crew request card shows **MCP servers** as a row of its grid, in mono, "None" when empty, as Squadron does.
 
-| Part | 1440 light | 1440 dark | 375 light | 375 dark |
-| --- | --- | --- | --- | --- |
-| Commission | ![](after-commission-1440-light.png) | ![](after-commission-1440-dark.png) | ![](after-commission-375-light.png) | ![](after-commission-375-dark.png) |
-| Request crew (Edit) | ![](after-request-crew-1440-light.png) | ![](after-request-crew-1440-dark.png) | ![](after-request-crew-375-light.png) | ![](after-request-crew-375-dark.png) |
-| Form squadron, members | ![](after-squadron-1440-light.png) | ![](after-squadron-1440-dark.png) | ![](after-squadron-375-light.png) | ![](after-squadron-375-dark.png) |
-| Crew request card | ![](after-card-1440-light.png) | ![](after-card-1440-dark.png) | ![](after-card-375-light.png) | ![](after-card-375-dark.png) |
-
-Drawn with the console's own parts (CommissionDialog, RequestCrewDialog, FormSquadronDialog, CrewRequestCard, CrewSettingsFields, MemberCrewSection, the Button and chip of MachineLabelsField) and `@aeolus-fleet/ui`, rendered in the console's Storybook at 375 and 1440 wide, light and dark.
-
 ## 4. Questions for Thomas
 
-Thomas answered Q1 to Q3 on 4 Nov, each option 1: the after mockups draw every answer.
+Thomas answered Q1 to Q3 on 4 Nov, each option 1: the built screens follow every answer.
 
 ### Q1. The control
 
