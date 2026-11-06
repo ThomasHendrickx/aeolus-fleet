@@ -3,9 +3,10 @@
 import type { CrewLine } from '@aeolus-fleet/common';
 import { useState } from 'react';
 
+import { Tabs, TabsList, TabsTrigger } from '@aeolus-fleet/ui';
+
 import { crewLineHarnessWord } from '../../lib/harness';
 import { CopyButton } from '../atoms/copy-button';
-import { Tabs, TabsList, TabsTrigger } from '../atoms/tabs';
 
 interface CompactCrewLineProps {
   /** One line per harness, as squadrons issued them: Claude Code, Codex, and Chat. */

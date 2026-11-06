@@ -4,7 +4,8 @@ import type { MessageId, Party, ShipId } from '@aeolus-fleet/common';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../../components/atoms/tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@aeolus-fleet/ui';
+
 import { ComposeMessage } from '../../../../features/compose/organisms/compose-message';
 import { MessageThreads } from '../../../../features/ship/ui/organisms/message-threads';
 import { ShipCrewRequest } from '../../../../features/ship/state/ship-crew-request';
