@@ -10,7 +10,7 @@ Exported from the Claude Design canvas "Aeolus operator console v1" (Design syst
 - [`packages/ui/src/brand.css`](../../packages/ui/src/brand.css): the brand tokens (colour, type, motion) from the brandbook, light and dark. The single copy, for every Aeolus surface; the apps' look is still `tokens.css`.
 - [`brand/README.md`](../../brand/README.md): the app mark and its exports. Every favicon and app icon comes from there.
 
-A canvas part's name is not always its component's. Built under another name: StartingPromptBlock and CrewLineBlock in `components/organisms/starting-prompt-dialog.tsx` and `components/molecules/crew-lines.tsx`; FleetScopes in `features/ship/ui/organisms/ship-header.tsx`; AccountMenu as `AvatarMenu` in `@aeolus-fleet/ui`; CommissionForm in `features/fleet/ui/organisms/commission-dialog.tsx`. Not built: Checkbox, UpgradeBlueprintDialog.
+A canvas part's name is not always its component's. Built under another name: StartingPromptBlock and CrewLineBlock in `components/organisms/starting-prompt-dialog.tsx` and `components/molecules/crew-lines.tsx`; FleetScopes in `features/ship/ui/organisms/ship-header.tsx`; AccountMenu as `AvatarMenu` in `@aeolus-fleet/ui`; CommissionForm in `features/fleet/ui/organisms/commission-dialog.tsx`. Not built: UpgradeBlueprintDialog.
 
 In `@aeolus-fleet/ui` ([packages/ui](../../packages/ui/README.md)), for every Aeolus app: Avatar, Button, Dialog, DropdownMenu, Kbd, Sheet and Tooltip; AccountMenu; CommandPalette; and the header's AppHeader, AppSwitcher and SignInBackground. Every other part lives in the console.
 
