@@ -173,7 +173,7 @@ describe('Harbour on the fleet overview', () => {
     unwrap(await core.report(unwrap(builderCrew), { state: 'blocked', note: 'Waiting for a review' }));
 
     await tileOf(page, 'builder').getByText('Blocked', { exact: true }).waitFor();
-    await expect(numbersOf(page)).resolves.toMatchObject({ awaitingCrew: '1\nAwaiting crew', blocked: '1\nBlocked', working: '0\nWorking' });
+    await expect.poll(() => numbersOf(page)).toMatchObject({ awaitingCrew: '1\nAwaiting crew', blocked: '1\nBlocked', working: '0\nWorking' });
   });
 
   it('shows the shape that is coming while the fleet is read, without the bar or a line under the title', async () => {

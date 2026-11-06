@@ -1,6 +1,6 @@
 import { createIdGenerator, EVENT_TYPES, type EventType, type HarbourOutput, type ListedShip, type LiveFleetEvent, type ShipId } from '@aeolus-fleet/common';
 import type { AppRouter } from '@aeolus-fleet/core';
-import { InfiniteQueryObserver, QueryClient, QueryObserver } from '@tanstack/react-query';
+import { InfiniteQueryObserver, notifyManager, QueryClient, QueryObserver } from '@tanstack/react-query';
 import { createTRPCClient, httpLink } from '@trpc/client';
 import { createTRPCOptionsProxy } from '@trpc/tanstack-react-query';
 import { describe, expect, it } from 'vitest';
@@ -273,7 +273,7 @@ function aLiveFleet(answers: Readonly<Record<string, (input: unknown) => unknown
     if (answer === undefined) {
       return Promise.resolve(Response.json({ error: { message: `no ${procedure} here`, code: -32004, data: { code: 'NOT_FOUND', httpStatus: 404 } } }, { status: 404 }));
     }
-    return Promise.resolve(Response.json({ result: { data: answer(rawInput === null ? undefined : JSON.parse(rawInput)) } }));
+    return Promise.resolve(answer(rawInput === null ? undefined : JSON.parse(rawInput))).then((data) => Response.json({ result: { data } }));
   };
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const trpc = createTRPCOptionsProxy<AppRouter>({ client: createTRPCClient<AppRouter>({ links: [httpLink({ url: SERVER, fetch: fetchFromFleet })] }), queryClient });
@@ -535,6 +535,42 @@ describe("Harbour live (docs/design/fleet-overview, \"The read Harbour needs\")"
     live.onItem({ kind: 'event', event: anEvent('ShipReported', { shipId: builder.id, hasMessage: false }) });
 
     await expect.poll(() => [tilesOf(working), tilesOf(every)]).toEqual([[], [blocked]]);
+    live.close();
+  });
+
+  it("changes a ship's tile and Harbour's numbers in the same step, never the tile before the numbers (#1679)", async () => {
+    const builder: HarbourTile = { id: newId('ship'), name: 'builder', kind: 'agent', state: 'working', note: 'Building', lastActivityAt: null };
+    const blocked: HarbourTile = { ...builder, state: 'blocked', note: 'Waiting for a review' };
+    let numbers = counts(1, 0);
+    const live = aLiveFleet({
+      'fleet.harbour': (asked) => {
+        const isAlone = typeof asked === 'object' && asked !== null && 'shipIds' in asked;
+        // The numbers come later than the ship read alone.
+        return isAlone ? { items: [blocked], nextCursor: null, counts: null } : settled().then(() => ({ items: [builder], nextCursor: null, counts: numbers }));
+      },
+      'fleet.listedShip': () => aShip({}),
+    });
+    const pages = new InfiniteQueryObserver(live.queryClient, live.trpc.fleet.harbour.infiniteQueryOptions({ limit: 500 }, { getNextPageParam: () => undefined }));
+    const numbersRead = new QueryObserver(live.queryClient, live.trpc.fleet.harbour.queryOptions({ limit: 1 }));
+    live.show(pages);
+    live.show(numbersRead);
+    const stateOnPage = () => [pages.getCurrentResult().data?.pages[0]?.items[0]?.state, numbersRead.getCurrentResult().data?.counts?.blocked];
+    await expect.poll(stateOnPage).toEqual(['working', 0]);
+    // What the page is told to draw: a React part draws from both reads whenever either tells it, as React Query hands the news over (batched).
+    const rendered: unknown[][] = [];
+    const draw = notifyManager.batchCalls(() => rendered.push(stateOnPage()));
+    const stopPages = pages.subscribe(draw);
+    const stopNumbers = numbersRead.subscribe(draw);
+
+    numbers = counts(0, 1);
+    live.onItem({ kind: 'event', event: anEvent('ShipReported', { shipId: builder.id, hasMessage: false }) });
+
+    await expect.poll(stateOnPage).toEqual(['blocked', 1]);
+    await settled();
+    stopPages();
+    stopNumbers();
+    expect(rendered.length).toBeGreaterThan(0);
+    expect(rendered.filter((each) => (each[0] === 'blocked') !== (each[1] === 1))).toEqual([]);
     live.close();
   });
 
