@@ -1,6 +1,6 @@
 # A ship's exchange with one other ship
 
-Design for [#1694](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1694). New core fleet functionality, so it goes purpose first. Thomas approved the need, and one new core read rather than the gateway merging two reads (6 Nov). Thomas agreed the purpose (6 Nov). The questions below are for review; nothing past the purpose is decided until Thomas answers them. No code.
+Design for [#1694](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1694). New core fleet functionality, so it goes purpose first. Thomas approved the need, and one new core read rather than the gateway merging two reads (6 Nov). Thomas agreed the purpose and answered E1 to E11, each with its pick (6 Nov). No code.
 
 ## 1. Purpose (agreed)
 
@@ -48,7 +48,7 @@ Not the purpose:
 
 ## 4. Questions
 
-Each has options and my pick. Thomas answers each.
+Each has its options, the pick and Thomas's answer.
 
 ### E1 What belongs to the exchange of A and B?
 
@@ -138,6 +138,8 @@ Each has options and my pick. Thomas answers each.
 
 **Pick 1.** The same rules as `record` and every list.
 
+**Thomas: 1** (6 Nov).
+
 ### E11 Names and scope
 
 1. **`exchanges`** (the list), **`exchange`** (a page of one), **`ackUpTo`** (seen up to here), with `messages:receive`; queries and one mutation on tRPC, REST and MCP like the other ship calls. "Exchange" goes into the blueprint's domain language: what one ship and one other ship said to each other.
@@ -147,9 +149,9 @@ Each has options and my pick. Thomas answers each.
 
 **Thomas: 1** (6 Nov).
 
-## 5. Flows under the picks
+## 5. Flows
 
-For review with the questions; not decided.
+As answered in section 4.
 
 ### Send and claim keep the rollup
 
