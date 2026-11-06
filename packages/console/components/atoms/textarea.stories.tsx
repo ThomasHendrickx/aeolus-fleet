@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 
-import { Label } from './label';
+import { Label } from '@aeolus-fleet/ui';
 import { Textarea } from './textarea';
 
 const meta = {

@@ -1,9 +1,9 @@
+import { Label } from '@aeolus-fleet/ui';
 import { useId, type ReactNode } from 'react';
 
 import { byteSize, promptBytes, withHarness, type CrewSettingsValues, type HarnessOffer, type WorkspaceChoice } from '../../lib/crew-settings-form';
 import { harnessWord } from '../../lib/harness';
 import type { MachineLabelsInput } from '../../lib/machine-labels';
-import { Label } from '../atoms/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../atoms/select';
 import { Textarea } from '../atoms/textarea';
 import { InlineError } from './inline-error';

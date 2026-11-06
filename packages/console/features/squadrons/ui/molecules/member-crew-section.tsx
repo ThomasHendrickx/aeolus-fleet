@@ -3,12 +3,11 @@
 import { ChevronDown, ChevronRight, CircleCheck, CircleDashed } from 'lucide-react';
 import { useId, type ReactNode } from 'react';
 
-import { classNames, Input } from '@aeolus-fleet/ui';
+import { classNames, Input, Label } from '@aeolus-fleet/ui';
 import type { HarnessOffer } from '../../../../lib/crew-settings-form';
 import { missingOf, workspaceFromItem, workspaceItemOf, type MemberValues } from '../../../../lib/forming-members';
 import { harnessWord } from '../../../../lib/harness';
 import type { MachineLabelsInput } from '../../../../lib/machine-labels';
-import { Label } from '../../../../components/atoms/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../../components/atoms/select';
 import { Textarea } from '../../../../components/atoms/textarea';
 import { InlineError } from '../../../../components/molecules/inline-error';

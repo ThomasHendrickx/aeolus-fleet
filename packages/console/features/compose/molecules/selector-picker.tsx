@@ -1,6 +1,7 @@
 'use client';
 
 import type { ListedShip, ShipId } from '@aeolus-fleet/common';
+import { Label } from '@aeolus-fleet/ui';
 import { CircleAlert, Search, Tag } from 'lucide-react';
 import { useId } from 'react';
 
@@ -8,7 +9,6 @@ import { locationKindWord } from '../../../lib/location';
 import { counted } from '../../../lib/sentence';
 import { asHandle } from '../../../lib/ship-name';
 import { Combobox, type ComboboxOption } from '../../../components/atoms/combobox';
-import { Label } from '../../../components/atoms/label';
 import { Tabs, TabsList, TabsTrigger } from '../../../components/atoms/tabs';
 import { StatusBadge } from '../../../components/molecules/status-badge';
 
