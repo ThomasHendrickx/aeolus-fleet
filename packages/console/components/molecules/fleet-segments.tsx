@@ -5,7 +5,7 @@ import { classNames } from '@aeolus-fleet/ui';
 /**
  * The Fleet tab's two views on phone (#245, decision 6): every ship, and
  * Needs crew, with how many ships are on it. Segmented, as views of one list
- * are (docs/design/conventions.md, "Components: which one"). Desktop has
+ * are (docs/design/console-conventions.md, "Components: which one"). Desktop has
  * Needs crew in the Sidebar instead.
  */
 export function FleetSegments({ active, needsCrewCount }: { active: 'ships' | 'needs-crew'; needsCrewCount?: number }) {

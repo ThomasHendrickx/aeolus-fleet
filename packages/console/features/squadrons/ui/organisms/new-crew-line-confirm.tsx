@@ -21,7 +21,7 @@ interface NewCrewLineConfirmProps {
 }
 
 /**
- * Asks before Get new crew line, always (docs/design/conventions.md,
+ * Asks before Get new crew line, always (docs/design/console-conventions.md,
  * "Destructive actions"): a normal confirm saying what the new line ends.
  * Primary, not destructive. Desktop: a dialog; phone: a bottom sheet.
  */

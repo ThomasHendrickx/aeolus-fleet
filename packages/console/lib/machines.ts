@@ -9,7 +9,7 @@ import type { Machine } from './trierarch-plugin-schemas';
  * plugin's machines and the fleet snapshot.
  */
 
-/** How many machines are silent: the Trierarchs count (docs/design/conventions.md, "Crew requests and trierarchs"). */
+/** How many machines are silent: the Trierarchs count (docs/design/console-conventions.md, "Crew requests and trierarchs"). */
 export function silentCount(machines: readonly Pick<Machine, 'isSilent'>[]): number {
   return machines.filter((machine) => machine.isSilent).length;
 }

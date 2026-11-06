@@ -14,7 +14,7 @@ export function locationKindWord(kind: LocationKind): string {
 
 /**
  * Where the session crewing a ship runs, as the console words it:
- * `<Kind> · <description>` (docs/design/conventions.md, "Copy"). Only OTHER
+ * `<Kind> · <description>` (docs/design/console-conventions.md, "Copy"). Only OTHER
  * carries a description. Null while no session crews the ship.
  */
 export function locationText(ship: Pick<ListedShip, 'location'>): string | null {

@@ -15,7 +15,7 @@ function keyed(parts: readonly SentencePart[]): { key: string; part: SentencePar
 /**
  * A history sentence (lib/sentence.ts): text as it is, each ship as a
  * ShipName with its id suffix, as timelines and delivery history show parties
- * (docs/design/conventions.md, "Copy"). argo never carries a suffix.
+ * (docs/design/console-conventions.md, "Copy"). argo never carries a suffix.
  */
 export function Sentence({ parts, className }: { parts: readonly SentencePart[]; className?: string }) {
   return (

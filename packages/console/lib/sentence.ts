@@ -6,7 +6,7 @@ import type { Party } from '@aeolus-fleet/common';
  */
 export type SentencePart = { kind: 'text'; text: string } | { kind: 'ship'; party: Party };
 
-/** The operator ship's name: it never carries an id suffix (docs/design/conventions.md, "Copy"). */
+/** The operator ship's name: it never carries an id suffix (docs/design/console-conventions.md, "Copy"). */
 export const OPERATOR_NAME = 'argo';
 
 export function text(value: string): SentencePart {
@@ -22,7 +22,7 @@ export function plainText(parts: readonly SentencePart[]): string {
   return parts.map((part) => (part.kind === 'text' ? part.text : part.party.name)).join('');
 }
 
-/** "1 in-flight delivery", "3 in-flight deliveries": numbers as digits (docs/design/conventions.md, "Copy"). */
+/** "1 in-flight delivery", "3 in-flight deliveries": numbers as digits (docs/design/console-conventions.md, "Copy"). */
 export function counted(count: number, words: { one: string; many: string }): string {
   return `${String(count)} ${count === 1 ? words.one : words.many}`;
 }
