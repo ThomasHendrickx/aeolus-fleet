@@ -75,6 +75,8 @@ Each has options and my pick. Thomas answers each.
 
 **Pick 1.** No second record of the same fact, and the state comes with the row. Option 2 adds a table to keep in step with every delivery move.
 
+**Thomas: 1** (6 Nov).
+
 ### E4 Whom the rollup is kept for
 
 1. **Person ships**: one row per person ship and each ship it exchanged with, written in the transactions that make, claim, acknowledge, abandon or dismiss a delivery to or from it.
