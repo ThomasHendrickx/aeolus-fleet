@@ -1,4 +1,4 @@
-import { Skeleton } from '../../../../components/atoms/skeleton';
+import { Skeleton } from '@aeolus-fleet/ui';
 import { EmptyState } from '../../../../components/molecules/empty-state';
 import { InlineError } from '../../../../components/molecules/inline-error';
 import { LoadMore } from '../../../../components/molecules/load-more';
