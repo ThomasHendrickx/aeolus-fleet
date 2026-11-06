@@ -1,7 +1,7 @@
 import type { FleetId, MessageId, ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { crewAboard, initialiseFleet, messagingUseCases, modelOf, operatorCaller, registryUseCases } from '../../../test/support/core-fixtures.js';
+import { crewAboard, deliveryIdOf, initialiseFleet, messagingUseCases, modelOf, operatorCaller, registryUseCases } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { newKey } from '../../testing/keys.js';
 import { unwrap } from '../../testing/result.js';
@@ -34,20 +34,19 @@ beforeEach(async () => {
   lookout = crewAboard(core, { fleetId, shipId: lookoutId });
 });
 
-async function send(from: ShipCaller, to: Selector, payload: string, more: { inReplyTo?: MessageId } = {}): Promise<MessageId> {
+async function send(from: ShipCaller, { to, payload, inReplyTo }: { to: Selector; payload: string; inReplyTo?: MessageId }): Promise<MessageId> {
   core.clock.advance(1_000);
-  const { messageId } = unwrap(await useCases.sendMessage(from, { selector: to, payload, contentType: 'text/plain', idempotencyKey: newKey(), ...modelOf(from), ...more }));
+  const { messageId } = unwrap(await useCases.sendMessage(from, { selector: to, payload, contentType: 'text/plain', idempotencyKey: newKey(), ...(from.kind === 'agent' ? modelOf(from) : {}), ...(inReplyTo && { inReplyTo }) }));
   return messageId;
 }
 
 describe('the exchange read', () => {
   it('reads what the other ship sent that reached the caller and what the caller sent that reached it, newest first', async () => {
     // Given the lookout asked thomas, thomas answered it, and the lookout acknowledged the answer.
-    const asked = await send(lookout, { kind: 'ship', shipId: thomasId }, 'Merge PR #1497?');
-    const answered = await send(thomas, { kind: 'ship', shipId: lookoutId }, 'Yes, merge it', { inReplyTo: asked });
+    const asked = await send(lookout, { to: { kind: 'ship', shipId: thomasId }, payload: 'Merge PR #1497?' });
+    const answered = await send(thomas, { to: { kind: 'ship', shipId: lookoutId }, payload: 'Yes, merge it', inReplyTo: asked });
     unwrap(await useCases.receiveDeliveries(lookout, {}));
-    const [answerDelivery] = core.state.deliveries.filter((delivery) => delivery.messageId === answered);
-    unwrap(await useCases.acknowledgeDelivery(lookout, { deliveryId: answerDelivery?.id ?? '' }));
+    unwrap(await useCases.acknowledgeDelivery(lookout, { deliveryId: deliveryIdOf(core, answered) }));
 
     // When thomas reads its exchange with the lookout.
     const page = unwrap(await useCases.readExchange(thomas, { otherShipId: lookoutId }));
@@ -81,11 +80,11 @@ describe('the exchange read', () => {
 
   it("holds a message to the caller's type it claimed, and leaves pings and every other ship's messages out", async () => {
     // Given the lookout sent thomas's type a message thomas's crew claimed, argo pinged thomas, and argo wrote to thomas.
-    const ofItsType = await send(lookout, { kind: 'type', type: 'person' }, 'Who is on call?');
+    const ofItsType = await send(lookout, { to: { kind: 'type', type: 'person' }, payload: 'Who is on call?' });
     unwrap(await useCases.pushReceiveDeliveries(thomas, {}));
     core.clock.advance(1_000);
     unwrap(await useCases.pingShip(argo, { shipId: lookoutId }));
-    await send(argo, { kind: 'ship', shipId: thomasId }, 'PR #1497 is open');
+    await send(argo, { to: { kind: 'ship', shipId: thomasId }, payload: 'PR #1497 is open' });
 
     // When thomas reads its exchange with the lookout, and the lookout its exchange with argo.
     const withLookout = unwrap(await useCases.readExchange(thomas, { otherShipId: lookoutId }));
@@ -100,7 +99,7 @@ describe('the exchange read', () => {
     // Given the lookout sent thomas five messages.
     const sent: MessageId[] = [];
     for (const n of [1, 2, 3, 4, 5]) {
-      sent.push(await send(lookout, { kind: 'ship', shipId: thomasId }, `Note ${String(n)}`));
+      sent.push(await send(lookout, { to: { kind: 'ship', shipId: thomasId }, payload: `Note ${String(n)}` }));
     }
 
     // When thomas reads two at a time, older from the newest page, then newer from that page.
@@ -120,7 +119,7 @@ describe('the exchange read', () => {
   it('pages 20 unless asked', async () => {
     // Given the lookout sent thomas 21 messages.
     for (let n = 1; n <= 21; n += 1) {
-      await send(lookout, { kind: 'ship', shipId: thomasId }, `Note ${String(n)}`);
+      await send(lookout, { to: { kind: 'ship', shipId: thomasId }, payload: `Note ${String(n)}` });
     }
 
     // When thomas reads its exchange without a limit.
@@ -135,7 +134,7 @@ describe('the exchange read', () => {
     // Given the lookout sent thomas 25 messages.
     const sent: MessageId[] = [];
     for (let n = 1; n <= 25; n += 1) {
-      sent.push(await send(lookout, { kind: 'ship', shipId: thomasId }, `Note ${String(n)}`));
+      sent.push(await send(lookout, { to: { kind: 'ship', shipId: thomasId }, payload: `Note ${String(n)}` }));
     }
 
     // When thomas opens its exchange at the 12th.
@@ -149,7 +148,7 @@ describe('the exchange read', () => {
 
   it('refuses a message not in the exchange as MESSAGE_NOT_FOUND, and a ship not in the fleet as SHIP_NOT_FOUND', async () => {
     // Given argo wrote to thomas.
-    const fromArgo = await send(argo, { kind: 'ship', shipId: thomasId }, 'PR #1497 is open');
+    const fromArgo = await send(argo, { to: { kind: 'ship', shipId: thomasId }, payload: 'PR #1497 is open' });
 
     // When thomas opens its exchange with the lookout at argo's message, and reads one with a ship of no fleet.
     const around = await useCases.readExchange(thomas, { otherShipId: lookoutId, around: fromArgo });
@@ -162,7 +161,7 @@ describe('the exchange read', () => {
 
   it('reads the exchange with a retired ship by id', async () => {
     // Given the lookout wrote to thomas, then retired.
-    await send(lookout, { kind: 'ship', shipId: thomasId }, 'Done for today');
+    await send(lookout, { to: { kind: 'ship', shipId: thomasId }, payload: 'Done for today' });
     unwrap(await registryUseCases(core).retireShip(argo, { shipId: lookoutId }));
 
     // When thomas reads its exchange with it.

@@ -1,5 +1,7 @@
-import { PING_CONTENT_TYPE, type FleetId } from '@aeolus-fleet/common';
+import { PING_CONTENT_TYPE, type FleetId, type ShipId } from '@aeolus-fleet/common';
 
+import { isInExchange } from '../../domain/messaging/exchange.js';
+import type { Delivery, Message } from '../../domain/messaging/message.js';
 import type { DeliveryRepository, MessageRepository } from '../../domain/messaging/ports.js';
 import type { Db } from './client.js';
 import { Prisma } from './generated/client.js';
@@ -105,15 +107,35 @@ function countedDays(counted: readonly CountedMessage[]): { fleetId: FleetId; da
   return [...days.entries()].toSorted(([a], [b]) => a.localeCompare(b)).map(([, sum]) => sum);
 }
 
+/** The columns a delivery is read back with. */
+const DELIVERY_COLUMNS = Prisma.sql`id, fleet_id, message_id, recipient_ship_id, recipient_type, state::text AS state,
+  claimed_by_ship_id, claimed_by_lease_id, attempts, hand_over_number, handed_once_more_at, is_forced, created_at`;
+
+/** Each delivery with its message, in the deliveries' order. */
+async function withMessages(db: Db, { fleetId, deliveries }: { fleetId: FleetId; deliveries: readonly Delivery[] }): Promise<{ delivery: Delivery; message: Message }[]> {
+  const messages = await db.message.findMany({ where: { fleetId, id: { in: deliveries.map((delivery) => delivery.messageId) } } });
+  const byId = new Map(messages.map((row) => [row.id, toMessage(row)]));
+  return deliveries.map((delivery) => {
+    const message = byId.get(delivery.messageId);
+    if (!message) {
+      // The foreign key keeps every delivery's message in its fleet.
+      throw new Error(`Delivery ${delivery.id} has no message ${delivery.messageId}`);
+    }
+    return { delivery, message };
+  });
+}
+
 export function createPrismaDeliveryRepository(db: Db): DeliveryRepository {
   return {
-    create: async (delivery) => {
+    create: async (delivery, message) => {
       const { recipient } = delivery;
       await db.delivery.create({
         data: {
           id: delivery.id,
           fleetId: delivery.fleetId,
           messageId: delivery.messageId,
+          senderShipId: message.senderShipId,
+          isInExchange: isInExchange(message),
           recipientShipId: recipient.kind === 'ship' ? recipient.shipId : null,
           recipientType: recipient.kind === 'type' ? recipient.type : null,
           state: delivery.state,
@@ -178,6 +200,33 @@ export function createPrismaDeliveryRepository(db: Db): DeliveryRepository {
         }
         return { delivery, message };
       });
+    },
+    findExchangePage: async ({ fleetId, shipId, otherShipId, toward, from, isFromIncluded, limit }) => {
+      // Two halves, each read along the exchange index from the cursor and cut
+      // at the page: the other ship's deliveries that reached the ship, and the
+      // ship's that reached the other. A delivery is in one half only.
+      const bound =
+        from === undefined
+          ? Prisma.empty
+          : toward === 'older'
+            ? isFromIncluded === true
+              ? Prisma.sql`AND id <= ${from}`
+              : Prisma.sql`AND id < ${from}`
+            : Prisma.sql`AND id > ${from}`;
+      const order = toward === 'older' ? Prisma.sql`DESC` : Prisma.sql`ASC`;
+      const half = (reachedShipId: ShipId, senderShipId: ShipId) => Prisma.sql`
+        (SELECT ${DELIVERY_COLUMNS}
+         FROM deliveries
+         WHERE fleet_id = ${fleetId} AND is_in_exchange AND reached_ship_id = ${reachedShipId} AND sender_ship_id = ${senderShipId} ${bound}
+         ORDER BY id ${order}
+         LIMIT ${limit})`;
+      const rows = await db.$queryRaw<unknown[]>`
+        SELECT * FROM (${half(shipId, otherShipId)} UNION ALL ${half(otherShipId, shipId)}) AS exchange
+        ORDER BY id ${order}
+        LIMIT ${limit}`;
+      const deliveries = rows.map(toDeliveryFromSql);
+      const newestFirst = toward === 'older' ? deliveries : deliveries.toReversed();
+      return withMessages(db, { fleetId, deliveries: newestFirst });
     },
     findRecordPage: async ({ fleetId, shipId, cursor, limit }) => {
       // Two halves, each read newest first along its own index and cut at one

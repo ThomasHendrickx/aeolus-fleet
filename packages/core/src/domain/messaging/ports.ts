@@ -191,9 +191,38 @@ export interface RecordedDelivery {
   message: Message;
 }
 
+/** A delivery in an exchange, with the message it carries (docs/design/exchange-read). */
+export interface ExchangedDelivery {
+  delivery: Delivery;
+  message: Message;
+}
+
+/**
+ * Which part of an exchange to read: the deliveries of the messages the ship
+ * and the other ship sent that reached each other, older or newer than the
+ * delivery `from` names (or it too, when included), at most `limit`, the
+ * ones nearest `from` (the newest without it).
+ */
+export interface ExchangeQuery {
+  fleetId: FleetId;
+  shipId: ShipId;
+  otherShipId: ShipId;
+  toward: 'older' | 'newer';
+  from?: DeliveryId;
+  isFromIncluded?: boolean;
+  limit: number;
+}
+
 /** Outbound port: deliveries, always within one fleet. */
 export interface DeliveryRepository {
-  create(delivery: Delivery): Promise<void>;
+  /** Stores the delivery of the message, with its sender and whether it is in an exchange (E3). */
+  create(delivery: Delivery, message: Pick<Message, 'senderShipId' | 'meetingId' | 'contentType'>): Promise<void>;
+  /**
+   * A part of the exchange of the ship and the other ship (E1, E3), each
+   * delivery with its message, newest first by id. Only what the fleet still
+   * keeps. Locks nothing.
+   */
+  findExchangePage(query: ExchangeQuery): Promise<ExchangedDelivery[]>;
   /**
    * A page of the ship's record: the deliveries to it and those of its type
    * it claimed, in any state and whichever lease took them, each with its

@@ -32,8 +32,8 @@ beforeAll(async () => {
            'seed-' || i, now() - interval '30 days' + i * interval '1 minute', 'h', 'ship', ${argoId}, ${argoId}
     FROM generate_series(1, ${MESSAGES}::int) i`;
   await core.prisma.$executeRaw`
-    INSERT INTO deliveries (id, fleet_id, message_id, recipient_ship_id, state, created_at)
-    SELECT 'dlv_' || substr(id, 5), fleet_id, id, selector_ship_id, 'pending', created_at
+    INSERT INTO deliveries (id, fleet_id, message_id, sender_ship_id, recipient_ship_id, state, created_at)
+    SELECT 'dlv_' || substr(id, 5), fleet_id, id, sender_ship_id, selector_ship_id, 'pending', created_at
     FROM messages WHERE fleet_id = ${fleetId} AND id LIKE 'msg_seed%'`;
   await core.prisma.$executeRaw`ANALYZE`;
 }, 120_000);

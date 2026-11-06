@@ -254,12 +254,12 @@ describe('contributing to a meeting on Postgres', () => {
           ...tx,
           deliveries: {
             ...tx.deliveries,
-            create: async (delivery) => {
+            create: async (delivery, message) => {
               created += 1;
               if (created === 2) {
                 throw new Error('disk full');
               }
-              await tx.deliveries.create(delivery);
+              await tx.deliveries.create(delivery, message);
             },
           },
         };

@@ -35,7 +35,7 @@ async function crewed(ship: { name: string; kind: 'person' | 'agent'; type: stri
   return unwrap(await core.useCases.authenticate.byCrewToken(crewToken));
 }
 
-async function send(from: ShipCaller, to: Selector, payload: string): Promise<MessageId> {
+async function send(from: ShipCaller, { to, payload }: { to: Selector; payload: string }): Promise<MessageId> {
   core.clock.advance(1_000);
   const model = from.kind === 'agent' ? { model: MODEL } : {};
   return unwrap(await core.useCases.sendMessage(from, { selector: to, payload, contentType: 'text/plain', idempotencyKey: newKey(), ...model })).messageId;
@@ -43,9 +43,9 @@ async function send(from: ShipCaller, to: Selector, payload: string): Promise<Me
 
 async function labelValue(shipIds: readonly ShipId[]): Promise<Selector> {
   const { shipId: pluginId } = unwrap(
-    await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'trierarch-plugin', type: 'trierarch-plugin', scopes: ['labels:define', 'labels:assign'] }),
+    await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'trierarch-plugin', type: 'trierarch-plugin', scopes: ['labels:define', 'labels:assign', 'labels:any'] }),
   );
-  const plugin: ShipCaller = { fleetId: argo.fleetId, shipId: pluginId, kind: 'agent', scopes: ['labels:define', 'labels:assign'] };
+  const plugin: ShipCaller = { fleetId: argo.fleetId, shipId: pluginId, kind: 'agent', scopes: ['labels:define', 'labels:assign', 'labels:any'] };
   const { values } = unwrap(await core.useCases.defineLabel(plugin, { key: 'team', values: ['bridge'] }));
   const valueId = values[0]?.id;
   if (valueId === undefined) {
@@ -63,11 +63,11 @@ describe('the exchange read on Postgres', () => {
     // thomas answered by name; argo pinged both; and the lookout opened a meeting with thomas.
     const thomas = await crewed({ name: 'thomas', kind: 'person', type: 'person' });
     const lookout = await crewed({ name: 'lookout', kind: 'agent', type: 'reviewer' });
-    const byName = await send(lookout, { kind: 'ship', shipId: thomas.shipId }, 'Merge PR #1497?');
-    const byType = await send(lookout, { kind: 'type', type: 'person' }, 'Who is on call?');
-    unwrap(await core.useCases.pushReceiveDeliveries(thomas, {}));
-    const byLabel = await send(lookout, await labelValue([thomas.shipId]), 'Standup in five');
-    const answer = await send(thomas, { kind: 'ship', shipId: lookout.shipId }, 'Yes, merge it');
+    const byName = await send(lookout, { to: { kind: 'ship', shipId: thomas.shipId }, payload: 'Merge PR #1497?' });
+    const byType = await send(lookout, { to: { kind: 'type', type: 'person' }, payload: 'Who is on call?' });
+    unwrap(await core.useCases.pushReceiveDeliveries(thomas, { max: 10 }));
+    const byLabel = await send(lookout, { to: await labelValue([thomas.shipId]), payload: 'Standup in five' });
+    const answer = await send(thomas, { to: { kind: 'ship', shipId: lookout.shipId }, payload: 'Yes, merge it' });
     unwrap(await core.useCases.pingShip(argo, { shipId: thomas.shipId }));
     unwrap(await core.useCases.pingShip(argo, { shipId: lookout.shipId }));
     unwrap(await core.useCases.openMeeting(lookout, { ships: [{ shipId: thomas.shipId }], idempotencyKey: newKey(), model: MODEL }));
@@ -93,7 +93,7 @@ describe('the exchange read on Postgres', () => {
     const lookout = await crewed({ name: 'lookout', kind: 'agent', type: 'reviewer' });
     const sent: MessageId[] = [];
     for (let n = 1; n <= 30; n += 1) {
-      sent.push(n % 2 === 0 ? await send(thomas, { kind: 'ship', shipId: lookout.shipId }, `Note ${String(n)}`) : await send(lookout, { kind: 'ship', shipId: thomas.shipId }, `Note ${String(n)}`));
+      sent.push(n % 2 === 0 ? await send(thomas, { to: { kind: 'ship', shipId: lookout.shipId }, payload: `Note ${String(n)}` }) : await send(lookout, { to: { kind: 'ship', shipId: thomas.shipId }, payload: `Note ${String(n)}` }));
     }
 
     // When thomas reads the newest five, the five older, then the five newer than those, and the page around the 15th.
@@ -115,7 +115,7 @@ describe('the exchange read on Postgres', () => {
     // Given the lookout wrote to thomas.
     const thomas = await crewed({ name: 'thomas', kind: 'person', type: 'person' });
     const lookout = await crewed({ name: 'lookout', kind: 'agent', type: 'reviewer' });
-    await send(lookout, { kind: 'ship', shipId: thomas.shipId }, 'Merge PR #1497?');
+    await send(lookout, { to: { kind: 'ship', shipId: thomas.shipId }, payload: 'Merge PR #1497?' });
     const elsewhere = idSchema('fleet').parse(`flt_${'0'.repeat(26)}`);
 
     // When the same exchange is read in another fleet.

@@ -22,6 +22,7 @@ import type {
 import type { Meeting } from '../../src/domain/messaging/meeting.js';
 import type { Schedule } from '../../src/domain/messaging/schedule.js';
 import type { Delivery, Message } from '../../src/domain/messaging/message.js';
+import { isInExchange } from '../../src/domain/messaging/exchange.js';
 import type { Overdue, PushedCrew, WaitingDelivery } from '../../src/domain/messaging/overdue.js';
 import type {
   DeliveryRepository,
@@ -1597,6 +1598,23 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       find: (fleetId, deliveryId) => {
         const found = state.deliveries.find((held) => held.fleetId === fleetId && held.id === deliveryId);
         return Promise.resolve(found && structuredClone(found));
+      },
+      findExchangePage: ({ fleetId, shipId, otherShipId, toward, from, isFromIncluded, limit }) => {
+        const reachedShipIdOf = (delivery: Delivery) => (delivery.recipient.kind === 'ship' ? delivery.recipient.shipId : delivery.claimedByShipId);
+        const isOnTheWay = (id: string) =>
+          from === undefined || (toward === 'older' ? id < from : id > from) || (isFromIncluded === true && id === from);
+        const rows = state.deliveries
+          .filter((held) => held.fleetId === fleetId && isOnTheWay(held.id))
+          .flatMap((delivery) => {
+            const message = state.messages.find((held) => held.fleetId === fleetId && held.id === delivery.messageId);
+            const reached = reachedShipIdOf(delivery);
+            const isBetween =
+              (message?.senderShipId === otherShipId && reached === shipId) || (message?.senderShipId === shipId && reached === otherShipId);
+            return message && isBetween && isInExchange(message) ? [{ delivery: structuredClone(delivery), message: structuredClone(message) }] : [];
+          })
+          .toSorted((first, second) => (toward === 'older' ? second.delivery.id.localeCompare(first.delivery.id) : first.delivery.id.localeCompare(second.delivery.id)))
+          .slice(0, limit);
+        return Promise.resolve(toward === 'older' ? rows : rows.toReversed());
       },
       findRecordPage: ({ fleetId, shipId, cursor, limit }) => {
         const rows = state.deliveries

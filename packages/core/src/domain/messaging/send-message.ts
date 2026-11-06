@@ -278,7 +278,7 @@ export async function sendWithin(
     return message;
   }
   await tx.messages.create(message.value);
-  await tx.deliveries.create(delivery);
+  await tx.deliveries.create(delivery, message.value);
   for (const event of events) {
     await recordEvent({ events: tx.events, ids }, event);
   }
@@ -360,7 +360,7 @@ async function contributeWithin(
   }
   await tx.messages.create(message.value);
   for (const delivery of deliveries) {
-    await tx.deliveries.create(delivery);
+    await tx.deliveries.create(delivery, message.value);
   }
   for (const event of events) {
     await recordEvent({ events: tx.events, ids }, event);
@@ -432,7 +432,7 @@ async function sendToLabelWithin(
   }
   await tx.messages.create(message.value);
   for (const delivery of deliveries) {
-    await tx.deliveries.create(delivery);
+    await tx.deliveries.create(delivery, message.value);
   }
   for (const event of events) {
     await recordEvent({ events: tx.events, ids }, event);

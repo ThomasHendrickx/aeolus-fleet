@@ -41,8 +41,8 @@ async function seedHistory(start: Date): Promise<void> {
            ${start}::timestamptz + i * interval '1 second'
     FROM generate_series(1, ${HISTORY}::int) i`;
   await prisma.$executeRaw`
-    INSERT INTO deliveries (id, fleet_id, message_id, recipient_ship_id, state, created_at)
-    SELECT 'dlv_' || lpad(i::text, 26, '0'), ${fleetId}, 'msg_' || lpad(i::text, 26, '0'), 'shp_' || lpad((1 + (i + 1) % ${SHIPS}::int)::text, 26, '0'), 'dismissed', ${start}::timestamptz + i * interval '1 second'
+    INSERT INTO deliveries (id, fleet_id, message_id, sender_ship_id, recipient_ship_id, state, created_at)
+    SELECT 'dlv_' || lpad(i::text, 26, '0'), ${fleetId}, 'msg_' || lpad(i::text, 26, '0'), 'shp_' || lpad((1 + i % ${SHIPS}::int)::text, 26, '0'), 'shp_' || lpad((1 + (i + 1) % ${SHIPS}::int)::text, 26, '0'), 'dismissed', ${start}::timestamptz + i * interval '1 second'
     FROM generate_series(1, ${HISTORY}::int) i`;
 }
 
@@ -56,8 +56,8 @@ async function seedScoutInbox(start: Date): Promise<void> {
            ${start}::timestamptz + i * interval '1 second'
     FROM generate_series(${first}::int, ${last}::int) i`;
   await prisma.$executeRaw`
-    INSERT INTO deliveries (id, fleet_id, message_id, recipient_ship_id, state, claimed_by_ship_id, claimed_by_lease_id, created_at)
-    SELECT 'dlv_' || lpad(i::text, 26, '0'), ${fleetId}, 'msg_' || lpad(i::text, 26, '0'), ${scout.shipId},
+    INSERT INTO deliveries (id, fleet_id, message_id, sender_ship_id, recipient_ship_id, state, claimed_by_ship_id, claimed_by_lease_id, created_at)
+    SELECT 'dlv_' || lpad(i::text, 26, '0'), ${fleetId}, 'msg_' || lpad(i::text, 26, '0'), 'shp_' || lpad('1', 26, '0'), ${scout.shipId},
            (CASE WHEN i < ${first + PUSH_RECEIVE_EXCLUDING_MAX}::int THEN 'received' ELSE 'pending' END)::delivery_state,
            CASE WHEN i < ${first + PUSH_RECEIVE_EXCLUDING_MAX}::int THEN ${scout.shipId} END,
            CASE WHEN i < ${first + PUSH_RECEIVE_EXCLUDING_MAX}::int THEN ${scout.leaseId} END,

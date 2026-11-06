@@ -44,8 +44,8 @@ async function seedHistory(): Promise<void> {
            ${start}::timestamptz + i * ${spacingMs}::float8 * interval '1 millisecond'
     FROM generate_series(1, ${DELIVERIES}::int) i`;
   await core.prisma.$executeRaw`
-    INSERT INTO deliveries (id, fleet_id, message_id, recipient_ship_id, state, created_at)
-    SELECT 'dlv_' || lpad(i::text, 26, '0'), ${fleetId}, 'msg_' || lpad(i::text, 26, '0'), 'shp_' || lpad((1 + (i + 1) % ${SHIPS}::int)::text, 26, '0'),
+    INSERT INTO deliveries (id, fleet_id, message_id, sender_ship_id, recipient_ship_id, state, created_at)
+    SELECT 'dlv_' || lpad(i::text, 26, '0'), ${fleetId}, 'msg_' || lpad(i::text, 26, '0'), 'shp_' || lpad((1 + i % ${SHIPS}::int)::text, 26, '0'), 'shp_' || lpad((1 + (i + 1) % ${SHIPS}::int)::text, 26, '0'),
            (CASE WHEN i > ${DELIVERIES - OPEN}::int THEN 'pending' ELSE 'dismissed' END)::delivery_state,
            ${start}::timestamptz + i * ${spacingMs}::float8 * interval '1 millisecond'
     FROM generate_series(1, ${DELIVERIES}::int) i`;
