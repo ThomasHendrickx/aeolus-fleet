@@ -1,7 +1,7 @@
-import type { Meta, StoryObj } from '@storybook/nextjs-vite';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 
-import { Button } from '@aeolus-fleet/ui';
-import { Separator } from './separator';
+import { Button } from './button.js';
+import { Separator } from './separator.js';
 
 const meta = {
   title: 'Atoms/Separator',
