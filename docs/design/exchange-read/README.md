@@ -127,6 +127,8 @@ Each has options and my pick. Thomas answers each.
 
 **Pick 1.** "Exchange" is the issue's word; "conversation" and "chat" are a client's words.
 
+**Thomas: 1** (6 Nov).
+
 ## 5. Flows under the picks
 
 For review with the questions; not decided.
