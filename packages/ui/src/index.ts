@@ -9,6 +9,7 @@ export * from './atoms/button.js';
 export * from './atoms/dialog.js';
 export * from './atoms/dialog-surface.js';
 export * from './atoms/dropdown-menu.js';
+export * from './atoms/input.js';
 export * from './atoms/kbd.js';
 export * from './atoms/label.js';
 export * from './atoms/sheet.js';

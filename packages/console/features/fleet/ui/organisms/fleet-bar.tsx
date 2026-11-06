@@ -4,8 +4,7 @@ import type { LabelValueId } from '@aeolus-fleet/common';
 import type { HarbourState } from '@aeolus-fleet/common/rules';
 import { Search, SlidersHorizontal, X } from 'lucide-react';
 
-import { Button, Sheet, SheetBody, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger, ShipState, type HarbourCounts } from '@aeolus-fleet/ui';
-import { Input } from '../../../../components/atoms/input';
+import { Button, Sheet, SheetBody, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger, ShipState, type HarbourCounts, Input } from '@aeolus-fleet/ui';
 import { LabelChip } from '../../../../components/molecules/label-chip';
 import { filterGroupsOf, pickedChips, type LabelContext } from '../../../../lib/labels';
 import { counted } from '../../../../lib/sentence';

@@ -101,7 +101,7 @@ Rules for every Aeolus app, for cases the Design system page does not show. Name
 
 ## Accessibility
 - Contrast: text 4.5:1; text 24 px and up 3:1; focus indicator 3:1. Token pairs on the page pass; recheck any new pair.
-- Focus always visible: a 2 px `--ring` outline, offset 2 px, on everything focusable (`:focus-visible` in `globals.css`); fields add a `--ring` ring at 22 %; an invalid field (`aria-invalid`) a `--destructive` border and ring at 16 % (`components/atoms/input.tsx`).
+- Focus always visible: a 2 px `--ring` outline, offset 2 px, on everything focusable (`:focus-visible` in `globals.css`); fields add a `--ring` ring at 22 %; an invalid field (`aria-invalid`) a `--destructive` border and ring at 16 % (`packages/ui/src/atoms/input.tsx`).
 - Keyboard order = visual order: Sidebar, Header, page title, primary action, toolbar, content.
 - Dialog and Sheet: focus the first field or the safest button, trap focus, Esc closes, focus returns to the trigger.
 - Accessible names: visible `<label>` for fields, `aria-label` for icon-only buttons; errors via `aria-invalid` + `aria-describedby`.

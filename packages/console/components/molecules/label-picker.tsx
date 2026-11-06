@@ -4,10 +4,9 @@ import type { LabelTerm } from '@aeolus-fleet/common';
 import { Boxes, ChevronLeft, ChevronRight, Search, Ship, ShipWheel } from 'lucide-react';
 import { useState } from 'react';
 
-import { classNames } from '@aeolus-fleet/ui';
+import { classNames, Input } from '@aeolus-fleet/ui';
 import type { FilterGroup, FilterKey, OwnerMark } from '../../lib/labels';
 import { TERM_MEANINGS } from '../../lib/network-rules';
-import { Input } from '../atoms/input';
 
 interface LabelPickerProps {
   /** Every owner's keys, yours first (canvas Labels, Q7). */

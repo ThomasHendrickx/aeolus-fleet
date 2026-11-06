@@ -4,13 +4,12 @@ import type { AnswerChoice, DeliveryId } from '@aeolus-fleet/common';
 import { ChevronRight, CircleAlert, CircleCheck, CircleHelp, CircleSlash, Pencil, Replace, Send } from 'lucide-react';
 import { useId, useState } from 'react';
 
-import { Button, classNames, Label } from '@aeolus-fleet/ui';
+import { Button, classNames, Input, Label } from '@aeolus-fleet/ui';
 import type { QuestionEntry } from '../../../../lib/inbox-entry';
 import { clockTime, duration, fullDateTime, shortDateTime } from '../../../../lib/relative-time';
 import { counted } from '../../../../lib/sentence';
 import { isSendShortcut, sendShortcutAria, useShortcutPlatform } from '../../../../lib/send-shortcut';
 import { Badge } from '../../../../components/atoms/badge';
-import { Input } from '../../../../components/atoms/input';
 import { RadioGroup, RadioGroupItem } from '../../../../components/atoms/radio-group';
 import { Textarea } from '../../../../components/atoms/textarea';
 import { SendShortcutHint } from '../../../../components/molecules/send-shortcut-hint';
