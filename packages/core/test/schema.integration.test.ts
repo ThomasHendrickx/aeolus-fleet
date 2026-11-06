@@ -140,6 +140,7 @@ describe('migrations', () => {
       'defined_scopes',
       'deliveries',
       'events',
+      'exchanges',
       'fleet_feature_flags',
       'fleets',
       'guide_progress',
