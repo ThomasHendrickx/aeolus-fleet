@@ -114,20 +114,23 @@ const listedRows = z.array(
   }),
 );
 
+/** A page of a ship's rows, newest first, with the other ship of each. */
+export function exchangeListStatement({ fleetId, shipId, cursor, limit }: { fleetId: FleetId; shipId: ShipId; cursor?: MessageId | undefined; limit: number }): Prisma.Sql {
+  const after = cursor === undefined ? Prisma.empty : Prisma.sql`AND e.newest_message_id < ${cursor}`;
+  return Prisma.sql`
+    SELECT e.other_ship_id, s.name, s.type, s.kind::text AS kind, e.newest_message_id, e.unacknowledged
+    FROM exchanges e
+    JOIN ships s ON s.fleet_id = e.fleet_id AND s.id = e.other_ship_id
+    WHERE e.fleet_id = ${fleetId} AND e.ship_id = ${shipId} AND s.retired_at IS NULL ${after}
+    ORDER BY e.newest_message_id DESC
+    LIMIT ${limit + 1}`;
+}
+
 /** The list of exchanges read from the rollup: a page along its (fleet_id, ship_id, newest_message_id) index, each row with its other ship and newest message. */
 export function createPrismaExchangeList(db: Db): ExchangeList {
   return {
     page: async ({ fleetId, shipId, cursor, limit }) => {
-      const after = cursor === undefined ? Prisma.empty : Prisma.sql`AND e.newest_message_id < ${cursor}`;
-      const rows = listedRows.parse(
-        await db.$queryRaw`
-          SELECT e.other_ship_id, s.name, s.type, s.kind::text AS kind, e.newest_message_id, e.unacknowledged
-          FROM exchanges e
-          JOIN ships s ON s.fleet_id = e.fleet_id AND s.id = e.other_ship_id
-          WHERE e.fleet_id = ${fleetId} AND e.ship_id = ${shipId} AND s.retired_at IS NULL ${after}
-          ORDER BY e.newest_message_id DESC
-          LIMIT ${limit + 1}`,
-      );
+      const rows = listedRows.parse(await db.$queryRaw(exchangeListStatement({ fleetId, shipId, cursor, limit })));
       const messages = await db.message.findMany({ where: { fleetId, id: { in: rows.map((row) => row.newest_message_id) } } });
       const byId = new Map(messages.map((row) => [row.id, toMessage(row)]));
       const listed = rows.map((row) => {

@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { sha256Hasher } from '../src/adapters/crypto/secrets.js';
 import { createPrismaUnitOfWork, type PrismaTx } from '../src/adapters/prisma/unit-of-work.js';
 import { createAcknowledgeDelivery } from '../src/domain/messaging/acknowledge-delivery.js';
+import { createAcknowledgeUpTo } from '../src/domain/messaging/acknowledge-up-to.js';
 import { createSendMessage } from '../src/domain/messaging/send-message.js';
 import type { Crew, ShipCaller } from '../src/domain/shared/caller.js';
 import type { Selector } from '../src/domain/shared/selector.js';
@@ -203,5 +204,82 @@ describe('the rollup of exchanges on Postgres', () => {
     // Then the rollup is as it was.
     expect(before).toEqual([{ shipId: thomas.shipId, otherShipId: lookout.shipId, newestMessageId: byName, unacknowledged: 1 }]);
     expect(await rollup()).toEqual(before);
+  });
+
+  it('stays what a recount says when seen up to here races sends, claims and acks', async () => {
+    // Given two person ships, and two agents who wrote them by name and by type.
+    const thomas = await crewed({ name: 'thomas', kind: 'person', type: 'person' });
+    const maria = await crewed({ name: 'maria', kind: 'person', type: 'person' });
+    const [lookout, scout] = await Promise.all(['lookout', 'scout'].map((name) => crewed({ name, kind: 'agent', type: 'reviewer' })));
+    if (!lookout || !scout) {
+      throw new Error('crewed two agents');
+    }
+    const sendAll = (count: number) =>
+      [lookout, scout].flatMap((agent) =>
+        Array.from({ length: count }, (_, n) => {
+          const to: Selector = n % 3 === 0 ? { kind: 'ship', shipId: thomas.shipId } : n % 3 === 1 ? { kind: 'ship', shipId: maria.shipId } : { kind: 'type', type: 'person' };
+          return send(agent, { to, payload: `Note ${String(n)}` });
+        }),
+      );
+    await Promise.all(sendAll(6));
+    const seenUpTo = async (crew: Crew, other: Crew) => {
+      const newest = await core.prisma.delivery.findFirst({ where: { senderShipId: other.shipId, recipientShipId: crew.shipId }, orderBy: { id: 'desc' } });
+      return newest ? core.useCases.acknowledgeUpTo(crew, { otherShipId: other.shipId, messageId: idSchema('message').parse(newest.messageId) }) : undefined;
+    };
+    const takeAndAck = async (crew: Crew) => {
+      const taken = await core.useCases.pushReceiveDeliveries(crew, { max: 3 });
+      if (taken.isOk) {
+        await Promise.all(taken.value.deliveries.map((delivery) => core.useCases.acknowledgeDelivery(crew, { deliveryId: delivery.deliveryId })));
+      }
+    };
+
+    // When more come while both person ships claim and acknowledge, and each marks the agents' exchanges seen, at once.
+    await Promise.all([...sendAll(6), takeAndAck(thomas), takeAndAck(maria), seenUpTo(thomas, lookout), seenUpTo(thomas, scout), seenUpTo(maria, lookout), seenUpTo(thomas, lookout)]);
+
+    // Then the rollup is what a recount says, each count and newest message, and no count is below zero.
+    expect(await rollup()).toEqual(await recount());
+    expect((await rollup()).every((row) => row.unacknowledged >= 0)).toBe(true);
+  });
+
+  it('changes not when seen up to here fails after some of its deliveries changed', async () => {
+    // Given the lookout wrote thomas three times, and thomas's crew took them.
+    const thomas = await crewed({ name: 'thomas', kind: 'person', type: 'person' });
+    const lookout = await crewed({ name: 'lookout', kind: 'agent', type: 'reviewer' });
+    const to: Selector = { kind: 'ship', shipId: thomas.shipId };
+    const sent = [await send(lookout, { to, payload: 'One' }), await send(lookout, { to, payload: 'Two' }), await send(lookout, { to, payload: 'Three' })];
+    unwrap(await core.useCases.pushReceiveDeliveries(thomas, {}));
+    const before = await rollup();
+    const uow = createPrismaUnitOfWork(core.prisma);
+    let updated = 0;
+    const failingSecond: UnitOfWork<PrismaTx> = {
+      run: (work) =>
+        uow.run((tx) =>
+          work({
+            ...tx,
+            deliveries: {
+              ...tx.deliveries,
+              update: async (delivery) => {
+                await tx.deliveries.update(delivery);
+                updated += 1;
+                if (updated === 2) {
+                  throw new Error('disk full');
+                }
+              },
+            },
+          }),
+        ),
+    };
+
+    // When thomas marks the exchange seen up to the last, and it fails after the second delivery changed.
+    const seeing = createAcknowledgeUpTo({ uow: failingSecond, clock: core.clock, ids: newId });
+    await expect(seeing(thomas, { otherShipId: lookout.shipId, messageId: sent.at(-1) ?? newId('message') })).rejects.toThrow('disk full');
+
+    // Then none is acknowledged, no event was written, and the rollup is as it was and what a recount says.
+    expect(updated).toBe(2);
+    await expect(core.prisma.delivery.count({ where: { state: 'acknowledged' } })).resolves.toBe(0);
+    await expect(core.prisma.event.count({ where: { type: 'DeliveryAcknowledged' } })).resolves.toBe(0);
+    expect(before).toEqual([{ shipId: thomas.shipId, otherShipId: lookout.shipId, newestMessageId: sent.at(-1), unacknowledged: 3 }]);
+    expect(await rollup()).toEqual(before);
+    expect(await recount()).toEqual(before);
   });
 });

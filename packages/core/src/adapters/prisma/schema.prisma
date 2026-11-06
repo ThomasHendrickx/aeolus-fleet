@@ -1087,6 +1087,8 @@ model Delivery {
   @@index([fleetId, claimedByLeaseId, state])
   /// A ship's record pages the deliveries of its type it claimed newest first by id (Bridge, CC12). Partial, so a foreign key check never picks it.
   @@index([fleetId, claimedByShipId, id], map: "deliveries_record_fleet_id_claimed_by_ship_id_id_idx", where: raw("(recipient_type IS NOT NULL)"))
+  /// Seen up to here finds the deliveries of its type a ship claimed that are still in flight (docs/design/exchange-read, E6). Partial, so a foreign key check never picks it.
+  @@index([fleetId, claimedByShipId, id], map: "deliveries_in_flight_claimed_idx", where: raw("((recipient_type IS NOT NULL) AND (state = ANY (ARRAY['received'::delivery_state, 'handed'::delivery_state])))"))
   /// One exchange page is two range scans, one per direction (docs/design/exchange-read, E3). Partial, so a foreign key check never picks it.
   @@index([fleetId, reachedShipId, senderShipId, id], map: "deliveries_exchange_idx", where: raw("is_in_exchange"))
   /// Every foreign key has an index leading with its columns, so deleting a

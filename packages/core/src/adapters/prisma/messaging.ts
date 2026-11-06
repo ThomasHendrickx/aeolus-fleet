@@ -1,4 +1,4 @@
-import { PING_CONTENT_TYPE, type FleetId, type ShipId } from '@aeolus-fleet/common';
+import { PING_CONTENT_TYPE, type DeliveryId, type FleetId, type ShipId } from '@aeolus-fleet/common';
 
 import { isInExchange } from '../../domain/messaging/exchange.js';
 import type { Delivery, Message } from '../../domain/messaging/message.js';
@@ -126,6 +126,76 @@ async function withMessages(db: Db, { fleetId, deliveries }: { fleetId: FleetId;
   });
 }
 
+/**
+ * One page of an exchange: two halves, each read along the exchange index
+ * from the cursor and cut at the page: the other ship's deliveries that
+ * reached the ship, and the ship's that reached the other. A delivery is in
+ * one half only.
+ */
+export function exchangePageStatement({
+  fleetId,
+  shipId,
+  otherShipId,
+  toward,
+  from,
+  isFromIncluded,
+  limit,
+}: {
+  fleetId: FleetId;
+  shipId: ShipId;
+  otherShipId: ShipId;
+  toward: 'older' | 'newer';
+  from?: DeliveryId | undefined;
+  isFromIncluded?: boolean | undefined;
+  limit: number;
+}): Prisma.Sql {
+  const bound =
+    from === undefined
+      ? Prisma.empty
+      : toward === 'older'
+        ? isFromIncluded === true
+          ? Prisma.sql`AND id <= ${from}`
+          : Prisma.sql`AND id < ${from}`
+        : Prisma.sql`AND id > ${from}`;
+  const order = toward === 'older' ? Prisma.sql`DESC` : Prisma.sql`ASC`;
+  const half = (reachedShipId: ShipId, senderShipId: ShipId) => Prisma.sql`
+    (SELECT ${DELIVERY_COLUMNS}
+     FROM deliveries
+     WHERE fleet_id = ${fleetId} AND is_in_exchange AND reached_ship_id = ${reachedShipId} AND sender_ship_id = ${senderShipId} ${bound}
+     ORDER BY id ${order}
+     LIMIT ${limit})`;
+  return Prisma.sql`
+    SELECT * FROM (${half(shipId, otherShipId)} UNION ALL ${half(otherShipId, shipId)}) AS exchange
+    ORDER BY id ${order}
+    LIMIT ${limit}`;
+}
+
+/**
+ * What the other ship sent the ship that is still open, up to a delivery,
+ * locked in id order. Found along the indexes of what is open: the ship's own
+ * on (fleet_id, recipient_ship_id, state), and those of a type it claimed, in
+ * flight, on deliveries_in_flight_claimed_idx. Waits for a row another unit of
+ * work holds; once it is free its state is read again, so one acknowledged
+ * meanwhile is left out.
+ */
+export function unacknowledgedUpToStatement({ fleetId, shipId, otherShipId, upTo }: { fleetId: FleetId; shipId: ShipId; otherShipId: ShipId; upTo: DeliveryId }): Prisma.Sql {
+  return Prisma.sql`
+    SELECT ${DELIVERY_COLUMNS}
+    FROM deliveries
+    WHERE fleet_id = ${fleetId} AND state IN ('pending', 'received', 'handed')
+      AND id IN (
+        SELECT id FROM deliveries
+        WHERE fleet_id = ${fleetId} AND recipient_ship_id = ${shipId} AND state IN ('pending', 'received', 'handed')
+          AND sender_ship_id = ${otherShipId} AND is_in_exchange AND id <= ${upTo}
+        UNION ALL
+        SELECT id FROM deliveries
+        WHERE fleet_id = ${fleetId} AND claimed_by_ship_id = ${shipId} AND recipient_type IS NOT NULL AND state IN ('received', 'handed')
+          AND sender_ship_id = ${otherShipId} AND is_in_exchange AND id <= ${upTo}
+      )
+    ORDER BY id
+    FOR UPDATE`;
+}
+
 export function createPrismaDeliveryRepository(db: Db, rollups: ExchangeRollups): DeliveryRepository {
   return {
     create: async (delivery, message) => {
@@ -212,55 +282,15 @@ export function createPrismaDeliveryRepository(db: Db, rollups: ExchangeRollups)
         return { delivery, message };
       });
     },
-    findExchangePage: async ({ fleetId, shipId, otherShipId, toward, from, isFromIncluded, limit }) => {
-      // Two halves, each read along the exchange index from the cursor and cut
-      // at the page: the other ship's deliveries that reached the ship, and the
-      // ship's that reached the other. A delivery is in one half only.
-      const bound =
-        from === undefined
-          ? Prisma.empty
-          : toward === 'older'
-            ? isFromIncluded === true
-              ? Prisma.sql`AND id <= ${from}`
-              : Prisma.sql`AND id < ${from}`
-            : Prisma.sql`AND id > ${from}`;
-      const order = toward === 'older' ? Prisma.sql`DESC` : Prisma.sql`ASC`;
-      const half = (reachedShipId: ShipId, senderShipId: ShipId) => Prisma.sql`
-        (SELECT ${DELIVERY_COLUMNS}
-         FROM deliveries
-         WHERE fleet_id = ${fleetId} AND is_in_exchange AND reached_ship_id = ${reachedShipId} AND sender_ship_id = ${senderShipId} ${bound}
-         ORDER BY id ${order}
-         LIMIT ${limit})`;
-      const rows = await db.$queryRaw<unknown[]>`
-        SELECT * FROM (${half(shipId, otherShipId)} UNION ALL ${half(otherShipId, shipId)}) AS exchange
-        ORDER BY id ${order}
-        LIMIT ${limit}`;
+    findExchangePage: async (query) => {
+      const rows = await db.$queryRaw<unknown[]>(exchangePageStatement(query));
       const deliveries = rows.map(toDeliveryFromSql);
-      const newestFirst = toward === 'older' ? deliveries : deliveries.toReversed();
-      return withMessages(db, { fleetId, deliveries: newestFirst });
+      const newestFirst = query.toward === 'older' ? deliveries : deliveries.toReversed();
+      return withMessages(db, { fleetId: query.fleetId, deliveries: newestFirst });
     },
-    findUnacknowledgedUpToForUpdate: async ({ fleetId, shipId, otherShipId, upTo }) => {
-      // Found along the indexes of what is open: the ship's own on (fleet_id,
-      // recipient_ship_id, state), and those of a type it claimed, in flight,
-      // on the claiming ship's. Locked in id order, waiting for a row another
-      // unit of work holds; once it is free its state is read again, so one
-      // acknowledged meanwhile is left out.
-      const rows = await db.$queryRaw<unknown[]>`
-        SELECT ${DELIVERY_COLUMNS}
-        FROM deliveries
-        WHERE fleet_id = ${fleetId} AND state IN ('pending', 'received', 'handed')
-          AND id IN (
-            SELECT id FROM deliveries
-            WHERE fleet_id = ${fleetId} AND recipient_ship_id = ${shipId} AND state IN ('pending', 'received', 'handed')
-              AND sender_ship_id = ${otherShipId} AND is_in_exchange AND id <= ${upTo}
-            UNION ALL
-            SELECT id FROM deliveries
-            WHERE fleet_id = ${fleetId} AND claimed_by_ship_id = ${shipId} AND recipient_type IS NOT NULL AND state IN ('received', 'handed')
-              AND sender_ship_id = ${otherShipId} AND is_in_exchange AND id <= ${upTo}
-          )
-        ORDER BY id
-        FOR UPDATE`;
-      return withMessages(db, { fleetId, deliveries: rows.map(toDeliveryFromSql) });
+    findUnacknowledgedUpToForUpdate: async (query) => {
+      const rows = await db.$queryRaw<unknown[]>(unacknowledgedUpToStatement(query));
+      return withMessages(db, { fleetId: query.fleetId, deliveries: rows.map(toDeliveryFromSql) });
     },
     findRecordPage: async ({ fleetId, shipId, cursor, limit }) => {
       // Two halves, each read newest first along its own index and cut at one
