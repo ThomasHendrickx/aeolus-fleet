@@ -24,7 +24,7 @@ interface NewCrewLineFor {
 
 /**
  * Get new crew line for a member as a flow: `start` asks first, always, saying
- * what the new line ends (docs/design/conventions.md, "Destructive actions");
+ * what the new line ends (docs/design/console-conventions.md, "Destructive actions");
  * on confirm it is issued, and `dialog` shows the lines and launch note once.
  * Kept apart from its trigger, so a row menu can start it and close while the
  * dialog stays.
@@ -93,7 +93,7 @@ export function NewCrewLineFlow({ of, children }: { of: NewCrewLineFor | undefin
   return children(useNewCrewLineFlow(of));
 }
 
-/** Get new crew line for a member as a button, primary for a silent member (docs/design/conventions.md, "Squadrons"). */
+/** Get new crew line for a member as a button, primary for a silent member (docs/design/console-conventions.md, "Squadrons"). */
 export function GetNewCrewLine({ isPrimary = false, testId, ...of }: NewCrewLineFor & { isPrimary?: boolean; testId: string }) {
   const flow = useNewCrewLineFlow(of);
   return (

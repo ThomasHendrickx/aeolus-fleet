@@ -1,11 +1,12 @@
 # Aeolus design system
 
-Exported from the Claude Design canvas "Aeolus operator console v1" (Design system page). Build from this, not from the screens. The screen artboards stay on the canvas as reference only; on conflict, the parts and `conventions.md` win.
+Exported from the Claude Design canvas "Aeolus operator console v1" (Design system page). Build from this, not from the screens. The screen artboards stay on the canvas as reference only; on conflict, the parts and the conventions win.
 
-- `conventions.md`: rules for everything the parts do not show. Read before any console work.
+- [`conventions.md`](conventions.md): rules for every Aeolus app, for everything the parts do not show. Read before any UI work.
+- [`console-conventions.md`](console-conventions.md): the rules only the console has (FleetTable, argo, squadrons, crew requests, network). Read after `conventions.md` before console work.
 - [`packages/ui/src/tokens.css`](../../packages/ui/src/tokens.css): every token, light (`:root`) and dark (`.dark`). The single copy, in `@aeolus-fleet/ui`: every Aeolus app's theme imports it through `theme.css`, and the parts here refer to it.
 - `png/<Part>.png`: the part in all its states, light and dark. Open only the parts you build.
-- `source/<Part>.html`: the canvas markup for exact values; FleetTable composition and phone labels follow `conventions.md` and its console Storybook states; helper classes in `source/canvas.css`.
+- `source/<Part>.html`: the canvas markup for exact values; FleetTable composition and phone labels follow `console-conventions.md` and its console Storybook states; helper classes in `source/canvas.css`.
 - [`packages/ui/src/brand.css`](../../packages/ui/src/brand.css): the brand tokens (colour, type, motion) from the brandbook, light and dark. The single copy, for every Aeolus surface; the apps' look is still `tokens.css`.
 - [`brand/README.md`](../../brand/README.md): the app mark and its exports. Every favicon and app icon comes from there.
 

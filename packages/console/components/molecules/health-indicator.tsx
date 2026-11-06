@@ -7,7 +7,7 @@ const HEALTHS: Record<MemberHealth, { label: string; dot: string; text: string }
   silent: { label: 'Silent', dot: 'bg-tone-attention-fg', text: 'text-tone-attention-fg' },
   // A removed member, until its crew is released and its ship retired (#343).
   'standing-down': { label: 'Standing down', dot: 'bg-tone-active-fg', text: 'text-tone-active-fg' },
-  // Not on station is a dashed ring, no tone (docs/design/conventions.md, "Colour").
+  // Not on station is a dashed ring, no tone (docs/design/console-conventions.md, "Colour").
   'not-on-station': { label: 'Not on station', dot: 'border border-dashed border-muted-foreground', text: 'text-foreground' },
 };
 

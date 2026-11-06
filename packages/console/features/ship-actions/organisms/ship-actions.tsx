@@ -92,7 +92,7 @@ function sessionLocationOf(ship: ListedShip): string | null {
 }
 
 /**
- * A ship's actions, each behind its designed dialog (docs/design/conventions.md,
+ * A ship's actions, each behind its designed dialog (docs/design/console-conventions.md,
  * "Destructive actions"), in the layout asked for: buttons on its page; FleetTable's row
  * menu, a DropdownMenu on desktop and a bottom Sheet on phone; or the row's
  * one next step (Get starting prompt for a ship awaiting crew, Get new crew
@@ -106,7 +106,7 @@ function sessionLocationOf(ship: ListedShip): string | null {
  * so its numbers are exact and a retire never skips the typed confirm. A new
  * or re-crewed prompt shows once, in the StartingPromptDialog.
  *
- * With squadrons (docs/design/conventions.md, "Squadrons"): a flagship offers
+ * With squadrons (docs/design/console-conventions.md, "Squadrons"): a flagship offers
  * only Open squadron, since retiring, releasing or renaming it would break its
  * squadron; a member offers Message, Copy ship id, Ping, Get new crew line,
  * Release and Remove from squadron, never Rename, Retire, Re-crew or Get
@@ -440,7 +440,7 @@ function ActionsIn({ layout, ship, actions }: { layout: ShipActionsLayout; ship:
         </Button>
       );
     }
-    // On phone the next step is a full-width touch target (docs/design/conventions.md, "FleetTable").
+    // On phone the next step is a full-width touch target (docs/design/console-conventions.md, "Components: which one").
     return <ActionButton action={{ ...next, isPrimary: false }} className="max-sm:h-(--size-control-touch) max-sm:w-full max-sm:text-body-touch" />;
   }
   if (layout === 'buttons') {
