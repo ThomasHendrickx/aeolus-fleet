@@ -86,6 +86,19 @@ const harnessUsageSchema = z.strictObject({
 /** The longest reason a harness is not offered: one line for the console. */
 export const NOT_OFFERED_REASON_MAX_LENGTH = 280;
 
+/** Standard base64 of a NaCl public key (32 bytes): 43 characters, then one "=" after a character whose low four bits are zero. No Node API, as the console parses this too. */
+const SEALING_PUBLIC_KEY_BASE64 = /^[A-Za-z0-9+/]{42}[AEIMQUYcgkosw048]=$/;
+
+/**
+ * The key crew-time MCP secrets are sealed to for this trierarch
+ * (aeolus-fleet-trierarch's docs/design/crew-mcp-servers.md): the public half
+ * only, in base64.
+ */
+const sealingKeySchema = z.strictObject({
+  scheme: z.literal('nacl-sealed-box'),
+  publicKey: z.base64().regex(SEALING_PUBLIC_KEY_BASE64, 'A public key is 32 bytes'),
+});
+
 export const trierarchReportDetailsSchema = z.strictObject({
   harnesses: z.array(
     z.strictObject({
@@ -156,6 +169,8 @@ export const trierarchReportDetailsSchema = z.strictObject({
   load: machineLoadSchema.optional(),
   /** None from a trierarch before 0.31.0. */
   usage: harnessUsageSchema.optional(),
+  /** None from a trierarch before crew-time MCP servers. */
+  sealingKey: sealingKeySchema.optional(),
   /** The trierarch's own version. */
   version: z.string().min(1),
 });
