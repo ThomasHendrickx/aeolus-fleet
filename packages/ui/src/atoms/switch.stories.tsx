@@ -1,7 +1,7 @@
-import type { Meta, StoryObj } from '@storybook/nextjs-vite';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 
-import { Label } from '@aeolus-fleet/ui';
-import { Switch } from './switch';
+import { Label } from './label.js';
+import { Switch } from './switch.js';
 
 function ShowRetired({ isChecked, isDisabled = false }: { isChecked: boolean; isDisabled?: boolean }) {
   return (

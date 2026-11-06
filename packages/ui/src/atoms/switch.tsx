@@ -2,7 +2,7 @@
 
 import { Switch as SwitchPrimitive } from '@base-ui/react/switch';
 
-import { classNames } from '@aeolus-fleet/ui';
+import { classNames } from '../class-names.js';
 
 /**
  * shadcn Switch on Base UI, themed to docs/design/png/Switch.png: one instant

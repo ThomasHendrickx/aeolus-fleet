@@ -14,6 +14,7 @@ export * from './atoms/kbd.js';
 export * from './atoms/label.js';
 export * from './atoms/sheet.js';
 export * from './atoms/ship-state.js';
+export * from './atoms/switch.js';
 export * from './atoms/tooltip.js';
 export * from './class-names.js';
 export * from './molecules/app-switcher.js';
