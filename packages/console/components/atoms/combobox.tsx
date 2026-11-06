@@ -4,8 +4,7 @@ import { Combobox as ComboboxPrimitive } from '@base-ui/react/combobox';
 import { Check } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 
-import { classNames } from '@aeolus-fleet/ui';
-import { inputVariants } from './input';
+import { classNames, inputVariants } from '@aeolus-fleet/ui';
 
 /** One suggestion: what it stands for, the words it is found by, and what it shows beside them. */
 export interface ComboboxOption {

@@ -3,8 +3,7 @@
 import type { FleetId } from '@aeolus-fleet/common';
 import { useId, useState } from 'react';
 
-import { Button, Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle, dialogSurface } from '@aeolus-fleet/ui';
-import { Input } from '../../../../components/atoms/input';
+import { Button, Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle, dialogSurface, Input } from '@aeolus-fleet/ui';
 import { Label } from '../../../../components/atoms/label';
 import type { SealingRefusal } from '../../services/sealing-refusal';
 import { shortened } from '../../services/sealing-view';

@@ -4,10 +4,9 @@ import { Boxes, Ellipsis, Pencil, Plus, Search, Ship, ShipWheel, Tags, Trash2 } 
 import Link from 'next/link';
 import { useState } from 'react';
 
-import { Button, classNames, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@aeolus-fleet/ui';
+import { Button, classNames, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, Input } from '@aeolus-fleet/ui';
 import { useConsoleConstants } from '../../../lib/console-constants';
 import { matchesLabelQuery, type LabelRow, type OwnerMark } from '../../../lib/labels';
-import { Input } from '../../../components/atoms/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/atoms/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/atoms/table';
 import { EmptyState } from '../../../components/molecules/empty-state';

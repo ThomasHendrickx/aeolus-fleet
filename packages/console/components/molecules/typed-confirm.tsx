@@ -1,9 +1,9 @@
 'use client';
 
+import { Input } from '@aeolus-fleet/ui';
 import { useId } from 'react';
 
 import { isTypedMatch } from '../../lib/ship-dialogs';
-import { Input } from '../atoms/input';
 import { Label } from '../atoms/label';
 
 interface TypedConfirmProps {

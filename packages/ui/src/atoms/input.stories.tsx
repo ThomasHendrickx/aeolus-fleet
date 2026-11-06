@@ -1,8 +1,7 @@
-import type { Meta, StoryObj } from '@storybook/nextjs-vite';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 import { Check, CircleX, Search } from 'lucide-react';
 
-import { Input } from './input';
-import { Label } from './label';
+import { Input } from './input.js';
 
 const meta = {
   title: 'Atoms/Input',
@@ -11,7 +10,9 @@ const meta = {
   decorators: [
     (Story) => (
       <div className="flex max-w-80 flex-col gap-1.5">
-        <Label htmlFor="ship-name">Name</Label>
+        <label htmlFor="ship-name" className="text-body font-medium text-foreground select-none">
+          Name
+        </label>
         <Story />
       </div>
     ),

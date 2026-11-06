@@ -5,14 +5,13 @@ import { isShipHandle } from '@aeolus-fleet/common/rules';
 import { CircleCheck, CircleX, Tag } from 'lucide-react';
 import { useId, useState } from 'react';
 
-import { Button, classNames, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, dialogSurface, DialogTitle } from '@aeolus-fleet/ui';
+import { Button, classNames, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, dialogSurface, DialogTitle, Input } from '@aeolus-fleet/ui';
 import { useConsoleConstants } from '../../../../lib/console-constants';
 import { defaultValues, promptBytes, settingsOf, type CrewSettingsValues, type HarnessOffer } from '../../../../lib/crew-settings-form';
 import type { MachineLabelsInput } from '../../../../lib/machine-labels';
 import type { SettingsCheck } from '../../../../lib/trierarch-plugin-schemas';
 import { asHandle, checkShipName, typeHint } from '../../../../lib/ship-name';
 import { Combobox } from '../../../../components/atoms/combobox';
-import { Input } from '../../../../components/atoms/input';
 import { Label } from '../../../../components/atoms/label';
 import { Switch } from '../../../../components/atoms/switch';
 import { Textarea } from '../../../../components/atoms/textarea';
