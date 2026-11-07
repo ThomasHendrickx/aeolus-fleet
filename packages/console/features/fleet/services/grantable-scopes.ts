@@ -2,8 +2,8 @@
  * What the commission dialog offers to grant, from the fleet's scopes as
  * `fleet.scopes` lists them (decision 0046): the fleet scopes commissioning
  * grants, then each plugin's, then the fleet's own (design gateway-scopes,
- * 4.1), so every switch shows the description the fleet gives its scope rather
- * than the console's own words.
+ * 4.1), so every scope the picker lists shows the description the fleet
+ * gives it rather than the console's own words.
  */
 
 /** The heading over a namespace of the fleet's own scopes, which no ship declared. */

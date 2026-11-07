@@ -1,6 +1,6 @@
 import { CORE_SCOPE_DESCRIPTIONS } from '@aeolus-fleet/common';
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
-import { expect, screen, userEvent, waitFor } from 'storybook/test';
+import { expect, screen, userEvent, waitFor, within } from 'storybook/test';
 
 import { CommissionDialog } from './commission-dialog';
 import { MACHINE_LABELS, OFFERS } from '../../../../lib/fixtures/machines.fixtures';
@@ -51,25 +51,27 @@ export const Commissioning: Story = { args: { isPending: true } };
 export const Failed: Story = { args: { error: 'An active ship is already named reviewer-01.' } };
 /** At the fleet's ship limit (canvas 12.1): the dialog says so and commissions nothing. */
 export const AtShipLimit: Story = { args: { shipLimit: 10, accountUrl: 'https://pagasae.aeolus-fleet.dev/account' } };
-/** Fleet access: each switch shows the description the fleet gives its scope (decision 0046). */
+/** Fleet access: each scope the picker lists shows the description the fleet gives it (decision 0046), and a picked one shows as a chip. */
 export const FleetAccess: Story = {
   play: async () => {
-    const label = await screen.findByText(CORE_SCOPE_DESCRIPTIONS['fleet:read']);
-    await waitFor(async () => {
-      await expect(label).toBeVisible();
-    });
+    const fleet = await screen.findByTestId('commission-scopes-fleet');
+    await userEvent.type(within(fleet).getByTestId('scope-picker-search'), 'fleet:read');
+    const option = await screen.findByTestId('scope-picker-option');
+    await expect(option).toHaveTextContent(CORE_SCOPE_DESCRIPTIONS['fleet:read']);
+    await userEvent.click(option);
+    await expect(within(fleet).getByTestId('scope-picker-chip')).toHaveTextContent('fleet:read');
   },
 };
-/** A plugin's scopes, under the name of the ship that declared them, each with its own description. */
+/** A plugin's scopes, in their own picker under the name of the ship that declared them, each with its own description. */
 export const WithPluginScopes: Story = {
   args: { scopeGroups: [FLEET_ACCESS, SQUADRONS_SCOPES] },
   play: async () => {
-    await waitFor(async () => {
-      await expect(screen.getByTestId('commission-scopes-squadrons')).toHaveTextContent('Form a squadron by message');
-    });
+    const squadrons = await screen.findByTestId('commission-scopes-squadrons');
+    await userEvent.click(within(squadrons).getByTestId('scope-picker-search'));
+    await expect(await screen.findByText('Form a squadron by message')).toBeVisible();
   },
 };
-/** While the fleet's scopes are read: no switch yet. */
+/** While the fleet's scopes are read: no picker yet. */
 export const ReadingScopes: Story = { args: { scopeGroups: undefined } };
 export const Phone: Story = { globals: { viewport: { value: 'mobile1' } } };
 

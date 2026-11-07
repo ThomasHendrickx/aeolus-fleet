@@ -76,6 +76,17 @@ async function fillCommission(page: Page, ship: { name: string; type: string; no
   await dialog.getByTestId('commission-note').fill(ship.note ?? '');
 }
 
+/** Picks one of the fleet scopes in the CommissionDialog's scope picker, found by its code; with a description, the option shows it. */
+async function pickFleetScope(page: Page, { scope, description }: { scope: string; description?: string }): Promise<void> {
+  await page.getByTestId('commission-dialog').getByTestId('commission-scopes-fleet').getByTestId('scope-picker-search').fill(scope);
+  const option = page.getByTestId('scope-picker-option').filter({ hasText: scope });
+  if (description !== undefined) {
+    await option.getByText(description).waitFor();
+  }
+  await option.click();
+  await page.getByTestId('commission-scopes-fleet').getByTestId('scope-picker-chip').filter({ hasText: scope }).waitFor();
+}
+
 async function commission(page: Page, ship: { name: string; type: string; note?: string }): Promise<void> {
   await fillCommission(page, ship);
   await page.getByTestId('commission-dialog').getByTestId('commission-submit').click();
@@ -189,9 +200,8 @@ describe('commissioning a ship in the console', () => {
     const page = await signedInPage();
     await fillCommission(page, { name: 'squad-manager', type: 'squadron' });
     const dialog = page.getByTestId('commission-dialog');
-    await dialog.getByText('Read ships, timelines, messages, labels, events and fleet-wide views').waitFor();
-    await dialog.getByTestId('commission-fleet-read').click();
-    await dialog.getByTestId('commission-fleet-manage').click();
+    await pickFleetScope(page, { scope: 'fleet:read', description: 'Read ships, timelines, messages, labels, events and fleet-wide views' });
+    await pickFleetScope(page, { scope: 'fleet:manage' });
 
     await dialog.getByTestId('commission-submit').click();
 
@@ -205,7 +215,7 @@ describe('commissioning a ship in the console', () => {
     const page = await signedInPage();
     await fillCommission(page, { name: 'mac-mini', type: 'trierarch' });
     const dialog = page.getByTestId('commission-dialog');
-    await dialog.getByTestId('commission-crew-run').click();
+    await pickFleetScope(page, { scope: 'crew:run' });
 
     await dialog.getByTestId('commission-submit').click();
 
