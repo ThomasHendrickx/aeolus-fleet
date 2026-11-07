@@ -1,10 +1,12 @@
-import type { FleetId, MessageId, ShipId } from '@aeolus-fleet/common';
+import type { DeliveryId, FleetId, MessageId, ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { crewAboard, deliveryIdOf, initialiseFleet, messagingUseCases, modelOf, operatorCaller, registryUseCases } from '../../../test/support/core-fixtures.js';
+import { crewAboard, deliveryIdOf, initialiseFleet, messagingUseCases, modelOf, operatorCaller, registryUseCases, sealFleet } from '../../../test/support/core-fixtures.js';
+import { valueIdOf } from '../../../test/support/label-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { newKey } from '../../testing/keys.js';
 import { unwrap } from '../../testing/result.js';
+import { DATA_KEY_CACHE_MS } from './data-keys.js';
 import type { Crew, ShipCaller } from '../shared/caller.js';
 import type { Selector } from '../shared/selector.js';
 
@@ -40,6 +42,11 @@ async function send(from: ShipCaller, { to, payload, inReplyTo }: { to: Selector
   return messageId;
 }
 
+/** The ship's own delivery of the message: to it by name or label, or of its type once it claimed it. */
+function deliveryOf(messageId: MessageId, shipId: ShipId): DeliveryId | undefined {
+  return core.state.deliveries.find((held) => held.messageId === messageId && (held.claimedByShipId === shipId || (held.recipient.kind === 'ship' && held.recipient.shipId === shipId)))?.id;
+}
+
 describe('the exchange read', () => {
   it('reads what the other ship sent that reached the caller and what the caller sent that reached it, newest first', async () => {
     // Given the lookout asked thomas, thomas answered it, and the lookout acknowledged the answer.
@@ -62,6 +69,7 @@ describe('the exchange read', () => {
           inReplyTo: asked,
           sentAt: new Date('2026-11-06T12:00:02.000Z'),
           deliveryState: 'acknowledged',
+          receivedDelivery: null,
         },
         {
           messageId: asked,
@@ -71,6 +79,7 @@ describe('the exchange read', () => {
           inReplyTo: null,
           sentAt: new Date('2026-11-06T12:00:01.000Z'),
           deliveryState: null,
+          receivedDelivery: { deliveryId: deliveryIdOf(core, asked), state: 'pending' },
         },
       ],
       olderCursor: null,
@@ -169,5 +178,100 @@ describe('the exchange read', () => {
 
     // Then its message is still there.
     expect(page.items.map((item) => item.payload)).toEqual(['Done for today']);
+  });
+});
+
+// The reader's delivery on each message it received (docs/design/exchange-read, section 7, D1).
+describe("the exchange read's delivery of each message the reader received", () => {
+  it("carries the reader's delivery id and its state on a message the other ship sent by name", async () => {
+    // Given the lookout asked thomas by name.
+    const asked = await send(lookout, { to: { kind: 'ship', shipId: thomasId }, payload: 'Merge PR #1497?' });
+
+    // When thomas reads its exchange with the lookout.
+    const page = unwrap(await useCases.readExchange(thomas, { otherShipId: lookoutId }));
+
+    // Then the message carries thomas's own delivery of it, pending.
+    expect(page.items.map(({ messageId, deliveryState, receivedDelivery }) => ({ messageId, deliveryState, receivedDelivery }))).toEqual([
+      { messageId: asked, deliveryState: null, receivedDelivery: { deliveryId: deliveryOf(asked, thomasId), state: 'pending' } },
+    ]);
+  });
+
+  it("carries the claimed delivery on a message of the reader's type it claimed", async () => {
+    // Given the lookout sent thomas's type a message thomas's crew claimed.
+    const ofItsType = await send(lookout, { to: { kind: 'type', type: 'person' }, payload: 'Who is on call?' });
+    unwrap(await useCases.pushReceiveDeliveries(thomas, {}));
+
+    // When thomas reads its exchange with the lookout.
+    const page = unwrap(await useCases.readExchange(thomas, { otherShipId: lookoutId }));
+
+    // Then the message carries the delivery thomas claimed, received.
+    expect(page.items.map((item) => item.receivedDelivery)).toEqual([{ deliveryId: deliveryOf(ofItsType, thomasId), state: 'received' }]);
+  });
+
+  it("carries the reader's delivery of a label send to it and another ship, never the other's", async () => {
+    // Given the lookout sent a label thomas and argo hold, and argo acknowledged its delivery.
+    unwrap(await registryUseCases(core).defineLabel(argo, { key: 'team', values: ['bridge'] }));
+    const valueId = valueIdOf(core, { key: 'team', value: 'bridge' });
+    for (const shipId of [thomasId, argo.shipId]) {
+      unwrap(await registryUseCases(core).assignLabel(argo, { shipId, valueId }));
+    }
+    const byLabel = await send(lookout, { to: { kind: 'label', valueIds: [valueId] }, payload: 'Standup in five' });
+    const argoCrew = crewAboard(core, argo);
+    for (const { deliveryId } of unwrap(await useCases.receiveDeliveries(argoCrew, {})).deliveries) {
+      unwrap(await useCases.acknowledgeDelivery(argoCrew, { deliveryId }));
+    }
+
+    // When thomas reads its exchange with the lookout.
+    const page = unwrap(await useCases.readExchange(thomas, { otherShipId: lookoutId }));
+
+    // Then the message carries thomas's own delivery, still pending, not argo's.
+    expect(page.items.map((item) => item.receivedDelivery)).toEqual([{ deliveryId: deliveryOf(byLabel, thomasId), state: 'pending' }]);
+  });
+
+  it("carries no delivery on the reader's own message, and deliveryState still the other ship's", async () => {
+    // Given thomas wrote to the lookout, and the lookout received it.
+    const told = await send(thomas, { to: { kind: 'ship', shipId: lookoutId }, payload: 'Merge it' });
+    unwrap(await useCases.receiveDeliveries(lookout, {}));
+
+    // When thomas reads its exchange with the lookout.
+    const page = unwrap(await useCases.readExchange(thomas, { otherShipId: lookoutId }));
+
+    // Then the message carries no delivery of thomas's, and the lookout's delivery state.
+    expect(page.items.map(({ messageId, deliveryState, receivedDelivery }) => ({ messageId, deliveryState, receivedDelivery }))).toEqual([
+      { messageId: told, deliveryState: 'handed', receivedDelivery: null },
+    ]);
+  });
+
+  it('answers acknowledged once the reader acknowledged it, on the page around the message too', async () => {
+    // Given the lookout asked thomas, and thomas received and acknowledged it.
+    const asked = await send(lookout, { to: { kind: 'ship', shipId: thomasId }, payload: 'Merge PR #1497?' });
+    for (const { deliveryId } of unwrap(await useCases.receiveDeliveries(thomas, {})).deliveries) {
+      unwrap(await useCases.acknowledgeDelivery(thomas, { deliveryId }));
+    }
+
+    // When thomas reads its exchange with the lookout, and the page around the message.
+    const newest = unwrap(await useCases.readExchange(thomas, { otherShipId: lookoutId }));
+    const around = unwrap(await useCases.readExchange(thomas, { otherShipId: lookoutId, around: asked }));
+
+    // Then both carry its delivery, acknowledged.
+    const acknowledged = [{ deliveryId: deliveryOf(asked, thomasId), state: 'acknowledged' }];
+    expect(newest.items.map((item) => item.receivedDelivery)).toEqual(acknowledged);
+    expect(around.items.map((item) => item.receivedDelivery)).toEqual(acknowledged);
+  });
+
+  it('carries the delivery on a message whose payload is marked unreadable', async () => {
+    // Given a sealed fleet in which the lookout wrote to thomas, then the fleet's key was cut off.
+    const fleetKey = await sealFleet(core, fleetId);
+    const asked = await send(lookout, { to: { kind: 'ship', shipId: thomasId }, payload: 'Merge PR #1497?' });
+    await core.keyVault.disable(fleetKey);
+    core.clock.advance(DATA_KEY_CACHE_MS);
+
+    // When thomas reads its exchange with the lookout.
+    const page = unwrap(await useCases.readExchange(thomas, { otherShipId: lookoutId }));
+
+    // Then the payload is unreadable and its delivery is still there.
+    expect(page.items.map(({ payload, receivedDelivery }) => ({ payload, receivedDelivery }))).toEqual([
+      { payload: { kind: 'unreadable' }, receivedDelivery: { deliveryId: deliveryOf(asked, thomasId), state: 'pending' } },
+    ]);
   });
 });

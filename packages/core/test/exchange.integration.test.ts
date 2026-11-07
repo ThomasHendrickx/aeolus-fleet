@@ -125,4 +125,28 @@ describe('the exchange read on Postgres', () => {
     // Then it holds nothing.
     expect(rows).toEqual([]);
   });
+
+  it("carries the reader's own delivery by name, by label and by claimed type, and none on its own message (section 7)", async () => {
+    // Given the lookout wrote to thomas by name, to thomas's type which thomas's crew claimed, and to a label thomas and argo hold; and thomas answered.
+    const thomas = await crewed({ name: 'thomas', kind: 'person', type: 'person' });
+    const lookout = await crewed({ name: 'lookout', kind: 'agent', type: 'reviewer' });
+    const byName = await send(lookout, { to: { kind: 'ship', shipId: thomas.shipId }, payload: 'Merge PR #1497?' });
+    const byType = await send(lookout, { to: { kind: 'type', type: 'person' }, payload: 'Who is on call?' });
+    unwrap(await core.useCases.pushReceiveDeliveries(thomas, { max: 10 }));
+    const byLabel = await send(lookout, { to: await labelValue([thomas.shipId, argo.shipId]), payload: 'Standup in five' });
+    const answer = await send(thomas, { to: { kind: 'ship', shipId: lookout.shipId }, payload: 'Yes, merge it' });
+
+    // When thomas reads its exchange with the lookout.
+    const page = unwrap(await core.useCases.readExchange(thomas, { otherShipId: lookout.shipId }));
+
+    // Then each message the lookout sent carries thomas's own delivery of it, and thomas's answer none.
+    const reached = async (messageId: MessageId, shipId: ShipId) =>
+      (await core.prisma.delivery.findFirstOrThrow({ where: { messageId, reachedShipId: shipId }, select: { id: true } })).id;
+    expect(page.items.map(({ messageId, deliveryState, receivedDelivery }) => ({ messageId, deliveryState, receivedDelivery }))).toEqual([
+      { messageId: answer, deliveryState: 'pending', receivedDelivery: null },
+      { messageId: byLabel, deliveryState: null, receivedDelivery: { deliveryId: await reached(byLabel, thomas.shipId), state: 'pending' } },
+      { messageId: byType, deliveryState: null, receivedDelivery: { deliveryId: await reached(byType, thomas.shipId), state: 'received' } },
+      { messageId: byName, deliveryState: null, receivedDelivery: { deliveryId: await reached(byName, thomas.shipId), state: 'received' } },
+    ]);
+  });
 });

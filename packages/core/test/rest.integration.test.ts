@@ -585,6 +585,30 @@ describe('the ship calls at /api/v1', () => {
   });
 });
 
+describe('the exchange call at /api/v1', () => {
+  it("answers the reader's own delivery on a message it received (docs/design/exchange-read, section 7)", async () => {
+    // Given one ship wrote to another by id.
+    const writer = await commissioned();
+    const reader = await commissioned();
+    const writerToken = await register(writer);
+    const readerToken = await register(reader);
+    const { messageId } = await ok(
+      request('send', { crewToken: writerToken, body: { selector: { kind: 'ship', shipId: reader.shipId }, payload: 'Moor at berth 4', model: 'claude-opus-5-5', idempotencyKey: freshKey() } }),
+      z.object({ messageId: z.string() }),
+    );
+
+    // When the reader reads its exchange with the writer.
+    const page = await ok(
+      request('exchange', { crewToken: readerToken, body: { otherShipId: writer.shipId } }),
+      z.object({ items: z.array(z.object({ messageId: z.string(), receivedDelivery: z.unknown() })) }),
+    );
+
+    // Then the message carries the reader's delivery of it.
+    const { id: deliveryId } = await database.delivery.findFirstOrThrow({ where: { messageId }, select: { id: true } });
+    expect(page.items).toEqual([{ messageId, receivedDelivery: { deliveryId, state: 'pending' } }]);
+  });
+});
+
 describe('the fleet actions at /api/v1/fleet', () => {
   it('let a ship with fleet:read and fleet:manage list the fleet, commission a ship and ping a crewed one', async () => {
     const manager = await crewedWithFleetScopes(['fleet:read', 'fleet:commission', 'fleet:manage']);

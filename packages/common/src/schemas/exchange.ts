@@ -30,7 +30,8 @@ export type ExchangeInput = z.infer<typeof exchangeInputSchema>;
 
 /**
  * One message of an exchange: whole, from either ship; on the caller's own,
- * where the other ship's delivery of it stands. In a sealed fleet a payload
+ * where the other ship's delivery of it stands; on one it received, the
+ * caller's own delivery of it. In a sealed fleet a payload
  * whose data key cannot be had is empty and marked unreadable (decision 0068, B9).
  */
 export const exchangeEntrySchema = z.object({
@@ -44,6 +45,8 @@ export const exchangeEntrySchema = z.object({
   sentAt: z.iso.datetime(),
   /** Where the other ship's delivery of the caller's own message stands; null on the other ship's messages. */
   deliveryState: deliveryStateSchema.nullable(),
+  /** The caller's own delivery of a message it received, its id and state, whatever the state; null on the caller's own messages. */
+  receivedDelivery: z.object({ deliveryId: idSchema('delivery'), state: deliveryStateSchema }).nullable(),
 });
 
 /**

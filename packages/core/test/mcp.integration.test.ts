@@ -155,6 +155,32 @@ async function register(client: Client, ship: { shipId: ShipId; secret: string }
   return crewToken;
 }
 
+describe('the exchange tool at /mcp', () => {
+  it("answers the reader's own delivery on a message it received (docs/design/exchange-read, section 7)", async () => {
+    // Given one ship wrote to another by id.
+    const writer = await commissioned();
+    const reader = await commissioned();
+    const writerSession = await connect();
+    const readerSession = await connect();
+    const writerToken = await register(writerSession, writer);
+    const readerToken = await register(readerSession, reader);
+    const { messageId } = await call(writerSession, {
+      tool: tools.send,
+      arguments: { crewToken: writerToken, model: 'claude-opus-5-5', selector: { kind: 'ship', shipId: reader.shipId }, payload: 'Review PR #32', idempotencyKey: freshKey() },
+    });
+
+    // When the reader reads its exchange with the writer.
+    const page = await call(readerSession, {
+      tool: { name: 'exchange', answers: z.object({ items: z.array(z.object({ messageId: z.string(), receivedDelivery: z.unknown() })) }) },
+      arguments: { crewToken: readerToken, otherShipId: writer.shipId },
+    });
+
+    // Then the message carries the reader's delivery of it.
+    const { id: deliveryId } = await database.delivery.findFirstOrThrow({ where: { messageId }, select: { id: true } });
+    expect(page.items).toEqual([{ messageId, receivedDelivery: { deliveryId, state: 'pending' } }]);
+  });
+});
+
 describe('the ship tools at /mcp', () => {
   it.each(ERAS)('register, send, receive, ack and deregister: two ships exchange a message and its answer (%s)', async (era) => {
     const harbour = await commissioned();
