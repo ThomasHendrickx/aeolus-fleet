@@ -15,7 +15,16 @@ export interface ReadExchangeTx extends HoldLeaseTx {
   deliveries: Pick<DeliveryRepository, 'findExchangePage' | 'findOfMessageReaching'>;
 }
 
-/** One message of an exchange, whole; on the caller's own, where the other ship's delivery of it stands. */
+/** The caller's own delivery of a message it received: its id and where it stands (docs/design/exchange-read, section 7). */
+export interface ReceivedDelivery {
+  deliveryId: DeliveryId;
+  state: DeliveryState;
+}
+
+/**
+ * One message of an exchange, whole; on the caller's own, where the other
+ * ship's delivery of it stands; on one it received, the caller's own delivery.
+ */
 export interface ExchangeEntry {
   messageId: MessageId;
   senderShipId: ShipId;
@@ -24,6 +33,7 @@ export interface ExchangeEntry {
   inReplyTo: MessageId | null;
   sentAt: Date;
   deliveryState: DeliveryState | null;
+  receivedDelivery: ReceivedDelivery | null;
 }
 
 /** A page of an exchange, newest first, with the cursor each way while more lie that way. */
@@ -85,7 +95,10 @@ export function createReadExchange(deps: { uow: UnitOfWork<ReadExchangeTx>; seal
             contentType: message.contentType,
             inReplyTo: message.inReplyToMessageId,
             sentAt: message.createdAt,
-            deliveryState: message.senderShipId === crew.shipId ? delivery.state : null,
+            // The row is the other ship's delivery on the caller's own message, and the caller's own on one it received: the page reads only those.
+            ...(message.senderShipId === crew.shipId
+              ? { deliveryState: delivery.state, receivedDelivery: null }
+              : { deliveryState: null, receivedDelivery: { deliveryId: delivery.id, state: delivery.state } }),
           });
         }
         return ok({ items, olderCursor: page.value.olderCursor, newerCursor: page.value.newerCursor });
