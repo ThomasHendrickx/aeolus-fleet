@@ -15,9 +15,9 @@ import {
   Button,
   dialogSurface,
   InlineError,
+  TypedConfirm,
 } from '@aeolus-fleet/ui';
 import { ConsequenceList, type Consequence } from '../../../components/molecules/consequence-list';
-import { TypedConfirm } from '../../../components/molecules/typed-confirm';
 
 interface RetireDialogProps {
   shipName: string;

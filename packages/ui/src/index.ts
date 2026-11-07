@@ -35,6 +35,7 @@ export * from './molecules/harbour-tile.js';
 export * from './molecules/inline-error.js';
 export * from './molecules/loading-skeleton.js';
 export * from './molecules/signed-in-as.js';
+export * from './molecules/typed-confirm.js';
 export * from './organisms/app-header.js';
 export * from './organisms/command-palette.js';
 export * from './organisms/harbour.js';

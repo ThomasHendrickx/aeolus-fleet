@@ -1,9 +1,8 @@
-import type { Meta, StoryObj } from '@storybook/nextjs-vite';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 import { useState } from 'react';
 
-import { isTypedMatch } from '../../lib/ship-dialogs';
-import { Button } from '@aeolus-fleet/ui';
-import { TypedConfirm } from './typed-confirm';
+import { Button } from '../atoms/button.js';
+import { TypedConfirm } from './typed-confirm.js';
 
 const meta = {
   title: 'Molecules/TypedConfirm',
@@ -32,7 +31,7 @@ export const WithAction: Story = {
     return (
       <div className="flex flex-col gap-3">
         <TypedConfirm expected={expected} value={value} onValueChange={setValue} />
-        <Button variant="destructive" disabled={!isTypedMatch(expected, value)}>
+        <Button variant="destructive" disabled={value !== expected}>
           Retire and abandon 3 deliveries
         </Button>
       </div>

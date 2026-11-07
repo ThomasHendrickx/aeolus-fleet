@@ -16,9 +16,9 @@ import {
   Button,
   dialogSurface,
   InlineError,
+  TypedConfirm,
 } from '@aeolus-fleet/ui';
 import { ConsequenceList } from '../molecules/consequence-list';
-import { TypedConfirm } from '../molecules/typed-confirm';
 
 const DELIVERIES = { one: 'delivery', many: 'deliveries' };
 
