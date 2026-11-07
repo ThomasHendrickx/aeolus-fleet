@@ -716,6 +716,28 @@ describe('the ship procedures at the API', () => {
   });
 });
 
+describe('ship.exchange at the API', () => {
+  it("answers the reader's own delivery on a message it received, and none on its own (docs/design/exchange-read, section 7)", async () => {
+    // Given one ship wrote to another by id, and the other answered.
+    const writer = client({ authorization: `Bearer ${await crewedShip()}` });
+    const reader = client({ authorization: `Bearer ${await crewedShip()}` });
+    const { shipId: writerId } = await writer.ship.whoami.query();
+    const { shipId: readerId } = await reader.ship.whoami.query();
+    const { messageId } = await writer.ship.send.mutate({ selector: { kind: 'ship', shipId: readerId }, payload: 'Merge PR #1497?', model: SESSION_MODEL, idempotencyKey: newKey() });
+    const { messageId: answerId } = await reader.ship.send.mutate({ selector: { kind: 'ship', shipId: writerId }, payload: 'Yes', model: SESSION_MODEL, idempotencyKey: newKey(), inReplyTo: messageId });
+
+    // When the reader reads its exchange with the writer.
+    const page = await reader.ship.exchange.query({ otherShipId: writerId });
+
+    // Then the writer's message carries the reader's delivery of it, and the reader's answer none.
+    const { id: deliveryId } = await database.delivery.findFirstOrThrow({ where: { messageId }, select: { id: true } });
+    expect(page.items.map((item) => ({ messageId: item.messageId, receivedDelivery: item.receivedDelivery }))).toEqual([
+      { messageId: answerId, receivedDelivery: null },
+      { messageId, receivedDelivery: { deliveryId, state: 'pending' } },
+    ]);
+  });
+});
+
 describe('statements and discovery at the API (decision 0047)', () => {
   const REVIEWS = {
     summary: 'Reviews pull requests of aeolus-fleet.',
