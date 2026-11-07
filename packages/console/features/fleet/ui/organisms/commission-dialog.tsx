@@ -5,7 +5,7 @@ import { isShipHandle } from '@aeolus-fleet/common/rules';
 import { CircleCheck, CircleX, Tag } from 'lucide-react';
 import { useId, useState } from 'react';
 
-import { Button, classNames, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, dialogSurface, DialogTitle, Input, Label, Switch, InlineError } from '@aeolus-fleet/ui';
+import { Button, classNames, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, dialogSurface, DialogTitle, Input, Label, ScopePicker, Switch, InlineError } from '@aeolus-fleet/ui';
 import { useConsoleConstants } from '../../../../lib/console-constants';
 import { defaultValues, promptBytes, settingsOf, type CrewSettingsValues, type HarnessOffer } from '../../../../lib/crew-settings-form';
 import type { MachineLabelsInput } from '../../../../lib/machine-labels';
@@ -204,28 +204,24 @@ function CommissionDialogBody({ types, taken, onTypedChange, isPending, error, s
         </p>
       ) : (
         scopeGroups.map((group) => (
-          <fieldset key={group.namespace ?? ''} className="flex flex-col gap-2" data-testid={`commission-scopes-${group.namespace ?? 'fleet'}`}>
-            <legend className="mb-1.5 text-body font-medium text-foreground">
-              {group.title} {group.namespace === null ? null : <span className="font-mono text-id text-muted-foreground">{group.namespace}</span>}
-            </legend>
-            {group.scopes.map(({ scope, description }) => (
-              <label key={scope} className="flex items-center justify-between gap-3 text-body text-foreground">
-                <span>
-                  {description} <span className="font-mono text-id text-muted-foreground">{scope}</span>
-                </span>
-                <Switch
-                  checked={grantedScopes.includes(scope)}
-                  onCheckedChange={(isChecked) => {
-                    setGrantedScopes((held) => (isChecked ? [...held, scope] : held.filter((each) => each !== scope)));
-                  }}
-                  data-testid={`commission-${scope.replace(':', '-')}`}
-                />
-              </label>
-            ))}
+          <div key={group.namespace ?? ''} className="flex flex-col gap-2" data-testid={`commission-scopes-${group.namespace ?? 'fleet'}`}>
+            <ScopePicker
+              label={
+                <>
+                  {group.title} {group.namespace === null ? null : <span className="font-mono text-id text-muted-foreground">{group.namespace}</span>}
+                </>
+              }
+              listed={group.scopes}
+              picked={grantedScopes.filter((scope) => group.scopes.some((each) => each.scope === scope))}
+              onPick={(picked) => {
+                setGrantedScopes((held) => [...held.filter((scope) => !group.scopes.some((each) => each.scope === scope)), ...picked]);
+              }}
+              isDisabled={isPending}
+            />
             {group.namespace === null ? (
               <p className="text-meta text-muted-foreground">Every ship sends and receives. Fleet access lets its session act as the console does; crew ships lets a trierarch start their sessions. It cannot be changed later.</p>
             ) : null}
-          </fieldset>
+          </div>
         ))
       )}
       <div className="flex flex-col gap-3 border-t border-border pt-4">

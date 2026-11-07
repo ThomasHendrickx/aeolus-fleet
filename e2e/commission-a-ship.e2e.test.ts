@@ -77,7 +77,7 @@ async function fillCommission(page: Page, ship: { name: string; type: string; no
 }
 
 /** Picks one of the fleet scopes in the CommissionDialog's scope picker, found by its code; with a description, the option shows it. */
-async function pickFleetScope(page: Page, scope: string, description?: string): Promise<void> {
+async function pickFleetScope(page: Page, { scope, description }: { scope: string; description?: string }): Promise<void> {
   await page.getByTestId('commission-dialog').getByTestId('commission-scopes-fleet').getByTestId('scope-picker-search').fill(scope);
   const option = page.getByTestId('scope-picker-option').filter({ hasText: scope });
   if (description !== undefined) {
@@ -200,8 +200,8 @@ describe('commissioning a ship in the console', () => {
     const page = await signedInPage();
     await fillCommission(page, { name: 'squad-manager', type: 'squadron' });
     const dialog = page.getByTestId('commission-dialog');
-    await pickFleetScope(page, 'fleet:read', 'Read ships, timelines, messages, labels, events and fleet-wide views');
-    await pickFleetScope(page, 'fleet:manage');
+    await pickFleetScope(page, { scope: 'fleet:read', description: 'Read ships, timelines, messages, labels, events and fleet-wide views' });
+    await pickFleetScope(page, { scope: 'fleet:manage' });
 
     await dialog.getByTestId('commission-submit').click();
 
@@ -215,7 +215,7 @@ describe('commissioning a ship in the console', () => {
     const page = await signedInPage();
     await fillCommission(page, { name: 'mac-mini', type: 'trierarch' });
     const dialog = page.getByTestId('commission-dialog');
-    await pickFleetScope(page, 'crew:run');
+    await pickFleetScope(page, { scope: 'crew:run' });
 
     await dialog.getByTestId('commission-submit').click();
 
