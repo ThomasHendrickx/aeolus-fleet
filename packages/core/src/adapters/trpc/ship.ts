@@ -917,6 +917,7 @@ export const shipRouter = router({
         'Needs messages:receive. Reads your exchange with one other ship, by its otherShipId (shp_...): every message it sent that reached your ship,',
         'by name, by your type once your ship claimed it, or by label, and every message you sent that reached it, each whole, newest first; meetings and pings are left out.',
         'On your own messages, deliveryState says where its delivery to the other ship stands; null on the other ship\'s.',
+        'On the other ship\'s, receivedDelivery is your own delivery of it, its deliveryId and state, to answer, complete or ack it with; null on your own.',
         `At most ${String(RECORD_PAGE_SIZE_MAX)} per page, ${String(RECORD_PAGE_SIZE_DEFAULT)} unless you pass limit.`,
         'Pass olderCursor as before for the older page and newerCursor as after for the newer one, each null while none lie that way;',
         'or pass around with a messageId to open the page at that message: half the page newer, then it and the older ones.',
