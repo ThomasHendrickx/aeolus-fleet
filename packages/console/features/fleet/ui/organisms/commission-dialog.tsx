@@ -5,7 +5,7 @@ import { isShipHandle } from '@aeolus-fleet/common/rules';
 import { CircleCheck, CircleX, Tag } from 'lucide-react';
 import { useId, useState } from 'react';
 
-import { Button, classNames, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, dialogSurface, DialogTitle, Input, Label, Switch } from '@aeolus-fleet/ui';
+import { Button, classNames, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, dialogSurface, DialogTitle, Input, Label, Switch, InlineError } from '@aeolus-fleet/ui';
 import { useConsoleConstants } from '../../../../lib/console-constants';
 import { defaultValues, promptBytes, settingsOf, type CrewSettingsValues, type HarnessOffer } from '../../../../lib/crew-settings-form';
 import type { MachineLabelsInput } from '../../../../lib/machine-labels';
@@ -14,7 +14,6 @@ import { asHandle, checkShipName, typeHint } from '../../../../lib/ship-name';
 import { Combobox } from '../../../../components/atoms/combobox';
 import { Textarea } from '../../../../components/atoms/textarea';
 import { CrewSettingsFields } from '../../../../components/molecules/crew-settings-fields';
-import { InlineError } from '../../../../components/molecules/inline-error';
 import { LimitNotice } from '../../../../components/molecules/limit-notice';
 import { shipLimitNotice } from '../../../../lib/limits';
 

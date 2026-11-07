@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import { InlineError } from '../../../../components/molecules/inline-error';
+import { InlineError } from '@aeolus-fleet/ui';
 
 interface FailedScopesReadProps {
   /** The plugin in words, such as "the trierarch plugin". */

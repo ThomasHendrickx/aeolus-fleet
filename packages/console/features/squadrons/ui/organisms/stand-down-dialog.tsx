@@ -14,9 +14,9 @@ import {
   AlertDialogTitle,
   Button,
   dialogSurface,
+  InlineError,
 } from '@aeolus-fleet/ui';
 import { ConsequenceList } from '../../../../components/molecules/consequence-list';
-import { InlineError } from '../../../../components/molecules/inline-error';
 import { TypedConfirm } from '../../../../components/molecules/typed-confirm';
 
 interface StandDownDialogProps {

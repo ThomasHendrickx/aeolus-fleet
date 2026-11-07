@@ -3,8 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { use } from 'react';
 
-import { EmptyState } from '@aeolus-fleet/ui';
-import { InlineError } from '../../../../../components/molecules/inline-error';
+import { EmptyState, InlineError } from '@aeolus-fleet/ui';
 import { SquadronsNotConnected } from '../../../../../features/squadrons/ui/molecules/squadrons-not-connected';
 import { LoadingSkeleton } from '../../../../../components/molecules/loading-skeleton';
 import { TemplateView } from '../../../../../features/squadrons/ui/organisms/template-view';

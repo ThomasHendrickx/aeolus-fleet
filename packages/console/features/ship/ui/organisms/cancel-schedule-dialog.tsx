@@ -10,8 +10,8 @@ import {
   AlertDialogTitle,
   Button,
   dialogSurface,
+  InlineError,
 } from '@aeolus-fleet/ui';
-import { InlineError } from '../../../../components/molecules/inline-error';
 
 interface CancelScheduleDialogProps {
   /** Whom the schedule sends to and when, such as "To chief-of-staff" and "Every 6 h"; the confirm is open while one is given. */

@@ -32,6 +32,7 @@ export * from './molecules/harbour-group.js';
 export * from './molecules/harbour-numbers.js';
 export * from './molecules/harbour-state.js';
 export * from './molecules/harbour-tile.js';
+export * from './molecules/inline-error.js';
 export * from './molecules/signed-in-as.js';
 export * from './organisms/app-header.js';
 export * from './organisms/command-palette.js';

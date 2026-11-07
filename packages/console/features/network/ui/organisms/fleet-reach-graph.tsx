@@ -1,11 +1,10 @@
 import type { ShipId } from '@aeolus-fleet/common';
 import { Ban, Check, Crosshair, Search } from 'lucide-react';
 
-import { Button, classNames, Tabs, TabsList, TabsTrigger } from '@aeolus-fleet/ui';
+import { Button, classNames, Tabs, TabsList, TabsTrigger, InlineError } from '@aeolus-fleet/ui';
 import { graphNodesOf, reachSummaryOf, type GraphNode, type GraphShip, type ReachAgainst, type ReachMark } from '../../services/reach-graph';
 import { Combobox } from '../../../../components/atoms/combobox';
 import { asHandle } from '../../../../lib/ship-name';
-import { InlineError } from '../../../../components/molecules/inline-error';
 
 export interface FleetReachGraphProps {
   /** The ships the graph draws, argo first (lib/reach-graph.ts): those the page names, the picked ship and its reach. */

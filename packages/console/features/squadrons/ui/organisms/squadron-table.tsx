@@ -5,11 +5,10 @@ import { shortDateTime } from '../../../../lib/relative-time';
 import { disbandedCount, filterSquadrons, squadronBlueprints, type SquadronView } from '../../services/squadron-filter';
 import type { Squadron } from '../../../../lib/squadrons-schemas';
 import { blueprintPath, healthCounts, stationCount } from '../../../../lib/squadrons-view';
-import { Button, EmptyState, Input, Label, Switch } from '@aeolus-fleet/ui';
+import { Button, EmptyState, Input, Label, Switch, InlineError } from '@aeolus-fleet/ui';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../../components/atoms/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../../components/atoms/table';
 import { HealthSummary } from '../../../../components/molecules/health-indicator';
-import { InlineError } from '../../../../components/molecules/inline-error';
 import { LoadingSkeleton } from '../../../../components/molecules/loading-skeleton';
 import { StatusBadge } from '../../../../components/molecules/status-badge';
 

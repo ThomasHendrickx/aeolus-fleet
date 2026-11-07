@@ -1,7 +1,7 @@
 import { ArrowRight } from 'lucide-react';
 
 import { VERB_WORDS } from '../../../../lib/network-rules';
-import { InlineError } from '../../../../components/molecules/inline-error';
+import { InlineError } from '@aeolus-fleet/ui';
 import { LoadingSkeleton } from '../../../../components/molecules/loading-skeleton';
 import { isUnchanged, type ReachChangeRow, type VerbChanges } from '../../services/draft-changes';
 

@@ -6,10 +6,9 @@ import Link from 'next/link';
 import { useState } from 'react';
 import dynamic from 'next/dynamic';
 
-import { Button, classNames } from '@aeolus-fleet/ui';
+import { Button, classNames, InlineError } from '@aeolus-fleet/ui';
 import type { AssignKey, LabelChip as LabelChipData } from '../../../../lib/labels';
 import { Popover, PopoverContent, PopoverTrigger } from '../../../../components/atoms/popover';
-import { InlineError } from '../../../../components/molecules/inline-error';
 import { LabelChip } from '../../../../components/molecules/label-chip';
 
 // Loads when its popover first opens, not with the page.

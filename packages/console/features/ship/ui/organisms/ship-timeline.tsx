@@ -22,10 +22,9 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 
-import { Button, classNames } from '@aeolus-fleet/ui';
+import { Button, classNames, InlineError } from '@aeolus-fleet/ui';
 import { fullDateTime, relativeTime } from '../../../../lib/relative-time';
 import { timelineSentence, type TimelineIcon, type TimelineTone } from '../../services/timeline-sentence';
-import { InlineError } from '../../../../components/molecules/inline-error';
 import { LoadingSkeleton } from '../../../../components/molecules/loading-skeleton';
 import { Sentence } from '../molecules/sentence';
 

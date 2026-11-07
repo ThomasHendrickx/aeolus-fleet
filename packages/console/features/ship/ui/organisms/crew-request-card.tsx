@@ -12,8 +12,7 @@ import type { LabelChip as LabelChipData } from '../../../../lib/labels';
 import { machineLabelsText, noMatchWords } from '../../../../lib/machine-labels';
 import { clockTime, fullDateTime, relativeTime, sinceTime } from '../../../../lib/relative-time';
 import { capitalised, OPERATOR_NAME } from '../../../../lib/sentence';
-import { Button, Tooltip, TooltipContent, TooltipTrigger } from '@aeolus-fleet/ui';
-import { InlineError } from '../../../../components/molecules/inline-error';
+import { Button, Tooltip, TooltipContent, TooltipTrigger, InlineError } from '@aeolus-fleet/ui';
 import { LabelChip } from '../../../../components/molecules/label-chip';
 import { StatusBadge } from '../../../../components/molecules/status-badge';
 

@@ -10,8 +10,8 @@ import {
   AlertDialogTitle,
   Button,
   dialogSurface,
+  InlineError,
 } from '@aeolus-fleet/ui';
-import { InlineError } from '../../../../components/molecules/inline-error';
 
 /** A Switch that changes the whole fleet: the first model enabled starts the rule, the last disabled ends it. */
 export interface ModelRuleChange {

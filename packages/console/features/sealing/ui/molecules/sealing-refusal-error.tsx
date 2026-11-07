@@ -1,6 +1,6 @@
 import type { FleetId } from '@aeolus-fleet/common';
 
-import { InlineError } from '../../../../components/molecules/inline-error';
+import { InlineError } from '@aeolus-fleet/ui';
 import type { SealingRefusal } from '../../services/sealing-refusal';
 import { shortened } from '../../services/sealing-view';
 import { keyCondition } from './key-condition';

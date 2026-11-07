@@ -3,9 +3,8 @@
 import type { CrewLine } from '@aeolus-fleet/common';
 import { Info, RotateCw } from 'lucide-react';
 
-import { Button, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, dialogSurface, DialogTitle, Skeleton } from '@aeolus-fleet/ui';
+import { Button, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, dialogSurface, DialogTitle, Skeleton, InlineError } from '@aeolus-fleet/ui';
 import { CompactCrewLine } from '../molecules/compact-crew-line';
-import { InlineError } from '../molecules/inline-error';
 import { LaunchNote } from '../molecules/launch-note';
 import { PluginInstallLinks } from '../molecules/plugin-install-links';
 
