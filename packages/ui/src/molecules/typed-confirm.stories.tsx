@@ -27,11 +27,18 @@ export const Match: Story = { args: { value: 'reviewer-01' } };
 
 /** Typing for real, with the action it unlocks. */
 export const WithAction: Story = {
-  render: function Render({ expected }) {
+  render: function Render({ expected, onValueChange }) {
     const [value, setValue] = useState('');
     return (
       <div className="flex flex-col gap-3">
-        <TypedConfirm expected={expected} value={value} onValueChange={setValue} />
+        <TypedConfirm
+          expected={expected}
+          value={value}
+          onValueChange={(nextValue) => {
+            onValueChange(nextValue);
+            setValue(nextValue);
+          }}
+        />
         <Button variant="destructive" disabled={value !== expected}>
           Retire and abandon 3 deliveries
         </Button>
