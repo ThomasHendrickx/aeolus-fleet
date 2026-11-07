@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { useState } from 'react';
+import { expect, fn, userEvent, within } from 'storybook/test';
 
 import { Button } from '../atoms/button.js';
 import { TypedConfirm } from './typed-confirm.js';
@@ -7,7 +8,7 @@ import { TypedConfirm } from './typed-confirm.js';
 const meta = {
   title: 'Molecules/TypedConfirm',
   component: TypedConfirm,
-  args: { expected: 'reviewer-01', value: '', onValueChange: () => undefined },
+  args: { expected: 'reviewer-01', value: '', onValueChange: fn() },
   decorators: [
     (Story) => (
       <div className="w-96">
@@ -36,5 +37,20 @@ export const WithAction: Story = {
         </Button>
       </div>
     );
+  },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement);
+    const input = canvas.getByRole('textbox');
+    const action = canvas.getByRole('button', { name: 'Retire and abandon 3 deliveries' });
+
+    await expect(action).toBeDisabled();
+    await userEvent.type(input, args.expected);
+    await expect(args.onValueChange).toHaveBeenLastCalledWith(args.expected);
+    await expect(action).toBeEnabled();
+
+    await userEvent.clear(input);
+    await userEvent.type(input, 'reviewer-0');
+    await expect(args.onValueChange).toHaveBeenLastCalledWith('reviewer-0');
+    await expect(action).toBeDisabled();
   },
 };
