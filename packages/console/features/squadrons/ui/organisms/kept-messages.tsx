@@ -1,10 +1,9 @@
 import { ChevronRight, Inbox } from 'lucide-react';
 import Link from 'next/link';
 
-import { EmptyState, InlineError } from '@aeolus-fleet/ui';
+import { LoadingSkeleton, EmptyState, InlineError } from '@aeolus-fleet/ui';
 import { relativeTime } from '../../../../lib/relative-time';
 import type { KeptMessage } from '../../../../lib/squadrons-schemas';
-import { LoadingSkeleton } from '../../../../components/molecules/loading-skeleton';
 
 interface KeptMessagesProps {
   messages: readonly KeptMessage[];

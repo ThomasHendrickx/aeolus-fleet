@@ -1,8 +1,7 @@
 import { ArrowRight } from 'lucide-react';
 
 import { VERB_WORDS } from '../../../../lib/network-rules';
-import { InlineError } from '@aeolus-fleet/ui';
-import { LoadingSkeleton } from '../../../../components/molecules/loading-skeleton';
+import { LoadingSkeleton, InlineError } from '@aeolus-fleet/ui';
 import { isUnchanged, type ReachChangeRow, type VerbChanges } from '../../services/draft-changes';
 
 export interface NetworkRulesDraftChangesProps {

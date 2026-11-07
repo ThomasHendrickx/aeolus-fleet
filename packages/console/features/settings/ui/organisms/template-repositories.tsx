@@ -7,6 +7,7 @@ import { relativeTime } from '../../../../lib/relative-time';
 import { leftOutLabel, repositoryContents, type NamedVersions, type RepositoryContents } from '../../../../lib/repository';
 import type { Catalogue, TemplateRepository } from '../../../../lib/squadrons-schemas';
 import {
+  LoadingSkeleton,
   AlertDialog,
   AlertDialogClose,
   AlertDialogContent,
@@ -21,7 +22,6 @@ import {
   Label,
   InlineError,
 } from '@aeolus-fleet/ui';
-import { LoadingSkeleton } from '../../../../components/molecules/loading-skeleton';
 import { RepositoryName } from '../../../../components/molecules/repository-name';
 
 /** Where squadrons looks in a repository when no path is given (aeolus-fleet-squadrons' docs/squadrons.md, "Files in git"). */

@@ -2,8 +2,7 @@
 
 import { Ellipsis, KeyRound, Pencil, Plus, Trash2 } from 'lucide-react';
 
-import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, EmptyState, InlineError } from '@aeolus-fleet/ui';
-import { LoadingSkeleton } from '../../../../components/molecules/loading-skeleton';
+import { LoadingSkeleton, Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, EmptyState, InlineError } from '@aeolus-fleet/ui';
 import type { NamespaceSection } from '../../services/scope-namespaces';
 
 type ListedScope = NamespaceSection['scopes'][number];

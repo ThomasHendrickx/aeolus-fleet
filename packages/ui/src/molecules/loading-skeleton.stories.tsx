@@ -1,6 +1,6 @@
-import type { Meta, StoryObj } from '@storybook/nextjs-vite';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 
-import { LoadingSkeleton } from './loading-skeleton';
+import { LoadingSkeleton } from './loading-skeleton.js';
 
 const meta = {
   title: 'Molecules/LoadingSkeleton',

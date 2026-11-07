@@ -1,6 +1,6 @@
 'use client';
 
-import { LoadingSkeleton } from '../../../components/molecules/loading-skeleton';
+import { LoadingSkeleton } from '@aeolus-fleet/ui';
 import { useOwnSignIn } from '../hooks/use-own-sign-in';
 import { OwnSignIn } from '../ui/organisms/own-sign-in';
 
