@@ -26,7 +26,7 @@ function hintOf(expected: string, value: string): string {
  * (docs/design/png/TypedConfirm.png): retiring a ship that still holds open
  * deliveries, or renaming one that other ships may address by name. The caller keeps its action disabled until the typed value matches; no error styling while the operator is still typing.
  */
-export function TypedConfirm({ expected, value, onValueChange, 'data-testid': testId = 'typed-confirm' }: TypedConfirmProps) {
+export function TypedConfirm({ expected, value, onValueChange, 'data-testid': testId = 'retire-typed-confirm' }: TypedConfirmProps) {
   const inputId = useId();
   const hintId = useId();
 
