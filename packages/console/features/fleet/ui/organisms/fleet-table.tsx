@@ -8,12 +8,11 @@ import { nextSort, type FleetSort, type SortColumn } from '../../services/fleet-
 import { chipsOf, type LabelContext } from '../../../../lib/labels';
 import type { ShipInSquadron } from '../../../../lib/squadrons-view';
 import { counted } from '../../../../lib/sentence';
-import { classNames, EmptyState, lastActivityWordsOf, ShipState, InlineError } from '@aeolus-fleet/ui';
+import { LoadingSkeleton, classNames, EmptyState, lastActivityWordsOf, ShipState, InlineError } from '@aeolus-fleet/ui';
 import { Badge } from '../../../../components/atoms/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableSortHead } from '../../../../components/atoms/table';
 import { LoadMore } from '../../../../components/molecules/load-more';
 import { LabelChips } from '../molecules/label-chips';
-import { LoadingSkeleton } from '../../../../components/molecules/loading-skeleton';
 import { harnessWord } from '../../../../lib/harness';
 import { locationKindWord } from '../../../../lib/location';
 import { lastSeen } from '../../../../lib/relative-time';

@@ -3,8 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { use, useState } from 'react';
 
-import { EmptyState, InlineError } from '@aeolus-fleet/ui';
-import { LoadingSkeleton } from '../../../../../components/molecules/loading-skeleton';
+import { LoadingSkeleton, EmptyState, InlineError } from '@aeolus-fleet/ui';
 import { BlueprintView } from '../../../../../features/squadrons/ui/organisms/blueprint-view';
 import { FormSquadron } from '../../../../../features/squadrons/state/form-squadron';
 import { DetailPage } from '../../../../../components/organisms/detail-page';

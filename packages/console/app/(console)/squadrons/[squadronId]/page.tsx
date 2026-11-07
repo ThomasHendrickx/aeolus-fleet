@@ -14,7 +14,7 @@ import { DetailPage } from '../../../../components/organisms/detail-page';
 import { useConsoleFrame } from '../../../../lib/console-frame';
 import { SquadronSummary } from '../../../../features/squadrons/ui/molecules/squadron-summary';
 import { SquadronsNotConnected } from '../../../../features/squadrons/ui/molecules/squadrons-not-connected';
-import { LoadingSkeleton } from '../../../../components/molecules/loading-skeleton';
+import { LoadingSkeleton } from '@aeolus-fleet/ui';
 import { lazyDialog } from '../../../../lib/lazy-dialog';
 import { useAccess } from '../../../../lib/access';
 import { useLiveFleet } from '../../../../lib/live-fleet';

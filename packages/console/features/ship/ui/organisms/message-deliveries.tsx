@@ -4,11 +4,10 @@ import type { MessageDelivery } from '@aeolus-fleet/common';
 import { RotateCw } from 'lucide-react';
 import type { ReactNode } from 'react';
 
-import { Button, InlineError } from '@aeolus-fleet/ui';
+import { LoadingSkeleton, Button, InlineError } from '@aeolus-fleet/ui';
 
 import { fullDateTime, relativeTime } from '../../../../lib/relative-time';
 import { OPERATOR_NAME } from '../../../../lib/sentence';
-import { LoadingSkeleton } from '../../../../components/molecules/loading-skeleton';
 import { ShipName } from '../../../../components/molecules/ship-name';
 import { StatusBadge } from '../../../../components/molecules/status-badge';
 

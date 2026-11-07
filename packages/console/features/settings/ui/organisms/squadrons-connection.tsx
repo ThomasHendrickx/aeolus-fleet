@@ -1,8 +1,7 @@
 import { Link2 } from 'lucide-react';
 
 import type { ShownConnection } from '../../../../lib/shown-connection';
-import { Button, InlineError } from '@aeolus-fleet/ui';
-import { LoadingSkeleton } from '../../../../components/molecules/loading-skeleton';
+import { LoadingSkeleton, Button, InlineError } from '@aeolus-fleet/ui';
 import { FailedScopesRead } from '../molecules/failed-scopes-read';
 import { MissingScopes } from '../molecules/missing-scopes';
 

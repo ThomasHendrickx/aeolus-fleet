@@ -4,8 +4,7 @@ import Link from 'next/link';
 
 import { spotsOf } from '../../../../lib/machines';
 import type { Machine } from '../../../../lib/trierarch-plugin-schemas';
-import { Button, EmptyState, InlineError } from '@aeolus-fleet/ui';
-import { LoadingSkeleton } from '../../../../components/molecules/loading-skeleton';
+import { LoadingSkeleton, Button, EmptyState, InlineError } from '@aeolus-fleet/ui';
 import { MachineCard } from './machine-card';
 
 /** Where setting the trierarch plugin up is described: its README, in its own repository (decision 0049). */

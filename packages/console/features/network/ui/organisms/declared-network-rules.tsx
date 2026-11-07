@@ -2,11 +2,10 @@ import type { SelectorTerm } from '@aeolus-fleet/common';
 import { ArrowRight, CircleAlert } from 'lucide-react';
 import { Fragment } from 'react';
 
-import { EmptyState, InlineError } from '@aeolus-fleet/ui';
+import { LoadingSkeleton, EmptyState, InlineError } from '@aeolus-fleet/ui';
 import type { LabelContext } from '../../../../lib/labels';
 import { selectorOf, TERM_MEANINGS, termKeyOf, VERB_WORDS, type RuleSide } from '../../../../lib/network-rules';
 import { LabelChip } from '../../../../components/molecules/label-chip';
-import { LoadingSkeleton } from '../../../../components/molecules/loading-skeleton';
 import type { DeclaredRules } from '../../services/declared-rules';
 
 export interface DeclaredNetworkRulesProps {

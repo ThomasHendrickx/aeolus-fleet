@@ -2,9 +2,8 @@
 
 import { LoaderCircle } from 'lucide-react';
 
-import { Switch, InlineError } from '@aeolus-fleet/ui';
+import { LoadingSkeleton, Switch, InlineError } from '@aeolus-fleet/ui';
 
-import { LoadingSkeleton } from '../../../../components/molecules/loading-skeleton';
 import { ModelTag } from '../../../../components/molecules/model-tag';
 import type { ModelRow } from '../../services/model-rows';
 

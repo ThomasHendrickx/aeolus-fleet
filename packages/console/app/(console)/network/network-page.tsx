@@ -5,8 +5,7 @@ import { Network } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
-import { EmptyState, showToast, InlineError } from '@aeolus-fleet/ui';
-import { LoadingSkeleton } from '../../../components/molecules/loading-skeleton';
+import { LoadingSkeleton, EmptyState, showToast, InlineError } from '@aeolus-fleet/ui';
 import { BuiltInNetworkRules } from '../../../features/network/ui/organisms/built-in-network-rules';
 import { DeclaredNetworkRules } from '../../../features/network/ui/organisms/declared-network-rules';
 import { FleetReachGraph } from '../../../features/network/ui/organisms/fleet-reach-graph';
