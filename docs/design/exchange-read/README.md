@@ -219,3 +219,91 @@ flowchart TD
 - **Decision 0066 and the retention design R2:** a plain message acknowledged at a person ship is final (E8).
 - **Architecture:** the delivery columns and index (E3), the rollup table.
 - **Ship protocol and `ship-contract`:** the new calls.
+
+## 7. The reader's delivery on each message it received
+
+Design for [#1710](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1710). Thomas chose the approach (7 Nov): the exchange read carries it. For his approval: the purpose, then D1. No code.
+
+### Purpose (to agree)
+
+A person's client shows a question, a step or an alert in a chat's history as a working card: answer it, complete it, mark it done. Each of those takes the person ship's delivery id, and the exchange answers only the message id. No public read maps a message id to the reader's delivery.
+
+The outcomes:
+1. **On each message the reader received**, `exchange` answers the reader's own delivery of it: its id and its state. On the reader's own messages, none.
+2. **Never another ship's delivery.** On a label send the reader sees its own delivery only, never the other recipients'.
+3. **No new call and no new query.** The same page, the same indexed statement, the same cost (section 1, outcome 5).
+4. **The gateway's `people.exchange`** forwards it as core answers it.
+
+Not the purpose:
+- What a client may do with a delivery in a given state. Answering, completing a step, done and an item's address keep their own rules; the state lets the client know.
+- The list of exchanges. Its newest message stays without a delivery.
+- The page cursors. They stay positions in the exchange, not an item's delivery.
+
+### What is true today
+
+- **A page is read from deliveries.** `exchangePageStatement` reads two halves along `deliveries_exchange_idx`: the other ship's deliveries that reached the reader, and the reader's that reached the other. Each row is one delivery with its message, and already holds the delivery's id and state.
+- **On a message the reader received, that row is the reader's own delivery**: `reached_ship_id` is the reader, whether it came by name, by label (its own delivery of the send) or by type once the reader claimed it. A type delivery back to pending has no reached ship, so it is not on the page.
+- **The item drops it.** `exchange` answers `deliveryState` on the reader's own messages (the other ship's delivery) and null on received ones, and no delivery id on any.
+- **`delivery`** refuses a delivery that is not the caller's ship's as not found.
+
+### Lessons to check against
+
+- **0057, 0034.** Authorised for the actor by scopes read from the server. `messages:receive` already covers the crew's own deliveries; a delivery the read carries is the caller's by the statement's own condition, never by the request.
+- **CLAUDE.md, split a block that covers two things.** `deliveryState` is the other ship's delivery of the reader's message; the reader's own delivery is a different thing and gets its own field.
+- **The performance skill.** No per-message call and no second query: the row the page already reads carries it. The existing plan assertions (`exchange-plan.integration.test.ts`) cover the unchanged statement.
+- **0013.** No compatibility layer: the field is added; the gateway reads it once core releases it.
+- **0068.** The delivery needs no payload, so it is carried on a message marked unreadable too.
+
+### Questions
+
+#### D1 How an item carries the reader's delivery
+
+1. **`receivedDelivery: { deliveryId, state } | null`**: on a message the reader received, its own delivery's id and state, whatever the state; null on the reader's own messages. `deliveryState` stays as it is.
+2. `deliveryId` alone, null on the reader's own messages, and `deliveryState` widened to the reader's delivery's state on received messages.
+
+**Pick 1.** One field per delivery, and each name keeps one meaning: option 2 makes `deliveryState` mean a different ship's delivery depending on the sender.
+
+**Thomas:** to answer.
+
+### Flow
+
+```mermaid
+flowchart TD
+  call["exchange: other ship id, cursor or around, crew token"] --> auth{"Lease live, messages:receive?"}
+  auth -->|no| refuse[LEASE_ENDED or FORBIDDEN]
+  auth -->|yes| page["The page statement as today: two range scans of deliveries_exchange_idx, each row a delivery with its message"]
+  page --> row{"Who sent the row's message?"}
+  row -->|the other ship| recv["The row is the reader's delivery: receivedDelivery its id and state, deliveryState null"]
+  row -->|the reader| own["The row is the other ship's delivery: deliveryState its state, receivedDelivery null"]
+  recv --> answer[A page and its cursors]
+  own --> answer
+  page -.->|sealed key cannot be had| mark["Payload marked unreadable; receivedDelivery still carried"]
+  mark --> answer
+```
+
+Unhappy paths:
+- **A label send to the reader and other ships**: the reader's half reads only rows with the reader as reached ship, so only its own delivery is carried.
+- **A type delivery the reader claimed whose lease ended**: back to pending, no reached ship, off the page until claimed again; then the new claim's delivery is carried.
+- **Read while the reader acknowledges or hands it**: the read locks nothing; the state is what the statement saw, and the next read answers the new one.
+
+### Tests that prove it
+
+Unit, with in-memory ports (`read-exchange.test.ts`):
+- A message the other ship sent by name carries the reader's delivery id and its state.
+- A message of the reader's type it claimed carries the claimed delivery.
+- A label send to the reader and another ship carries the reader's delivery, never the other's.
+- The reader's own message carries no `receivedDelivery`, and `deliveryState` still the other ship's.
+- After the reader acknowledges, the read answers `acknowledged`; the page around a message carries it too.
+- A payload marked unreadable still carries its delivery.
+
+Postgres (`exchange.integration.test.ts`): the same by name, by label and by claimed type, through the adapter. The plan assertions stay as they are: the statement does not change.
+
+The doors: the tRPC, REST and MCP tests of `exchange` answer `receivedDelivery` on a received message.
+
+The gateway: `people.exchange` reads `receivedDelivery` at the edge and forwards it; a test that a question in a chat carries the person ship's delivery id, and answering it with that id works.
+
+### Docs it would update
+
+- **Blueprint:** the `exchange` row: on each message the caller received, its own delivery's id and state.
+- **`@aeolus-fleet/common`:** `exchangeEntrySchema` with `receivedDelivery`.
+- **The gateway:** its exchange schema and `people.exchange`, after the core release.
