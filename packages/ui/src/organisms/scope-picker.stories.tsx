@@ -57,12 +57,12 @@ export const Picking: Story = {
   },
   play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement);
-    await userEvent.type(canvas.getByTestId('scope-picker-search'), 'labels');
-    const options = await screen.findAllByTestId('scope-picker-option');
-    await expect(options).toHaveLength(1);
-    await expect(options[0]).toHaveTextContent('labels:define');
-    await expect(options[0]).toHaveTextContent('Define labels and their values');
-    await userEvent.click(options[0]!);
+    await userEvent.type(canvas.getByTestId('scope-picker-search'), 'values');
+    // By its description alone; findByTestId refuses more than one, so only that scope is listed.
+    const option = await screen.findByTestId('scope-picker-option');
+    await expect(option).toHaveTextContent('labels:define');
+    await expect(option).toHaveTextContent('Define labels and their values');
+    await userEvent.click(option);
     await expect(args.onPick).toHaveBeenLastCalledWith(['labels:define']);
     await expect(canvas.getByTestId('scope-picker-chip')).toHaveTextContent('labels:define');
 

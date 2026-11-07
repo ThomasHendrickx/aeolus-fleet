@@ -41,5 +41,6 @@ export * from './molecules/typed-confirm.js';
 export * from './organisms/app-header.js';
 export * from './organisms/command-palette.js';
 export * from './organisms/harbour.js';
+export * from './organisms/scope-picker.js';
 export * from './organisms/sign-in-background.js';
 export * from './organisms/sign-in-backgrounds.js';
