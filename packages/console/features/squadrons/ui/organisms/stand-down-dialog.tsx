@@ -15,9 +15,9 @@ import {
   Button,
   dialogSurface,
   InlineError,
+  TypedConfirm,
 } from '@aeolus-fleet/ui';
 import { ConsequenceList } from '../../../../components/molecules/consequence-list';
-import { TypedConfirm } from '../../../../components/molecules/typed-confirm';
 
 interface StandDownDialogProps {
   squadronId: string;

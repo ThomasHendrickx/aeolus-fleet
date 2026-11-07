@@ -1,9 +1,9 @@
 'use client';
 
-import { Input, Label } from '@aeolus-fleet/ui';
 import { useId } from 'react';
 
-import { isTypedMatch } from '../../lib/ship-dialogs';
+import { Input } from '../atoms/input.js';
+import { Label } from '../atoms/label.js';
 
 interface TypedConfirmProps {
   /** What the operator types to confirm: the ship's name. */
@@ -18,14 +18,13 @@ function hintOf(expected: string, value: string): string {
   if (value === '') {
     return 'Case and hyphens must match.';
   }
-  return isTypedMatch(expected, value) ? 'Matches. The button is now active.' : 'Doesn’t match yet.';
+  return value === expected ? 'Matches. The button is now active.' : 'Doesn’t match yet.';
 }
 
 /**
  * Second confirmation for an irreversible action that loses work
  * (docs/design/png/TypedConfirm.png): retiring a ship that still holds open
- * deliveries, or renaming one that other ships may address by name. The caller keeps its action disabled until `isTypedMatch`; no
- * error styling while the operator is still typing.
+ * deliveries, or renaming one that other ships may address by name. The caller keeps its action disabled until the typed value matches; no error styling while the operator is still typing.
  */
 export function TypedConfirm({ expected, value, onValueChange, 'data-testid': testId = 'retire-typed-confirm' }: TypedConfirmProps) {
   const inputId = useId();
