@@ -1,10 +1,8 @@
 import { ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 
-import { Badge } from '../../../../components/atoms/badge';
-import { Button, Skeleton, InlineError } from '@aeolus-fleet/ui';
+import { Button, Skeleton, InlineError, Badge, StatusBadge, statusLabel } from '@aeolus-fleet/ui';
 import { LoadMore } from '../../../../components/molecules/load-more';
-import { StatusBadge, statusLabel } from '../../../../components/molecules/status-badge';
 import { duration } from '../../../../lib/relative-time';
 import { CAUSE_SENTENCES, causePathOf, nextStepOf, waitMinutes, type CauseTotal, type StuckPlace } from '../../services/health-view';
 import { WaitAxis, WaitStrip } from '../molecules/wait-strip';

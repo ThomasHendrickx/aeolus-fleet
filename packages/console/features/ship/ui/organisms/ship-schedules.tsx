@@ -2,9 +2,8 @@ import type { MessageId, ScheduleId, ScheduleItem } from '@aeolus-fleet/common';
 import { CalendarClock, CircleX, Pause, RotateCw } from 'lucide-react';
 import type { ReactNode } from 'react';
 
-import { LoadingSkeleton, Button, EmptyState, InlineError } from '@aeolus-fleet/ui';
+import { LoadingSkeleton, Button, EmptyState, InlineError, StatusBadge } from '@aeolus-fleet/ui';
 import { scheduleRowOf, type ScheduleRow } from '../../services/schedule-row';
-import { StatusBadge } from '../../../../components/molecules/status-badge';
 
 /** What the console does to a schedule: Pause, or Cancel once confirmed. */
 export type ScheduleAction = 'pause' | 'cancel';

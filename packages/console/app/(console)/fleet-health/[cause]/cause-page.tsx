@@ -3,7 +3,7 @@
 import type { StuckCause } from '@aeolus-fleet/common';
 
 import { DetailPage } from '../../../../components/organisms/detail-page';
-import { StatusBadge, statusLabel } from '../../../../components/molecules/status-badge';
+import { StatusBadge, statusLabel } from '@aeolus-fleet/ui';
 import { DrilldownContainer } from '../../../../features/health/state/drilldown-container';
 import { useConsoleFrame } from '../../../../lib/console-frame';
 import { useStuckSummary } from '../../../../lib/fleet-health';

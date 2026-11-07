@@ -1,8 +1,7 @@
 import { Infinity as NoLimit, Send, Ship, type LucideIcon } from 'lucide-react';
 
-import { classNames } from '@aeolus-fleet/ui';
+import { classNames, StatusBadge, type LimitState } from '@aeolus-fleet/ui';
 import { meterCaption, meterCount, meterState, resetTime, type MeterState } from '../../../../lib/limits';
-import { StatusBadge, type LimitState } from '../../../../components/molecules/status-badge';
 
 const KINDS: Record<'ships' | 'messages', { label: string; unit: string; Icon: LucideIcon }> = {
   ships: { label: 'Ships', unit: 'ships', Icon: Ship },

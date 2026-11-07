@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { dayDate, dayMonth } from '../../../../lib/relative-time';
 import type { BlueprintVersion } from '../../../../lib/squadrons-schemas';
 import { blueprintPath, blueprintsUsing, checkInText, thresholdsText, type TemplateChoice } from '../../../../lib/squadrons-view';
-import { Badge } from '../../../../components/atoms/badge';
+import { Badge } from '@aeolus-fleet/ui';
 import { CodeBlock } from '../../../../components/atoms/code-block';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../../components/atoms/select';
 

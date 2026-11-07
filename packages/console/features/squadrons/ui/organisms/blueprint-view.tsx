@@ -5,13 +5,11 @@ import { Lock, Plus } from 'lucide-react';
 import { dayDate } from '../../../../lib/relative-time';
 import type { Squadron, TemplateVersion } from '../../../../lib/squadrons-schemas';
 import { checkInText, type BlueprintChoice } from '../../../../lib/squadrons-view';
-import { Badge } from '../../../../components/atoms/badge';
-import { Button } from '@aeolus-fleet/ui';
+import { Button, Badge, StatusBadge } from '@aeolus-fleet/ui';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../../components/atoms/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../../components/atoms/table';
 import { SquadronTag } from '../../../../components/molecules/squadron-tag';
 import { HandoffWiring } from './handoff-wiring';
-import { StatusBadge } from '../../../../components/molecules/status-badge';
 
 interface BlueprintViewProps {
   blueprint: BlueprintChoice;

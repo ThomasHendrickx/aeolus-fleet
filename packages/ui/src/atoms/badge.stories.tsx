@@ -1,7 +1,7 @@
-import type { Meta, StoryObj } from '@storybook/nextjs-vite';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 import { UserRound } from 'lucide-react';
 
-import { Badge } from './badge';
+import { Badge } from './badge.js';
 
 const meta = {
   title: 'Atoms/Badge',

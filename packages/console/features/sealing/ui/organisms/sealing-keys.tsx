@@ -1,11 +1,9 @@
 import { KeyRound } from 'lucide-react';
 import type { ReactNode } from 'react';
 
-import { Button, classNames } from '@aeolus-fleet/ui';
-import { Badge } from '../../../../components/atoms/badge';
+import { Button, classNames, Badge, StatusBadge } from '@aeolus-fleet/ui';
 import { CopyButton } from '../../../../components/atoms/copy-button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../../components/atoms/table';
-import { StatusBadge } from '../../../../components/molecules/status-badge';
 import { fullDateTime, shortDateTime, sinceTime } from '../../../../lib/relative-time';
 import { availabilitySince, dataKeyAge, keyUnavailableReasonWords, newestFirst, shortCompanyKey, shortened, stateSince, type Sealing } from '../../services/sealing-view';
 import { SealingProgress } from '../molecules/sealing-progress';

@@ -2,9 +2,8 @@
 
 import { Lock } from 'lucide-react';
 
-import { LoadingSkeleton, Switch, InlineError } from '@aeolus-fleet/ui';
+import { LoadingSkeleton, Switch, InlineError, Badge } from '@aeolus-fleet/ui';
 
-import { Badge } from '../../../../components/atoms/badge';
 import type { BuiltInRow } from '../../services/built-in-rules';
 
 export interface BuiltInNetworkRulesProps {

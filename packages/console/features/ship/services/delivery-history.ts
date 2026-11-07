@@ -4,7 +4,7 @@ import { locationKindWord } from '../../../lib/location';
 import { undeliverableReason } from '../../../lib/needs-attention';
 import { duration } from '../../../lib/relative-time';
 import { ship, text, type SentencePart } from '../../../lib/sentence';
-import { statusLabel, type PushedStepState } from '../../../components/molecules/status-badge';
+import { statusLabel, type PushedStepState } from '@aeolus-fleet/ui';
 import { recipientGroupWords } from '../../../lib/recipient';
 
 /** The StatusBadge of a step of a delivery's way. */

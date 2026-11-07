@@ -6,6 +6,7 @@
  */
 export * from './atoms/alert-dialog.js';
 export * from './atoms/avatar.js';
+export * from './atoms/badge.js';
 export * from './atoms/button.js';
 export * from './atoms/checkbox.js';
 export * from './atoms/dialog.js';
@@ -35,6 +36,7 @@ export * from './molecules/harbour-tile.js';
 export * from './molecules/inline-error.js';
 export * from './molecules/loading-skeleton.js';
 export * from './molecules/signed-in-as.js';
+export * from './molecules/status-badge.js';
 export * from './molecules/typed-confirm.js';
 export * from './organisms/app-header.js';
 export * from './organisms/command-palette.js';

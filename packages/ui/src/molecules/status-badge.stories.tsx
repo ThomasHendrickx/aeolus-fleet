@@ -1,8 +1,8 @@
 import { DELIVERY_STATES, SCHEDULE_STATES, SHIP_STATUSES } from '@aeolus-fleet/common';
-import type { Meta, StoryObj } from '@storybook/nextjs-vite';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, within } from 'storybook/test';
 
-import { StatusBadge } from './status-badge';
+import { StatusBadge } from './status-badge.js';
 
 const meta = {
   title: 'Molecules/StatusBadge',

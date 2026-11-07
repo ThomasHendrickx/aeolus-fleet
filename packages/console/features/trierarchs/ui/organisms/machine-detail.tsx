@@ -9,12 +9,11 @@ import type { LabelChip as LabelChipData } from '../../../../lib/labels';
 import { clockTime, fullDateTime, sinceTime } from '../../../../lib/relative-time';
 import type { Spot } from '../../../../lib/machines';
 import type { Machine } from '../../../../lib/trierarch-plugin-schemas';
-import { Button, EmptyState, Skeleton } from '@aeolus-fleet/ui';
+import { Button, EmptyState, Skeleton, StatusBadge } from '@aeolus-fleet/ui';
 import { CopyButton } from '../../../../components/atoms/copy-button';
 import { CapacityBar } from '../molecules/capacity-bar';
 import { ShipLabels } from '../../../../components/molecules/ship-labels';
 import { LocationTag } from '../../../../components/molecules/location-tag';
-import { StatusBadge } from '../../../../components/molecules/status-badge';
 import { HarnessOffer, lastAnswer, MachineLiveness, WorkspaceOffer } from './machine-card';
 
 interface MachineDetailProps {

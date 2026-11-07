@@ -4,8 +4,7 @@ import { Activity, ChartColumn, Inbox, Network, Settings2, Shapes, Ship, ShipWhe
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
-import { AvatarMenu, type AvatarMenuProps } from '@aeolus-fleet/ui';
-import { Badge } from '../atoms/badge';
+import { AvatarMenu, type AvatarMenuProps, Badge } from '@aeolus-fleet/ui';
 import { BrandLogo } from '../atoms/brand-logo';
 import { NavLinkIcon } from '../molecules/nav-link-icon';
 

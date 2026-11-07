@@ -3,13 +3,11 @@ import { ListChecks, ShipWheel } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
-import { LoadingSkeleton, EmptyState, InlineError } from '@aeolus-fleet/ui';
+import { LoadingSkeleton, EmptyState, InlineError, Badge, StatusBadge } from '@aeolus-fleet/ui';
 import { crewRequestStage } from '../../../../lib/crew-request';
 import { handCrewOf } from '../../../../lib/needs-crew';
 import { clockTime, fullDateTime, relativeTime, shortDateTime } from '../../../../lib/relative-time';
-import { Badge } from '../../../../components/atoms/badge';
 import { LoadMore } from '../../../../components/molecules/load-more';
-import { StatusBadge } from '../../../../components/molecules/status-badge';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
