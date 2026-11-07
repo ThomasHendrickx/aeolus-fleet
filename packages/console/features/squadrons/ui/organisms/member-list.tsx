@@ -3,7 +3,7 @@ import { Info, Inbox } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
-import { EmptyState } from '@aeolus-fleet/ui';
+import { EmptyState, StatusBadge } from '@aeolus-fleet/ui';
 import type { BlueprintVersion, Squadron, TemplateVersion } from '../../../../lib/squadrons-schemas';
 import { lastSeen } from '../../../../lib/relative-time';
 import { checkInText, membersByRole } from '../../../../lib/squadrons-view';
@@ -12,7 +12,6 @@ import { HealthIndicator } from '../../../../components/molecules/health-indicat
 import { LaunchNote } from '../../../../components/molecules/launch-note';
 import { LocationTag } from '../../../../components/molecules/location-tag';
 import { ReportLine } from '../../../../components/molecules/report-line';
-import { StatusBadge } from '../../../../components/molecules/status-badge';
 
 /** A member's crew lines, launch note and pinned model, from the forming answer: shown once, never stored. */
 export interface IssuedCrewLine {

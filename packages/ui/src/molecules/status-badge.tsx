@@ -36,8 +36,11 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 
-import { classNames } from '@aeolus-fleet/ui';
-import type { SquadronState } from '../../lib/squadron-states';
+import { Badge } from '../atoms/badge.js';
+import { classNames } from '../class-names.js';
+
+/** A squadron's state (aeolus-fleet-squadrons' docs/squadrons.md). */
+type SquadronState = 'forming' | 'sailing' | 'standing-down' | 'disbanded';
 
 /** A count at its limit, or over it once a limit is lowered below use (the LimitMeter part). */
 export type LimitState = 'at-limit' | 'over-limit';
@@ -52,7 +55,6 @@ export type SealingBadgeState = 'sealing' | 'sealed' | 'reachable' | 'notReachab
 /** A ship with an open alert (decision 0071): the badge after its status on the overview. */
 export type AlertBadgeState = 'alert';
 type Status = AlertBadgeState | SealingBadgeState | ShipStatus | DeliveryState | SquadronState | LimitState | CrewStatus | UnassignedCrewState | PushedStepState | HealthState | ScheduleState;
-import { Badge } from '../atoms/badge';
 
 type Tone = 'waiting' | 'active' | 'ok' | 'attention' | 'ended';
 

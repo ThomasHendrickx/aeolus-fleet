@@ -2,8 +2,7 @@ import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { Plus } from 'lucide-react';
 import { expect, fn, within } from 'storybook/test';
 
-import { Badge } from '../atoms/badge';
-import { Button } from '@aeolus-fleet/ui';
+import { Button, Badge } from '@aeolus-fleet/ui';
 import { ConsoleFrame } from './console-frame';
 import { ListPage } from './list-page';
 import { AVATAR_MENU, SWITCHER } from '../../lib/fixtures/header.fixtures';

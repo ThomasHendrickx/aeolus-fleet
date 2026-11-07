@@ -3,14 +3,13 @@
 import type { DeliveryId, MessageRecipient, Party, NeedsAttentionDelivery } from '@aeolus-fleet/common';
 import { ChevronRight, CircleCheck, RotateCw } from 'lucide-react';
 
-import { LoadingSkeleton, Button, classNames, EmptyState, InlineError } from '@aeolus-fleet/ui';
+import { LoadingSkeleton, Button, classNames, EmptyState, InlineError, StatusBadge } from '@aeolus-fleet/ui';
 import { attentionReason, canResend } from '../../lib/needs-attention';
 import { isJson } from '../../lib/payload';
 import { clockTime, duration, fullDateTime, shortDateTime } from '../../lib/relative-time';
 import { OPERATOR_NAME } from '../../lib/sentence';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../atoms/table';
 import { ShipName } from '../molecules/ship-name';
-import { StatusBadge } from '../molecules/status-badge';
 import { recipientGroupWords } from '../../lib/recipient';
 
 interface NeedsAttentionListProps {

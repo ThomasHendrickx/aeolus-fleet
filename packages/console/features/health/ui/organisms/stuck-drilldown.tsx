@@ -3,9 +3,7 @@ import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
-import { Badge } from '../../../../components/atoms/badge';
-import { LoadingSkeleton, Button, EmptyState, InlineError } from '@aeolus-fleet/ui';
-import { StatusBadge, statusLabel } from '../../../../components/molecules/status-badge';
+import { LoadingSkeleton, Button, EmptyState, InlineError, Badge, StatusBadge, statusLabel } from '@aeolus-fleet/ui';
 import { duration, relativeTime, shortDateTime } from '../../../../lib/relative-time';
 import { CAUSE_SENTENCES, messagePathOn, nextStepOf, placeName, waitMinutes, type StuckPlace } from '../../services/health-view';
 import { WaitStrip } from '../molecules/wait-strip';

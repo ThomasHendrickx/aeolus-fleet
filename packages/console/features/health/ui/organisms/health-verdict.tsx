@@ -1,6 +1,6 @@
 import type { Health, StuckSummary } from '@aeolus-fleet/common';
 
-import { StatusBadge } from '../../../../components/molecules/status-badge';
+import { StatusBadge } from '@aeolus-fleet/ui';
 import { shortDateTime } from '../../../../lib/relative-time';
 import { marksOf, trendSentence, verdictOf, type StuckPlace } from '../../services/health-view';
 import { StuckTrend } from '../molecules/stuck-trend';

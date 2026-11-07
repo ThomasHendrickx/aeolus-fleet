@@ -1,10 +1,9 @@
 'use client';
 
-import { Avatar, CommandPalette as SharedCommandPalette, type CommandGroup } from '@aeolus-fleet/ui';
+import { Avatar, CommandPalette as SharedCommandPalette, type CommandGroup, StatusBadge } from '@aeolus-fleet/ui';
 import { Activity, AppWindow, DraftingCompass, Inbox, Plus, Shapes, Ship, SquarePen, UserPlus, Waves, type LucideIcon } from 'lucide-react';
 
 import { paletteGroups, paletteKeyOf, type PaletteItem } from '../../services/command-palette';
-import { StatusBadge } from '../../../../components/molecules/status-badge';
 
 export type { PaletteItem } from '../../services/command-palette';
 

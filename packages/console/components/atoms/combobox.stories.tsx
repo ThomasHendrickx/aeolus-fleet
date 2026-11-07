@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { Search, Tag } from 'lucide-react';
 import { useState } from 'react';
 
-import { Badge } from './badge';
+import { Badge } from '@aeolus-fleet/ui';
 import { Combobox, type ComboboxOption } from './combobox';
 
 const SHIPS: ComboboxOption[] = [

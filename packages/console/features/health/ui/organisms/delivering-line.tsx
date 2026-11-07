@@ -1,6 +1,6 @@
 import type { Health } from '@aeolus-fleet/common';
 
-import { StatusBadge } from '../../../../components/molecules/status-badge';
+import { StatusBadge } from '@aeolus-fleet/ui';
 import { duration } from '../../../../lib/relative-time';
 import { medianText } from '../../services/health-view';
 import { AcknowledgedBars } from '../molecules/acknowledged-bars';

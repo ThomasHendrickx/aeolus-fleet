@@ -4,9 +4,8 @@ import type { ReactNode } from 'react';
 import { shortDateTime } from '../../../../lib/relative-time';
 import type { Squadron } from '../../../../lib/squadrons-schemas';
 import { blueprintPath, stationCount } from '../../../../lib/squadrons-view';
-import { LoadingSkeleton, Button, EmptyState } from '@aeolus-fleet/ui';
+import { LoadingSkeleton, Button, EmptyState, StatusBadge } from '@aeolus-fleet/ui';
 import { StationProgress } from '../molecules/station-progress';
-import { StatusBadge } from '../../../../components/molecules/status-badge';
 
 interface SquadronHeaderProps {
   squadron: Squadron | undefined;

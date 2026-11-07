@@ -4,8 +4,7 @@ import { ArrowRight, Flag } from 'lucide-react';
 import { useState } from 'react';
 
 import type { BlueprintVersion } from '../../../../lib/squadrons-schemas';
-import { classNames } from '@aeolus-fleet/ui';
-import { Badge } from '../../../../components/atoms/badge';
+import { classNames, Badge } from '@aeolus-fleet/ui';
 
 /** The name a blueprint binds a hand-off to when it goes to the squadron's flagship. */
 const FLAGSHIP = 'flagship';

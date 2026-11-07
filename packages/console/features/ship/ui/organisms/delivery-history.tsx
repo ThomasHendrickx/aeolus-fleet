@@ -2,9 +2,8 @@ import type { DeliveryHistoryEntry, MessageRecipient } from '@aeolus-fleet/commo
 
 import { deliveryHistorySentence, deliveryHistoryState, offsetTime } from '../../services/delivery-history';
 import { fullDateTime, secondsTime } from '../../../../lib/relative-time';
-import { Badge } from '../../../../components/atoms/badge';
+import { Badge, StatusBadge } from '@aeolus-fleet/ui';
 import { Sentence } from '../molecules/sentence';
-import { StatusBadge } from '../../../../components/molecules/status-badge';
 
 interface DeliveryHistoryProps {
   /** The delivery's changes, newest first: the first is its current state. */

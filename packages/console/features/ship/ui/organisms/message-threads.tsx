@@ -2,7 +2,7 @@ import type { ListedMessage, MessageId, ShipId } from '@aeolus-fleet/common';
 import { ArrowDownLeft, ArrowUpRight, Mail, RotateCw } from 'lucide-react';
 import type { ReactNode } from 'react';
 
-import { LoadingSkeleton, Button, classNames, EmptyState, InlineError } from '@aeolus-fleet/ui';
+import { LoadingSkeleton, Button, classNames, EmptyState, InlineError, StatusBadge } from '@aeolus-fleet/ui';
 import { messageLine } from '../../services/message-line';
 import { deliveryStatus } from '../../services/message-way';
 import { fullDateTime, relativeTime } from '../../../../lib/relative-time';
@@ -10,7 +10,6 @@ import { ship, text, type SentencePart } from '../../../../lib/sentence';
 import { threadsOf } from '../../services/threads';
 import { Sentence } from '../molecules/sentence';
 import { SealedMark } from '../../../../components/molecules/sealed-mark';
-import { StatusBadge } from '../../../../components/molecules/status-badge';
 import { recipientGroupWords } from '../../../../lib/recipient';
 
 interface MessageThreadsProps {
