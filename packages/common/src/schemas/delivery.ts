@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { deliveryStateSchema } from '../fleet/index.js';
+import { deliveryStateSchema, shipStatusSchema } from '../fleet/index.js';
 import { idSchema } from '../ids/index.js';
 import { leaseWakerSchema, partySchema } from './history.js';
 import { pageOutputOf } from './page.js';
@@ -51,6 +51,11 @@ export const receivedDeliverySchema = z.object({
   /** The sender's name and type as they are when the delivery is received: a renamed sender goes by its new name. */
   senderName: z.string(),
   senderType: z.string(),
+  /**
+   * The sender's status when the delivery is read, as the fleet read answers it: a fact
+   * beside the delivery, no promise that a reply is taken (a retired sender refuses one).
+   */
+  senderStatus: shipStatusSchema,
   recipient: recipientSchema,
   payload: z.string(),
   contentType: z.string(),

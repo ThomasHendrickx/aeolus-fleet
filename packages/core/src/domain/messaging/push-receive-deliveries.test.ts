@@ -8,6 +8,7 @@ import {
   messagingUseCases,
   operatorCaller,
   registryUseCases,
+  modelOf,
 } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { newKey } from '../../testing/keys.js';
@@ -145,6 +146,7 @@ describe('a push receive', () => {
           senderShipId: argo.shipId,
           senderName: 'argo',
           senderType: 'operator',
+          senderStatus: 'crewed',
           recipient: { kind: 'ship', shipId: scoutId },
           payload: 'Review https://github.com/ThomasHendrickx/aeolus-fleet/pull/25',
           contentType: 'text/plain',
@@ -218,6 +220,65 @@ describe('a push receive', () => {
 
     expect(await pushReceive(scout)).toEqual([]);
     expect(core.clock.now().getTime() - startedAt).toBe(RECEIVE_WAIT_MS);
+  });
+});
+
+describe("the sender's status", () => {
+  /** Sends scout a plain message from the lookout's crew and returns its delivery's id. */
+  async function sendFromLookout(): Promise<DeliveryId> {
+    const { messageId } = unwrap(
+      await useCases.sendMessage(lookout, { ...modelOf(lookout), selector: toScout(), payload: 'PR #1497 is open', idempotencyKey: newKey() }),
+    );
+    return deliveryIdOf(core, messageId);
+  }
+
+  it('is retired once the sender retires, and its delivery is still received, counted and acknowledged', async () => {
+    // Given the lookout sent scout a message, then retired.
+    const deliveryId = await sendFromLookout();
+    unwrap(await registryUseCases(core).retireShip(argo, { shipId: lookoutId }));
+    const waitingBefore = unwrap(await useCases.checkInbox(scout, {}));
+
+    // When scout's computer side takes it by push, and acknowledges it.
+    const { deliveries } = unwrap(await useCases.pushReceiveDeliveries(scout, {}));
+    const acknowledged = await useCases.acknowledgeDelivery(scout, { deliveryId });
+
+    // Then the inbox counted it, it was received naming the lookout retired, and its acknowledgement succeeded.
+    expect(waitingBefore).toEqual({ waiting: 1, forced: 0 });
+    expect(deliveries).toEqual([
+      expect.objectContaining({ deliveryId, senderShipId: lookoutId, senderName: 'lookout', senderStatus: 'retired', state: 'received', payload: 'PR #1497 is open' }),
+    ]);
+    expect(acknowledged.isOk).toBe(true);
+    expect(stored(deliveryId)?.state).toBe('acknowledged');
+  });
+
+  it("is awaiting crew once the sender's crew is released", async () => {
+    // Given the lookout sent scout a message, then its crew was released.
+    const deliveryId = await sendFromLookout();
+    unwrap(await registryUseCases(core).releaseShip(argo, { shipId: lookoutId }));
+
+    // When scout's computer side takes it by push.
+    const { deliveries } = unwrap(await useCases.pushReceiveDeliveries(scout, {}));
+
+    // Then it is received, naming the lookout awaiting crew.
+    expect(deliveries).toEqual([
+      expect.objectContaining({ deliveryId, senderShipId: lookoutId, senderName: 'lookout', senderStatus: 'awaitingCrew', state: 'received', attempts: 0, payload: 'PR #1497 is open' }),
+    ]);
+  });
+
+  it('is read afresh when a received delivery returns again, which stays as it was', async () => {
+    // Given scout received the lookout's message while the lookout was crewed, then the lookout retired.
+    const deliveryId = await sendFromLookout();
+    const first = unwrap(await useCases.pushReceiveDeliveries(scout, {}));
+    unwrap(await registryUseCases(core).retireShip(argo, { shipId: lookoutId }));
+    const before = stored(deliveryId);
+
+    // When scout's push receive returns it again.
+    const again = unwrap(await useCases.pushReceiveDeliveries(scout, {}));
+
+    // Then the first named the lookout crewed, the second retired, and the delivery did not change.
+    expect(first.deliveries).toEqual([expect.objectContaining({ deliveryId, senderStatus: 'crewed' })]);
+    expect(again.deliveries).toEqual([expect.objectContaining({ deliveryId, senderStatus: 'retired', state: 'received', attempts: 0 })]);
+    expect(stored(deliveryId)).toEqual(before);
   });
 });
 

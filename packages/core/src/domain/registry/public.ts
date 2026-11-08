@@ -10,6 +10,7 @@ export { resolveInvitees, type Invitee, type ResolveInviteesTx } from './resolve
 export { resolveLabelSelection, type ResolveLabelSelectionTx } from './resolve-label-selection.js';
 export { labelValueTexts, type LabelValueTextsTx } from './label-value-texts.js';
 export { findOperatorShip, findShip, findViewerShip, type FindShipTx, type ShipTx } from './ships.js';
+export { findSender, findSenders, type FindSenderTx, type FindSendersTx, type Sender } from './senders.js';
 export { isConsoleShip, OPERATOR_SHIP_NAME, shipStatus, type Ship } from './ship.js';
 export { appliedLimits, type AppliedLimitsTx } from './applied-limits.js';
 export { readsEvent, readsMessage, readsShip, type MessageParties, type ReadReach, type ReadReachOf } from './read-reach.js';
