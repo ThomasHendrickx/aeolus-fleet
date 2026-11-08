@@ -1899,6 +1899,11 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     const assignee = state.ships.find((each) => each.fleetId === held.fleetId && each.id === assignedTo);
     return assignee ? { id: assignee.id, name: assignee.name } : null;
   };
+  const requesterOf = (held: Ship): ShipFacts['crewRequestRequester'] => {
+    const requestedBy = state.crewRequests.find((request) => request.fleetId === held.fleetId && request.shipId === held.id)?.requestedBy;
+    const requester = state.ships.find((each) => each.fleetId === held.fleetId && each.id === requestedBy);
+    return requester ? { id: requester.id, name: requester.name } : null;
+  };
   const crewedByOf = (held: Ship, lease: Lease | undefined): ShipFacts['crewedBy'] => {
     if (!lease) {
       return null;
@@ -1933,6 +1938,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       validSecret: secret ? { issuedAt: secret.issuedAt, claimedAt: secret.claimedAt } : null,
       crewRequest: state.crewRequests.find((request) => request.fleetId === held.fleetId && request.shipId === held.id) ?? null,
       crewRequestAssignee: assigneeOf(held),
+      crewRequestRequester: requesterOf(held),
       crewRequestGivenBack: (state.crewRequests.find((request) => request.fleetId === held.fleetId && request.shipId === held.id)?.givenBack ?? []).map(
         ({ trierarchShipId, ...back }) => ({ trierarch: { id: trierarchShipId, name: state.ships.find((each) => each.fleetId === held.fleetId && each.id === trierarchShipId)?.name ?? '' }, ...back }),
       ),

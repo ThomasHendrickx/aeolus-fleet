@@ -58,6 +58,7 @@ describe('reading the stuck deliveries by cause and place', () => {
       settings: {},
       settingsVersion: 1,
       requestedAt: crewedAt,
+      requestedBy: null,
       assignedTo: macStudio,
       status: 'crewing',
       reason: null,

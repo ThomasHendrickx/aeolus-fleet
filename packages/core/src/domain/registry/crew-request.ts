@@ -35,6 +35,8 @@ export interface CrewRequest {
   settingsVersion: number;
   /** When the settings were last requested. */
   requestedAt: Date;
+  /** The ship that made the request last (R2 of docs/design enabled models): the caller's ship, argo for an account or the installation; null for a request made before it was recorded. */
+  requestedBy: ShipId | null;
   /** The trierarch ship it is assigned to; null while unassigned. */
   assignedTo: ShipId | null;
   /** How its trierarch says the crew stands; null until it says. */
@@ -82,7 +84,7 @@ function event(ship: Ship, change: Pick<NewEvent, 'type' | 'details'> & { at: Da
  * request it holds now, replacing the settings of any it held and keeping its
  * assignment and status, its crew not final until the new settings run, and
  * CrewRequested with the settings version, never
- * the settings. Never argo, the viewer ship or a retired ship; settings of at
+ * the settings, the requester replaced by the ship that made it. Never argo, the viewer ship or a retired ship; settings of at
  * most 16 KB that are crew settings (decision 0027), as placement reads
  * them, each machine label one of the fleet's label values (#811), so a
  * request never waits for a machine no label lets match; never while the
@@ -90,7 +92,7 @@ function event(ship: Ship, change: Pick<NewEvent, 'type' | 'details'> & { at: Da
  */
 export function requestCrew(
   { ship, current, labelValues }: { ship: Ship; current: CrewRequest | undefined; labelValues: ReadonlySet<LabelValueId> },
-  input: { settings: JsonObject; at: Date; actor: Actor },
+  input: { settings: JsonObject; requestedBy: ShipId; at: Date; actor: Actor },
 ): Result<{ request: CrewRequest; events: NewEvent[] }, RequestCrewRefusal> {
   const requestable = checkCanBeRequestedCrew(ship);
   if (!requestable.isOk) {
@@ -122,6 +124,7 @@ export function requestCrew(
     settings: input.settings,
     settingsVersion: (current?.settingsVersion ?? 0) + 1,
     requestedAt: input.at,
+    requestedBy: input.requestedBy,
     assignedTo: current?.assignedTo ?? null,
     status: current?.status ?? null,
     reason: current?.reason ?? null,

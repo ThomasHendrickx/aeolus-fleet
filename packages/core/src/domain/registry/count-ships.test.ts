@@ -36,6 +36,7 @@ function requestCrew(shipId: ShipId, assigned?: { to: ShipId; status: CrewStatus
     settings: {},
     settingsVersion: 1,
     requestedAt: core.clock.now(),
+      requestedBy: null,
     assignedTo: assigned?.to ?? null,
     status: assigned?.status ?? null,
     reason: null,

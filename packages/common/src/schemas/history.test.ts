@@ -109,7 +109,7 @@ describe('shipDetailOutputSchema', () => {
   });
 
   it('accepts its crew request whole, settings included', () => {
-    const requested = { ...ship, crewRequest: { settingsVersion: 1, requestedAt: AT, assignedTo: null, status: null, reason: null, crewedBy: null, attempt: 0, startedAt: null, givenBack: [], settings: { harness: 'codex' } } };
+    const requested = { ...ship, crewRequest: { settingsVersion: 1, requestedAt: AT, assignedTo: null, requestedBy: null, status: null, reason: null, crewedBy: null, attempt: 0, startedAt: null, givenBack: [], settings: { harness: 'codex' } } };
 
     expect(shipDetailOutputSchema.parse(requested)).toEqual(requested);
   });

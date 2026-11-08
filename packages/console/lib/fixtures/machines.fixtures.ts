@@ -91,7 +91,7 @@ export const FLEET: ListedShip[] = [
     (spot): ListedShip => ({
       id: spot.shipId, name: spot.name, type: 'implementer', kind: 'agent', status: 'crewed', startingPrompt: null, location: null, lastSeenAt: null, ping: null,
       scopes: ['messages:send', 'messages:receive'], labels: [], report: null, harness: null, model: null, activity: null, openAlertCount: 0, awaitingCrewSince: null, retiredAt: null, ownerShipId: null,
-      crewRequest: { settingsVersion: 1, requestedAt: minutesAgo(90), assignedTo: { id: ALIVE_MACHINE.shipId, name: ALIVE_MACHINE.name }, status: spot.status, reason: null, crewedBy: null, attempt: spot.attempt, startedAt: spot.startedAt, givenBack: [] },
+      crewRequest: { settingsVersion: 1, requestedAt: minutesAgo(90), requestedBy: null, assignedTo: { id: ALIVE_MACHINE.shipId, name: ALIVE_MACHINE.name }, status: spot.status, reason: null, crewedBy: null, attempt: spot.attempt, startedAt: spot.startedAt, givenBack: [] },
     }),
   ),
 ];
@@ -187,7 +187,7 @@ const AWAITING: ListedShip = {
 const TRIAGE: ListedShip = {
   ...AWAITING,
   id: shipId('nc01'), name: 'triage-bot', type: 'triage',
-  crewRequest: { settingsVersion: 1, requestedAt: minutesAgo(190), assignedTo: null, status: null, reason: null, crewedBy: null, attempt: 0, startedAt: null, givenBack: [] },
+  crewRequest: { settingsVersion: 1, requestedAt: minutesAgo(190), requestedBy: null, assignedTo: null, status: null, reason: null, crewedBy: null, attempt: 0, startedAt: null, givenBack: [] },
 };
 
 /** Ships on Needs crew: without the plugin, to crew by hand; with it, requests that are not running. */
@@ -197,18 +197,18 @@ export const NEEDS_CREW_BY_HAND: ListedShip[] = [
     ...AWAITING,
     id: shipId('nc02'), name: 'reviewer-3', type: 'reviewer',
     startingPrompt: { issuedAt: minutesAgo(12), isClaimed: false },
-    crewRequest: { settingsVersion: 1, requestedAt: minutesAgo(87), assignedTo: null, status: null, reason: null, crewedBy: null, attempt: 0, startedAt: null, givenBack: [] },
+    crewRequest: { settingsVersion: 1, requestedAt: minutesAgo(87), requestedBy: null, assignedTo: null, status: null, reason: null, crewedBy: null, attempt: 0, startedAt: null, givenBack: [] },
   },
   {
     ...AWAITING,
     id: shipId('nc03'), name: 'planner-2', type: 'planner',
     startingPrompt: { issuedAt: minutesAgo(3000), isClaimed: true }, awaitingCrewSince: minutesAgo(375),
-    crewRequest: { settingsVersion: 1, requestedAt: minutesAgo(3000), assignedTo: null, status: null, reason: null, crewedBy: null, attempt: 0, startedAt: null, givenBack: [] },
+    crewRequest: { settingsVersion: 1, requestedAt: minutesAgo(3000), requestedBy: null, assignedTo: null, status: null, reason: null, crewedBy: null, attempt: 0, startedAt: null, givenBack: [] },
   },
 ];
 
 export const NEEDS_CREW_WITH_PLUGIN: ListedShip[] = [
-  { ...TRIAGE, crewRequest: { settingsVersion: 1, requestedAt: minutesAgo(1), assignedTo: null, status: null, reason: 'no trierarch with room: all 2 that fit are full', crewedBy: null, attempt: 0, startedAt: null, givenBack: [] } },
+  { ...TRIAGE, crewRequest: { settingsVersion: 1, requestedAt: minutesAgo(1), requestedBy: null, assignedTo: null, status: null, reason: 'no trierarch with room: all 2 that fit are full', crewedBy: null, attempt: 0, startedAt: null, givenBack: [] } },
   ...SPOTS.filter((spot) => spot.status !== 'running').map((spot) => FLEET.find((ship) => ship.id === spot.shipId)).filter((ship) => ship !== undefined),
 ];
 

@@ -173,6 +173,7 @@ model Ship {
   events               Event[]                @relation("EventShip")
   crewRequest          CrewRequest?           @relation("CrewRequestShip")
   assignedCrews        CrewRequest[]          @relation("CrewRequestAssignee")
+  requestedCrews       CrewRequest[]          @relation("CrewRequestRequester")
   givenBackCrews       CrewRequestGiveBack[]  @relation("CrewRequestGiveBackTrierarch")
   clearRequests        WorktreeClearRequest[] @relation("WorktreeClearRequestTrierarch")
   clearedWorktrees     WorktreeClearRequest[] @relation("WorktreeClearRequestShip")
@@ -345,6 +346,8 @@ model CrewRequest {
   settings         Json
   settingsVersion  Int         @map("settings_version")
   requestedAt      DateTime    @map("requested_at") @db.Timestamptz(3)
+  /// The ship that made it last; null for a request made before it was recorded.
+  requestedBy      String?     @map("requested_by_ship_id")
   /// The trierarch ship it is assigned to; null while unassigned.
   assignedTo       String?     @map("assigned_to_ship_id")
   /// How its trierarch says the crew stands; null until it says.
@@ -361,6 +364,7 @@ model CrewRequest {
   fleet     Fleet                 @relation(fields: [fleetId], references: [id])
   ship      Ship                  @relation("CrewRequestShip", fields: [fleetId, shipId], references: [fleetId, id])
   assignee  Ship?                 @relation("CrewRequestAssignee", fields: [fleetId, assignedTo], references: [fleetId, id])
+  requester Ship?                 @relation("CrewRequestRequester", fields: [fleetId, requestedBy], references: [fleetId, id])
   givenBack CrewRequestGiveBack[]
 
   @@unique([fleetId, shipId])

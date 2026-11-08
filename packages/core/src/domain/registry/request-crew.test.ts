@@ -38,7 +38,7 @@ describe('requesting a crew for a ship', () => {
   it('keeps the request on the ship with its settings, at settings version 1', async () => {
     await expect(registry.requestCrew(argo, { shipId: scoutId, settings })).resolves.toEqual({ isOk: true, value: { settingsVersion: 1 } });
 
-    expect(crewRequestOf(scoutId)).toEqual({ fleetId, shipId: scoutId, settings, settingsVersion: 1, requestedAt: core.clock.now(), assignedTo: null, status: null, reason: null, attempt: 0, sessionStartedAt: null, isFinal: false, givenBack: [] });
+    expect(crewRequestOf(scoutId)).toEqual({ fleetId, shipId: scoutId, settings, settingsVersion: 1, requestedAt: core.clock.now(), requestedBy: argoId, assignedTo: null, status: null, reason: null, attempt: 0, sessionStartedAt: null, isFinal: false, givenBack: [] });
   });
 
   it('writes CrewRequested, caused by the requester, with the settings version, never the settings', async () => {
@@ -62,7 +62,7 @@ describe('requesting a crew for a ship', () => {
     unwrap(await registry.requestCrew(argo, { shipId: scoutId, settings: { ...settings, harness: 'codex' } }));
 
     expect(core.state.crewRequests.filter((request) => request.shipId === scoutId)).toEqual([
-      { fleetId, shipId: scoutId, settings: { ...settings, harness: 'codex' }, settingsVersion: 2, requestedAt: core.clock.now(), assignedTo: null, status: null, reason: null, attempt: 0, sessionStartedAt: null, isFinal: false, givenBack: [] },
+      { fleetId, shipId: scoutId, settings: { ...settings, harness: 'codex' }, settingsVersion: 2, requestedAt: core.clock.now(), requestedBy: argoId, assignedTo: null, status: null, reason: null, attempt: 0, sessionStartedAt: null, isFinal: false, givenBack: [] },
     ]);
   });
 
@@ -143,7 +143,7 @@ describe('a crew request read with the ship', () => {
 
     const listed = wholeShips((await registry.listFleet(argo)).ships).find((ship) => ship.id === scoutId);
 
-    expect(listed?.crewRequest).toEqual({ settingsVersion: 1, requestedAt: core.clock.now(), assignedTo: null, status: null, reason: null, crewedBy: null, attempt: 0, sessionStartedAt: null, givenBack: [] });
+    expect(listed?.crewRequest).toEqual({ settingsVersion: 1, requestedAt: core.clock.now(), assignedTo: null, requestedBy: { id: argoId, name: 'argo' }, status: null, reason: null, crewedBy: null, attempt: 0, sessionStartedAt: null, givenBack: [] });
   });
 
   it('is read whole, settings included, with the one ship', async () => {
