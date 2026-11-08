@@ -40,6 +40,7 @@ Feature designs, one folder each; the status of each is at its top:
 | [performance](performance/performance.md) | Performance at scale: paged reads and their limits |
 | [re-read-delivery](re-read-delivery/README.md) | A crew re-reads an acknowledged delivery |
 | [retention](retention/retention.md) | What a fleet keeps, and for how long |
+| [retired-sender](retired-sender/README.md) | A delivery's sender, retired or not: the fact a ship reads beside the sender's name and type |
 | [scheduled-messages](scheduled-messages/scheduled-messages.md) | A ship's own message, sent by core at its time |
 | [selector](selector/selector.md) | One message to a set of ships |
 | [state-colours](state-colours/state-colours.md) | One meaning per colour for a ship's state, in every app |
