@@ -6,6 +6,7 @@ import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-
 import { newKey } from '../../testing/keys.js';
 import { unwrap } from '../../testing/result.js';
 import { endLease } from '../registry/public.js';
+import { UNDELIVERABLE_AT_ATTEMPT } from './delivery.js';
 import type { Crew, ShipCaller } from '../shared/caller.js';
 import { shipActor } from '../shared/events.js';
 import { ok } from '../shared/result.js';
@@ -138,6 +139,54 @@ describe('the record read', () => {
       { deliveryId: fromScout, state: 'pending', senderShipId: scoutId, senderName: 'scout', senderStatus: 'awaitingCrew' },
       { deliveryId: fromLookout, state: 'received', senderShipId: lookoutId, senderName: 'lookout', senderStatus: 'retired' },
       { deliveryId: fromArgo, state: 'acknowledged', senderShipId: argo.shipId, senderName: 'argo', senderStatus: 'crewed' },
+    ]);
+  });
+
+  it("names the sender's status on entries handed, handled, undeliverable and abandoned too", async () => {
+    // Given, on a pull lease, a message from the scout received five times unacknowledged, one from argo acknowledged and handled,
+    // one from the lookout handed, and another from the scout abandoned; then the lookout retired and the scout's crew was released.
+    const crew = crewOf(thomasId);
+    const { commissionShip, releaseShip, retireShip } = registryUseCases(core);
+    const { shipId: scoutId } = unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
+    const lookout = crewAboard(core, { fleetId, shipId: lookoutId });
+    const scout = crewAboard(core, { fleetId, shipId: scoutId });
+    const sendFrom = async (sender: Crew, payload: string): Promise<DeliveryId> => {
+      core.clock.advance(1_000);
+      const { messageId } = unwrap(
+        await useCases.sendMessage(sender, { selector: { kind: 'ship', shipId: thomasId }, payload, model: 'claude-opus-5-5', idempotencyKey: newKey() }),
+      );
+      return deliveryIdOf(core, messageId);
+    };
+    const undeliverable = await sendFrom(scout, 'PR #1500 is open');
+    for (let attempt = 0; attempt < UNDELIVERABLE_AT_ATTEMPT; attempt += 1) {
+      unwrap(await useCases.receiveDeliveries(crew, {}));
+    }
+    const handled = await sendTo({ kind: 'ship', shipId: thomasId }, 'Which design do we build?');
+    unwrap(await useCases.receiveDeliveries(crew, {}));
+    unwrap(await useCases.acknowledgeDelivery(crew, { deliveryId: handled }));
+    unwrap(await useCases.reportHandled(crew, { deliveryId: handled }));
+    const handed = await sendFrom(lookout, 'PR #1501 is open');
+    unwrap(await useCases.receiveDeliveries(crew, {}));
+    const abandoned = await sendFrom(scout, 'PR #1502 is open');
+    // Only a retire abandons a delivery, and only one to the retired ship, whose crew then reads no record: the state is set here.
+    const stored = core.state.deliveries.find((held) => held.id === abandoned);
+    if (stored) {
+      stored.state = 'abandoned';
+    }
+    unwrap(await retireShip(argo, { shipId: lookoutId }));
+    unwrap(await releaseShip(argo, { shipId: scoutId }));
+
+    // When thomas's crew reads its record.
+    const page = unwrap(await useCases.readRecord(crew, {}));
+
+    // Then each entry keeps its state, payload and attempts, and names its sender's status now.
+    expect(
+      page.items.map(({ deliveryId, state, payload, attempts, senderShipId, senderStatus }) => ({ deliveryId, state, payload, attempts, senderShipId, senderStatus })),
+    ).toEqual([
+      { deliveryId: abandoned, state: 'abandoned', payload: 'PR #1502 is open', attempts: 0, senderShipId: scoutId, senderStatus: 'awaitingCrew' },
+      { deliveryId: handed, state: 'handed', payload: 'PR #1501 is open', attempts: 1, senderShipId: lookoutId, senderStatus: 'retired' },
+      { deliveryId: handled, state: 'handled', payload: 'Which design do we build?', attempts: 1, senderShipId: argo.shipId, senderStatus: 'crewed' },
+      { deliveryId: undeliverable, state: 'undeliverable', payload: 'PR #1500 is open', attempts: UNDELIVERABLE_AT_ATTEMPT, senderShipId: scoutId, senderStatus: 'awaitingCrew' },
     ]);
   });
 

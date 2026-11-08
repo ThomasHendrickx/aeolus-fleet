@@ -251,6 +251,20 @@ describe("the sender's status", () => {
     expect(stored(deliveryId)?.state).toBe('acknowledged');
   });
 
+  it("is awaiting crew once the sender's crew is released", async () => {
+    // Given the lookout sent scout a message, then its crew was released.
+    const deliveryId = await sendFromLookout();
+    unwrap(await registryUseCases(core).releaseShip(argo, { shipId: lookoutId }));
+
+    // When scout's computer side takes it by push.
+    const { deliveries } = unwrap(await useCases.pushReceiveDeliveries(scout, {}));
+
+    // Then it is received, naming the lookout awaiting crew.
+    expect(deliveries).toEqual([
+      expect.objectContaining({ deliveryId, senderShipId: lookoutId, senderName: 'lookout', senderStatus: 'awaitingCrew', state: 'received', attempts: 0, payload: 'PR #1497 is open' }),
+    ]);
+  });
+
   it('is read afresh when a received delivery returns again, which stays as it was', async () => {
     // Given scout received the lookout's message while the lookout was crewed, then the lookout retired.
     const deliveryId = await sendFromLookout();

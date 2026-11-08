@@ -151,6 +151,18 @@ describe('delivery, re-read', () => {
     expect(stored(deliveryId)).toEqual(before);
   });
 
+  it('names argo crewed, which no session needs to crew (decision 0012)', async () => {
+    // Given scout acknowledged a message from argo, which holds no lease.
+    const deliveryId = await acknowledged();
+    expect(core.state.leases.some((lease) => lease.shipId === argo.shipId && lease.endedAt === null)).toBe(false);
+
+    // When scout reads it again.
+    const reread = unwrap(await readDelivery(scout, { deliveryId }));
+
+    // Then it names argo crewed, with the delivery as it was.
+    expect(reread).toMatchObject({ deliveryId, senderShipId: argo.shipId, senderName: 'argo', senderType: 'operator', senderStatus: 'crewed', payload: PAYLOAD, state: 'acknowledged', attempts: 1 });
+  });
+
   it('changes nothing: the delivery keeps its state, attempts and clocks, and no event is written', async () => {
     const deliveryId = await acknowledged();
     const before = structuredClone(stored(deliveryId));
