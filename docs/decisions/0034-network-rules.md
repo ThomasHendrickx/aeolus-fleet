@@ -11,6 +11,7 @@
   - the owner's ship to the ships it owns, every verb. Never off: a human is always responsible (0045).
   - an answer to the sender of the message it answers (inReplyTo, a delivery to it or one of its type it claimed), send. Never off: an allowed send must be able to get its answer.
   - a ship of kind plugin reads every ship (0050). Connect in the console commissions the plugin's ship as kind plugin (`fleet:connect` (0053), `PluginConnected`); only a retire of the ship ends it (`PluginDisconnected`), a release ends nothing. Never off, so saving rules never narrows what a plugin reads.
+  - plugins are always reachable: every ship sends to every ship of kind plugin, and every ship of kind plugin sends to every ship, send. Never off, so a ship always reaches the plugins that serve it and a plugin always reaches the ships it serves, with nothing declared.
   - the viewer reads every ship. An actor holding `fleet:network` may turn it off.
   - the installation manages person ships and the ships they own. Never off: a leaver is always released (0055).
   - open: every ship to every ship, every verb. On exactly while the fleet has no rules of its own applied: applying rules turns it off, applying none turns it on, and it is never turned by itself.

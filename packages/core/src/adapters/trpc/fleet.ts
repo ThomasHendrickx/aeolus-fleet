@@ -1084,7 +1084,7 @@ export const fleetRouter = router({
     .meta({
       description: [
         'Needs fleet:network. Turns a built-in network rule on or off, as its own action with BuiltInRuleChanged (decision 0034).',
-        'viewerRead lets the viewer read every ship, and is the one you turn. open lets every ship reach every ship by every verb: it is on exactly while the fleet has no rules applied, so turning it is refused. argo, owner, answer, pluginRead and installation are never off: turning them is refused. A rule already as asked changes nothing. Answers the version.',
+        'viewerRead lets the viewer read every ship, and is the one you turn. open lets every ship reach every ship by every verb: it is on exactly while the fleet has no rules applied, so turning it is refused. argo, owner, answer, pluginRead, sendToPlugin, pluginSend, meeting and installation are never off: turning them is refused. A rule already as asked changes nothing. Answers the version.',
       ].join(' '),
     })
     .input(setBuiltInRuleInputSchema)

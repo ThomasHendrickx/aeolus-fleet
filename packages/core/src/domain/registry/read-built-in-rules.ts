@@ -30,6 +30,8 @@ export function createReadBuiltInRules(deps: { uow: UnitOfWork<ReadBuiltInRulesT
         { rule: 'owner', isOn: true },
         { rule: 'answer', isOn: true },
         { rule: 'pluginRead', isOn: true },
+        { rule: 'sendToPlugin', isOn: true },
+        { rule: 'pluginSend', isOn: true },
         { rule: 'meeting', isOn: true },
         { rule: 'viewerRead', isOn: isViewerReadOn },
         { rule: 'installation', isOn: true },

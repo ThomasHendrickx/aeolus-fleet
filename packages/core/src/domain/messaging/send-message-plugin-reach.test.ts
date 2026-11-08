@@ -37,7 +37,9 @@ beforeEach(async () => {
 });
 
 async function sendOf(sender: ShipCaller, recipient: ShipCaller) {
-  return messaging.sendMessage(sender, { selector: { kind: 'ship', shipId: recipient.shipId }, payload: '{}', idempotencyKey: newKey(), model: SESSION_MODEL });
+  // A plugin ship states no model; an agent ship does.
+  const model = sender.kind === 'plugin' ? {} : { model: SESSION_MODEL };
+  return messaging.sendMessage(sender, { selector: { kind: 'ship', shipId: recipient.shipId }, payload: '{}', idempotencyKey: newKey(), ...model });
 }
 
 async function sent(sender: ShipCaller, recipient: ShipCaller): Promise<MessageId> {
