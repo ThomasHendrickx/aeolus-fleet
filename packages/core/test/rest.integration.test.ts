@@ -1,5 +1,5 @@
 import type { FleetScope, ShipId } from '@aeolus-fleet/common';
-import { createIdGenerator, fleetLimitsOutputSchema, reportLogOutputSchema, requestMicOutputSchema } from '@aeolus-fleet/common';
+import { createIdGenerator, fleetLimitsOutputSchema, reportLogOutputSchema, requestMicOutputSchema, shipStatusSchema } from '@aeolus-fleet/common';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
@@ -582,6 +582,45 @@ describe('the ship calls at /api/v1', () => {
     await expect(request('receive', { crewToken: scout.secret })).resolves.toMatchObject({ status: 401 });
     await expect(database.message.count()).resolves.toBe(messagesBefore);
     await expect(request('whoami', { crewToken: scoutToken, method: 'GET' })).resolves.toMatchObject({ status: 200 });
+  });
+});
+
+describe("the sender's status at /api/v1 (#1714)", () => {
+  const statused = z.object({ deliveryId: z.string(), senderShipId: z.string(), senderStatus: shipStatusSchema });
+
+  it('every delivery read answers it: receiveReply, receive, delivery, record and pushReceive', async () => {
+    // Given the mooring asked the harbour, which replied; the tender wrote to the mooring, then retired; the harbour wrote to the dock.
+    const [harbour, mooring, tender, dock] = [await commissioned(), await commissioned(), await commissioned(), await commissioned()];
+    const [harbourToken, mooringToken, tenderToken, dockToken] = [await register(harbour), await register(mooring), await register(tender), await register(dock)];
+    const send = (crewToken: string, body: Record<string, unknown>) =>
+      ok(request('send', { crewToken, body: { model: 'claude-opus-5-5', idempotencyKey: freshKey(), ...body } }), z.object({ messageId: z.string() }));
+    const { messageId: question } = await send(mooringToken, { selector: { kind: 'ship', name: harbour.name }, payload: 'Is berth 4 free?' });
+    await send(harbourToken, { selector: { kind: 'ship', name: mooring.name }, payload: 'Berth 4 is free', inReplyTo: question });
+    await send(tenderToken, { selector: { kind: 'ship', name: mooring.name }, payload: 'Leaving port' });
+    await send(harbourToken, { selector: { kind: 'ship', name: dock.name }, payload: 'Moor at berth 4' });
+    const useCases = createUseCases({ prisma: database });
+    unwrap(await useCases.retireShip(argo, { shipId: tender.shipId }));
+
+    // When the mooring reads its reply, its next delivery, that delivery again and its record; then the harbour's crew is released and the dock pushes a receive.
+    const replied = await ok(request('receiveReply', { crewToken: mooringToken, body: { messageId: question } }), z.object({ deliveries: z.array(statused) }));
+    await ok(request('ack', { crewToken: mooringToken, body: { deliveryId: replied.deliveries[0]?.deliveryId } }), z.strictObject({}));
+    const received = await ok(request('receive', { crewToken: mooringToken }), z.object({ deliveries: z.array(statused) }));
+    const fromTender = received.deliveries[0]?.deliveryId;
+    await ok(request('ack', { crewToken: mooringToken, body: { deliveryId: fromTender } }), z.strictObject({}));
+    const reread = await ok(request('delivery', { crewToken: mooringToken, body: { deliveryId: fromTender } }), statused);
+    const record = await ok(request('record', { crewToken: mooringToken }), z.object({ items: z.array(statused) }));
+    unwrap(await useCases.releaseShip(argo, { shipId: harbour.shipId }));
+    const pushed = await ok(request('pushReceive', { crewToken: dockToken }), z.object({ deliveries: z.array(statused) }));
+
+    // Then each names its sender's status at that read.
+    expect(replied.deliveries).toMatchObject([{ senderShipId: harbour.shipId, senderStatus: 'crewed' }]);
+    expect(received.deliveries).toMatchObject([{ senderShipId: tender.shipId, senderStatus: 'retired' }]);
+    expect(reread).toMatchObject({ deliveryId: fromTender, senderStatus: 'retired' });
+    expect(record.items.map(({ senderShipId, senderStatus }) => [senderShipId, senderStatus])).toEqual([
+      [tender.shipId, 'retired'],
+      [harbour.shipId, 'crewed'],
+    ]);
+    expect(pushed.deliveries).toMatchObject([{ senderShipId: harbour.shipId, senderStatus: 'awaitingCrew' }]);
   });
 });
 

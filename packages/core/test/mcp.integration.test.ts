@@ -1,5 +1,5 @@
 import type { FleetScope, ShipId } from '@aeolus-fleet/common';
-import { createIdGenerator, reportLogOutputSchema, requestMicOutputSchema } from '@aeolus-fleet/common';
+import { createIdGenerator, reportLogOutputSchema, requestMicOutputSchema, shipStatusSchema } from '@aeolus-fleet/common';
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
@@ -154,6 +154,47 @@ async function register(client: Client, ship: { shipId: ShipId; secret: string }
   const { crewToken } = await call(client, { tool: tools.register, arguments: { ...ship, location: { kind: 'DEVICE' }, harness: 'claude-code' } });
   return crewToken;
 }
+
+describe("the sender's status at /mcp (#1714)", () => {
+  const statused = z.object({ deliveryId: z.string(), senderShipId: z.string(), senderStatus: shipStatusSchema });
+  const delivered = (name: string) => ({ name, answers: z.object({ deliveries: z.array(statused) }) });
+
+  it('every delivery read answers it: receiveReply, receive, delivery, record and pushReceive', async () => {
+    // Given the mooring asked the harbour, which replied; the tender wrote to the mooring, then retired; the harbour wrote to the dock.
+    const [harbour, mooring, tender, dock] = [await commissioned(), await commissioned(), await commissioned(), await commissioned()];
+    const session = await connect();
+    const [harbourToken, mooringToken, tenderToken, dockToken] = [await register(session, harbour), await register(session, mooring), await register(session, tender), await register(session, dock)];
+    const send = (crewToken: string, args: Record<string, unknown>) =>
+      call(session, { tool: tools.send, arguments: { crewToken, model: 'claude-opus-5-5', idempotencyKey: freshKey(), ...args } });
+    const { messageId: question } = await send(mooringToken, { selector: { kind: 'ship', name: harbour.name }, payload: 'Is berth 4 free?' });
+    await send(harbourToken, { selector: { kind: 'ship', name: mooring.name }, payload: 'Berth 4 is free', inReplyTo: question });
+    await send(tenderToken, { selector: { kind: 'ship', name: mooring.name }, payload: 'Leaving port' });
+    await send(harbourToken, { selector: { kind: 'ship', name: dock.name }, payload: 'Moor at berth 4' });
+    const useCases = createUseCases({ prisma: database });
+    unwrap(await useCases.retireShip(argo, { shipId: tender.shipId }));
+
+    // When the mooring reads its reply, its next delivery, that delivery again and its record; then the harbour's crew is released and the dock pushes a receive.
+    const replied = await call(session, { tool: delivered('receiveReply'), arguments: { crewToken: mooringToken, messageId: question } });
+    await call(session, { tool: tools.ack, arguments: { crewToken: mooringToken, deliveryId: replied.deliveries[0]?.deliveryId } });
+    const received = await call(session, { tool: delivered('receive'), arguments: { crewToken: mooringToken } });
+    const fromTender = received.deliveries[0]?.deliveryId;
+    await call(session, { tool: tools.ack, arguments: { crewToken: mooringToken, deliveryId: fromTender } });
+    const reread = await call(session, { tool: { name: 'delivery', answers: statused }, arguments: { crewToken: mooringToken, deliveryId: fromTender } });
+    const record = await call(session, { tool: { name: 'record', answers: z.object({ items: z.array(statused) }) }, arguments: { crewToken: mooringToken } });
+    unwrap(await useCases.releaseShip(argo, { shipId: harbour.shipId }));
+    const pushed = await call(session, { tool: delivered('pushReceive'), arguments: { crewToken: dockToken } });
+
+    // Then each names its sender's status at that read.
+    expect(replied.deliveries).toMatchObject([{ senderShipId: harbour.shipId, senderStatus: 'crewed' }]);
+    expect(received.deliveries).toMatchObject([{ senderShipId: tender.shipId, senderStatus: 'retired' }]);
+    expect(reread).toMatchObject({ deliveryId: fromTender, senderStatus: 'retired' });
+    expect(record.items.map(({ senderShipId, senderStatus }) => [senderShipId, senderStatus])).toEqual([
+      [tender.shipId, 'retired'],
+      [harbour.shipId, 'crewed'],
+    ]);
+    expect(pushed.deliveries).toMatchObject([{ senderShipId: harbour.shipId, senderStatus: 'awaitingCrew' }]);
+  });
+});
 
 describe('the exchange tool at /mcp', () => {
   it("answers the reader's own delivery on a message it received (docs/design/exchange-read, section 7)", async () => {
