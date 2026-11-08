@@ -96,16 +96,16 @@ describe('saveNetworkRulesDraftInputSchema', () => {
 });
 
 describe('the built-in rules (decisions 0034, 0061)', () => {
-  it("are argo, the owner, the answer, a connected plugin's reading, a meeting's participants, the viewer reading, the installation's managing and open, all but the viewer reading and open never off", () => {
+  it("are argo, the owner, the answer, a connected plugin's reading, every ship sending to a plugin, a plugin sending to every ship, a meeting's participants, the viewer reading, the installation's managing and open, all but the viewer reading and open never off", () => {
     expect([BUILT_IN_RULES, FIXED_BUILT_IN_RULES]).toEqual([
-      ['argo', 'owner', 'answer', 'pluginRead', 'meeting', 'viewerRead', 'installation', 'open'],
-      ['argo', 'owner', 'answer', 'pluginRead', 'meeting', 'installation'],
+      ['argo', 'owner', 'answer', 'pluginRead', 'sendToPlugin', 'pluginSend', 'meeting', 'viewerRead', 'installation', 'open'],
+      ['argo', 'owner', 'answer', 'pluginRead', 'sendToPlugin', 'pluginSend', 'meeting', 'installation'],
     ]);
   });
 });
 
 describe('setBuiltInRuleInputSchema', () => {
-  it.each(['argo', 'owner', 'answer', 'pluginRead', 'viewerRead', 'installation', 'open'])('takes every built-in rule, on or off, the server refusing all but the viewer reading: %s', (rule) => {
+  it.each(['argo', 'owner', 'answer', 'pluginRead', 'sendToPlugin', 'pluginSend', 'viewerRead', 'installation', 'open'])('takes every built-in rule, on or off, the server refusing all but the viewer reading: %s', (rule) => {
     expect(setBuiltInRuleInputSchema.parse({ rule, isOn: true })).toEqual({ rule, isOn: true });
   });
 
