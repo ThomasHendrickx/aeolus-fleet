@@ -370,6 +370,8 @@ model CrewRequest {
   @@unique([fleetId, shipId])
   /// A trierarch reads the requests assigned to it.
   @@index([fleetId, assignedTo])
+  /// A delete of a ship checks the requests it made with an index.
+  @@index([fleetId, requestedBy])
   @@map("crew_requests")
 }
 
