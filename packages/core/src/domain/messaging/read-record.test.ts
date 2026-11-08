@@ -104,6 +104,43 @@ describe('the record read', () => {
     expect(core.state.events).toHaveLength(events);
   });
 
+  it("names each entry's sender with the status it has now, across senders and delivery states", async () => {
+    // Given thomas got one message from argo, acknowledged, one from the lookout, received, and two from the scout, pending;
+    // then the lookout retired and the scout's crew was released.
+    const crew = crewOf(thomasId);
+    const { commissionShip, releaseShip, retireShip } = registryUseCases(core);
+    const { shipId: scoutId } = unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
+    const lookout = crewAboard(core, { fleetId, shipId: lookoutId });
+    const scout = crewAboard(core, { fleetId, shipId: scoutId });
+    const fromArgo = await sendTo({ kind: 'ship', shipId: thomasId }, 'Which design do we build?');
+    unwrap(await useCases.pushReceiveDeliveries(crew, {}));
+    unwrap(await useCases.acknowledgeDelivery(crew, { deliveryId: fromArgo }));
+    const sendFrom = async (sender: Crew, payload: string): Promise<DeliveryId> => {
+      core.clock.advance(1_000);
+      const { messageId } = unwrap(
+        await useCases.sendMessage(sender, { selector: { kind: 'ship', shipId: thomasId }, payload, model: 'claude-opus-5-5', idempotencyKey: newKey() }),
+      );
+      return deliveryIdOf(core, messageId);
+    };
+    const fromLookout = await sendFrom(lookout, 'PR #1497 is open');
+    unwrap(await useCases.pushReceiveDeliveries(crew, {}));
+    const fromScout = await sendFrom(scout, 'PR #1498 is open');
+    const againFromScout = await sendFrom(scout, 'PR #1499 is open');
+    unwrap(await retireShip(argo, { shipId: lookoutId }));
+    unwrap(await releaseShip(argo, { shipId: scoutId }));
+
+    // When thomas's crew reads its record.
+    const page = unwrap(await useCases.readRecord(crew, {}));
+
+    // Then every entry shows, each naming its sender's status now: argo crewed, the lookout retired, the scout awaiting crew.
+    expect(page.items.map(({ deliveryId, state, senderShipId, senderName, senderStatus }) => ({ deliveryId, state, senderShipId, senderName, senderStatus }))).toEqual([
+      { deliveryId: againFromScout, state: 'pending', senderShipId: scoutId, senderName: 'scout', senderStatus: 'awaitingCrew' },
+      { deliveryId: fromScout, state: 'pending', senderShipId: scoutId, senderName: 'scout', senderStatus: 'awaitingCrew' },
+      { deliveryId: fromLookout, state: 'received', senderShipId: lookoutId, senderName: 'lookout', senderStatus: 'retired' },
+      { deliveryId: fromArgo, state: 'acknowledged', senderShipId: argo.shipId, senderName: 'argo', senderStatus: 'crewed' },
+    ]);
+  });
+
   it('refuses a crew whose lease ended', async () => {
     // Given a crew whose lease ended.
     const crew = crewOf(thomasId);

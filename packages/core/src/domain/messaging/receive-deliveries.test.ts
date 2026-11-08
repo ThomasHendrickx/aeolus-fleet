@@ -144,6 +144,7 @@ describe('handing a delivery over', () => {
           senderShipId: argo.shipId,
           senderName: 'argo',
           senderType: 'operator',
+          senderStatus: 'crewed',
           recipient: { kind: 'ship', shipId: scoutId },
           payload: 'Review https://github.com/ThomasHendrickx/aeolus-fleet/pull/25',
           contentType: 'text/plain',
@@ -232,6 +233,78 @@ describe('the sender of a delivery', () => {
     expect(deliveries).toEqual([
       expect.objectContaining({ messageId, senderShipId: lookoutId, senderName: 'watch', senderType: 'reviewer' }),
     ]);
+  });
+});
+
+describe("the sender's status", () => {
+  /** Sends scout a plain message from the lookout's crew and returns its delivery's id. */
+  async function sendFromLookout(): Promise<DeliveryId> {
+    const { messageId } = unwrap(
+      await useCases.sendMessage(lookout, { ...modelOf(lookout), selector: toScout(), payload: 'PR #1497 is open', idempotencyKey: newKey() }),
+    );
+    return deliveryIdOf(core, messageId);
+  }
+
+  it("is crewed while a session holds the sender's lease", async () => {
+    // Given the lookout's crew sent scout a message.
+    const deliveryId = await sendFromLookout();
+
+    // When scout receives it.
+    const { deliveries } = unwrap(await useCases.receiveDeliveries(scout, {}));
+
+    // Then it names the lookout crewed.
+    expect(deliveries).toEqual([expect.objectContaining({ deliveryId, senderShipId: lookoutId, senderName: 'lookout', senderStatus: 'crewed' })]);
+  });
+
+  it("is awaiting crew once the sender's crew is released", async () => {
+    // Given the lookout sent scout a message, then its crew was released.
+    const deliveryId = await sendFromLookout();
+    unwrap(await registryUseCases(core).releaseShip(argo, { shipId: lookoutId }));
+
+    // When scout receives it.
+    const { deliveries } = unwrap(await useCases.receiveDeliveries(scout, {}));
+
+    // Then it names the lookout awaiting crew.
+    expect(deliveries).toEqual([expect.objectContaining({ deliveryId, senderShipId: lookoutId, senderStatus: 'awaitingCrew' })]);
+  });
+
+  it('is crewed for argo, which no session needs to crew (decision 0012)', async () => {
+    // Given argo, with no lease, sent scout a message.
+    expect(core.state.leases.some((lease) => lease.shipId === argo.shipId && lease.endedAt === null)).toBe(false);
+    const deliveryId = await sendTo(toScout());
+
+    // When scout receives it.
+    const { deliveries } = unwrap(await useCases.receiveDeliveries(scout, {}));
+
+    // Then it names argo crewed.
+    expect(deliveries).toEqual([expect.objectContaining({ deliveryId, senderName: 'argo', senderStatus: 'crewed' })]);
+  });
+
+  it('is retired once the sender retires, and its delivery is still handed and acknowledged', async () => {
+    // Given the lookout sent scout a message, then retired.
+    const deliveryId = await sendFromLookout();
+    const [message] = core.state.messages;
+    unwrap(await registryUseCases(core).retireShip(argo, { shipId: lookoutId }));
+
+    // When scout receives it and acknowledges it.
+    const { deliveries } = unwrap(await useCases.receiveDeliveries(scout, {}));
+    const acknowledged = await useCases.acknowledgeDelivery(scout, { deliveryId });
+
+    // Then it was handed whole, naming the lookout retired, and its acknowledgement succeeded.
+    expect(deliveries).toEqual([
+      expect.objectContaining({
+        deliveryId,
+        messageId: message?.id,
+        senderShipId: lookoutId,
+        senderName: 'lookout',
+        senderType: 'reviewer',
+        senderStatus: 'retired',
+        payload: 'PR #1497 is open',
+        attempts: 1,
+      }),
+    ]);
+    expect(acknowledged.isOk).toBe(true);
+    expect(stored(deliveryId)?.state).toBe('acknowledged');
   });
 });
 
