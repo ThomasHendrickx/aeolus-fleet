@@ -58,6 +58,14 @@ describe("an account and a ship's crew request", () => {
     expect([...actorsOf('CrewRequested'), ...actorsOf('CrewRequestRemoved')]).toEqual([ACTOR, ACTOR]);
   });
 
+  it('records argo as the requester of the request it makes, the ship that holds what an account requests', async () => {
+    unwrap(await fleet.registry.requestCrew(mathilde, { shipId: fleet.near.shipId, settings: aCrewSettings({ harness: 'claude-code' }) }));
+
+    await expect(fleet.registry.getShip(fleet.argo, { shipId: fleet.near.shipId })).resolves.toMatchObject({
+      value: { crewRequest: { requestedBy: { id: fleet.argo.shipId, name: 'argo' } } },
+    });
+  });
+
   it('is refused asking for crew for a ship out of its reach, which holds no request', async () => {
     await expect(fleet.registry.requestCrew(mathilde, { shipId: fleet.far.shipId, settings: aCrewSettings({ harness: 'claude-code' }) })).resolves.toMatchObject(NOT_REACHABLE);
     expect(fleet.core.state.crewRequests.filter(({ shipId }) => shipId === fleet.far.shipId)).toEqual([]);

@@ -107,6 +107,32 @@ describe('requesting a crew for a ship', () => {
   });
 });
 
+describe('the requester of a crew request (R2)', () => {
+  it('records the caller as requestedBy, listed with the request and read with its page', async () => {
+    // Given scout holds no request
+    // When argo requests a crew for it
+    unwrap(await registry.requestCrew(argo, { shipId: scoutId, settings }));
+
+    // Then the list and the request's page name argo as its requester
+    const listed = wholeShips((await registry.listFleet(argo)).ships).find((ship) => ship.id === scoutId);
+    expect(listed?.crewRequest?.requestedBy).toEqual({ id: argoId, name: 'argo' });
+    await expect(registry.getShip(argo, { shipId: scoutId })).resolves.toMatchObject({ value: { crewRequest: { requestedBy: { id: argoId, name: 'argo' } } } });
+  });
+
+  it('is replaced by a new request: the ship that made it last is the requester', async () => {
+    // Given argo requested a crew for scout
+    unwrap(await registry.requestCrew(argo, { shipId: scoutId, settings }));
+    const planner = await shipWithScopes({ registry, argo }, { name: 'planner', type: 'planner', scopes: ['fleet:manage'] });
+
+    // When planner requests a crew for it again
+    unwrap(await registry.requestCrew(planner, { shipId: scoutId, settings: { ...settings, harness: 'codex' } }));
+
+    // Then planner is its requester
+    const listed = wholeShips((await registry.listFleet(argo)).ships).find((ship) => ship.id === scoutId);
+    expect(listed?.crewRequest?.requestedBy).toEqual({ id: planner.shipId, name: 'planner' });
+  });
+});
+
 describe('a crew request read with the ship', () => {
   it('is none before any request', async () => {
     await expect(registry.getShip(argo, { shipId: scoutId })).resolves.toMatchObject({ value: { crewRequest: null } });
