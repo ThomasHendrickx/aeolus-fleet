@@ -31,8 +31,7 @@ export interface FindShipTx {
 
 /**
  * A ship of the fleet as it is now, retired or not: its current name and
- * type. Messaging's question when it hands a crew a delivery, so the crew can
- * answer the sender by name. Read without a lock.
+ * type. Read without a lock.
  */
 export async function findShip(
   tx: FindShipTx,

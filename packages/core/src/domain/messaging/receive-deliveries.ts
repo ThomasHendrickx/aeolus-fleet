@@ -1,6 +1,6 @@
-import type { DeliveryId, IdGenerator, MeetingId, MessageId, ScheduleId, ShipId } from '@aeolus-fleet/common';
+import type { DeliveryId, IdGenerator, MeetingId, MessageId, ScheduleId, ShipId, ShipStatus } from '@aeolus-fleet/common';
 
-import { findShip, holdLease, isLeasePushed, type FindShipTx, type HoldLeaseTx, type LeaseEnded, type LeaseRepository, type Ship } from '../registry/public.js';
+import { findSender, holdLease, isLeasePushed, type FindSenderTx, type HoldLeaseTx, type LeaseEnded, type LeaseRepository, type ShipRepository, type Ship } from '../registry/public.js';
 import type { Crew } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import type { DomainError } from '../shared/errors.js';
@@ -14,8 +14,9 @@ import type { Delivery, Message } from './message.js';
 import type { DeliveryRepository, ReceiverWakeups, ReceiverWatch } from './ports.js';
 import { receiveMax } from './receive-max.js';
 
-export interface ReceiveDeliveriesTx extends HoldLeaseTx {
-  leases: Pick<LeaseRepository, 'findOpenByIdForShare' | 'isPushed'>;
+export interface ReceiveDeliveriesTx extends HoldLeaseTx, FindSenderTx {
+  leases: Pick<LeaseRepository, 'findOpenByIdForShare' | 'isPushed' | 'findCrewed'>;
+  ships: Pick<ShipRepository, 'find'>;
   deliveries: DeliveryRepository;
   events: EventLog;
 }
@@ -28,6 +29,8 @@ export interface ReceivedDelivery {
   /** The sender's name and type as they are now, so the crew can answer it by name. */
   senderName: string;
   senderType: string;
+  /** The sender's status as it is now: a retired sender is still named, and its delivery still handed. */
+  senderStatus: ShipStatus;
   /** Who the delivery is for: the crew's ship, or its type. */
   recipient: Recipient;
   payload: string;
@@ -64,12 +67,12 @@ export const RECEIVE_WAIT_MS = 25_000;
 
 /**
  * The delivery as its crew gets it: with its message, its payload unsealed
- * in a sealed fleet (decision 0068, B9), and its sender by id and by the name
- * and type it has in Registry now. A data key it does not hold rolls its
+ * in a sealed fleet (decision 0068, B9), and its sender by id and by the name,
+ * type and status it has in Registry now. A data key it does not hold rolls its
  * unit of work back, so nothing is claimed until it holds it.
  */
 export async function receivedDeliveryOf(
-  deps: { tx: FindShipTx; keys: HeldDataKeys },
+  deps: { tx: FindSenderTx; keys: HeldDataKeys },
   held: { delivery: Delivery; message: Message },
 ): Promise<Result<ReceivedDelivery, DomainError<'SHIP_NOT_FOUND' | 'KEY_UNAVAILABLE'> | DataKeysNeeded>> {
   const { tx, keys } = deps;
@@ -78,7 +81,7 @@ export async function receivedDeliveryOf(
   if (!payload.isOk) {
     return payload;
   }
-  const sender = await findShip(tx, { fleetId: delivery.fleetId, shipId: message.senderShipId });
+  const sender = await findSender(tx, { fleetId: delivery.fleetId, shipId: message.senderShipId });
   if (!sender.isOk) {
     // A message's sender always exists: ships are never deleted, and the foreign key keeps the sender in its fleet.
     return sender;
@@ -87,8 +90,9 @@ export async function receivedDeliveryOf(
     deliveryId: delivery.id,
     messageId: message.id,
     senderShipId: message.senderShipId,
-    senderName: sender.value.name,
-    senderType: sender.value.type,
+    senderName: sender.value.ship.name,
+    senderType: sender.value.ship.type,
+    senderStatus: sender.value.status,
     recipient: delivery.recipient,
     payload: payload.value,
     contentType: message.contentType,

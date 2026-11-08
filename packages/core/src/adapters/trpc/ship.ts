@@ -524,7 +524,8 @@ export const shipRouter = router({
     .meta({
       description: [
         'Hands you your next deliveries, up to max (1 to 10, one when left out), each with its message and its sender:',
-        'senderShipId, senderName (the name to answer to) and senderType.',
+        'senderShipId, senderName (the name to answer to), senderType, and senderStatus (awaitingCrew, crewed or retired) as it is now.',
+        'A retired sender refuses a reply; its delivery is still yours to ack.',
         'A forced message, one to act on now, comes before every other.',
         'With none there it waits about 25 seconds, then answers with none.',
         'Until you ack it a delivery stays yours: your next receive hands it to you again,',
@@ -573,7 +574,7 @@ export const shipRouter = router({
     .meta({
       description: [
         'For the trierarch or the plugin watcher, not the agent: takes your next deliveries for the computer side, up to max (1 to 10, one when left out),',
-        'each with its message, its sender, its state and its last hand-over number. A pending one becomes received: yours, with no attempt counted.',
+        'each with its message, its sender as receive names it (senderStatus included), its state and its last hand-over number. A pending one becomes received: yours, with no attempt counted.',
         'Forced deliveries come first; then your own received or handed ones again, unchanged, so a restart loses nothing. With none there it waits about 25 seconds, then answers with none.',
         'From your first pushReceive until your lease ends, the agent\'s plain receive answers nothing.',
         'Your first pushReceive may state waker, what wakes the ship: trierarch, pluginWatcher, personApp, gateway or adapter; the lease keeps the first one, and the ship\'s page shows it.',
@@ -836,7 +837,8 @@ export const shipRouter = router({
     .meta({
       description: [
         'Needs messages:receive. Reads a delivery you acknowledged again, whole, as receive handed it, by its deliveryId (dlv_...),',
-        'until it is handled: to answer it or finish it from another client. It changes nothing: no attempt, no ack, no event.',
+        'until it is handled: to answer it or finish it from another client. Its sender\'s name, type and senderStatus are as they are at this read.',
+        'It changes nothing: no attempt, no ack, no event.',
         'Only one your crew acknowledged: one of yours in another state, such as handled, is refused as DELIVERY_NOT_ACKNOWLEDGED, naming its state;',
         'any other is refused as DELIVERY_NOT_FOUND.',
       ].join(' '),
@@ -858,7 +860,7 @@ export const shipRouter = router({
     .meta({
       description: [
         "Needs messages:receive. Reads your ship's record: every delivery to your ship, and those of its type it claimed, each whole as receive hands one, with its state,",
-        'in every state and across its leases, newest first, as far back as the fleet\'s retention keeps them.',
+        'in every state and across its leases, newest first, as far back as the fleet\'s retention keeps them. Each sender\'s senderStatus is as it is at this read.',
         `At most ${RECORD_PAGE_SIZE_MAX} per page, ${RECORD_PAGE_SIZE_DEFAULT} unless you pass limit; pass the nextCursor it answers as cursor for the next page, null on the last.`,
         'It changes nothing: no hand-over, attempt, ack or event.',
       ].join(' '),

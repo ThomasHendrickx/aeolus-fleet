@@ -460,6 +460,14 @@ export function createPrismaLeaseRepository(db: Db): LeaseRepository {
         FOR SHARE`;
       return row ? toLease(row) : undefined;
     },
+    findCrewed: async (fleetId, shipIds) => {
+      if (shipIds.length === 0) {
+        return [];
+      }
+      // No lock: a status is a fact of the moment, and a release or a retire must not wait for a read.
+      const rows = await db.lease.findMany({ where: { fleetId, shipId: { in: [...shipIds] }, endedAt: null }, select: { shipId: true } });
+      return rows.map(({ shipId }) => idSchema('ship').parse(shipId));
+    },
     findLastSeen: async (fleetId, shipId) => {
       const [row] = await db.$queryRaw<unknown[]>`
         SELECT COALESCE(last_seen_at, started_at) AS last_seen_at

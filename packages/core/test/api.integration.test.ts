@@ -1042,6 +1042,7 @@ describe('ship.receive and ship.ack at the API', () => {
         senderShipId: sender.shipId,
         senderName: 'tender',
         senderType: 'lookout',
+        senderStatus: 'crewed',
         recipient: { kind: 'ship', shipId: receiver.shipId },
         payload: 'Review https://github.com/ThomasHendrickx/aeolus-fleet/pull/25',
         contentType: 'text/plain',

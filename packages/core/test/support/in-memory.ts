@@ -1158,6 +1158,8 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         );
         return Promise.resolve(lease && { ...lease });
       },
+      findCrewed: (fleetId, shipIds) =>
+        Promise.resolve(shipIds.filter((shipId) => state.leases.some((held) => held.fleetId === fleetId && held.shipId === shipId && held.endedAt === null))),
       findLastSeen: (fleetId, shipId) => {
         const lease = state.leases.find((held) => held.fleetId === fleetId && held.shipId === shipId && held.endedAt === null);
         const seen = lease && state.leaseSeen.find((held) => held.fleetId === fleetId && held.leaseId === lease.id);

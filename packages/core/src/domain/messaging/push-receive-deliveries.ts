@@ -1,6 +1,6 @@
 import type { DeliveryId, IdGenerator, LeaseWaker } from '@aeolus-fleet/common';
 
-import { holdLease, markLeasePushed, type HoldLeaseTx, type LeaseRepository, type Ship } from '../registry/public.js';
+import { holdLease, markLeasePushed, type FindSenderTx, type HoldLeaseTx, type LeaseRepository, type ShipRepository, type Ship } from '../registry/public.js';
 import type { Crew } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { recordEvent, type EventLog } from '../shared/events.js';
@@ -18,8 +18,9 @@ import {
 } from './receive-deliveries.js';
 import { receiveMax } from './receive-max.js';
 
-export interface PushReceiveDeliveriesTx extends HoldLeaseTx {
-  leases: Pick<LeaseRepository, 'findOpenByIdForShare' | 'markPushed'>;
+export interface PushReceiveDeliveriesTx extends HoldLeaseTx, FindSenderTx {
+  leases: Pick<LeaseRepository, 'findOpenByIdForShare' | 'markPushed' | 'findCrewed'>;
+  ships: Pick<ShipRepository, 'find'>;
   deliveries: DeliveryRepository;
   events: EventLog;
 }

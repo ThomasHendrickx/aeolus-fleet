@@ -1,6 +1,6 @@
 import type { DeliveryId, DeliveryState } from '@aeolus-fleet/common';
 
-import { holdLease, type HoldLeaseTx, type LeaseEnded } from '../registry/public.js';
+import { holdLease, type FindSenderTx, type HoldLeaseTx, type LeaseEnded, type LeaseRepository, type ShipRepository } from '../registry/public.js';
 import type { Crew } from '../shared/caller.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { ok, type Result } from '../shared/result.js';
@@ -10,7 +10,9 @@ import { rereadDelivery, type RereadRefusal } from './delivery.js';
 import type { DeliveryRepository, MessageRepository } from './ports.js';
 import { receivedDeliveryOf, type ReceivedDelivery } from './receive-deliveries.js';
 
-export interface ReadDeliveryTx extends HoldLeaseTx {
+export interface ReadDeliveryTx extends HoldLeaseTx, FindSenderTx {
+  leases: Pick<LeaseRepository, 'findOpenByIdForShare' | 'findCrewed'>;
+  ships: Pick<ShipRepository, 'find'>;
   deliveries: Pick<DeliveryRepository, 'find'>;
   messages: Pick<MessageRepository, 'find'>;
 }
