@@ -92,6 +92,51 @@ describe('receiving the reply to one message', () => {
     expect(deliveries).toMatchObject([{ deliveryId: reply, inReplyTo: request, payload: 'Account 42 is Acme', senderName: 'argo', attempts: 1 }]);
   });
 
+  it("names the replying sender's status: crewed for argo, retired for a sender that retired since", async () => {
+    // Given argo replied to scout's request, and so did the lookout, which then retired.
+    const request = await ask();
+    const fromArgo = await sendScout(request);
+    const { shipId: lookoutId } = unwrap(await registryUseCases(core).commissionShip(argo, { idempotencyKey: newKey(), name: 'lookout', type: 'reviewer' }));
+    const lookout = crewAboard(core, { fleetId, shipId: lookoutId });
+    core.clock.advance(1_000);
+    const { messageId } = unwrap(
+      await useCases.sendMessage(lookout, { selector: { kind: 'ship', shipId: scoutId }, payload: 'Account 42 closed', model: 'claude-opus-5-5', inReplyTo: request, idempotencyKey: newKey() }),
+    );
+    const fromLookout = deliveryIdOf(core, messageId);
+    unwrap(await registryUseCases(core).retireShip(argo, { shipId: lookoutId }));
+
+    // When scout receives the replies to its request, acknowledging the first before the next.
+    const first = unwrap(await receiveReply(scout, { messageId: request }));
+    unwrap(await useCases.acknowledgeDelivery(scout, { deliveryId: fromArgo }));
+    const second = unwrap(await receiveReply(scout, { messageId: request }));
+
+    // Then argo's names it crewed, and the lookout's names it retired and is still handed.
+    expect(first.deliveries).toEqual([expect.objectContaining({ deliveryId: fromArgo, senderName: 'argo', senderStatus: 'crewed' })]);
+    expect(second.deliveries).toEqual([
+      expect.objectContaining({ deliveryId: fromLookout, senderShipId: lookoutId, senderName: 'lookout', senderStatus: 'retired', inReplyTo: request }),
+    ]);
+  });
+
+  it("names the replying sender awaiting crew once its crew is released", async () => {
+    // Given the lookout replied to scout's request, then its crew was released.
+    const request = await ask();
+    const { shipId: lookoutId } = unwrap(await registryUseCases(core).commissionShip(argo, { idempotencyKey: newKey(), name: 'lookout', type: 'reviewer' }));
+    const lookout = crewAboard(core, { fleetId, shipId: lookoutId });
+    core.clock.advance(1_000);
+    const { messageId } = unwrap(
+      await useCases.sendMessage(lookout, { selector: { kind: 'ship', shipId: scoutId }, payload: 'Account 42 is Acme', model: 'claude-opus-5-5', inReplyTo: request, idempotencyKey: newKey() }),
+    );
+    unwrap(await registryUseCases(core).releaseShip(argo, { shipId: lookoutId }));
+
+    // When scout receives the reply to its request.
+    const { deliveries } = unwrap(await receiveReply(scout, { messageId: request }));
+
+    // Then it is handed whole, naming the lookout awaiting crew.
+    expect(deliveries).toEqual([
+      expect.objectContaining({ deliveryId: deliveryIdOf(core, messageId), messageId, senderShipId: lookoutId, senderName: 'lookout', senderStatus: 'awaitingCrew', inReplyTo: request, payload: 'Account 42 is Acme', attempts: 1 }),
+    ]);
+  });
+
   it("hands again a reply in flight with the crew's lease, counting another attempt", async () => {
     const request = await ask();
     const reply = await sendScout(request);

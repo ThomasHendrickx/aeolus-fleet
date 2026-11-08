@@ -206,6 +206,8 @@ export interface LeaseRepository {
   findOpenByIdForShare(fleetId: FleetId, leaseId: LeaseId): Promise<Lease | undefined>;
   /** The ship's open lease, held as {@link findOpenByIdForShare} holds it. */
   findOpenForShare(fleetId: FleetId, shipId: ShipId): Promise<Lease | undefined>;
+  /** Which of these ships hold an open lease now: read without a lock, for a status that is a fact of the moment. */
+  findCrewed(fleetId: FleetId, shipIds: readonly ShipId[]): Promise<ShipId[]>;
   open(lease: Lease): Promise<void>;
   /**
    * Marks the lease last seen `at`, as a call by its crew does, keeping a

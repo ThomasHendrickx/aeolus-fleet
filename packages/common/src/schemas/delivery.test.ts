@@ -149,6 +149,7 @@ describe('deliveryOutputSchema', () => {
     senderShipId: newId('ship'),
     senderName: 'lookout',
     senderType: 'watcher',
+    senderStatus: 'retired',
     recipient: { kind: 'ship', shipId: newId('ship') },
     payload: 'Review https://github.com/ThomasHendrickx/aeolus-fleet/pull/25',
     contentType: 'text/markdown',
@@ -190,6 +191,7 @@ describe('receivedDeliverySchema', () => {
     senderShipId: newId('ship'),
     senderName: 'argo',
     senderType: 'operator',
+    senderStatus: 'crewed',
     recipient: { kind: 'ship', shipId: newId('ship') },
     payload: '{"review":"https://github.com/ThomasHendrickx/aeolus-fleet/pull/22"}',
     contentType: 'application/json',
@@ -205,6 +207,12 @@ describe('receivedDeliverySchema', () => {
 
   it("accepts a delivery to the ship, with its message and its sender's id, name and type", () => {
     expect(receivedDeliverySchema.parse(delivery)).toEqual(delivery);
+  });
+
+  it.each(['awaitingCrew', 'crewed', 'retired'])("accepts a sender's status of %s, as the fleet read answers it", (senderStatus) => {
+    const withStatus = { ...delivery, senderStatus };
+
+    expect(receivedDeliverySchema.parse(withStatus)).toEqual(withStatus);
   });
 
   it('accepts a delivery from argo, which states no model', () => {
@@ -244,6 +252,8 @@ describe('receivedDeliverySchema', () => {
     ['a recipient of an unknown kind', { ...delivery, recipient: { kind: 'group', group: 'reviewers' } }],
     ['no sender name', { ...delivery, senderName: undefined }],
     ['no sender type', { ...delivery, senderType: undefined }],
+    ['no sender status', { ...delivery, senderStatus: undefined }],
+    ['a sender status it does not know', { ...delivery, senderStatus: 'gone' }],
     ['no word on whether it was forced', { ...delivery, isForced: undefined }],
     ['no word on its meeting', { ...delivery, meetingId: undefined }],
     ['no word on its schedule', { ...delivery, scheduleId: undefined }],
@@ -322,6 +332,7 @@ describe('pushReceivedDeliverySchema', () => {
     senderShipId: newId('ship'),
     senderName: 'argo',
     senderType: 'operator',
+    senderStatus: 'crewed',
     recipient: { kind: 'ship', shipId: newId('ship') },
     payload: 'Review https://github.com/ThomasHendrickx/aeolus-fleet/pull/22',
     contentType: 'text/plain',

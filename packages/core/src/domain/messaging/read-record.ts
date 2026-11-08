@@ -1,6 +1,6 @@
 import { RECORD_PAGE_SIZE_DEFAULT, type DeliveryId, type DeliveryState } from '@aeolus-fleet/common';
 
-import { holdLease, type HoldLeaseTx, type LeaseEnded, type ShipRepository } from '../registry/public.js';
+import { findSenders, holdLease, type FindSendersTx, type HoldLeaseTx, type LeaseEnded, type LeaseRepository, type ShipRepository } from '../registry/public.js';
 import type { Crew } from '../shared/caller.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import type { Page } from '../shared/page.js';
@@ -10,8 +10,9 @@ import { listedUnsealed, withDataKeysForList, type DataKeysNeeded, type ListedPa
 import type { DeliveryRepository } from './ports.js';
 import type { ReceivedDelivery } from './receive-deliveries.js';
 
-export interface ReadRecordTx extends HoldLeaseTx {
+export interface ReadRecordTx extends HoldLeaseTx, FindSendersTx {
   ships: Pick<ShipRepository, 'find' | 'findMany'>;
+  leases: Pick<LeaseRepository, 'findOpenByIdForShare' | 'findCrewed'>;
   deliveries: Pick<DeliveryRepository, 'findRecordPage'>;
 }
 
@@ -32,7 +33,8 @@ export type ReadRecord = (crew: Crew, input: { cursor?: DeliveryId; limit?: numb
  * as far back as the fleet's retention keeps them. Its scope
  * (messages:receive) is checked before this runs. It holds the crew's lease,
  * so an ended lease is refused, and reads without a lock: it hands, counts
- * and records nothing. In a sealed fleet each payload is unsealed, or marked
+ * and records nothing. Each entry names its sender's status now, read for the
+ * page's senders at once. In a sealed fleet each payload is unsealed, or marked
  * unreadable when its key cannot be had (decision 0068, B9).
  */
 export function createReadRecord(deps: { uow: UnitOfWork<ReadRecordTx>; sealing: PayloadSealing }): ReadRecord {
@@ -44,8 +46,7 @@ export function createReadRecord(deps: { uow: UnitOfWork<ReadRecordTx>; sealing:
           return held;
         }
         const page = await tx.deliveries.findRecordPage({ fleetId: crew.fleetId, shipId: crew.shipId, cursor, limit });
-        const senderIds = [...new Set(page.items.map(({ message }) => message.senderShipId))];
-        const senders = new Map((await tx.ships.findMany(crew.fleetId, senderIds)).map((ship) => [ship.id, ship]));
+        const senders = await findSenders(tx, { fleetId: crew.fleetId, shipIds: page.items.map(({ message }) => message.senderShipId) });
         const items: RecordEntry[] = [];
         for (const { delivery, message } of page.items) {
           const payload = listedUnsealed(keys, { row: { fleetId: message.fleetId, rowId: message.id }, payload: message.payload });
@@ -61,8 +62,9 @@ export function createReadRecord(deps: { uow: UnitOfWork<ReadRecordTx>; sealing:
             deliveryId: delivery.id,
             messageId: message.id,
             senderShipId: message.senderShipId,
-            senderName: sender.name,
-            senderType: sender.type,
+            senderName: sender.ship.name,
+            senderType: sender.ship.type,
+            senderStatus: sender.status,
             recipient: delivery.recipient,
             payload: payload.value,
             contentType: message.contentType,

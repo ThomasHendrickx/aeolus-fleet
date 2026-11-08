@@ -1027,6 +1027,38 @@ describe('ship.receive and ship.ack at the API', () => {
     };
   }
 
+  it("names the sender's status on every delivery read: receiveReply, receive, delivery, record and pushReceive (#1714)", async () => {
+    // Given the mooring asked the harbour, which replied; the tender wrote to the mooring, then retired; the harbour wrote to the dock.
+    const [harbour, mooring, tender, dock] = [await crewed('status-harbour'), await crewed('status-mooring'), await crewed('status-tender'), await crewed('status-dock')];
+    const { messageId: question } = await mooring.asShip.ship.send.mutate(toShipNamed('status-harbour'));
+    await harbour.asShip.ship.send.mutate({ ...toShipNamed('status-mooring'), inReplyTo: question });
+    await tender.asShip.ship.send.mutate(toShipNamed('status-mooring'));
+    await harbour.asShip.ship.send.mutate(toShipNamed('status-dock'));
+    const asArgo = await signedInArgo();
+    await asArgo.fleet.retire.mutate({ shipId: tender.shipId });
+
+    // When the mooring reads its reply, its next delivery, that delivery again and its record; then the harbour's crew is released and the dock pushes a receive.
+    const replied = await mooring.asShip.ship.receiveReply.mutate({ messageId: question });
+    await mooring.asShip.ship.ack.mutate({ deliveryId: idSchema('delivery').parse(replied.deliveries[0]?.deliveryId) });
+    const received = await mooring.asShip.ship.receive.mutate({});
+    const fromTender = idSchema('delivery').parse(received.deliveries[0]?.deliveryId);
+    await mooring.asShip.ship.ack.mutate({ deliveryId: fromTender });
+    const reread = await mooring.asShip.ship.delivery.query({ deliveryId: fromTender });
+    const record = await mooring.asShip.ship.record.mutate({});
+    await asArgo.fleet.release.mutate({ shipId: harbour.shipId });
+    const pushed = await dock.asShip.ship.pushReceive.mutate({});
+
+    // Then each names its sender's status at that read.
+    expect(replied.deliveries).toMatchObject([{ senderShipId: harbour.shipId, senderStatus: 'crewed' }]);
+    expect(received.deliveries).toMatchObject([{ senderShipId: tender.shipId, senderStatus: 'retired' }]);
+    expect(reread).toMatchObject({ deliveryId: fromTender, senderStatus: 'retired' });
+    expect(record.items.map(({ senderShipId, senderStatus }) => [senderShipId, senderStatus])).toEqual([
+      [tender.shipId, 'retired'],
+      [harbour.shipId, 'crewed'],
+    ]);
+    expect(pushed.deliveries).toMatchObject([{ senderShipId: harbour.shipId, senderStatus: 'awaitingCrew' }]);
+  });
+
   it('sends from one ship, receives and acknowledges on another, with crew tokens', async () => {
     const sender = await crewed('tender');
     const receiver = await crewed('skiff');
@@ -1042,6 +1074,7 @@ describe('ship.receive and ship.ack at the API', () => {
         senderShipId: sender.shipId,
         senderName: 'tender',
         senderType: 'lookout',
+        senderStatus: 'crewed',
         recipient: { kind: 'ship', shipId: receiver.shipId },
         payload: 'Review https://github.com/ThomasHendrickx/aeolus-fleet/pull/25',
         contentType: 'text/plain',

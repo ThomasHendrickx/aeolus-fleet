@@ -439,6 +439,19 @@ export function createPrismaShipRepository(db: Db): ShipRepository {
   };
 }
 
+const crewedShipRowSchema = z.object({ ship_id: idSchema('ship') });
+
+/**
+ * Which of these ships hold an open lease, for a page's senders: along the
+ * open-lease index, one row per crewed ship. No lock: a status is a fact of
+ * the moment, and a release or a retire never waits for a read.
+ */
+export function crewedShipsStatement({ fleetId, shipIds }: { fleetId: FleetId; shipIds: readonly ShipId[] }): Prisma.Sql {
+  return Prisma.sql`
+    SELECT ship_id FROM leases
+    WHERE fleet_id = ${fleetId} AND ship_id = ANY(${[...shipIds]}::text[]) AND ended_at IS NULL`;
+}
+
 export function createPrismaLeaseRepository(db: Db): LeaseRepository {
   return {
     findOpenForUpdate: async (fleetId, shipId) => {
@@ -459,6 +472,13 @@ export function createPrismaLeaseRepository(db: Db): LeaseRepository {
         WHERE fleet_id = ${fleetId} AND ship_id = ${shipId} AND ended_at IS NULL
         FOR SHARE`;
       return row ? toLease(row) : undefined;
+    },
+    findCrewed: async (fleetId, shipIds) => {
+      if (shipIds.length === 0) {
+        return [];
+      }
+      const rows = await db.$queryRaw<unknown[]>(crewedShipsStatement({ fleetId, shipIds }));
+      return rows.map((row) => crewedShipRowSchema.parse(row).ship_id);
     },
     findLastSeen: async (fleetId, shipId) => {
       const [row] = await db.$queryRaw<unknown[]>`
