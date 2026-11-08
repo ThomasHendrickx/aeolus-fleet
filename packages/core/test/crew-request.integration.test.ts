@@ -5,6 +5,7 @@ import { createChangeLabelValues } from '../src/domain/registry/change-label-val
 import type { ShipCaller } from '../src/domain/shared/caller.js';
 import { operatorCaller } from './support/core-fixtures.js';
 import { createPostgresCore, heldUnitOfWork, type PostgresCore } from './support/postgres-core.js';
+import { OPERATOR } from '../src/testing/fleet.js';
 import { unwrap } from '../src/testing/result.js';
 import { newKey } from '../src/testing/keys.js';
 import { aCrewSettings } from './support/crew-fixtures.js';
@@ -57,10 +58,36 @@ describe('a crew request on Postgres', () => {
     unwrap(await core.useCases.requestCrew(argo, { shipId: scoutId, settings: aCrewSettings({ harness: 'codex' }) }));
 
     const listed = wholeShips((await core.useCases.listFleet(argo)).ships).find((ship) => ship.id === scoutId);
-    expect(listed?.crewRequest).toEqual({ settingsVersion: 1, requestedAt: core.clock.now(), assignedTo: null, status: null, reason: null, crewedBy: null, attempt: 0, sessionStartedAt: null, givenBack: [] });
+    expect(listed?.crewRequest).toEqual({ settingsVersion: 1, requestedAt: core.clock.now(), assignedTo: null, requestedBy: { id: argo.shipId, name: 'argo' }, status: null, reason: null, crewedBy: null, attempt: 0, sessionStartedAt: null, givenBack: [] });
     await expect(core.useCases.getShip(argo, { shipId: scoutId })).resolves.toMatchObject({
       value: { crewRequest: { settings: aCrewSettings({ harness: 'codex' }), settingsVersion: 1, requestedAt: core.clock.now() } },
     });
+  });
+
+  it('records its requester, replaced by the ship that requests it next (R2)', async () => {
+    unwrap(await core.useCases.requestCrew(argo, { shipId: scoutId, settings: aCrewSettings({ harness: 'claude-code' }) }));
+    const { shipId: plannerId } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'planner', type: 'planner', scopes: ['fleet:manage'] }));
+    const planner: ShipCaller = { fleetId: argo.fleetId, shipId: plannerId, kind: 'agent', scopes: ['fleet:manage'] };
+
+    unwrap(await core.useCases.requestCrew(planner, { shipId: scoutId, settings: aCrewSettings({ harness: 'codex' }) }));
+
+    await expect(crewRequests()).resolves.toEqual([expect.objectContaining({ requestedBy: plannerId })]);
+    const listed = wholeShips((await core.useCases.listFleet(argo)).ships).find((ship) => ship.id === scoutId);
+    expect(listed?.crewRequest?.requestedBy).toEqual({ id: plannerId, name: 'planner' });
+    await expect(core.useCases.getShip(argo, { shipId: scoutId })).resolves.toMatchObject({ value: { crewRequest: { requestedBy: { id: plannerId, name: 'planner' } } } });
+  });
+
+  it("records the session's ship as the requester of a request made in the console (R2)", async () => {
+    const { token } = unwrap(await core.useCases.signIn(OPERATOR));
+    const session = await core.useCases.authenticate.byConsoleSession(token);
+    if (!session) {
+      throw new Error('The sign-in started no console session');
+    }
+
+    unwrap(await core.useCases.requestCrew(session.caller, { shipId: scoutId, settings: aCrewSettings({ harness: 'codex' }) }));
+
+    const listed = wholeShips((await core.useCases.listFleet(argo)).ships).find((ship) => ship.id === scoutId);
+    expect(listed?.crewRequest?.requestedBy).toEqual({ id: argo.shipId, name: 'argo' });
   });
 
   it('is refused with settings that are not crew settings, storing no request and no event, and keeps the request the ship holds (#809)', async () => {

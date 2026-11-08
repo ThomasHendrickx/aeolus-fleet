@@ -51,7 +51,7 @@ describe('shipRowsOf', () => {
   });
 
   it('hides a ship Needs crew does not select', () => {
-    const waiting = aShip({ status: 'awaitingCrew', crewRequest: { settingsVersion: 1, requestedAt: '2026-10-24T10:00:00.000Z', assignedTo: null, status: null, reason: null, crewedBy: null, attempt: 0, startedAt: null, givenBack: [] } });
+    const waiting = aShip({ status: 'awaitingCrew', crewRequest: { settingsVersion: 1, requestedAt: '2026-10-24T10:00:00.000Z', requestedBy: null, assignedTo: null, status: null, reason: null, crewedBy: null, attempt: 0, startedAt: null, givenBack: [] } });
 
     expect(shipRowsOf([aShip({}), waiting], { needsCrew: 'withoutTrierarchs' })).toEqual([waiting]);
   });

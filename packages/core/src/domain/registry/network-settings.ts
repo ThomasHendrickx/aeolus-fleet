@@ -117,8 +117,8 @@ export type SetBuiltInRuleRefusal = DomainError<'BUILT_IN_RULE_FIXED'>;
 /**
  * A built-in rule turned on or off, as its own action (decision 0034): the
  * viewer reading, by any actor holding fleet:network (decision 0053). argo,
- * the owner, the answer, a connected plugin's reading and the installation's
- * managing are never off, and open follows the applied rules, so turning them
+ * the owner, the answer, a connected plugin's reading and sending, a send to a
+ * plugin and the installation's managing are never off, and open follows the applied rules, so turning them
  * is refused. A change moves the version and writes BuiltInRuleChanged; a
  * rule already as asked changes nothing.
  */
@@ -303,7 +303,9 @@ function owningShipOf(actor: ReachingActor): ShipId | null {
  * only by a rule, so argo's messages are not every ship's to read; an owner's
  * ship reaches the ships it owns (decision 0045), and an account the ships
  * its person ship owns; a ship answers the sender of a message it received;
- * a plugin ship reads every ship, by its kind (decision 0050); and the installation manages
+ * a plugin ship reads every ship, by its kind (decision 0050), every ship
+ * sends to a plugin ship and a plugin ship sends to every ship, so plugins
+ * are always reachable; and the installation manages
  * person ships and the ships they own (decision 0020). The viewer reads
  * every ship while that is on, and every actor reaches every ship by every
  * verb while open is. Otherwise a rule of the verb must match the sender
@@ -329,6 +331,12 @@ export function reachRuleOf(
   }
   if (verb === 'read' && sender.kind === 'plugin') {
     return { builtIn: 'pluginRead' };
+  }
+  if (verb === 'send' && recipient.kind === 'plugin') {
+    return { builtIn: 'sendToPlugin' };
+  }
+  if (verb === 'send' && sender.kind === 'plugin') {
+    return { builtIn: 'pluginSend' };
   }
   if (verb === 'read' && sender.kind === 'viewer' && inForce.isViewerReadOn) {
     return { builtIn: 'viewerRead' };

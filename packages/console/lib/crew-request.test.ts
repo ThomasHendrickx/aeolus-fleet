@@ -12,7 +12,7 @@ const REQUESTED_AT = '2026-10-07T10:20:00.000Z';
 const CREWED_SINCE = '2026-10-07T10:42:00.000Z';
 
 function aRequest(overrides: Partial<CrewRequest> = {}): CrewRequest {
-  return { settings: {}, settingsVersion: 1, requestedAt: REQUESTED_AT, assignedTo: null, status: null, reason: null, crewedBy: null, attempt: 0, startedAt: null, givenBack: [], ...overrides };
+  return { settings: {}, settingsVersion: 1, requestedAt: REQUESTED_AT, requestedBy: null, assignedTo: null, status: null, reason: null, crewedBy: null, attempt: 0, startedAt: null, givenBack: [], ...overrides };
 }
 
 function anEvent(entry: Pick<TimelineEntry, 'type' | 'occurredAt' | 'actor'>): TimelineEntry {

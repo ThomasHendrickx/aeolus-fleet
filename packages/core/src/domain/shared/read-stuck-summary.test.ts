@@ -25,6 +25,7 @@ function assignedTo(shipId: ShipId, machine: ShipId): void {
     settings: {},
     settingsVersion: 1,
     requestedAt: scene.core.clock.now(),
+      requestedBy: null,
     assignedTo: machine,
     status: 'crewing',
     reason: null,

@@ -460,6 +460,8 @@ export interface ShipFacts {
   crewRequest: CrewRequest | null;
   /** The trierarch ship its crew request is assigned to, by id and name; null while unassigned or without a request. */
   crewRequestAssignee: { id: ShipId; name: string } | null;
+  /** The ship that made its crew request last, by id and name; null without a request, or for one made before it was recorded. */
+  crewRequestRequester: { id: ShipId; name: string } | null;
   /** The ship's owner by id and name; null for argo and the viewer (decision 0045). */
   owner: { id: ShipId; name: string } | null;
   /** The trierarchs that gave its crew request back, by id and name, oldest first (#382); none without a request. */

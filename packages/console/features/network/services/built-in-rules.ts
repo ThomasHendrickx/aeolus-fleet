@@ -3,7 +3,8 @@ import type { BuiltInRule, BuiltInRuleState } from '@aeolus-fleet/common';
 /**
  * The built-in rules as Network shows them, first and apart from argo's own
  * (decision 0034): each as the fleet answers it, with what it allows and who
- * turns it. argo, the owner, the answer, a connected plugin's reading, a
+ * turns it. argo, the owner, the answer, a connected plugin's reading and
+ * sending, every ship's sending to a plugin, a
  * meeting's participants (decision 0061) and the installation's managing are
  * never off; argo turns the viewer reading; open is off while rules are
  * applied and on while none are, for every verb.
@@ -24,6 +25,8 @@ export const BUILT_IN_NAMES: Readonly<Record<BuiltInRule, string>> = {
   owner: 'Owner',
   answer: 'Answer',
   pluginRead: 'Connected plugins read',
+  sendToPlugin: 'Ships send to plugins',
+  pluginSend: 'Plugins send',
   meeting: 'Meeting',
   viewerRead: 'Viewer reads',
   installation: 'Installation manages',
@@ -40,6 +43,10 @@ function rowOf(state: BuiltInRuleState): BuiltInRow {
       return { key: state.rule, name: BUILT_IN_NAMES[state.rule], meaning: 'A ship may always answer the sender of a message it received.', isOn: state.isOn, turnedBy: 'never' };
     case 'pluginRead':
       return { key: state.rule, name: BUILT_IN_NAMES[state.rule], meaning: 'A plugin argo connected reads every ship, whatever the rules.', isOn: state.isOn, turnedBy: 'never' };
+    case 'sendToPlugin':
+      return { key: state.rule, name: BUILT_IN_NAMES[state.rule], meaning: 'Every ship may send to a plugin argo connected, whatever the rules.', isOn: state.isOn, turnedBy: 'never' };
+    case 'pluginSend':
+      return { key: state.rule, name: BUILT_IN_NAMES[state.rule], meaning: 'A plugin argo connected may send to every ship, whatever the rules.', isOn: state.isOn, turnedBy: 'never' };
     case 'meeting':
       return { key: state.rule, name: BUILT_IN_NAMES[state.rule], meaning: 'The participants of a meeting reach each other in it, whatever the rules: its owner reached each when it joined.', isOn: state.isOn, turnedBy: 'never' };
     case 'viewerRead':

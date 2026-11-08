@@ -169,6 +169,7 @@ Two questions decide whether an actor (a ship, an account or the installation, 0
 - An owner reaches the ships it owns.
 - A ship can always answer the message it was sent.
 - A ship of kind plugin reads every ship.
+- Plugins are always reachable: every ship sends to a ship of kind plugin, and a ship of kind plugin sends to every ship.
 - The participants of a meeting reach each other (0061).
 - The viewer reads every ship, until an actor holding `fleet:network` turns that off.
 - The installation manages person ships and what they own.

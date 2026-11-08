@@ -1,6 +1,6 @@
 import type { IdGenerator, LabelValueId, ShipId } from '@aeolus-fleet/common';
 
-import { actorOf, type Caller } from '../shared/caller.js';
+import { actorOf, isShipCaller, type Caller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { recordEvent, type EventLog } from '../shared/events.js';
@@ -12,7 +12,7 @@ import type { CrewRequestRepository, LabelRepository, ShipRepository } from './p
 import type { JsonObject } from './report-details.js';
 
 export interface RequestCrewTx extends Omit<CheckManageTx, 'ships' | 'labels'> {
-  ships: Pick<ShipRepository, 'find' | 'findForUpdate'>;
+  ships: Pick<ShipRepository, 'find' | 'findForUpdate' | 'findOperatorShip'>;
   crewRequests: CrewRequestRepository;
   labels: Pick<LabelRepository, 'findByValueForShare' | 'carriedBy' | 'find' | 'findByKey'>;
   events: EventLog;
@@ -21,7 +21,7 @@ export interface RequestCrewTx extends Omit<CheckManageTx, 'ships' | 'labels'> {
 export type RequestCrew = (
   caller: Caller,
   input: { shipId: ShipId; settings: JsonObject },
-) => Promise<Result<{ settingsVersion: number }, DomainError<'SHIP_NOT_FOUND'> | NotReachable | RequestCrewRefusal>>;
+) => Promise<Result<{ settingsVersion: number }, DomainError<'SHIP_NOT_FOUND' | 'FLEET_NOT_FOUND'> | NotReachable | RequestCrewRefusal>>;
 
 /**
  * Use case: a requester asks that a ship be kept crewed, with these settings,
@@ -29,12 +29,13 @@ export type RequestCrew = (
  * before this runs. In one unit of work, locking the ship first, as a retire
  * does, so a retire and a request never cross; then holding the label of
  * each machine label, as an assignment does, so a change of its values waits
- * and the request never names a value it removed: the request and
- * CrewRequested.
+ * and the request never names a value it removed: the request, its
+ * requester the caller's ship (an account and the installation request as
+ * argo, the ship that holds what they request), and CrewRequested.
  */
 export function createRequestCrew(deps: { uow: UnitOfWork<RequestCrewTx>; clock: Clock; ids: IdGenerator }): RequestCrew {
   return (caller, input) =>
-    keepingReachRefusal(deps.uow, async (tx): Promise<Result<{ settingsVersion: number }, DomainError<'SHIP_NOT_FOUND'> | NotReachable | RequestCrewRefusal>> => {
+    keepingReachRefusal(deps.uow, async (tx): Promise<Result<{ settingsVersion: number }, DomainError<'SHIP_NOT_FOUND' | 'FLEET_NOT_FOUND'> | NotReachable | RequestCrewRefusal>> => {
       const ship = await tx.ships.findForUpdate(caller.fleetId, input.shipId);
       if (!ship) {
         return refuse('SHIP_NOT_FOUND', `Ship ${input.shipId} does not exist`);
@@ -52,7 +53,11 @@ export function createRequestCrew(deps: { uow: UnitOfWork<RequestCrewTx>; clock:
           labelValues.add(valueId);
         }
       }
-      const requested = requestCrew({ ship, current, labelValues }, { settings: input.settings, at: deps.clock.now(), actor: actorOf(caller) });
+      const requestedBy = isShipCaller(caller) ? caller.shipId : (await tx.ships.findOperatorShip(caller.fleetId))?.id;
+      if (requestedBy === undefined) {
+        return refuse('FLEET_NOT_FOUND', `Fleet ${caller.fleetId} does not exist`);
+      }
+      const requested = requestCrew({ ship, current, labelValues }, { settings: input.settings, requestedBy, at: deps.clock.now(), actor: actorOf(caller) });
       if (!requested.isOk) {
         return requested;
       }

@@ -44,6 +44,8 @@ export interface ListedShip {
     | (Pick<CrewRequest, 'settingsVersion' | 'requestedAt' | 'status' | 'reason' | 'attempt' | 'sessionStartedAt'> & {
         /** The trierarch ship it is assigned to, by id and name; null while unassigned. */
         assignedTo: { id: ShipId; name: string } | null;
+        /** The ship that made it last, by id and name; null for a request made before it was recorded. */
+        requestedBy: { id: ShipId; name: string } | null;
         /** The ship that got the starting prompt its crew claimed with: argo for a hand crew, or its trierarch; null while not crewed. */
         crewedBy: { id: ShipId; name: string } | null;
         /** The trierarchs that gave it back before their crew was final, by id and name, oldest first (#382). */
@@ -120,6 +122,7 @@ export function listedShipOf({
   validSecret,
   crewRequest,
   crewRequestAssignee,
+  crewRequestRequester,
   crewRequestGivenBack,
   labels,
   crewedBy,
@@ -148,6 +151,7 @@ export function listedShipOf({
       settingsVersion: crewRequest.settingsVersion,
       requestedAt: crewRequest.requestedAt,
       assignedTo: crewRequestAssignee,
+      requestedBy: crewRequestRequester,
       status: crewRequest.status,
       reason: crewRequest.reason,
       crewedBy,

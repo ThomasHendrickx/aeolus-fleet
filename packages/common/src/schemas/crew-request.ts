@@ -81,6 +81,8 @@ export const listedCrewRequestSchema = z.object({
   requestedAt: z.iso.datetime(),
   /** The trierarch ship it is assigned to; null while unassigned, the operator's to-do. */
   assignedTo: z.object({ id: idSchema('ship'), name: z.string() }).nullable(),
+  /** The ship that made it last, where the trierarch plugin tells why it waits; null for a request made before it was recorded. */
+  requestedBy: z.object({ id: idSchema('ship'), name: z.string() }).nullable(),
   /** How its trierarch says the crew stands; null until it says. */
   status: crewStatusSchema.nullable(),
   /** Why no trierarch can take it, written by the assigner while unassigned; null when none. */
