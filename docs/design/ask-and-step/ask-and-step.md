@@ -1,5 +1,7 @@
 # Ask, step and withdraw
 
+Status: awaiting Thomas's approval.
+
 Refs #1734.
 
 ## Purpose
@@ -43,11 +45,13 @@ The ship supplies the UUID for an ask or step. Core fixes its content type and c
 
 A newly accepted message with the question or step content type must contain valid JSON matching the corresponding common schema. Matching ignores case and content-type parameters. Typed calls and ordinary send apply the same payload-shape rule. Valid raw sends keep their supplied payload and content type; checking does not rewrite them.
 
+The shape check runs on the plaintext payload before sealing.
+
 The validation boundary is exactly Thomas's instruction: "Step and ask is a formatted message which gets checked, that is it." Core does not validate an answer against its question, enforce an open/answered state, or infer a question from JSON sent as text. Answers, step outcomes, replacements and withdrawals sent through ordinary send keep their existing handling. A typed withdrawal constructs its existing schema correctly; that does not extend raw-send validation to the rest of the family.
 
 A shape refusal is `BAD_REQUEST` over tRPC, REST HTTP 400 with `{ code, message }`, and an MCP tool error. Its message names the declared kind and the failing field, for example `question.pick.option: The pick names one of the options`; invalid JSON is identified as such. It stores no message, delivery or acceptance event and wakes nobody. Existing refusals for size, model, authorization, reach, idempotency and sealing remain in force.
 
-Validation applies at every path that accepts a new question or step message: send, typed calls, operator Reply, schedule execution and resend. Scheduling must not become a route around execution-time validation. A refused occurrence follows the schedule's configured refusal strategy. A refused resend leaves its original delivery available for dismissal. An operator Reply refusal must leave its input delivery unacknowledged by that reply.
+Validation applies at every path that accepts a new question or step message: send, typed calls, operator Reply, schedule execution and resend. A schedule's question or step is checked when the schedule is created as well as at each send time. A refused occurrence follows the schedule's configured refusal strategy. A refused resend leaves its original delivery available for dismissal. An operator Reply refusal must leave its input delivery unacknowledged by that reply.
 
 No migrations. Existing stored payloads and their read-time fallbacks remain as they are. An identical retry of an already accepted request returns its original message id and creates nothing, including when the original predates validation. This preserves send's idempotency guarantee without admitting another malformed message.
 
