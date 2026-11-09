@@ -575,6 +575,29 @@ describe('a pruning pass racing', () => {
 
     expect(await core.prisma.fleet.count({ where: { id: argo.fleetId } })).toBe(0);
   });
+
+  it("a read of an exchange it prunes, again and again: never a page with the messages gone and no mark (docs/design/exchange-history)", async () => {
+    for (let round = 1; round <= 5; round += 1) {
+      const messageId = await aFinishedMessage(`Round ${String(round)}`);
+      const { createdAt } = await core.prisma.message.findUniqueOrThrow({ where: { id: messageId }, select: { createdAt: true } });
+      core.clock.advance((RETENTION_DAYS + 1) * DAY_MS);
+      await core.useCases.closeHealthSnapshots();
+      const pages: { isKept: boolean; prunedUpTo: Date | null }[] = [];
+      let isPassing = true;
+
+      const passing = core.useCases.pruneHistory().finally(() => {
+        isPassing = false;
+      });
+      do {
+        const page = unwrap(await core.useCases.readExchange(planner, { otherShipId: scout.shipId }));
+        pages.push({ isKept: page.items.some((item) => item.messageId === messageId), prunedUpTo: page.prunedUpTo });
+      } while (isPassing);
+      await passing;
+
+      expect(await isKept(messageId)).toBe(false);
+      expect(pages.filter((page) => !page.isKept && !(page.prunedUpTo instanceof Date && page.prunedUpTo >= createdAt))).toEqual([]);
+    }
+  });
 });
 
 describe('a pruning pass that fails', () => {
@@ -608,6 +631,38 @@ describe('a pruning pass that fails', () => {
     expect(await eventsNaming(messageId)).toBeGreaterThan(0);
     expect(await historyPruned()).toBe(0);
     expect(await storage()).toBe(before);
+  });
+
+  it("rolls a batch that fails after marking back whole: the messages kept and no mark, and the next pass prunes and marks (docs/design/exchange-history)", async () => {
+    const messageId = await aFinishedMessage();
+    const { createdAt } = await core.prisma.message.findUniqueOrThrow({ where: { id: messageId }, select: { createdAt: true } });
+    core.clock.advance((RETENTION_DAYS + 1) * DAY_MS);
+    await core.useCases.closeHealthSnapshots();
+    const failing = createPrismaUnitOfWork(core.prisma);
+    const uow: UnitOfWork<PrismaTx> = {
+      run: (work) =>
+        failing.run((tx) =>
+          work({
+            ...tx,
+            historyPruner: {
+              ...tx.historyPruner,
+              go: async (...args) => {
+                await tx.historyPruner.go(...args);
+                throw new Error('disk full');
+              },
+            },
+          }),
+        ),
+    };
+
+    await passWith(uow)(() => undefined);
+    const afterFailure = unwrap(await core.useCases.readExchange(planner, { otherShipId: scout.shipId }));
+    await passAfter(HOUR_MS);
+    const afterNextPass = unwrap(await core.useCases.readExchange(planner, { otherShipId: scout.shipId }));
+
+    expect(afterFailure.items.map((item) => item.messageId)).toEqual([messageId]);
+    expect(afterFailure.prunedUpTo).toBeNull();
+    expect(afterNextPass).toMatchObject({ items: [], prunedUpTo: createdAt });
   });
 
   it('goes on the next hour after a pass that died mid-way', async () => {

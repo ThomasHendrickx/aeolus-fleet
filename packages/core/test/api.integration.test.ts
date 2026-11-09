@@ -300,6 +300,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_exchanges$/),
       expect.stringMatching(/^\d{14}_delivery_in_flight_claimed_index$/),
       expect.stringMatching(/^\d{14}_crew_request_requested_by$/),
+      expect.stringMatching(/^\d{14}_pruned_exchanges$/),
     ]);
   });
 });
@@ -718,6 +719,8 @@ describe('the ship procedures at the API', () => {
 });
 
 describe('ship.exchange at the API', () => {
+  const PRUNED_UP_TO = '2026-10-08T12:00:00.000Z';
+
   it("answers the reader's own delivery on a message it received, and none on its own (docs/design/exchange-read, section 7)", async () => {
     // Given one ship wrote to another by id, and the other answered.
     const writer = client({ authorization: `Bearer ${await crewedShip()}` });
@@ -736,6 +739,26 @@ describe('ship.exchange at the API', () => {
       { messageId: answerId, receivedDelivery: null },
       { messageId, receivedDelivery: { deliveryId, state: 'pending' } },
     ]);
+  });
+
+  it('answers how far pruning went on every page: null while it removed none, else an ISO time (docs/design/exchange-history)', async () => {
+    // Given one ship wrote to another, and their exchange is not yet pruned.
+    const writer = client({ authorization: `Bearer ${await crewedShip()}` });
+    const reader = client({ authorization: `Bearer ${await crewedShip()}` });
+    const { shipId: writerId } = await writer.ship.whoami.query();
+    const { shipId: readerId } = await reader.ship.whoami.query();
+    await writer.ship.send.mutate({ selector: { kind: 'ship', shipId: readerId }, payload: 'Merge PR #1497?', model: SESSION_MODEL, idempotencyKey: newKey() });
+    const before = await reader.ship.exchange.query({ otherShipId: writerId });
+
+    // When pruning marked their exchange, and the reader reads it again.
+    await database.$executeRaw`
+      INSERT INTO pruned_exchanges (fleet_id, ship_id, other_ship_id, pruned_up_to)
+      SELECT fleet_id, least(${writerId}, ${readerId}), greatest(${writerId}, ${readerId}), ${new Date(PRUNED_UP_TO)} FROM ships WHERE id = ${writerId}`;
+    const after = await reader.ship.exchange.query({ otherShipId: writerId });
+
+    // Then the first page said none, the second the mark.
+    expect(before.prunedUpTo).toBeNull();
+    expect(after.prunedUpTo).toBe(PRUNED_UP_TO);
   });
 });
 
