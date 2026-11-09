@@ -7,6 +7,8 @@ import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-
 import { newKey } from '../../testing/keys.js';
 import { unwrap } from '../../testing/result.js';
 import { DATA_KEY_CACHE_MS } from './data-keys.js';
+import { createCloseHealthSnapshots } from '../shared/close-health-snapshots.js';
+import { createPruneHistory } from '../shared/prune-history.js';
 import type { Crew, ShipCaller } from '../shared/caller.js';
 import type { Selector } from '../shared/selector.js';
 
@@ -84,6 +86,7 @@ describe('the exchange read', () => {
       ],
       olderCursor: null,
       newerCursor: null,
+      prunedUpTo: null,
     });
   });
 
@@ -273,5 +276,84 @@ describe("the exchange read's delivery of each message the reader received", () 
     expect(page.items.map(({ payload, receivedDelivery }) => ({ payload, receivedDelivery }))).toEqual([
       { payload: { kind: 'unreadable' }, receivedDelivery: { deliveryId: deliveryOf(asked, thomasId), state: 'pending' } },
     ]);
+  });
+});
+
+// Where the exchange's history ends (docs/design/exchange-history, section 5):
+// every page answers the newest send time pruning removed of the exchange, or
+// null when pruning removed none of it.
+describe("the exchange read's mark of how far pruning went", () => {
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  const RETENTION_DAYS = 30;
+
+  /** The fleet keeps 30 days; the 30 second pass runs past them: the snapshot close, then the pruning pass. */
+  async function passPastRetention(): Promise<void> {
+    core.state.fleetLimitSettings.push({
+      fleetId,
+      ships: { kind: 'default' },
+      dailyMessages: { kind: 'default' },
+      schedulesPerShip: { kind: 'default' },
+      minimumScheduleInterval: { kind: 'default' },
+      retention: { kind: 'fleet', days: RETENTION_DAYS },
+    });
+    core.clock.advance((RETENTION_DAYS + 1) * DAY_MS);
+    await createCloseHealthSnapshots({ fleets: core.fleets, uow: core.uow, clock: core.clock })();
+    await createPruneHistory({ fleets: core.fleets, uow: core.uow, clock: core.clock, ids: core.ids })(() => undefined);
+  }
+
+  async function acknowledgeAll(crew: Crew): Promise<void> {
+    for (const { deliveryId } of unwrap(await useCases.receiveDeliveries(crew, { max: 10 })).deliveries) {
+      unwrap(await useCases.acknowledgeDelivery(crew, { deliveryId }));
+    }
+  }
+
+  /** The newest page one at a time, the older one from it, the newer one from that, and the page around the middle message. */
+  async function everyPage(crew: Crew, { otherShipId, middle }: { otherShipId: ShipId; middle: MessageId | undefined }) {
+    const newest = unwrap(await useCases.readExchange(crew, { otherShipId, limit: 1 }));
+    const older = unwrap(await useCases.readExchange(crew, { otherShipId, limit: 1, before: newest.olderCursor ?? undefined }));
+    const newer = unwrap(await useCases.readExchange(crew, { otherShipId, limit: 1, after: older.olderCursor ?? undefined }));
+    const around = unwrap(await useCases.readExchange(crew, { otherShipId, limit: 3, around: middle }));
+    return [newest, older, newer, around].map((page) => page.prunedUpTo);
+  }
+
+  it('answers null on every page while pruning removed none of the exchange, though it pruned another', async () => {
+    // Given argo wrote the lookout, which acknowledged it, and a pass past the retention let it go; then the lookout sent thomas three notes.
+    await send(argo, { to: { kind: 'ship', shipId: lookoutId }, payload: 'Standup moved' });
+    await acknowledgeAll(lookout);
+    await passPastRetention();
+    const notes: MessageId[] = [];
+    for (const n of [1, 2, 3]) {
+      notes.push(await send(lookout, { to: { kind: 'ship', shipId: thomasId }, payload: `Note ${String(n)}` }));
+    }
+
+    // When thomas reads every page of its exchange with the lookout.
+    const marks = await everyPage(thomas, { otherShipId: lookoutId, middle: notes[1] });
+
+    // Then each says pruning removed none of it.
+    expect(marks).toEqual([null, null, null, null]);
+  });
+
+  it('answers the newest send time pruning removed on every page, whichever of the two ships reads', async () => {
+    // Given the lookout sent thomas two notes and thomas answered once, each acknowledged, a pass past the retention let them go, and then the lookout sent thomas three more.
+    await send(lookout, { to: { kind: 'ship', shipId: thomasId }, payload: 'Old note 1' });
+    await send(lookout, { to: { kind: 'ship', shipId: thomasId }, payload: 'Old note 2' });
+    await acknowledgeAll(thomas);
+    await send(thomas, { to: { kind: 'ship', shipId: lookoutId }, payload: 'Old answer' });
+    await acknowledgeAll(lookout);
+    await passPastRetention();
+    const notes: MessageId[] = [];
+    for (const n of [1, 2, 3]) {
+      notes.push(await send(lookout, { to: { kind: 'ship', shipId: thomasId }, payload: `Note ${String(n)}` }));
+    }
+    const middle = notes[1];
+
+    // When thomas reads every page of its exchange with the lookout, and the lookout every page of its exchange with thomas.
+    const byThomas = await everyPage(thomas, { otherShipId: lookoutId, middle });
+    const byLookout = await everyPage(lookout, { otherShipId: thomasId, middle });
+
+    // Then each answers the send time of the old answer, the newest message that went.
+    const oldAnswerSentAt = new Date('2026-11-06T12:00:03.000Z');
+    expect(byThomas).toEqual([oldAnswerSentAt, oldAnswerSentAt, oldAnswerSentAt, oldAnswerSentAt]);
+    expect(byLookout).toEqual([oldAnswerSentAt, oldAnswerSentAt, oldAnswerSentAt, oldAnswerSentAt]);
   });
 });
