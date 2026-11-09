@@ -1,5 +1,5 @@
 import type { DeliveryId, FleetId, MessageId, ShipId } from '@aeolus-fleet/common';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { assert, beforeEach, describe, expect, it } from 'vitest';
 
 import {
   crewAboard,
@@ -12,7 +12,7 @@ import {
   SESSION_MODEL,
 } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
-import { unwrap } from '../../testing/result.js';
+import { refusalOf, unwrap } from '../../testing/result.js';
 import type { ShipCaller, Crew } from '../shared/caller.js';
 import type { Selector } from '../shared/selector.js';
 import { UNDELIVERABLE_AT_ATTEMPT } from './delivery.js';
@@ -321,5 +321,27 @@ describe('resending one delivery of a send to a label (decision 0065, R8)', () =
       [{ kind: 'ship', shipId: scoutId }, 'dismissed'],
       [{ kind: 'ship', shipId: lookoutId }, 'pending'],
     ]);
+  });
+});
+
+
+describe('formatted resends', () => {
+  it.each(['question', 'step'])('refuses an old malformed %s without dismissing its original delivery', async (kind) => {
+    const original = await undeliverable();
+    const held = message(original.messageId);
+    assert.isDefined(held);
+    held.contentType = `application/vnd.aeolus.${kind}+json`;
+    held.payload = '{}';
+    const before = structuredClone(core.state.deliveries);
+
+    const result = await useCases.resendDelivery(argo, { deliveryId: original.deliveryId });
+
+    const refused = refusalOf(result);
+    expect(refused.kind).toBe('INVALID_FORMATTED_MESSAGE');
+    expect(refused.message).toContain(`${kind}.id`);
+    expect(core.state.messages).toEqual([held]);
+    expect(core.state.deliveries).toEqual(before);
+    expect(core.state.events).toEqual([]);
+    expect(core.state.notices).toEqual([]);
   });
 });

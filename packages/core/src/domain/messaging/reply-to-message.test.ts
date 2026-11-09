@@ -12,7 +12,7 @@ import {
   modelOf,
 } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
-import { unwrap } from '../../testing/result.js';
+import { refusalOf, unwrap } from '../../testing/result.js';
 import type { ShipCaller, Crew } from '../shared/caller.js';
 import { newKey } from '../../testing/keys.js';
 
@@ -185,5 +185,21 @@ describe('replying to a message to argo', () => {
     await expect(
       useCases.replyToMessage(captain, { deliveryId: asked.deliveryId, payload: 'go', idempotencyKey: 'reply-go' }),
     ).resolves.toMatchObject({ isOk: false, error: { kind: 'NOT_THE_OPERATOR_SHIP' } });
+  });
+});
+
+
+describe('formatted operator replies', () => {
+  it.each(['question', 'step'])('refuses a malformed %s reply and leaves its input delivery open', async (kind) => {
+    const asked = await toArgo();
+    const before = structuredClone(core.state.deliveries);
+
+    const result = await useCases.replyToMessage(argo, { deliveryId: asked.deliveryId, contentType: `application/vnd.aeolus.${kind}+json`, payload: '{}', idempotencyKey: newKey() });
+
+    expect(refusalOf(result).kind).toBe('INVALID_FORMATTED_MESSAGE');
+    expect(core.state.messages).toHaveLength(1);
+    expect(core.state.deliveries).toEqual(before);
+    expect(core.state.events).toEqual([]);
+    expect(core.state.notices).toEqual([]);
   });
 });

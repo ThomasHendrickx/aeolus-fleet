@@ -1,5 +1,6 @@
+import { aQuestion, aStep } from '../../../test/support/formatted-message-fixtures.js';
 import type { FleetId, MessageId, ShipId } from '@aeolus-fleet/common';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { assert, beforeEach, describe, expect, it } from 'vitest';
 
 import {
   addAgentShip,
@@ -11,9 +12,9 @@ import {
   registryUseCases,
 } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
-import { unwrap } from '../../testing/result.js';
+import { refusalOf, unwrap } from '../../testing/result.js';
 import type { ShipCaller } from '../shared/caller.js';
-import type { SendMessage } from './send-message.js';
+import { checkedSend, type SendMessage } from './send-message.js';
 import { newKey } from '../../testing/keys.js';
 
 let core: InMemoryCore;
@@ -627,5 +628,88 @@ describe('a forced send (decision 0040)', () => {
 
     expect(refused).toEqual({ isOk: false, error: { kind: 'FORCE_NOT_ALLOWED', message: 'A forced send needs the messages:force scope' } });
     expect(core.state).toEqual(before);
+  });
+});
+
+
+describe('declared formatted messages', () => {
+  it.each([
+    { kind: 'question', payload: '{', field: 'JSON' },
+    { kind: 'question', payload: JSON.stringify({ id: '11111111-1111-4111-8111-111111111111', title: 'Choose', context: '', options: [{ key: 1, label: 'A' }, { key: 1, label: 'B' }], pick: { option: 1, why: 'A' } }), field: 'options' },
+    { kind: 'question', payload: JSON.stringify({ id: '11111111-1111-4111-8111-111111111111', title: 'Choose', context: '', options: [{ key: 2, label: 'A' }], pick: { option: 1, why: 'A' } }), field: 'pick.option' },
+    { kind: 'step', payload: JSON.stringify({ id: '11111111-1111-4111-8111-111111111111', title: 'Sign in', why: '', link: 'ftp://example.com' }), field: 'link' },
+  ])('refuses malformed $kind naming $field before acceptance and permits correction', async ({ kind, payload, field }) => {
+    const input = aReview({ contentType: `Application/Vnd.Aeolus.${kind}+Json; charset=utf-8`, payload });
+
+    const result = await sendMessage(argo, input);
+
+    const refused = refusalOf(result);
+    expect(refused.kind).toBe('INVALID_FORMATTED_MESSAGE');
+    expect(refused.message).toContain(field);
+    expect(refused.message).toContain(kind);
+    expect(core.state.messages).toEqual([]);
+    expect(core.state.deliveries).toEqual([]);
+    expect(core.state.events).toEqual([]);
+    expect(core.state.notices).toEqual([]);
+    const corrected = kind === 'question' ? { id: '11111111-1111-4111-8111-111111111111', title: 'Choose', context: '', options: [{ key: 2, label: 'A' }], pick: { option: 2, why: 'A' } } : { id: '11111111-1111-4111-8111-111111111111', title: 'Sign in', why: '' };
+    expect((await sendMessage(argo, { ...input, payload: JSON.stringify(corrected) })).isOk).toBe(true);
+  });
+});
+
+
+describe('formatted message preservation', () => {
+  it.each([
+    { kind: 'question', payload: JSON.stringify({ ...aQuestion(), title: 'Choose "ship"\n船', options: [{ key: 2, label: 'Ship' }, { key: 4, label: 'Wait' }] }, null, 2) },
+    { kind: 'step', payload: JSON.stringify(aStep({ title: 'Sign in\n船' }), null, 2) },
+  ])('keeps valid raw $kind bytes, defaults and content type untouched', async ({ kind, payload }) => {
+    const input = aReview({ payload, contentType: `Application/Vnd.Aeolus.${kind}+Json; charset=utf-8` });
+
+    const messageId = await sent(argo, input);
+
+    expect(core.state.messages).toMatchObject([{ id: messageId, payload, contentType: input.contentType }]);
+    expect(core.state.deliveries).toHaveLength(1);
+    expect(core.state.events.map((event) => event.type)).toEqual(['MessageAccepted']);
+  });
+
+  it.each(['text/plain', 'application/json', 'application/vnd.aeolus.answer+json', 'application/vnd.aeolus.step-outcome+json', 'application/vnd.aeolus.question-withdrawal+json', 'application/vnd.aeolus.step-withdrawal+json', 'application/vnd.aeolus.question-replacement+json', 'application/vnd.aeolus.step-replacement+json'])('does not inspect the payload declared as %s', async (contentType) => {
+    const input = aReview({ payload: '{', contentType });
+
+    const messageId = await sent(argo, input);
+
+    expect(core.state.messages).toMatchObject([{ id: messageId, payload: '{', contentType }]);
+  });
+
+  it('keeps question JSON sent as text a text message', async () => {
+    const input = aReview({ payload: JSON.stringify(aQuestion()), contentType: 'text/plain' });
+
+    await sent(argo, input);
+
+    expect(core.state.messages).toMatchObject([{ payload: input.payload, contentType: 'text/plain', questionId: null }]);
+  });
+
+  it('replays an old malformed accepted request after its recipient retires without rewriting it', async () => {
+    const input = aReview({ payload: JSON.stringify(aQuestion()), contentType: 'application/vnd.aeolus.question+json' });
+    const messageId = await sent(argo, input);
+    const legacyInput = { ...input, payload: '{' };
+    const original = core.state.messages.find((message) => message.id === messageId);
+    const recipient = core.state.ships.find((ship) => ship.id === scoutId);
+    assert.isDefined(original);
+    assert.isDefined(recipient);
+    original.payload = legacyInput.payload;
+    original.requestHash = unwrap(checkedSend(legacyInput, core.hasher)).requestHash;
+    recipient.retiredAt = core.clock.now();
+    core.state.events.length = 0;
+    core.state.notices.length = 0;
+    const before = structuredClone(core.state.messages);
+
+    const repeat = await sendMessage(argo, legacyInput);
+    const conflict = await sendMessage(argo, { ...legacyInput, payload: '{}' });
+
+    expect(repeat).toEqual({ isOk: true, value: { messageId } });
+    expect(refusalOf(conflict).kind).toBe('IDEMPOTENCY_KEY_REUSED');
+    expect(core.state.messages).toEqual(before);
+    expect(core.state.deliveries).toHaveLength(1);
+    expect(core.state.events).toEqual([]);
+    expect(core.state.notices).toEqual([]);
   });
 });

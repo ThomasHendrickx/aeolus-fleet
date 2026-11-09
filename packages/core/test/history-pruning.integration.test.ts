@@ -1,3 +1,4 @@
+import { aQuestion } from './support/formatted-message-fixtures.js';
 import { ANSWER_CONTENT_TYPE, createIdGenerator, idSchema, QUESTION_CONTENT_TYPE, type DeliveryState, type MessageId, type ShipId } from '@aeolus-fleet/common';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -145,11 +146,11 @@ describe('a pruning pass on Postgres', () => {
   });
 
   it('keeps an open question, and lets an answered one go with its answer', async () => {
-    const open = await sendTo(planner.shipId, { contentType: QUESTION_CONTENT_TYPE, payload: '{"id":"q-1","title":"Ship it?"}' });
+    const open = await sendTo(planner.shipId, { contentType: QUESTION_CONTENT_TYPE, payload: JSON.stringify(aQuestion()) });
     await acknowledged(planner, open);
-    const answered = await sendTo(planner.shipId, { contentType: QUESTION_CONTENT_TYPE, payload: '{"id":"q-2","title":"Merge it?"}' });
+    const answered = await sendTo(planner.shipId, { contentType: QUESTION_CONTENT_TYPE, payload: JSON.stringify(aQuestion({ id: '33333333-3333-4333-8333-333333333333', title: 'Merge it?' })) });
     await acknowledged(planner, answered);
-    const answer = await sendTo(scout.shipId, { from: planner, contentType: ANSWER_CONTENT_TYPE, payload: '{"questionId":"q-2","option":1}', inReplyTo: answered });
+    const answer = await sendTo(scout.shipId, { from: planner, contentType: ANSWER_CONTENT_TYPE, payload: '{"questionId":"33333333-3333-4333-8333-333333333333","option":2}', inReplyTo: answered });
     await acknowledged(scout, answer);
 
     await passAfter((RETENTION_DAYS + 1) * DAY_MS);
@@ -357,7 +358,7 @@ describe("a pruning pass on Postgres, the rest of a fleet's finished history (S3
   });
 
   it('keeps an ended lease a kept delivery names', async () => {
-    const question = await sendTo(scout.shipId, { from: planner, contentType: QUESTION_CONTENT_TYPE });
+    const question = await sendTo(scout.shipId, { from: planner, contentType: QUESTION_CONTENT_TYPE, payload: JSON.stringify(aQuestion()) });
     await acknowledged(scout, question);
     await releaseScout();
 

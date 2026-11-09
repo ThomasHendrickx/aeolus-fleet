@@ -1,3 +1,4 @@
+import { checkFormattedMessage } from './formatted-message.js';
 import { isPingContentType, type DeliveryId, type IdGenerator, type MessageId } from '@aeolus-fleet/common';
 
 import { checkReach, readsMessage, resolveSelector, type CheckReachTx, type ReadReachOf, type NotReachable, type ResolveSelectorTx, type UnresolvableSelector } from '../registry/public.js';
@@ -26,7 +27,7 @@ export interface ResendDeliveryTx extends Omit<ResolveSelectorTx, 'ships'>, Omit
 }
 
 export type ResendDeliveryRefusal =
-  | DomainError<'DELIVERY_NOT_FOUND' | 'PING_NOT_RESENT' | 'KEY_UNAVAILABLE'>
+  | DomainError<'INVALID_FORMATTED_MESSAGE' | 'DELIVERY_NOT_FOUND' | 'PING_NOT_RESENT' | 'KEY_UNAVAILABLE'>
   | DismissRefusal
   | DomainError<'MESSAGE_LIMIT_REACHED'>
   | RepeatRefusal
@@ -121,6 +122,10 @@ export function createResendDelivery(deps: {
         return repeat.isOk ? ok({ messageId: repeat.value }) : repeat;
       }
 
+      const format = checkFormattedMessage({ payload, contentType: original.contentType });
+      if (!format.isOk) {
+        return format;
+      }
       const at = deps.clock.now();
       const dismissed = dismissForResend(delivery, { by: actorOf(caller), at });
       if (!dismissed.isOk) {

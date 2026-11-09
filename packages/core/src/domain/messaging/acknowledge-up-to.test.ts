@@ -72,8 +72,8 @@ describe('seen up to here', () => {
 
   it('leaves questions, steps and notices as they are, and every other ship\'s messages', async () => {
     // Given the lookout asked thomas a question, asked a step, sent a notice and a plain note, and the scout wrote thomas too.
-    const question = await send(lookout, { to: thomas.shipId, payload: '{"id":"q-1","title":"Which design?"}', contentType: QUESTION_CONTENT_TYPE });
-    const step = await send(lookout, { to: thomas.shipId, payload: '{"id":"s-1","title":"Sign in","why":"Only you can"}', contentType: STEP_CONTENT_TYPE });
+    const question = await send(lookout, { to: thomas.shipId, payload: '{"id":"11111111-1111-4111-8111-111111111111","title":"Which design?","context":"","options":[{"key":1,"label":"A"}],"pick":{"option":1,"why":"A"}}', contentType: QUESTION_CONTENT_TYPE });
+    const step = await send(lookout, { to: thomas.shipId, payload: '{"id":"22222222-2222-4222-8222-222222222222","title":"Sign in","why":"Only you can"}', contentType: STEP_CONTENT_TYPE });
     const notice = await send(lookout, { to: thomas.shipId, payload: '{"headline":"PR #1497 is open","body":"Ready"}', contentType: NOTICE_CONTENT_TYPE });
     const fromScout = await send(scout, { to: thomas.shipId, payload: 'Found the bug' });
     const note = await send(lookout, { to: thomas.shipId, payload: 'Merge it?' });

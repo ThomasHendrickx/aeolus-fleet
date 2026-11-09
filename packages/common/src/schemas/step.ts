@@ -7,7 +7,8 @@ import { essenceOf } from './content-type.js';
  * human can do (create a repository, sign in to an outside server) by sending
  * the person's ship a message of the step content type; the person answers
  * with a reply of the step outcome content type. Both payloads are data only:
- * the fleet carries them as any message. The asking ship withdraws a step, or
+ * the fleet checks a new step's shape before acceptance and carries it as
+ * any message; the recipient interprets it. The asking ship withdraws a step, or
  * replaces it with a new one, by a message of its own content type naming the
  * step's uuid, as for a question (decision 0038).
  */

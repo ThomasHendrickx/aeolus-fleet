@@ -445,3 +445,20 @@ describe("the fleet's minimum schedule interval", () => {
     expect(refusalOf(await messaging.scheduleMessage(scout, aSchedule({ timing: { kind: 'every', every: 'PT1M' } }))).kind).toBe('SCHEDULE_INTERVAL_TOO_SHORT');
   });
 });
+
+
+describe('formatted scheduled messages', () => {
+  it.each(['question', 'step'])('refuses a new malformed %s schedule before storing anything', async (kind) => {
+    const input = aSchedule({ contentType: `application/vnd.aeolus.${kind}+json`, payload: '{}' });
+
+    const result = await messaging.scheduleMessage(scout, input);
+
+    const refused = refusalOf(result);
+    expect(refused.kind).toBe('INVALID_FORMATTED_MESSAGE');
+    expect(refused.message).toContain(`${kind}.id`);
+    expect(core.state.schedules).toEqual([]);
+    expect(core.state.messages).toEqual([]);
+    expect(core.state.events).toEqual([]);
+    expect(core.state.scheduleNotices).toEqual([]);
+  });
+});

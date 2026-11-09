@@ -1,3 +1,4 @@
+import { aQuestion } from './support/formatted-message-fixtures.js';
 import { createIdGenerator, idSchema, QUESTION_CONTENT_TYPE, type ShipId } from '@aeolus-fleet/common';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
@@ -367,7 +368,7 @@ describe('the history that names a removed ship (D3)', () => {
         model: MODEL,
         selector: { kind: 'ship', shipId: argo.shipId },
         contentType: QUESTION_CONTENT_TYPE,
-        payload: '{"id":"q-1","title":"Ship it?"}',
+        payload: JSON.stringify(aQuestion()),
         idempotencyKey: newKey(),
       }),
     );

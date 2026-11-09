@@ -1,3 +1,4 @@
+import { aQuestion } from './support/formatted-message-fixtures.js';
 import { idSchema, QUESTION_CONTENT_TYPE, type DeliveryId, type ShipId } from '@aeolus-fleet/common';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -68,7 +69,7 @@ describe('the record read on Postgres', () => {
     // Given thomas's first crew acknowledged a question and its lease ended, and a notice came for the next crew.
     const thomas = await commissioned({ name: 'thomas', kind: 'person' });
     const first = await crewWith(thomas.shipId, thomas.secret);
-    const question = await sendTo(thomas.shipId, { payload: '{"id":"q-1","title":"Which design?"}', contentType: QUESTION_CONTENT_TYPE });
+    const question = await sendTo(thomas.shipId, { payload: JSON.stringify(aQuestion()), contentType: QUESTION_CONTENT_TYPE });
     await acknowledgedBy(first, question);
     const next = await nextCrewOf(thomas.shipId);
     const notice = await sendTo(thomas.shipId, { payload: 'PR #1497 is open' });
@@ -80,7 +81,7 @@ describe('the record read on Postgres', () => {
     // Then the newest comes first, and the one the earlier lease took follows.
     expect(firstPage).toMatchObject({ items: [{ deliveryId: notice, state: 'pending', payload: 'PR #1497 is open', senderName: 'argo' }], nextCursor: notice });
     expect(secondPage).toMatchObject({
-      items: [{ deliveryId: question, state: 'acknowledged', contentType: QUESTION_CONTENT_TYPE, payload: '{"id":"q-1","title":"Which design?"}' }],
+      items: [{ deliveryId: question, state: 'acknowledged', contentType: QUESTION_CONTENT_TYPE, payload: JSON.stringify(aQuestion()) }],
       nextCursor: null,
     });
   });
@@ -106,7 +107,7 @@ describe('the record read on Postgres', () => {
     const finished = await sendTo(thomas.shipId, { payload: 'Release 0.36.0 is out' });
     await acknowledgedBy(crew, finished);
     unwrap(await core.useCases.reportHandled(crew, { deliveryId: finished }));
-    const open = await sendTo(thomas.shipId, { payload: '{"id":"q-2","title":"Merge it?"}', contentType: QUESTION_CONTENT_TYPE });
+    const open = await sendTo(thomas.shipId, { payload: JSON.stringify(aQuestion({ title: 'Merge it?' })), contentType: QUESTION_CONTENT_TYPE });
     core.clock.advance((RETENTION_DAYS + 1) * DAY_MS);
     await core.useCases.closeHealthSnapshots();
     await core.useCases.pruneHistory();
@@ -124,7 +125,7 @@ describe("the lease rule on Postgres: finishing a ship's delivery under its next
     // Given thomas's delivery acknowledged by its first crew, whose lease ended.
     const thomas = await commissioned({ name: 'thomas', kind: 'person' });
     const first = await crewWith(thomas.shipId, thomas.secret);
-    const deliveryId = await sendTo(thomas.shipId, { payload: '{"id":"q-1","title":"Which design?"}', contentType: QUESTION_CONTENT_TYPE });
+    const deliveryId = await sendTo(thomas.shipId, { payload: JSON.stringify(aQuestion()), contentType: QUESTION_CONTENT_TYPE });
     await acknowledgedBy(first, deliveryId);
     const next = await nextCrewOf(thomas.shipId);
 

@@ -43,7 +43,7 @@ const ids = (page: { items: { deliveryId: DeliveryId }[] }) => page.items.map(({
 
 describe("reading a question's withdrawals in argo's inbox", () => {
   it('lists the withdrawals and replacements to argo naming the question, oldest first, as the inbox lists them', async () => {
-    await send({ contentType: QUESTION_CONTENT_TYPE, payload: { id: QUESTION_ID } });
+    await send({ contentType: QUESTION_CONTENT_TYPE, payload: { ...REPLACEMENT, id: QUESTION_ID } });
     const withdrawal = await send({ contentType: WITHDRAWAL_CONTENT_TYPE, payload: { questionId: QUESTION_ID } });
     await send({ contentType: WITHDRAWAL_CONTENT_TYPE, payload: { questionId: OTHER_QUESTION_ID } });
     await send({ contentType: 'text/plain', payload: { questionId: QUESTION_ID } });
@@ -70,7 +70,7 @@ describe("reading a question's withdrawals in argo's inbox", () => {
   });
 
   it('lists none for a question nobody withdrew', async () => {
-    await send({ contentType: QUESTION_CONTENT_TYPE, payload: { id: QUESTION_ID } });
+    await send({ contentType: QUESTION_CONTENT_TYPE, payload: { ...REPLACEMENT, id: QUESTION_ID } });
 
     await expect(history.readInboxWithdrawals(argo, { questionId: QUESTION_ID }).then(unwrap)).resolves.toEqual({ items: [], nextCursor: null });
   });
