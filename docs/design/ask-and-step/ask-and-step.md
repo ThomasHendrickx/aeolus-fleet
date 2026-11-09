@@ -1,6 +1,6 @@
 # Ask, step and withdraw
 
-Status: awaiting Thomas's approval.
+Status: approved by Thomas.
 
 Refs #1734.
 
@@ -10,7 +10,7 @@ A ship asking a person to decide or do something must be able to give the fields
 
 A send claiming to carry a question or step must be refused when its payload fails that schema, with an explanation of what is wrong. The sender can correct it before a person sees an unusable message. This is Thomas's selected direction in [#1734](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1734).
 
-The behaviour to preserve is in the blueprint's [Question and Step vocabulary](../../blueprint.md#domain-language) and [questions flow](../../blueprint.md#questions-to-argo), [decision 0038](../../decisions/0038-questions.md), and the [ship protocol](../../../packages/core/src/adapters/trpc/ship-protocol.ts). This purpose requires changing 0038's rule that core never reads these payloads. The decisions and flows below define the proposed change; implementation must align 0038 and the blueprint with them.
+The behaviour to preserve is in the blueprint's [Question and Step vocabulary](../../blueprint.md#domain-language) and [questions flow](../../blueprint.md#questions-to-argo), [decision 0038](../../decisions/0038-questions.md), and the [ship protocol](../../../packages/core/src/adapters/trpc/ship-protocol.ts). Decision 0038 records the shape-checking boundary. The decisions and flows below define the approved design; implementation must align the blueprint with them.
 
 ## Lessons to check against
 
