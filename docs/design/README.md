@@ -25,6 +25,7 @@ Feature designs, one folder each; the status of each is at its top:
 | [crew-mcp-servers](crew-mcp-servers/README.md) | A crew request's MCP servers in the crew settings forms and the crew request card |
 | [e2e-encryption](e2e-encryption/e2e-encryption.md) | Who can read a fleet's messages: sealed fleets |
 | [exchange-read](exchange-read/README.md) | A ship's exchange with one other ship, both ways and paged, with the reader's delivery on each message it received, the list of exchanges and seen up to here |
+| [exchange-history](exchange-history/README.md) | Where an exchange's history ends: its true start or pruned, the fact a ship reads on its exchange |
 | [failed-scopes-read](failed-scopes-read/README.md) | Settings: a failed read of a plugin ship's scopes shows as an error with Try again |
 | [feature-flags](feature-flags/feature-flags.md) | Feature flags per fleet |
 | [fleet-overview](fleet-overview/README.md) | The fleet and its ships' status at a glance: Harbour; one view, cards or list, and Harbour shared with Bridge |
