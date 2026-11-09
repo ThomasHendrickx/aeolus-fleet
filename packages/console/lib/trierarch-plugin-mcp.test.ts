@@ -109,6 +109,43 @@ describe('the console route forwards mcp.get and mcp.replace to the trierarch pl
     expect(body).not.toContain('kept-out');
   });
 
+  it('forwards a replacement body of exactly the plugin limit of 1 MiB', async () => {
+    // Given a trierarch plugin and a body at its 1 MiB limit (Fastify's default, which it keeps).
+    const plugin = aPlugin(() => Promise.resolve(Response.json({ result: { data: { version: 1 } } })));
+    const body = 'x'.repeat(1_048_576);
+
+    // When a manager replaces the configuration with it.
+    const response = await forwardMcpCall(aRequest('/api/trierarch-plugin/mcp.replace', { method: 'POST', headers: { cookie: COOKIE, origin: CONSOLE_ORIGIN, 'content-type': 'application/json' }, body }), {
+      procedure: 'mcp.replace',
+      environment: ENVIRONMENT,
+      fetchImplementation: plugin.fetch,
+    });
+
+    // Then the plugin got it whole.
+    expect(response.status).toBe(200);
+    expect(plugin.sent[0]?.body).toBe(body);
+  });
+
+  it('answers 413 naming no value and forwards nothing for a replacement body over the plugin limit', async () => {
+    // Given a trierarch plugin and a body one byte over its 1 MiB limit.
+    const plugin = aPlugin(() => Promise.resolve(Response.json({ result: { data: { version: 1 } } })));
+    const body = `"kept-out${'x'.repeat(1_048_576 - 8)}`;
+
+    // When a manager replaces the configuration with it.
+    const response = await forwardMcpCall(aRequest('/api/trierarch-plugin/mcp.replace', { method: 'POST', headers: { cookie: COOKIE, origin: CONSOLE_ORIGIN, 'content-type': 'application/json' }, body }), {
+      procedure: 'mcp.replace',
+      environment: ENVIRONMENT,
+      fetchImplementation: plugin.fetch,
+    });
+
+    // Then nothing reached the plugin, and the refusal names no value.
+    expect(plugin.sent).toEqual([]);
+    expect(response.status).toBe(413);
+    const answer = await response.text();
+    expect(JSON.parse(answer)).toEqual({ error: { message: 'The MCP configuration body is over 1 MiB' } });
+    expect(answer).not.toContain('kept-out');
+  });
+
   it('answers 404 and forwards nothing on a console without the trierarch plugin', async () => {
     // Given a console with no trierarch plugin.
     const plugin = aPlugin(() => Promise.resolve(Response.json({})));
