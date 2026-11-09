@@ -372,3 +372,35 @@ describe('a refused send time', () => {
     expect(core.state.events.filter((event) => event.shipId === scout.shipId).map((event) => event.type)).toEqual(['ScheduledSendRefused', 'SchedulePaused']);
   });
 });
+
+
+describe('formatted scheduled occurrences', () => {
+  it.each([
+    { kind: 'question', strategy: 'skip', state: 'ended' },
+    { kind: 'step', strategy: 'retry', state: 'active' },
+    { kind: 'question', strategy: 'pause', state: 'paused' },
+  ] as const)('refuses an old malformed $kind occurrence using $strategy', async ({ kind, strategy, state }) => {
+    const scheduleId = await scheduled(aSchedule({ onRefused: strategy }));
+    const held = scheduleOf(scheduleId);
+    if (held === undefined) throw new Error('The schedule exists');
+    held.send.contentType = `application/vnd.aeolus.${kind}+json`;
+    held.send.payload = '{}';
+    core.state.events.length = 0;
+    core.state.notices.length = 0;
+    core.clock.set(SEND_TIME);
+
+    await pass();
+
+    expect(scheduleOf(scheduleId)).toMatchObject({ state, lastOutcome: { kind: 'refused', code: 'INVALID_FORMATTED_MESSAGE' } });
+    expect(core.state.messages).toEqual([]);
+    expect(core.state.deliveries).toEqual([]);
+    expect(core.state.notices).toEqual([]);
+    expect(core.state.events.some((event) => event.type === 'MessageAccepted')).toBe(false);
+    if (strategy === 'retry') {
+      core.clock.advance(RETRY_EVERY_MS);
+      await pass();
+      expect(core.state.messages).toEqual([]);
+      expect(scheduleOf(scheduleId)?.lastOutcome).toMatchObject({ kind: 'refused', code: 'INVALID_FORMATTED_MESSAGE' });
+    }
+  });
+});

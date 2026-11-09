@@ -109,3 +109,18 @@ describe('a send in a sealed fleet (decision 0068, B8)', () => {
     expect(core.state.events.slice(before.events.length).map(({ type }) => type)).toEqual(['FleetKeyUnavailable']);
   });
 });
+
+
+describe('formatted sends before sealing', () => {
+  it.each(['question', 'step'])('refuses malformed %s plaintext without storing ciphertext', async (kind) => {
+    const input = aReview({ contentType: `application/vnd.aeolus.${kind}+json`, payload: '{}' });
+
+    const result = await sendMessage(scout, input);
+
+    expect(refusalOf(result).kind).toBe('INVALID_FORMATTED_MESSAGE');
+    expect(core.state.messages).toEqual([]);
+    expect(core.state.deliveries).toEqual([]);
+    expect(core.state.events).toEqual([]);
+    expect(core.state.notices).toEqual([]);
+  });
+});
