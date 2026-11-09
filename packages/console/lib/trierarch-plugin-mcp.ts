@@ -48,6 +48,7 @@ export async function forwardMcpCall(
     return Response.json(TOO_LARGE, { status: 413 });
   }
   let answer: Response;
+  let answerText: string;
   try {
     answer = await fetchImplementation(`${url}/trpc/${procedure}`, {
       method: isReplacement ? 'POST' : 'GET',
@@ -56,10 +57,11 @@ export async function forwardMcpCall(
       cache: 'no-store',
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
+    answerText = await answer.text();
   } catch {
     return Response.json(NO_ANSWER, { status: 502 });
   }
-  return new Response(await answer.text(), { status: answer.status, headers: { 'content-type': answer.headers.get('content-type') ?? 'application/json', 'cache-control': 'no-store' } });
+  return new Response(answerText, { status: answer.status, headers: { 'content-type': answer.headers.get('content-type') ?? 'application/json', 'cache-control': 'no-store' } });
 }
 
 /** The request body as text, or tooLarge as soon as it passes the limit (leaving the loop cancels the rest), so an endless body is never held whole. */
