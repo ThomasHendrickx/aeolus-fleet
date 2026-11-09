@@ -28,6 +28,7 @@ Feature designs, one folder each; the status of each is at its top:
 | [exchange-history](exchange-history/README.md) | Where an exchange's history ends: its true start or pruned, the fact a ship reads on its exchange |
 | [failed-scopes-read](failed-scopes-read/README.md) | Settings: a failed read of a plugin ship's scopes shows as an error with Try again |
 | [feature-flags](feature-flags/feature-flags.md) | Feature flags per fleet |
+| [fleet-crew-mcp](fleet-crew-mcp/README.md) | Each fleet manages named crew-time MCP servers and secrets through the trierarch plugin API, with aip as an ordinary optional entry |
 | [fleet-overview](fleet-overview/README.md) | The fleet and its ships' status at a glance: Harbour; one view, cards or list, and Harbour shared with Bridge |
 | [gateway-scopes](gateway-scopes/gateway-scopes.md) | The gateway's tools by scope, and ships as Slack bots |
 | [header](header/README.md) | One header for every Aeolus app |
