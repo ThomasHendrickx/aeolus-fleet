@@ -1,4 +1,4 @@
-# Ask and step
+# Ask, step and withdraw
 
 Refs #1734.
 
@@ -35,7 +35,7 @@ Each call names one ship explicitly, by name or id. It never resolves the owner 
 | --- | --- | --- | --- |
 | `ask` | `selector` for one ship; `id`, `title`, `context`, `options`, `pick`; `idempotencyKey`; model as send requires | The supplied question fields, parsed with common's question schema and serialised by core | `application/vnd.aeolus.question+json` |
 | `step` | `selector` for one ship; `id`, `title`, `why`, optional `link`; `idempotencyKey`; model as send requires | The supplied step fields, parsed with common's step schema and serialised by core | `application/vnd.aeolus.step+json` |
-| `withdraw` | A question or step to withdraw, with an explicit recipient | The existing withdrawal payload for that kind | `application/vnd.aeolus.question-withdrawal+json` or `application/vnd.aeolus.step-withdrawal+json` |
+| `withdraw` | `selector` for one ship; `target` as `{ kind: "question", questionId }` or `{ kind: "step", stepId }`; `idempotencyKey`; model as send requires | `{ questionId }` or `{ stepId }`, parsed with common's corresponding withdrawal schema | `application/vnd.aeolus.question-withdrawal+json` or `application/vnd.aeolus.step-withdrawal+json` |
 
 The ship supplies the UUID for an ask or step. Core fixes its content type and constructs its JSON; the ship supplies neither a payload string nor a content-type field. Each accepted call returns `{ messageId }`, like send. The caller already has the UUID, which differs from the message id used by `inReplyTo`.
 
@@ -65,7 +65,11 @@ Accepted means durably stored for delivery. It does not mean received, answered,
 
 Both withdrawal formats already exist in common and in ship protocol rules 5 and 19. The gateway reads step withdrawals, recognises the same asker and UUID, and shows an unanswered step stale: see its [stale-item rules](https://github.com/ThomasHendrickx/aeolus-fleet-gateway/blob/e4918d4832336bd187665dd41ba3083f97505e78/src/core/people/stale-item.ts) and [step withdrawal scenarios](https://github.com/ThomasHendrickx/aeolus-fleet-gateway/blob/e4918d4832336bd187665dd41ba3083f97505e78/src/core/people/read-bridge-home.test.ts). This needs a typed call over the existing message format, rather than a new cancellation format.
 
-The remaining question is whether typed `withdraw` only constructs that message or also checks the original's sender and open state in core. The latter would add lifecycle checks beyond the agreed formatted-message boundary. Its exact input and unhappy paths await that clarification through orchestrator-1.
+`withdraw` builds and checks a formatted message, like `ask` and `step`. Its `target` discriminates a question UUID from a step UUID; exactly one branch is accepted. Core selects the corresponding existing content type and serialises only `{ questionId }` or `{ stepId }`. There is no new UUID for the withdrawal payload. It returns `{ messageId }` once the withdrawal message is durably accepted, with the same authorization, model, size, sealing and idempotency rules as send.
+
+The ship names the original recipient and UUID. Core checks input shape, not the original message, its sender or whether it remains open. The receiving side keeps deciding whether the withdrawal applies, including the existing same-asker and same-kind checks. Withdrawing does not retract an accepted delivery, undo a human action or promise that a question or step was cancelled. An answer or outcome already sent stays as it is. An unknown UUID, another asker's UUID or a withdrawal arriving after completion is not a new core lifecycle refusal.
+
+The caller keeps the target, recipient and withdrawal key for an identical retry. A separate withdrawal has its own key, distinct from the ask or step's key. A missing target, invalid UUID or mismatched fields is a shape refusal before sending. There is no typed replacement in this slice.
 
 ## Flow
 
@@ -118,11 +122,54 @@ Ordinary send joins this flow with its supplied payload and content type rather 
 
 A storage or sealing failure accepts nothing partial. If the response is lost after commit, the ship retries the same input and key and gets the original message id. A recipient without a running crew receives later through normal delivery. Receipt acknowledgement, a human answer and a step outcome remain separate actions.
 
+### Withdraw an ask or step
+
+```mermaid
+sequenceDiagram
+    participant Crew as Asking ship
+    participant Door as tRPC via MCP or REST
+    participant Core as Messaging
+    participant DB as Fleet database
+    participant App as Original recipient's app
+    Crew->>Door: withdraw(single ship, target kind and UUID, key, model)
+    Door->>Door: Authenticate, authorize, parse target
+    alt Invalid kind, UUID or fields
+        Door-->>Crew: BAD_REQUEST naming the invalid input, no send
+    else Valid target
+        Door->>Core: Build question-withdrawal or step-withdrawal message
+        Core->>Core: Check formatted payload, use normal send
+        Core->>DB: Lock key and check for accepted request
+        alt Identical request already accepted
+            Core-->>Crew: Original withdrawal messageId, no new message
+        else Key conflict or normal send refusal
+            Core-->>Crew: Refusal, no new acceptance
+        else New message accepted
+            Core->>DB: Store withdrawal message, delivery and event atomically
+            DB-->>Core: Commit
+            Core-->>Crew: Withdrawal messageId
+            Core-->>App: Normal delivery, now or when crewed
+            App->>App: Apply existing sender, kind, UUID and completion rules
+            alt Withdrawal applies to an open ask or step
+                App->>App: Show it withdrawn under existing app rules
+            else Unknown, wrong asker or kind, or already completed
+                App->>App: Keep existing result and handling
+            end
+        end
+    end
+```
+
+A send refusal leaves the original ask or step unchanged. A response lost after commit is retried with the same target, recipient and key. An answer or outcome racing the withdrawal is interpreted by the recipient's existing rules; core does not arbitrate that race or add a cancellation state. A withdrawal waiting for delivery is not yet an applied withdrawal.
+
 ### Scenarios to prove when built
 
 | Scenario | Required result |
 | --- | --- |
 | Ask through MCP and step through REST, valid typed fields | Correct JSON and fixed content type, normal committed message and delivery |
+| Withdraw a question or step through either API mapping | Correct existing withdrawal payload and content type; normal committed message and delivery |
+| Withdraw has no target, an invalid UUID or fields from the wrong target branch | Actionable shape refusal, no send |
+| Identical withdrawal retried after response loss | Original withdrawal message id; no second acceptance |
+| Withdrawal names another asker, another kind, an unknown or completed item | No core lifecycle lookup/refusal; recipient applies its existing rules |
+| Answer or outcome races withdrawal | Normal messages retained; recipient determines applicability |
 | Quotes, newlines and Unicode in typed text | Valid JSON; the generated UTF-8 payload obeys the 256 KB limit |
 | Invalid raw JSON, duplicate option keys, pick naming no option, invalid step URL | Actionable shape refusal before new acceptance |
 | Question/step content type with mixed case or parameters | Same validation; unrelated types and JSON sent as text keep ordinary-send behaviour |
