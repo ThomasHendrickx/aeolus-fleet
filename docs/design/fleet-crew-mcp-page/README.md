@@ -1,6 +1,6 @@
 # A fleet manager sets the fleet's MCP servers on a console page
 
-Design, mockups for approval. Docs only. [Issue 1735](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1735), parent [1725](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1725). The behaviour comes from the [fleet crew MCP design](../fleet-crew-mcp/README.md); this page adds no behaviour to it. Nothing is built until Thomas approves the mockups below; once approved, they are the acceptance criteria.
+Design, approved by Thomas on 9 Nov. Docs only. [Issue 1735](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1735), parent [1725](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1725). The behaviour comes from the [fleet crew MCP design](../fleet-crew-mcp/README.md); this page adds no behaviour to it. The mockups below are the acceptance criteria for the build.
 
 ## 1. Purpose
 
@@ -23,7 +23,7 @@ Thomas agreed the purpose on 9 Nov.
 
 ## 3. Questions for Thomas
 
-Thomas answered Q1 to Q6 on 9 Nov, each option 1; the mockups draw every answer.
+Thomas answered Q1 to Q6 on 9 Nov, each option 1, and approved the mockups that draw them.
 
 | # | Question | Answer |
 | --- | --- | --- |
