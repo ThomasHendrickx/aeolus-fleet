@@ -7,12 +7,13 @@ import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { listedUnsealed, withDataKeysForList, type DataKeysNeeded, type ListedPayload, type PayloadSealing } from './data-keys.js';
 import { isInExchange } from './exchange.js';
-import type { DeliveryRepository, ExchangedDelivery, MessageRepository } from './ports.js';
+import type { DeliveryRepository, ExchangedDelivery, MessageRepository, PrunedExchanges } from './ports.js';
 
 export interface ReadExchangeTx extends HoldLeaseTx {
   ships: Pick<ShipRepository, 'find'>;
   messages: Pick<MessageRepository, 'find'>;
   deliveries: Pick<DeliveryRepository, 'findExchangePage' | 'findOfMessageReaching'>;
+  prunedExchanges: PrunedExchanges;
 }
 
 /** The caller's own delivery of a message it received: its id and where it stands (docs/design/exchange-read, section 7). */
@@ -36,11 +37,16 @@ export interface ExchangeEntry {
   receivedDelivery: ReceivedDelivery | null;
 }
 
-/** A page of an exchange, newest first, with the cursor each way while more lie that way. */
+/**
+ * A page of an exchange, newest first, with the cursor each way while more lie
+ * that way, and the send time of the newest message of the exchange pruning
+ * removed, null when it removed none (docs/design/exchange-history).
+ */
 export interface ExchangePage {
   items: ExchangeEntry[];
   olderCursor: DeliveryId | null;
   newerCursor: DeliveryId | null;
+  prunedUpTo: Date | null;
 }
 
 export type ReadExchangeRefusal = DomainError<'SHIP_NOT_FOUND' | 'MESSAGE_NOT_FOUND' | 'KEY_UNAVAILABLE'> | LeaseEnded;
@@ -64,7 +70,10 @@ export type ReadExchange = (crew: Crew, input: ExchangeToRead) => Promise<Result
  * (messages:receive) is checked before this runs. It holds the crew's lease
  * and reads without a lock: it hands, counts and records nothing. In a sealed
  * fleet each payload is unsealed, or marked unreadable when its key cannot be
- * had (decision 0068, B9).
+ * had (decision 0068, B9). Every page answers how far pruning went in the
+ * exchange, read after the page's rows: a batch that commits between the two
+ * reads answers its messages with its mark, never the messages gone without
+ * it (docs/design/exchange-history, section 5).
  */
 export function createReadExchange(deps: { uow: UnitOfWork<ReadExchangeTx>; sealing: PayloadSealing }): ReadExchange {
   return (crew, input) =>
@@ -101,7 +110,8 @@ export function createReadExchange(deps: { uow: UnitOfWork<ReadExchangeTx>; seal
               : { deliveryState: null, receivedDelivery: { deliveryId: delivery.id, state: delivery.state } }),
           });
         }
-        return ok({ items, olderCursor: page.value.olderCursor, newerCursor: page.value.newerCursor });
+        const prunedUpTo = await tx.prunedExchanges.prunedUpTo(crew.fleetId, { shipId: crew.shipId, otherShipId: input.otherShipId });
+        return ok({ items, olderCursor: page.value.olderCursor, newerCursor: page.value.newerCursor, prunedUpTo });
       }),
     );
 }

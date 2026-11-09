@@ -9,7 +9,7 @@
  * retired ships it removes. The one step that makes a
  * set go deletes it children first, its events under the transaction-local
  * setting `aeolus.pruning_fleet`, the only way events go apart from a fleet's
- * delete.
+ * delete; it marks each exchange it prunes first (docs/design/exchange-history).
  */
 import { ANSWER_CONTENT_TYPE, deliveryStateSchema, idSchema } from '@aeolus-fleet/common';
 import { z } from 'zod';
@@ -247,6 +247,19 @@ export function createPrismaHistoryPruner(db: Db): HistoryPruner {
         .array(z.object({ id: z.string() }))
         .parse(await db.$queryRaw`SELECT id FROM deliveries WHERE fleet_id = ${fleetId} AND message_id = ANY(${messageIds})`)
         .map((row) => row.id);
+      // Each exchange the messages going reached is marked with the newest
+      // send time among them, never moved back, before their deliveries go
+      // (docs/design/exchange-history): only deliveries in an exchange that
+      // reached a ship, so a meeting's, a ping and an unclaimed type send mark
+      // nothing, and a label send marks each pair it reached once. The prune
+      // lock makes this batch the only writer.
+      await db.$executeRaw`
+        INSERT INTO pruned_exchanges (fleet_id, ship_id, other_ship_id, pruned_up_to)
+        SELECT d.fleet_id, least(d.sender_ship_id, d.reached_ship_id), greatest(d.sender_ship_id, d.reached_ship_id), max(m.created_at)
+        FROM deliveries d JOIN messages m ON m.fleet_id = d.fleet_id AND m.id = d.message_id
+        WHERE d.fleet_id = ${fleetId} AND d.message_id = ANY(${messageIds}) AND d.is_in_exchange AND d.reached_ship_id IS NOT NULL
+        GROUP BY 1, 2, 3
+        ON CONFLICT (fleet_id, ship_id, other_ship_id) DO UPDATE SET pruned_up_to = greatest(pruned_exchanges.pruned_up_to, EXCLUDED.pruned_up_to)`;
       // An exchange whose newest message goes points at its newest kept one,
       // read along the exchange index both ways, or goes when none of it is
       // kept (docs/design/exchange-read, E10). Its count stays: what goes is

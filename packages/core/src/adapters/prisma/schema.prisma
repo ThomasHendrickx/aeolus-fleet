@@ -94,6 +94,7 @@ model Fleet {
   messages                         Message[]
   messageDays                      MessageDay[]
   exchanges                        Exchange[]
+  prunedExchanges                  PrunedExchange[]
   deliveries                       Delivery[]
   overdueDeliveries                OverdueDelivery[]
   events                           Event[]
@@ -194,6 +195,8 @@ model Ship {
   scheduledTo          Schedule[]             @relation("ScheduleSelectorShip")
   exchanges            Exchange[]             @relation("ExchangeShip")
   exchangedWith        Exchange[]             @relation("ExchangeOtherShip")
+  prunedExchanges      PrunedExchange[]       @relation("PrunedExchangeShip")
+  prunedExchangesWith  PrunedExchange[]       @relation("PrunedExchangeOtherShip")
 
   @@unique([fleetId, id])
   /// An idempotency key is used once per commissioning actor.
@@ -745,6 +748,26 @@ model Exchange {
   @@index([fleetId, otherShipId])
   @@index([fleetId, newestMessageId])
   @@map("exchanges")
+}
+
+/// How far pruning went in one exchange (docs/design/exchange-history): the send time of the newest
+/// message of the two ships' exchange that pruning removed, only ever moved forward. One row per pair,
+/// the lower ship id first; a ship's exchange with itself names it twice. Written only by the pruning
+/// batch, in its transaction. No foreign key to a message: what it points at is gone.
+model PrunedExchange {
+  fleetId     String   @map("fleet_id")
+  shipId      String   @map("ship_id")
+  otherShipId String   @map("other_ship_id")
+  prunedUpTo  DateTime @map("pruned_up_to") @db.Timestamptz(3)
+
+  fleet     Fleet @relation(fields: [fleetId], references: [id], onDelete: Restrict)
+  ship      Ship  @relation("PrunedExchangeShip", fields: [fleetId, shipId], references: [fleetId, id], onDelete: Restrict)
+  otherShip Ship  @relation("PrunedExchangeOtherShip", fields: [fleetId, otherShipId], references: [fleetId, id], onDelete: Restrict)
+
+  @@id([fleetId, shipId, otherShipId])
+  /// Backs the foreign key to the other ship; the read uses the primary key alone.
+  @@index([fleetId, otherShipId])
+  @@map("pruned_exchanges")
 }
 
 /// An immutable envelope plus an opaque payload of at most 256 KB, sent by one ship.

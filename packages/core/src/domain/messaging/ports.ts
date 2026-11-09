@@ -230,6 +230,16 @@ export interface ExchangeList {
   page(query: { fleetId: FleetId; shipId: ShipId } & PageQuery<MessageId>): Promise<Page<ListedExchange, MessageId>>;
 }
 
+/**
+ * Outbound port: how far pruning went in each exchange
+ * (docs/design/exchange-history), one mark per pair of ships, written only by
+ * the pruning batch. Read without a lock.
+ */
+export interface PrunedExchanges {
+  /** The send time of the newest message of the two ships' exchange that pruning removed, whichever of them is named first; null when it removed none. */
+  prunedUpTo(fleetId: FleetId, exchange: { shipId: ShipId; otherShipId: ShipId }): Promise<Date | null>;
+}
+
 /** Outbound port: deliveries, always within one fleet. */
 export interface DeliveryRepository {
   /** Stores the delivery of the message, with its sender and whether it is in an exchange (E3). */

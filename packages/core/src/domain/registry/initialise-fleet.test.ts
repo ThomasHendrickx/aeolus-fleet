@@ -185,6 +185,7 @@ describe('initialise fleet', () => {
       historyPruneLocks: [],
       lockedMessages: [],
       prunedEventSeqs: [],
+      prunedExchanges: [],
       fleetSealings: [],
       dataKeys: [],
       sealingLocks: [],

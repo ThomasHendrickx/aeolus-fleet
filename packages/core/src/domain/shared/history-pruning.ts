@@ -196,7 +196,9 @@ export interface HistoryPruner {
    * name, type, kind and dates kept, `removedAt` set, its scopes emptied,
    * its note, owner and commission cleared, and its schedules gone, a kept
    * message one of them sent naming no schedule; every other row naming it
-   * stays (decision 0070, D2 and D3).
+   * stays (decision 0070, D2 and D3). Before its messages go, it marks each
+   * exchange they reached with the newest send time among them, never moving
+   * a mark back (docs/design/exchange-history).
    */
   go(fleetId: FleetId, set: PruneSet): Promise<PrunedCounts>;
   /** Records where the fleet's finished history begins (R9). */
