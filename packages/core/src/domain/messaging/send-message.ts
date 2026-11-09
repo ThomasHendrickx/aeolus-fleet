@@ -24,6 +24,7 @@ import { contentType } from './content-type.js';
 import { withinDailyMessageLimit, type DailyMessageLimitTx } from './daily-message-limit.js';
 import { idempotencyKey } from '../shared/idempotency-key.js';
 import { acceptContribution, acceptLabelMessage, acceptMessage, repeatOf, type AcceptRefusal, type RepeatRefusal, type ScheduledFor } from './message.js';
+import { checkFormattedMessage } from './formatted-message.js';
 import { payload } from './payload.js';
 import type { DeliveryRepository, FleetSealingRepository, MeetingRepository, MessageRepository, RequestHasher } from './ports.js';
 import { sealedMessage, unsealed, withDataKeys, type DataKeysNeeded, type HeldDataKeys, type PayloadSealing } from './data-keys.js';
@@ -61,7 +62,7 @@ export interface MessageSent {
 }
 
 export type SendMessageRefusal =
-  | DomainError<'PAYLOAD_TOO_LARGE' | 'INVALID_CONTENT_TYPE' | 'INVALID_IDEMPOTENCY_KEY' | 'RESERVED_CONTENT_TYPE' | 'FORCE_NOT_ALLOWED'>
+  | DomainError<'INVALID_FORMATTED_MESSAGE' | 'PAYLOAD_TOO_LARGE' | 'INVALID_CONTENT_TYPE' | 'INVALID_IDEMPOTENCY_KEY' | 'RESERVED_CONTENT_TYPE' | 'FORCE_NOT_ALLOWED'>
   | RepeatRefusal
   | UnresolvableSelector
   | AcceptRefusal
@@ -82,7 +83,9 @@ export type SendMessage = (caller: ShipCaller, input: MessageToSend) => Promise<
  * same request as one that names text/plain. The ping content type is
  * reserved: only the ping call sends one, so pings never stack. Every ship but
  * argo states its model; the model is no part of the request, so a retry
- * after the session switched model is still a repeat.
+ * after the session switched model is still a repeat. Newly accepted questions
+ * and steps must match common's schema on plaintext, after the repeat check
+ * and before recipient resolution or sealing. Other content types stay opaque.
  *
  * A repeat, the same sender with the same idempotency key and the same
  * request, returns the original message's id and stores nothing; the same key
@@ -215,6 +218,11 @@ export async function sendWithin(
   const original = await tx.messages.findByIdempotencyKey(senderKey);
   if (original) {
     return repeatWithin(deps, { original, request: send.request });
+  }
+
+  const format = checkFormattedMessage(send.request);
+  if (!format.isOk) {
+    return format;
   }
 
   if (selector.kind === 'meeting') {

@@ -11,7 +11,7 @@ import {
   registryUseCases,
 } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
-import { unwrap } from '../../testing/result.js';
+import { refusalOf, unwrap } from '../../testing/result.js';
 import type { ShipCaller } from '../shared/caller.js';
 import type { SendMessage } from './send-message.js';
 import { newKey } from '../../testing/keys.js';
@@ -637,20 +637,20 @@ describe('declared formatted messages', () => {
     { kind: 'question', payload: JSON.stringify({ id: '11111111-1111-4111-8111-111111111111', title: 'Choose', context: '', options: [{ key: 1, label: 'A' }, { key: 1, label: 'B' }], pick: { option: 1, why: 'A' } }), field: 'options' },
     { kind: 'question', payload: JSON.stringify({ id: '11111111-1111-4111-8111-111111111111', title: 'Choose', context: '', options: [{ key: 2, label: 'A' }], pick: { option: 1, why: 'A' } }), field: 'pick.option' },
     { kind: 'step', payload: JSON.stringify({ id: '11111111-1111-4111-8111-111111111111', title: 'Sign in', why: '', link: 'ftp://example.com' }), field: 'link' },
-    { kind: 'question-withdrawal', payload: '{"questionId":"bad"}', field: 'questionId' },
-    { kind: 'step-withdrawal', payload: '{}', field: 'stepId' },
   ])('refuses malformed $kind naming $field before acceptance and permits correction', async ({ kind, payload, field }) => {
     const input = aReview({ contentType: `Application/Vnd.Aeolus.${kind}+Json; charset=utf-8`, payload });
 
     const result = await sendMessage(argo, input);
 
-    expect(result).toEqual({ isOk: false, error: { kind: 'INVALID_FORMATTED_MESSAGE', message: expect.stringContaining(field) } });
-    if (!result.isOk) expect(result.error.message).toContain(kind);
+    const refused = refusalOf(result);
+    expect(refused.kind).toBe('INVALID_FORMATTED_MESSAGE');
+    expect(refused.message).toContain(field);
+    expect(refused.message).toContain(kind);
     expect(core.state.messages).toEqual([]);
     expect(core.state.deliveries).toEqual([]);
     expect(core.state.events).toEqual([]);
     expect(core.state.notices).toEqual([]);
-    const corrected = kind === 'question' ? { id: '11111111-1111-4111-8111-111111111111', title: 'Choose', context: '', options: [{ key: 2, label: 'A' }], pick: { option: 2, why: 'A' } } : kind === 'step' ? { id: '11111111-1111-4111-8111-111111111111', title: 'Sign in', why: '' } : kind === 'question-withdrawal' ? { questionId: '11111111-1111-4111-8111-111111111111' } : { stepId: '11111111-1111-4111-8111-111111111111' };
+    const corrected = kind === 'question' ? { id: '11111111-1111-4111-8111-111111111111', title: 'Choose', context: '', options: [{ key: 2, label: 'A' }], pick: { option: 2, why: 'A' } } : { id: '11111111-1111-4111-8111-111111111111', title: 'Sign in', why: '' };
     expect((await sendMessage(argo, { ...input, payload: JSON.stringify(corrected) })).isOk).toBe(true);
   });
 });

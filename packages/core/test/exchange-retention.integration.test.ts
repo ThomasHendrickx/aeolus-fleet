@@ -1,3 +1,4 @@
+import { aQuestion } from './support/formatted-message-fixtures.js';
 import { ANSWER_CONTENT_TYPE, idSchema, NOTICE_CONTENT_TYPE, QUESTION_CONTENT_TYPE, type MessageId, type ShipId } from '@aeolus-fleet/common';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -178,7 +179,7 @@ describe('how far pruning went, per exchange, on Postgres (docs/design/exchange-
 
   it('places a hole: an open question survives the finished messages after it, and the mark never moves back once it goes', async () => {
     // Given the lookout asked thomas a question, still open, then sent a note, both acknowledged.
-    const question = await send(lookout, { to: thomas.shipId, payload: '{"id":"q-1","title":"Ship it?"}', contentType: QUESTION_CONTENT_TYPE });
+    const question = await send(lookout, { to: thomas.shipId, payload: JSON.stringify(aQuestion()), contentType: QUESTION_CONTENT_TYPE });
     const note = await send(lookout, { to: thomas.shipId, payload: 'CI is green' });
     const noteSentAt = await sentAt(note);
     await acknowledgeAll(thomas);
@@ -193,7 +194,7 @@ describe('how far pruning went, per exchange, on Postgres (docs/design/exchange-
     expect(holed.items.every((item) => item.sentAt < noteSentAt)).toBe(true);
 
     // When thomas answers the question, the lookout acknowledges the answer, and the next pass lets the question go.
-    const answer = await send(thomas, { to: lookout.shipId, payload: '{"questionId":"q-1","option":1}', contentType: ANSWER_CONTENT_TYPE, inReplyTo: question });
+    const answer = await send(thomas, { to: lookout.shipId, payload: '{"questionId":"11111111-1111-4111-8111-111111111111","option":2}', contentType: ANSWER_CONTENT_TYPE, inReplyTo: question });
     const answerSentAt = await sentAt(answer);
     await acknowledgeAll(lookout);
     await passAfter(HOUR_MS);

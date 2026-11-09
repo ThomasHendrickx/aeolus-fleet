@@ -7,8 +7,9 @@ import { essenceOf } from './content-type.js';
  * Questions to argo (decision 0038): a ship asks the operator by sending a
  * message of the question content type to argo; the console answers it with a
  * reply of the answer content type. Both payloads are data only: the fleet
- * carries them as any message; the console's server reads them. Core only
- * finds a question's withdrawals and replacements by the uuid they name. A question is open until argo
+ * carries them as any message; core checks a new question's shape before
+ * acceptance, and the console's server interprets it. Core finds a question's
+ * withdrawals and replacements by the uuid they name. A question is open until argo
  * sends its answer, whatever its delivery's state. The asking ship withdraws
  * a question, or replaces it with a new one, by a message of its own content
  * type naming the question's uuid.
