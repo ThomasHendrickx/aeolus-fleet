@@ -1,6 +1,6 @@
 # Each fleet manages its crew-time MCP servers
 
-Design for [#1725](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1725). Purpose, API-only management, aip as ordinary MCP tools and live proxy updates approved. Remaining proposals await Thomas's approval. Design only.
+Design for [#1725](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1725). Approved by Thomas. Design only; implementation follows the repository sub-issues and review resolution.
 
 ## 1. Purpose
 
@@ -31,14 +31,14 @@ The trierarch plugin provides the management API. There is no new page in this s
 | Management surface | Plugin API only. Rejected for this slice: a new management page. |
 | Optional aip | Ordinary remote MCP tools only. Rejected: trierarch-specific CLI, skills and environment provisioning when selected. |
 | Changes during a session | Approved: preserve live proxy updates as in section 7. Rejected: freezing configuration until the next start. |
-| API credential, metadata readers, placement gating and storage | Pending: console-session cookie only; fleet:manage for metadata; current-version placement gate; readable plugin database store. Each is a recommendation awaiting approval. |
-| Remaining API, storage and delivery proposals | Sections 4 to 10 require approval as one design before implementation. |
+| API credential, metadata readers, placement gating and storage | Approved: console-session cookie only; fleet:manage for metadata; current-version placement gate; readable plugin database store. |
+| Remaining API, storage and delivery proposals | Sections 4 to 10 approved as one design. |
 
-## 4. Ownership and API proposal
+## 4. Ownership and API
 
-The trierarch plugin stores one current configuration per fleet in its own database. All reads and writes derive the fleet from the authenticated actor; the input cannot choose it. This slice proposes the plugin's existing console-session door only: its `authenticate-operator` use case checks the supplied console session cookie through core's `console.session`, which answers the fleet, session kind and scopes. A manager signs in through the existing console and calls the plugin's tRPC API with that session cookie and the console's Origin. There is no ship-token or installation-token door for these calls. Holding a crew request or sending a message grants no configuration rights.
+The trierarch plugin stores one current configuration per fleet in its own database. All reads and writes derive the fleet from the authenticated actor; the input cannot choose it. This slice uses the plugin's existing console-session door only: its `authenticate-operator` use case checks the supplied console session cookie through core's `console.session`, which answers the fleet, session kind and scopes. A manager signs in through the existing console and calls the plugin's tRPC API with that session cookie and the console's Origin. There is no ship-token or installation-token door for these calls. Holding a crew request or sending a message grants no configuration rights.
 
-Proposed pending approval: `fleet:manage` reads definitions and secret names and replaces configuration. A viewer holding only `fleet:read` cannot read the set. Secret values are write-only. These calls belong to the plugin's tRPC router, not core's router and not its installation API.
+`fleet:manage` reads definitions and secret names and replaces configuration. A viewer holding only `fleet:read` cannot read the set. Secret values are write-only. These calls belong to the plugin's tRPC router, not core's router and not its installation API.
 
 | Procedure | Input | Result |
 | --- | --- | --- |
@@ -53,9 +53,9 @@ One transaction validates and replaces the set, saves the new version and record
 
 Definitions keep the existing name, URL, Streamable HTTP transport, tool allowlist and optional credential reference and header rules. Secret values keep the existing byte and header-value limits. A server needs an explicit tool allowlist. There is no aip field or privileged server name.
 
-Proposed pending approval: the plugin database is a credential store whose secret values are readable to the service and database administrators, including through its backups. Values are excluded from ordinary metadata projections, request logging, traces and errors. Deployment access and backups require the same protection as the plugin's kept fleet credentials. Sealing for transport remains separate from storage protection; it does not make the plugin database unable to read its own secrets. Introducing an external vault or a new encryption-key lifecycle is outside this proposal.
+The plugin database is a credential store whose secret values are readable to the service and database administrators, including through its backups. Values are excluded from ordinary metadata projections, request logging, traces and errors. Deployment access and backups require the same protection as the plugin's kept fleet credentials. Sealing for transport remains separate from storage protection; it does not make the plugin database unable to read its own secrets. Introducing an external vault or a new encryption-key lifecycle is outside this proposal.
 
-## 5. Delivery proposal
+## 5. Delivery
 
 One trierarch state folder holds one fleet's configuration at a time. Use a versioned, complete configuration message from the connected trierarch plugin ship to each active trierarch of the fleet. It carries the version, server definitions, recipient public key and the complete secret store sealed to that key. Empty configurations are sent too. The encoded message, including sealing and JSON overhead, must fit core's 256 KB limit; an oversized replacement is refused before commit.
 
@@ -65,7 +65,7 @@ The trierarch accepts it only from its configured plugin ship, for its current f
 
 Versions only move forward. A duplicate of the applied version changes nothing. An older version cannot overwrite a newer one. A new key needs a freshly sealed copy even when the configuration version has not changed. A version is meaningful only with the current fleet and configured plugin ship; replacing that identity clears the held configuration before any launch.
 
-After persisting, the trierarch sends an application confirmation to its configured plugin ship, naming the version and public key. The plugin records it against that trierarch and lease. This is a plugin message, not a new core report field. A duplicate configuration is confirmed again. The trierarch still reports its existing harness offers. Proposed pending approval: placement requires the confirmed version to match the plugin's current configuration before using those offers. A stale trierarch is not eligible for a request naming MCP servers; requests naming none need no MCP configuration. The launch check reads the complete applied set and keeps the existing give-back rules for a crew that is not final.
+After persisting, the trierarch sends an application confirmation to its configured plugin ship, naming the version and public key. The plugin records it against that trierarch and lease. This is a plugin message, not a new core report field. A duplicate configuration is confirmed again. The trierarch still reports its existing harness offers. Placement requires the confirmed version to match the plugin's current configuration before using those offers. A stale trierarch is not eligible for a request naming MCP servers; requests naming none need no MCP configuration. The launch check reads the complete applied set and keeps the existing give-back rules for a crew that is not final.
 
 The plugin reconciles each trierarch's confirmed version and reported key on its normal passes. A send attempt has a persisted idempotency key: an uncertain send retries that key. When a known successful send still has no application confirmation on a later pass, a new attempt may send another copy; transport acknowledgement alone never suppresses later attempts. A new version, recipient key or lease requires a new attempt. A trierarch explicitly asking for configuration gets a new response even if its previous message was acknowledged. After a restart, the trierarch confirms its persisted version and asks for the current configuration. Confirmations are accepted only from the assigned trierarch ship on its current lease, for the expected version and key. A replacement committed during an older send leaves the newer version pending for the next pass.
 
@@ -111,7 +111,7 @@ Failure paths:
 | Selected server unavailable at launch | Give back before final crew; otherwise tell the owner once under the existing rule. |
 | Server or secret removed while a proxy call starts | Refuse the later call after the update is applied; do not forward without its credential. |
 
-## 7. Running sessions proposal
+## 7. Running sessions
 
 A running session's proxy binding records its fleet id and the plugin ship that supplied its configuration, together with its selected names and session token. Every call compares this binding with the currently applied identity. A mismatch refuses the call with `MCP_CONFIGURATION_IDENTITY_MISMATCH`, forwarding nothing. A configuration update or replacement carrying another identity is refused with the same reason. Clearing or replacing the configured identity never rebinds an existing session, including a hold surviving restart. An old binding stays refused even when a newly applied configuration uses the same server name.
 
@@ -137,7 +137,7 @@ For this fleet, its manager provisions the company-graph and aip entries and the
 
 Target: the existing fleet scale of 3,000 ships and 10,000,000 messages. Configuration reads use a fleet-key lookup and return only this bounded set, independent of message history. Index fleet configuration by fleet id. Distribution uses active trierarch reports already needed by assignment and reads the configuration once per fleet pass, never once per ship. Measure metadata reads at p95 under 100 ms, p99 under 500 ms and errors under 1% when the implementation is complete. Do not claim measurements for this document.
 
-Implementation scenarios for approval:
+Approved implementation scenarios:
 
 1. An authorised actor saves a complete valid set; restart retains it and metadata contains no secret values. An actor lacking the required scope cannot read or change it.
 2. Two writers replace the same version concurrently; exactly one commits. A transaction failure changes neither the version nor its event.
@@ -150,15 +150,15 @@ Implementation scenarios for approval:
 9. After application, a rotation affects later proxy calls; removing an entry blocks them. A call already forwarded may finish. Adding an entry gives no existing session a new selected name. A binding under a replaced identity refuses every call with `MCP_CONFIGURATION_IDENTITY_MISMATCH`, even for a matching server name, across hold and trierarch restarts.
 10. aip behaves like another MCP entry on each supported harness and runtime. Sessions receive no automatic aip CLI, skills or variables. The verified MCP interface supports the migration's required procedures.
 
-Prove domain behaviour with in-memory ports, database atomicity and concurrency with Testcontainers, and delivery/application and harness setup with the existing adapter suites. These are proposed scenarios, not passing test claims.
+Prove domain behaviour with in-memory ports, database atomicity and concurrency with Testcontainers, and delivery/application and harness setup with the existing adapter suites. These are approved scenarios, not passing test claims.
 
 ## 10. Repository parts
 
-After approval, file these as sub-issues of #1725, each pointing here for behaviour:
+Sub-issues of #1725, each pointing here for behaviour:
 
 | Repository | Part |
 | --- | --- |
-| `aeolus-fleet-trierarch-plugin` | Per-fleet configuration store, authorised metadata and replacement API, versioned sealed distribution and reconciliation, assignment check, value-free events and scenarios 1 to 7. Remove MCP_SERVERS, MCP_SECRETS and AIP and all old sends in the release introducing the new sender. |
-| `aeolus-fleet-trierarch` | Complete atomic configuration persistence, application confirmations, current offers and launch checks, proxy update scenarios, removal of special aip provisioning across host and container runtimes, removal of old message handlers and local files, migration prerequisite verification and scenarios 4 to 10. Update docs/trierarch.md with the complete message contract and amend crew-mcp-servers.md M2 and M5 for fleet-owned configuration and the console-session management API. |
+| [aeolus-fleet-trierarch-plugin#68](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch-plugin/issues/68) | Per-fleet configuration store, authorised metadata and replacement API, versioned sealed distribution and reconciliation, assignment check, value-free events and scenarios 1 to 7. Remove MCP_SERVERS, MCP_SECRETS and AIP and all old sends in the release introducing the new sender. |
+| [aeolus-fleet-trierarch#338](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/issues/338) | Complete atomic configuration persistence, application confirmations, current offers and launch checks, proxy update scenarios, removal of special aip provisioning across host and container runtimes, removal of old message handlers and local files, migration prerequisite verification and scenarios 4 to 10. Update docs/trierarch.md with the complete message contract and amend crew-mcp-servers.md M2 and M5 for fleet-owned configuration and the console-session management API. |
 
 Core changes are documentation only: the design and its index pointer. Existing settings and console selection remain sufficient. No new screen, core setting or installation procedure is proposed.
