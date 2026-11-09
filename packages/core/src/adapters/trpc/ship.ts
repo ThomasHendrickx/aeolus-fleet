@@ -923,6 +923,8 @@ export const shipRouter = router({
         `At most ${String(RECORD_PAGE_SIZE_MAX)} per page, ${String(RECORD_PAGE_SIZE_DEFAULT)} unless you pass limit.`,
         'Pass olderCursor as before for the older page and newerCursor as after for the newer one, each null while none lie that way;',
         'or pass around with a messageId to open the page at that message: half the page newer, then it and the older ones.',
+        'Every page answers prunedUpTo: the send time of the newest message of this exchange that retention pruned, null when it pruned none.',
+        'Messages sent up to it may no longer be kept; every one sent after it is. An item sent before it is one that was not finished when its neighbours went.',
         'A ship not in your fleet is refused as SHIP_NOT_FOUND; a message not in this exchange as MESSAGE_NOT_FOUND. It changes nothing.',
       ].join(' '),
     })
@@ -930,7 +932,11 @@ export const shipRouter = router({
     .output(exchangeOutputSchema)
     .query(async ({ ctx, input }) => {
       const page = okOrThrow(await ctx.useCases.readExchange(ctx.crew, input));
-      return { ...page, items: page.items.map((entry) => ({ ...entry, ...listedPayloadOutputOf(entry.payload), sentAt: entry.sentAt.toISOString() })) };
+      return {
+        ...page,
+        items: page.items.map((entry) => ({ ...entry, ...listedPayloadOutputOf(entry.payload), sentAt: entry.sentAt.toISOString() })),
+        prunedUpTo: page.prunedUpTo?.toISOString() ?? null,
+      };
     }),
 
   /**

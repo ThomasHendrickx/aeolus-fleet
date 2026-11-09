@@ -5,7 +5,7 @@ import type {
   OperatorAccountRepository,
   SignInTicketRepository,
 } from '../../domain/identity/ports.js';
-import type { DeliveryRepository, ExchangeList, FleetSealingRepository, MeetingRepository, OverdueDeliveryRepository, ScheduleNotifier, ScheduleRepository } from '../../domain/messaging/ports.js';
+import type { DeliveryRepository, ExchangeList, FleetSealingRepository, MeetingRepository, OverdueDeliveryRepository, PrunedExchanges, ScheduleNotifier, ScheduleRepository } from '../../domain/messaging/ports.js';
 import type {
   ClearRequestRepository,
   CrewRequestRepository,
@@ -36,6 +36,7 @@ import { BULK_TRANSACTION_TIME_MS, type Db, type PrismaClient } from './client.j
 import { createPrismaNotifier } from './delivery-notices.js';
 import { createPrismaEventLog, type BufferedEventLog } from './event-log.js';
 import { createPrismaExchangeList, createPrismaExchangeRollups, type ExchangeRollups } from './exchange-rollups.js';
+import { createPrismaPrunedExchanges } from './pruned-exchanges.js';
 import { createPrismaHealthSnapshots } from './health-snapshots.js';
 import { createPrismaHistoryPruner } from './history-pruner.js';
 import {
@@ -101,6 +102,7 @@ export interface PrismaTx {
   /** The rollup of the list of exchanges, written at commit. */
   exchangeRollups: ExchangeRollups;
   exchanges: ExchangeList;
+  prunedExchanges: PrunedExchanges;
   notifier: Notifier;
   scheduleNotifier: ScheduleNotifier;
   installationRequests: InstallationRequestRepository;
@@ -114,6 +116,7 @@ export function createPrismaTx(db: Db): PrismaTx {
   return {
     exchangeRollups,
     exchanges: createPrismaExchangeList(db),
+    prunedExchanges: createPrismaPrunedExchanges(db),
     fleets: createPrismaFleetRepository(db),
     ships: createPrismaShipRepository(db),
     leases: createPrismaLeaseRepository(db),

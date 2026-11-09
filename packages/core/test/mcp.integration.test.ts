@@ -197,6 +197,8 @@ describe("the sender's status at /mcp (#1714)", () => {
 });
 
 describe('the exchange tool at /mcp', () => {
+  const PRUNED_UP_TO = '2026-10-08T12:00:00.000Z';
+
   it("answers the reader's own delivery on a message it received (docs/design/exchange-read, section 7)", async () => {
     // Given one ship wrote to another by id.
     const writer = await commissioned();
@@ -219,6 +221,35 @@ describe('the exchange tool at /mcp', () => {
     // Then the message carries the reader's delivery of it.
     const { id: deliveryId } = await database.delivery.findFirstOrThrow({ where: { messageId }, select: { id: true } });
     expect(page.items).toEqual([{ messageId, receivedDelivery: { deliveryId, state: 'pending' } }]);
+  });
+
+  it('answers how far pruning went: null while it removed none, else an ISO time (docs/design/exchange-history)', async () => {
+    // Given one ship wrote to another, and pruning marked their exchange.
+    const writer = await commissioned();
+    const reader = await commissioned();
+    const writerSession = await connect();
+    const readerSession = await connect();
+    const writerToken = await register(writerSession, writer);
+    const readerToken = await register(readerSession, reader);
+    await call(writerSession, {
+      tool: tools.send,
+      arguments: { crewToken: writerToken, model: 'claude-opus-5-5', selector: { kind: 'ship', shipId: reader.shipId }, payload: 'Review PR #32', idempotencyKey: freshKey() },
+    });
+    const readPage = () =>
+      call(readerSession, { tool: { name: 'exchange', answers: z.object({ prunedUpTo: z.string().nullable() }) }, arguments: { crewToken: readerToken, otherShipId: writer.shipId } });
+    const before = await readPage();
+    const writerId = writer.shipId;
+    const readerId = reader.shipId;
+    await database.$executeRaw`
+      INSERT INTO pruned_exchanges (fleet_id, ship_id, other_ship_id, pruned_up_to)
+      SELECT fleet_id, least(${writerId}, ${readerId}), greatest(${writerId}, ${readerId}), ${new Date(PRUNED_UP_TO)} FROM ships WHERE id = ${writerId}`;
+
+    // When the reader reads its exchange with the writer.
+    const after = await readPage();
+
+    // Then it answers the mark, none before it was made.
+    expect(before.prunedUpTo).toBeNull();
+    expect(after.prunedUpTo).toBe(PRUNED_UP_TO);
   });
 });
 

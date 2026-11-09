@@ -5,6 +5,7 @@ import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/cl
 import { exchangeListStatement } from '../src/adapters/prisma/exchange-rollups.js';
 import { Prisma } from '../src/adapters/prisma/generated/client.js';
 import { exchangePageStatement, unacknowledgedUpToStatement } from '../src/adapters/prisma/messaging.js';
+import { prunedUpToStatement } from '../src/adapters/prisma/pruned-exchanges.js';
 import type { Crew } from '../src/domain/shared/caller.js';
 import { createMigratedDatabase } from '../src/testing/database.js';
 import { newKey } from '../src/testing/keys.js';
@@ -90,6 +91,17 @@ beforeAll(async () => {
     INSERT INTO exchanges (fleet_id, ship_id, other_ship_id, newest_message_id, unacknowledged)
     SELECT ${fleetId}, 'shp_p' || lpad(p::text, 25, '0'), 'shp_' || lpad(((p + o) % ${SHIPS}::int + 1)::text, 26, '0'), 'msg_' || lpad(((p * 31 + o * 7) % ${HISTORY}::int + 1)::text, 26, '0'), 0
     FROM generate_series(1, ${PERSON_SHIPS}::int) p, generate_series(1, 10) o`;
+  // How far pruning went: thomas's exchange with every other ship, and every person ship's with ten others, marked.
+  await prisma.$executeRaw`
+    INSERT INTO pruned_exchanges (fleet_id, ship_id, other_ship_id, pruned_up_to)
+    SELECT ${fleetId}, least(${thomas.shipId}, 'shp_' || lpad(i::text, 26, '0')), greatest(${thomas.shipId}, 'shp_' || lpad(i::text, 26, '0')), ${start}
+    FROM generate_series(1, ${SHIPS}::int) i`;
+  await prisma.$executeRaw`
+    INSERT INTO pruned_exchanges (fleet_id, ship_id, other_ship_id, pruned_up_to)
+    SELECT DISTINCT ${fleetId}, least(p.id, o.id), greatest(p.id, o.id), ${start}::timestamptz
+    FROM generate_series(1, ${PERSON_SHIPS}::int) n
+    CROSS JOIN LATERAL (SELECT 'shp_p' || lpad(n::text, 25, '0') AS id) p
+    CROSS JOIN LATERAL (SELECT 'shp_' || lpad(((n + k) % ${SHIPS}::int + 1)::text, 26, '0') AS id FROM generate_series(1, 10) k) o`;
   await prisma.$executeRaw`DROP TABLE seeded`;
   await prisma.$executeRaw`ANALYZE`;
 }, 300_000);
@@ -114,6 +126,16 @@ describe('the exchange reads on a fleet with a long history', () => {
 
     expect(plan).toContain('deliveries_exchange_idx');
     expect(plan).not.toMatch(/Seq Scan on deliveries/);
+  });
+
+  it('reads how far pruning went in the exchange by its primary key, whichever ship reads, not every mark (docs/design/exchange-history)', async () => {
+    const byThomas = await planOf(prunedUpToStatement(fleetId, { shipId: thomas.shipId, otherShipId: busiest }));
+    const byBusiest = await planOf(prunedUpToStatement(fleetId, { shipId: busiest, otherShipId: thomas.shipId }));
+
+    for (const plan of [byThomas, byBusiest]) {
+      expect(plan).toContain('pruned_exchanges_pkey');
+      expect(plan).not.toMatch(/Seq Scan on pruned_exchanges/);
+    }
   });
 
   it("lists a person ship's exchanges along the rollup's index of newest messages, not every exchange", async () => {

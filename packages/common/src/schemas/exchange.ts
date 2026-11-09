@@ -52,12 +52,20 @@ export const exchangeEntrySchema = z.object({
 /**
  * Output of `ship.exchange`: a page of messages, newest first; the cursor to
  * pass as `before` for the older ones and as `after` for the newer ones, each
- * null while none lie that way.
+ * null while none lie that way; and how far pruning went in the exchange
+ * (docs/design/exchange-history), the same on every page.
  */
 export const exchangeOutputSchema = z.object({
   items: z.array(exchangeEntrySchema),
   olderCursor: idSchema('delivery').nullable(),
   newerCursor: idSchema('delivery').nullable(),
+  /**
+   * The send time of the newest message of the exchange that pruning removed;
+   * null when it removed none. Messages sent up to it may no longer be kept;
+   * every one sent after it is. An item sent before it survived the pruning.
+   * ISO 8601 in UTC.
+   */
+  prunedUpTo: z.iso.datetime().nullable(),
 });
 
 export type ExchangeOutput = z.infer<typeof exchangeOutputSchema>;

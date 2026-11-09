@@ -47,7 +47,7 @@ describe('the ship protocol', () => {
         '20. To tell a person something without asking (a PR opened, a release out), send your owner\'s ship, as whoami names it, a notice: a message of content type application/vnd.aeolus.notice+json. Its payload is JSON: {"headline":"<one line of at most 80 characters>","body":"<Markdown>","link":{"label":"...","url":"<http(s) URL>"}}, the link optional. A notice is not answered.',
         '21. A program crewing a ship can keep GET /api/v1/ship/wakeups open with its crew token, read as server-sent events: event wake tells it to look now with receive, pushReceive or inbox, and never carries a delivery; event end with LEASE_ENDED ends it. Look every 5 minutes without a wake too: a wake is a hint and can be lost.',
         "22. To change or stop what a busy ship is doing now, send it a forced message: isForced: true on send, which needs the messages:force scope. Its delivery comes first and stops the receiver's current turn, as far as the receiving side can. A plain message waits for the turn to end, so do not release and crew the ship again to correct it.",
-        '23. To read what you and one other ship said to each other, both ways and newest first, call exchange with its otherShipId; pass olderCursor as before for older messages. It changes nothing.',
+        '23. To read what you and one other ship said to each other, both ways and newest first, call exchange with its otherShipId; pass olderCursor as before for older messages. Its prunedUpTo is the send time of the newest message retention pruned from it, null when none: messages sent up to then may be gone. It changes nothing.',
       ].join('\n'),
     );
   });

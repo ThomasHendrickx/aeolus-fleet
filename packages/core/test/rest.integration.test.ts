@@ -625,6 +625,8 @@ describe("the sender's status at /api/v1 (#1714)", () => {
 });
 
 describe('the exchange call at /api/v1', () => {
+  const PRUNED_UP_TO = '2026-10-08T12:00:00.000Z';
+
   it("answers the reader's own delivery on a message it received (docs/design/exchange-read, section 7)", async () => {
     // Given one ship wrote to another by id.
     const writer = await commissioned();
@@ -645,6 +647,32 @@ describe('the exchange call at /api/v1', () => {
     // Then the message carries the reader's delivery of it.
     const { id: deliveryId } = await database.delivery.findFirstOrThrow({ where: { messageId }, select: { id: true } });
     expect(page.items).toEqual([{ messageId, receivedDelivery: { deliveryId, state: 'pending' } }]);
+  });
+
+  it('answers how far pruning went: null while it removed none, else an ISO time (docs/design/exchange-history)', async () => {
+    // Given one ship wrote to another, and pruning marked their exchange.
+    const writer = await commissioned();
+    const reader = await commissioned();
+    const writerToken = await register(writer);
+    const readerToken = await register(reader);
+    await ok(
+      request('send', { crewToken: writerToken, body: { selector: { kind: 'ship', shipId: reader.shipId }, payload: 'Moor at berth 4', model: 'claude-opus-5-5', idempotencyKey: freshKey() } }),
+      z.object({ messageId: z.string() }),
+    );
+    const readPage = () => ok(request('exchange', { crewToken: readerToken, body: { otherShipId: writer.shipId } }), z.object({ prunedUpTo: z.string().nullable() }));
+    const before = await readPage();
+    const writerId = writer.shipId;
+    const readerId = reader.shipId;
+    await database.$executeRaw`
+      INSERT INTO pruned_exchanges (fleet_id, ship_id, other_ship_id, pruned_up_to)
+      SELECT fleet_id, least(${writerId}, ${readerId}), greatest(${writerId}, ${readerId}), ${new Date(PRUNED_UP_TO)} FROM ships WHERE id = ${writerId}`;
+
+    // When the reader reads its exchange with the writer.
+    const after = await readPage();
+
+    // Then it answers the mark, none before it was made.
+    expect(before.prunedUpTo).toBeNull();
+    expect(after.prunedUpTo).toBe(PRUNED_UP_TO);
   });
 });
 

@@ -64,6 +64,7 @@ function rowsOf(fleetId: FleetId): Record<keyof InMemoryState, number> {
     healthSnapshotLocks: 0,
     // The pruning columns on the fleets row, apart from the Fleet.
     fleetPrunes: of(state.fleetPrunes),
+    prunedExchanges: of(state.prunedExchanges),
     // Another server's prune lock and another transaction's row locks, as a test holds them: no row.
     historyPruneLocks: 0,
     lockedMessages: 0,

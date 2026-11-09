@@ -130,7 +130,7 @@ import { plainBytesOf, type StoredPayload } from '../../src/domain/messaging/sea
 import { createInMemoryKeyVault } from './in-memory-key-vault.js';
 import type { KeyVaultWorld } from './key-vault-contract.js';
 import { inMemoryPayloadSealer } from './in-memory-payload-sealer.js';
-import type { ExchangeList, FleetSealingRepository } from '../../src/domain/messaging/ports.js';
+import type { ExchangeList, FleetSealingRepository, PrunedExchanges } from '../../src/domain/messaging/ports.js';
 
 /**
  * In-memory ports for unit tests of the core. Every repository reads and writes
@@ -214,6 +214,8 @@ export interface InMemoryState {
   healthSnapshotLocks: FleetId[];
   /** Each fleet's last pruning pass and where its finished history begins: the columns on its fleets row (decision 0066). */
   fleetPrunes: { fleetId: FleetId; prunedAt: Date | null; keptFrom: Date | null }[];
+  /** How far pruning went in each exchange, one row per pair of ships, the lower id first (docs/design/exchange-history). */
+  prunedExchanges: { fleetId: FleetId; shipId: ShipId; otherShipId: ShipId; prunedUpTo: Date }[];
   /** The fleets whose prune lock another server holds, as a test sets it. */
   historyPruneLocks: FleetId[];
   /** The messages whose rows another transaction holds, as a test sets it: a pass skips them. */
@@ -268,6 +270,7 @@ export interface InMemoryTx {
   messages: MessageRepository;
   deliveries: DeliveryRepository;
   exchanges: ExchangeList;
+  prunedExchanges: PrunedExchanges;
   meetings: MeetingRepository;
   schedules: ScheduleRepository;
   overdueDeliveries: OverdueDeliveryRepository;
@@ -466,6 +469,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     healthSnapshots: [],
     healthSnapshotLocks: [],
     fleetPrunes: [],
+    prunedExchanges: [],
     historyPruneLocks: [],
     lockedMessages: [],
     prunedEventSeqs: [],
@@ -1552,6 +1556,14 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       find: (fleetId, messageId) => {
         const found = state.messages.find((held) => held.fleetId === fleetId && held.id === messageId);
         return Promise.resolve(found && structuredClone(found));
+      },
+    },
+    prunedExchanges: {
+      prunedUpTo: (fleetId, { shipId, otherShipId }) => {
+        const row = state.prunedExchanges.find(
+          (held) => held.fleetId === fleetId && ((held.shipId === shipId && held.otherShipId === otherShipId) || (held.shipId === otherShipId && held.otherShipId === shipId)),
+        );
+        return Promise.resolve(row ? new Date(row.prunedUpTo) : null);
       },
     },
     exchanges: {
@@ -2731,6 +2743,7 @@ const FLEET_TABLES = [
   'guideProgress',
   'fleetLimitSettings',
   'fleetPrunes',
+  'prunedExchanges',
 ] as const satisfies readonly Exclude<keyof InMemoryState, 'fleets' | 'installationRequests' | 'installationSettings' | 'installationNotices' | 'installationGuide'>[];
 
 const TABLES = [
@@ -2774,6 +2787,7 @@ const TABLES = [
   'installationSettings',
   'fleetLimitSettings',
   'fleetPrunes',
+  'prunedExchanges',
   'notices',
 ] as const satisfies readonly (keyof InMemoryState)[];
 

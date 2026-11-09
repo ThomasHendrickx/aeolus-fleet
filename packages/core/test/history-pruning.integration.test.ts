@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createPrismaFleetRepository } from '../src/adapters/prisma/registry.js';
 import { createPrismaUnitOfWork, type PrismaTx } from '../src/adapters/prisma/unit-of-work.js';
 import type { Crew, ShipCaller } from '../src/domain/shared/caller.js';
+import { createReadExchange } from '../src/domain/messaging/read-exchange.js';
 import { createPruneHistory } from '../src/domain/shared/prune-history.js';
 import type { UnitOfWork } from '../src/domain/shared/unit-of-work.js';
 import { newKey } from '../src/testing/keys.js';
@@ -13,6 +14,7 @@ import { withOperatorLogin } from './support/operator-login.js';
 import { OPERATOR } from '../src/testing/fleet.js';
 import { createInMemoryKeyVault } from './support/in-memory-key-vault.js';
 import { createPostgresCore, heldUnitOfWork, type PostgresCore } from './support/postgres-core.js';
+import { unsealedFleetsOnly } from './support/sealing.js';
 
 // Pruning finished history on a real Postgres (decision 0066; the retention
 // design, R2, R6, R7, R11, R12 and R14): what is still on its way, or still
@@ -575,6 +577,51 @@ describe('a pruning pass racing', () => {
 
     expect(await core.prisma.fleet.count({ where: { id: argo.fleetId } })).toBe(0);
   });
+
+  it("a read of an exchange it prunes, the batch committing between the read's page and its mark: the messages with the mark, never gone without it (docs/design/exchange-history)", async () => {
+    const messageId = await aFinishedMessage();
+    const { createdAt } = await core.prisma.message.findUniqueOrThrow({ where: { id: messageId }, select: { createdAt: true } });
+    core.clock.advance((RETENTION_DAYS + 1) * DAY_MS);
+    await core.useCases.closeHealthSnapshots();
+    const committed = Promise.withResolvers<undefined>();
+    // Held once, after whichever of the page and the mark the read takes first, until the batch committed.
+    const held = heldUnitOfWork(core.prisma, (tx, hold) => {
+      const once = { isHeld: false };
+      const holdOnce = async () => {
+        if (!once.isHeld) {
+          once.isHeld = true;
+          await hold(committed.promise);
+        }
+      };
+      return {
+        ...tx,
+        deliveries: {
+          ...tx.deliveries,
+          findExchangePage: async (query) => {
+            const rows = await tx.deliveries.findExchangePage(query);
+            await holdOnce();
+            return rows;
+          },
+        },
+        prunedExchanges: {
+          prunedUpTo: async (...args) => {
+            const mark = await tx.prunedExchanges.prunedUpTo(...args);
+            await holdOnce();
+            return mark;
+          },
+        },
+      };
+    });
+
+    const reading = createReadExchange({ uow: held.uow, sealing: unsealedFleetsOnly })(planner, { otherShipId: scout.shipId });
+    await held.reached;
+    await core.useCases.pruneHistory();
+    committed.resolve(undefined);
+    const page = unwrap(await reading);
+
+    expect(await isKept(messageId)).toBe(false);
+    expect({ messageIds: page.items.map((item) => item.messageId), prunedUpTo: page.prunedUpTo }).toEqual({ messageIds: [messageId], prunedUpTo: createdAt });
+  });
 });
 
 describe('a pruning pass that fails', () => {
@@ -608,6 +655,38 @@ describe('a pruning pass that fails', () => {
     expect(await eventsNaming(messageId)).toBeGreaterThan(0);
     expect(await historyPruned()).toBe(0);
     expect(await storage()).toBe(before);
+  });
+
+  it("rolls a batch that fails after marking back whole: the messages kept and no mark, and the next pass prunes and marks (docs/design/exchange-history)", async () => {
+    const messageId = await aFinishedMessage();
+    const { createdAt } = await core.prisma.message.findUniqueOrThrow({ where: { id: messageId }, select: { createdAt: true } });
+    core.clock.advance((RETENTION_DAYS + 1) * DAY_MS);
+    await core.useCases.closeHealthSnapshots();
+    const failing = createPrismaUnitOfWork(core.prisma);
+    const uow: UnitOfWork<PrismaTx> = {
+      run: (work) =>
+        failing.run((tx) =>
+          work({
+            ...tx,
+            historyPruner: {
+              ...tx.historyPruner,
+              go: async (...args) => {
+                await tx.historyPruner.go(...args);
+                throw new Error('disk full');
+              },
+            },
+          }),
+        ),
+    };
+
+    await passWith(uow)(() => undefined);
+    const afterFailure = unwrap(await core.useCases.readExchange(planner, { otherShipId: scout.shipId }));
+    await passAfter(HOUR_MS);
+    const afterNextPass = unwrap(await core.useCases.readExchange(planner, { otherShipId: scout.shipId }));
+
+    expect(afterFailure.items.map((item) => item.messageId)).toEqual([messageId]);
+    expect(afterFailure.prunedUpTo).toBeNull();
+    expect(afterNextPass).toMatchObject({ items: [], prunedUpTo: createdAt });
   });
 
   it('goes on the next hour after a pass that died mid-way', async () => {

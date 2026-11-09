@@ -4,10 +4,11 @@
  * rows that go by age, and the one step that makes a set go. A test marks a fleet's prune lock, or a
  * message's rows, as held by another transaction.
  */
-import { ANSWER_CONTENT_TYPE, type FleetId } from '@aeolus-fleet/common';
+import { ANSWER_CONTENT_TYPE, type FleetId, type MessageId } from '@aeolus-fleet/common';
 
 import { CREW_EVENT_TYPES, type ClaimingLease, type HistoryPruner, type PruneCandidate } from '../../src/domain/shared/history-pruning.js';
 import type { ConsoleSignIn } from '../../src/domain/identity/notice.js';
+import { isInExchange } from '../../src/domain/messaging/exchange.js';
 import type { Delivery, Message } from '../../src/domain/messaging/message.js';
 import { numberedEvents, type InMemoryState } from './in-memory.js';
 
@@ -33,6 +34,31 @@ function sessionOf(signIn: ConsoleSignIn): string | undefined {
 
 function byAge(first: Message, second: Message): number {
   return first.createdAt.getTime() - second.createdAt.getTime() || first.id.localeCompare(second.id);
+}
+
+/**
+ * Marks each exchange the messages going reached with the newest send time
+ * among them, never moving a mark back (docs/design/exchange-history): only
+ * deliveries in an exchange that reached a ship, the pair lower id first.
+ */
+function markPrunedExchanges(state: InMemoryState, { fleetId, messageIds }: { fleetId: FleetId; messageIds: readonly MessageId[] }): void {
+  for (const delivery of state.deliveries.filter((held) => held.fleetId === fleetId && messageIds.includes(held.messageId))) {
+    const message = state.messages.find((held) => held.fleetId === fleetId && held.id === delivery.messageId);
+    const reachedShipId = delivery.recipient.kind === 'ship' ? delivery.recipient.shipId : delivery.claimedByShipId;
+    if (!message || !isInExchange(message) || reachedShipId === null) {
+      continue;
+    }
+    const [shipId, otherShipId] = [message.senderShipId, reachedShipId].toSorted();
+    if (shipId === undefined || otherShipId === undefined) {
+      continue;
+    }
+    const held = state.prunedExchanges.find((row) => row.fleetId === fleetId && row.shipId === shipId && row.otherShipId === otherShipId);
+    if (held === undefined) {
+      state.prunedExchanges.push({ fleetId, shipId, otherShipId, prunedUpTo: message.createdAt });
+    } else if (held.prunedUpTo < message.createdAt) {
+      state.prunedExchanges.splice(state.prunedExchanges.indexOf(held), 1, { ...held, prunedUpTo: message.createdAt });
+    }
+  }
 }
 
 export function createInMemoryHistoryPruner(state: InMemoryState): HistoryPruner {
@@ -184,6 +210,7 @@ export function createInMemoryHistoryPruner(state: InMemoryState): HistoryPruner
       ),
     go: (fleetId, set) => {
       const deliveryIds = state.deliveries.filter((delivery) => delivery.fleetId === fleetId && set.messageIds.includes(delivery.messageId)).map((delivery) => delivery.id);
+      markPrunedExchanges(state, { fleetId, messageIds: set.messageIds });
       const goes = <T>(rows: T[], isGoing: (row: T) => boolean): number => {
         const kept = rows.filter((row) => !isGoing(row));
         const gone = rows.length - kept.length;
