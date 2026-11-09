@@ -109,6 +109,27 @@ describe('the console route forwards mcp.get and mcp.replace to the trierarch pl
     expect(body).not.toContain('kept-out');
   });
 
+  it('answers 502 naming no value when the plugin answer is interrupted after its headers', async () => {
+    // Given a trierarch plugin whose answer starts and then breaks off.
+    const interrupted = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.error(new TypeError('terminated'));
+      },
+    });
+    const plugin = aPlugin(() => Promise.resolve(new Response(interrupted, { status: 200 })));
+
+    // When a manager replaces the configuration through the console.
+    const response = await forwardMcpCall(aRequest('/api/trierarch-plugin/mcp.replace', { method: 'POST', headers: { cookie: COOKIE, origin: CONSOLE_ORIGIN, 'content-type': 'application/json' }, body: REPLACEMENT }), {
+      procedure: 'mcp.replace',
+      environment: ENVIRONMENT,
+      fetchImplementation: plugin.fetch,
+    });
+
+    // Then the caller learns only that the plugin did not answer.
+    expect(response.status).toBe(502);
+    expect(await response.json()).toEqual({ error: { message: 'The trierarch plugin did not answer: read mcp.get before replacing again' } });
+  });
+
   it('forwards a replacement body of exactly the plugin limit of 1 MiB', async () => {
     // Given a trierarch plugin and a body at its 1 MiB limit (Fastify's default, which it keeps).
     const plugin = aPlugin(() => Promise.resolve(Response.json({ result: { data: { version: 1 } } })));
