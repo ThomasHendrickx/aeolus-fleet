@@ -1,5 +1,5 @@
 import type { DeliveryId, FleetId, MessageId, ShipId } from '@aeolus-fleet/common';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { assert, beforeEach, describe, expect, it } from 'vitest';
 
 import {
   crewAboard,
@@ -329,7 +329,7 @@ describe('formatted resends', () => {
   it.each(['question', 'step'])('refuses an old malformed %s without dismissing its original delivery', async (kind) => {
     const original = await undeliverable();
     const held = message(original.messageId);
-    if (held === undefined) throw new Error('The original message exists');
+    assert.isDefined(held);
     held.contentType = `application/vnd.aeolus.${kind}+json`;
     held.payload = '{}';
     const before = structuredClone(core.state.deliveries);

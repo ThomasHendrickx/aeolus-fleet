@@ -1,5 +1,5 @@
 import type { FleetId, ScheduleId } from '@aeolus-fleet/common';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { assert, beforeEach, describe, expect, it } from 'vitest';
 
 import { applyNetworkRules, crewAboard, initialiseFleet, messagingUseCases, operatorCaller, registryUseCases, SESSION_MODEL, withInstallationSettings } from '../../../test/support/core-fixtures.js';
 import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
@@ -382,7 +382,7 @@ describe('formatted scheduled occurrences', () => {
   ] as const)('refuses an old malformed $kind occurrence using $strategy', async ({ kind, strategy, state }) => {
     const scheduleId = await scheduled(aSchedule({ onRefused: strategy }));
     const held = scheduleOf(scheduleId);
-    if (held === undefined) throw new Error('The schedule exists');
+    assert.isDefined(held);
     held.send.contentType = `application/vnd.aeolus.${kind}+json`;
     held.send.payload = '{}';
     core.state.events.length = 0;

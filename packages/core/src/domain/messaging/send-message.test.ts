@@ -1,6 +1,6 @@
 import { aQuestion, aStep } from '../../../test/support/formatted-message-fixtures.js';
 import type { FleetId, MessageId, ShipId } from '@aeolus-fleet/common';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { assert, beforeEach, describe, expect, it } from 'vitest';
 
 import {
   addAgentShip,
@@ -693,7 +693,8 @@ describe('formatted message preservation', () => {
     const legacyInput = { ...input, payload: '{' };
     const original = core.state.messages.find((message) => message.id === messageId);
     const recipient = core.state.ships.find((ship) => ship.id === scoutId);
-    if (original === undefined || recipient === undefined) throw new Error('Accepted message and recipient exist');
+    assert.isDefined(original);
+    assert.isDefined(recipient);
     original.payload = legacyInput.payload;
     original.requestHash = unwrap(checkedSend(legacyInput, core.hasher)).requestHash;
     recipient.retiredAt = core.clock.now();

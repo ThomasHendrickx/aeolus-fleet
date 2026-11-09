@@ -1,3 +1,4 @@
+import { checkFormattedMessage } from './formatted-message.js';
 import { isPingContentType, PING_CONTENT_TYPE, type FleetId, type IdGenerator, type MessageId, type MissedStrategy, type RefusalStrategy, type ScheduleId, type ShipId } from '@aeolus-fleet/common';
 
 import {
@@ -60,7 +61,7 @@ export interface MessageToSchedule {
 }
 
 export type ScheduleMessageRefusal =
-  | DomainError<'PAYLOAD_TOO_LARGE' | 'INVALID_CONTENT_TYPE' | 'INVALID_IDEMPOTENCY_KEY' | 'RESERVED_CONTENT_TYPE' | 'FORCE_NOT_ALLOWED' | 'IDEMPOTENCY_KEY_REUSED' | 'IN_REPLY_TO_NOT_FOUND' | 'KEY_UNAVAILABLE'>
+  | DomainError<'INVALID_FORMATTED_MESSAGE' | 'PAYLOAD_TOO_LARGE' | 'INVALID_CONTENT_TYPE' | 'INVALID_IDEMPOTENCY_KEY' | 'RESERVED_CONTENT_TYPE' | 'FORCE_NOT_ALLOWED' | 'IDEMPOTENCY_KEY_REUSED' | 'IN_REPLY_TO_NOT_FOUND' | 'KEY_UNAVAILABLE'>
   | AcceptRefusal
   | ScheduleRefusal
   | ScheduleLimitRefusal
@@ -107,6 +108,10 @@ export function createScheduleMessage(deps: { uow: UnitOfWork<ScheduleMessageTx>
         }
         const repeat = repeatOfSchedule({ schedule: original, plainPayload: plainPayload.value }, { requestHash, sealedRequestHash, payload: send.payload });
         return repeat.isOk ? ok({ scheduleId: repeat.value }) : repeat;
+      }
+      const format = checkFormattedMessage(send);
+      if (!format.isOk) {
+        return format;
       }
       const at = deps.clock.now();
       const planned = planSchedule({
