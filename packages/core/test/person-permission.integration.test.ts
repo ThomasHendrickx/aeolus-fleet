@@ -41,14 +41,18 @@ let prisma: PrismaClient;
 beforeAll(async () => { prisma = createPrismaClient(await createEmptyDatabase()); });
 afterAll(async () => { await prisma.$disconnect(); });
 
-async function reached(subject: ReachingActor, read: { inForce: RulesInForce; verb: 'read' | 'send' }) {
+async function reached(subject: ReachingActor, read: { inForce: RulesInForce; verb: 'read' | 'send'; onQuery?: (milliseconds: number) => void }) {
   const { inForce, verb } = read;
   const carried = candidates.flatMap((candidate) => candidate.labels.map((label) => Prisma.sql`(${fleetId}::text, ${candidate.id}::text, ${label.labelId}::text, ${label.valueId}::text)`));
   const ships = candidates.map((candidate) => Prisma.sql`(${fleetId}::text, ${candidate.id}::text, ${candidate.kind}::text, ${candidate.owner}::text)`);
-  return prisma.$queryRaw<{ id: string }[]>(Prisma.sql`
+  const statement = Prisma.sql`
     WITH ship_labels(fleet_id, ship_id, label_id, value_id) AS (VALUES ${Prisma.join(carried)}),
          candidates(fleet_id, id, kind, owner_ship_id) AS (VALUES ${Prisma.join(ships)})
-    SELECT s.id FROM candidates s WHERE ${personPermissionSql(personPermissionPlan(inForce, { subject, verb }))} ORDER BY s.id`);
+    SELECT s.id FROM candidates s WHERE ${personPermissionSql(personPermissionPlan(inForce, { subject, verb }))} ORDER BY s.id`;
+  const startedAt = performance.now();
+  const rows = await prisma.$queryRaw<{ id: string }[]>(statement);
+  read.onQuery?.(performance.now() - startedAt);
+  return rows;
 }
 
 describe('person read permission SQL parity', () => {
@@ -104,9 +108,10 @@ describe('person read permission SQL parity', () => {
     // Then data grows as parameters, never as an unbounded SQL OR tree.
     expect(statement.text.length).toBe(small.text.length);
     expect(statement.values.length).toBe(small.values.length);
-    const rows = await reached(subject, { inForce: dense, verb: 'read' });
+    let queryMs = 0;
+    const rows = await reached(subject, { inForce: dense, verb: 'read', onQuery: (milliseconds) => { queryMs = milliseconds; } });
     expect(rows.map(({ id }) => id)).toEqual(hasConjunctions ? [shipId(70)] : [shipId(2), shipId(5), shipId(8), shipId(11), shipId(14), shipId(17), shipId(70)]);
-    console.info({ declarers: 3000, rules: 60000, hasConjunctions, planningMs, sqlBytes: statement.text.length, parameters: statement.values.length });
+    console.info({ declarers: 3000, rules: 60000, hasConjunctions, planningMs, queryMs, sqlBytes: statement.text.length, parameters: statement.values.length });
   });
 
 });

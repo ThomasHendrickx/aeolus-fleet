@@ -152,7 +152,8 @@ describe('a page of 20 at 3,000 ships, read through its keyset index (decision 4
     const plan = await planOfPage({ after: { isEmpty: false, value: name, name, id }, limit: 21, filter: ACTIVE, sort: { column: 'ship', direction }, reach: { kind: 'every' } });
 
     // Beyond the page: the cursor's own ship, and one more that ends the last name's ties.
-    expect(rowsOfIndex(plan, 'ships_name_listing_idx')).toBeOneOf([21, 22, 23]);
+    // The person read index has the same keyset keys, so PostgreSQL may choose either.
+    expect(rowsOfIndex(plan, 'ships_name_listing_idx') + rowsOfIndex(plan, 'ships_person_page_idx')).toBeOneOf([21, 22, 23]);
   });
 });
 

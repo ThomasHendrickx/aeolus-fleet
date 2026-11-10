@@ -322,6 +322,7 @@ model Lease {
   @@unique([fleetId, id])
   /// At most one open lease per ship.
   @@unique([shipId], map: "leases_ship_id_open_key", where: { endedAt: null })
+  @@index([fleetId, shipId], map: "leases_person_open_idx", where: { endedAt: null })
   /// Every foreign key has an index leading with its columns, so deleting a
   /// referenced row checks it with an index, not a scan (#331).
   @@index([fleetId, shipId])
@@ -473,6 +474,7 @@ model ShipLabel {
   value LabelValue @relation(fields: [fleetId, valueId], references: [fleetId, id])
 
   @@id([fleetId, shipId, valueId])
+  @@index([fleetId, shipId, labelId, valueId], map: "ship_labels_person_match_idx")
   /// A change of values, a delete and a retire find every ship that carries a label.
   @@index([fleetId, labelId])
   /// Removing a value checks that no ship carries it.
@@ -1251,6 +1253,8 @@ model Event {
   /// A ship's timeline pages through the events it caused and those naming
   /// it by their place in the stream, each through its own index.
   @@index([fleetId, actorShipId, seq])
+  /// Prisma introspection lists INCLUDE columns as index fields. The SQL migration keeps occurred_at covering, not an ordering key.
+  @@index([fleetId, actorShipId, seq(sort: Desc), occurredAt], map: "events_person_activity_idx", where: raw("(type = ANY (ARRAY['MessageAccepted'::text, 'DeliveryAcknowledged'::text]))"))
   @@index([actorThroughShipId, fleetId])
   @@index([fleetId, shipId, seq])
   @@index([fleetId, messageId])
