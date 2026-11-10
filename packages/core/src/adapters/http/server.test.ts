@@ -167,6 +167,50 @@ describe('the log at the default level', () => {
     };
   }
 
+  it.each([
+    '/health?input=harmless-query-marker',
+    '/harmless-path-marker?input=harmless-query-marker',
+  ])('keeps caller text out of trace request logs for %s', async (url) => {
+    const lines: string[] = [];
+    start({ logger: logAt('trace', lines) });
+
+    await server.inject({
+      method: 'GET', url,
+      headers: { authorization: 'Bearer harmless-header-marker', cookie: 'session=harmless-cookie-marker' },
+    });
+
+    expect(lines.join('')).not.toMatch(/harmless-(query|path|header|cookie)-marker/);
+    const entries = lines.map((line) => z.object({ reqId: z.string(), msg: z.string() }).parse(JSON.parse(line)));
+    expect(entries.map((entry) => entry.msg)).toEqual(['incoming request', 'request completed']);
+    expect(entries[0]?.reqId).toBe(entries[1]?.reqId);
+    expect(lines.map((line) => z.record(z.string(), z.unknown()).parse(JSON.parse(line)))).toContainEqual(expect.objectContaining({ method: 'GET', route: url.startsWith('/health') ? '/health' : 'unmatched' }));
+  });
+
+  it('keeps known tRPC procedure names for request correlation without raw query text', async () => {
+    const lines: string[] = [];
+    start({ logger: logAt('trace', lines) });
+
+    await server.inject({ method: 'GET', url: '/trpc/system.ping?input=harmless-query-marker' });
+    await server.inject({ method: 'GET', url: '/trpc/harmless-path-marker?input=harmless-query-marker' });
+
+    const incoming = lines.map((line) => z.record(z.string(), z.unknown()).parse(JSON.parse(line))).filter((line) => line.msg === 'incoming request');
+    expect(incoming[0]).toMatchObject({ method: 'GET', procedures: ['system.ping'] });
+    expect(z.object({ reqId: z.string().min(1) }).safeParse(incoming[0]).success).toBe(true);
+    expect(incoming[1]).toMatchObject({ procedures: [] });
+    expect(lines.join('')).not.toMatch(/harmless-(query|path)-marker/);
+  });
+
+  it('keeps non-database adapter failure text out of trace logs', async () => {
+    const lines: string[] = [];
+    start({ logger: logAt('trace', lines), checkDatabase: () => Promise.reject(new Error('harmless-adapter-marker')) });
+
+    const response = await server.inject({ method: 'GET', url: '/health?input=harmless-query-marker' });
+
+    expect(response.statusCode).toBe(503);
+    expect(lines.join('')).not.toMatch(/harmless-(adapter|query)-marker/);
+    expect(lines.map((line) => z.record(z.string(), z.unknown()).parse(JSON.parse(line)))).toContainEqual(expect.objectContaining({ msg: 'health check failed', reason: 'Unexpected failure', errorType: 'Error' }));
+  });
+
   it('holds no line for a routine request', async () => {
     const lines: string[] = [];
     start({ logger: logAt('info', lines) });
@@ -565,7 +609,7 @@ describe('error responses', () => {
   }
 
   /** A server whose ping fails as a lost database would, logging to `lines`. */
-  function startWithFailingPing(lines: string[] = []): void {
+  function startWithFailingPing(lines: string[] = [], failure: Error = new Error('database unreachable')): void {
     server = buildHttpServer({
       fleetUrl: FLEET_URL,
       useCases: {
@@ -573,7 +617,7 @@ describe('error responses', () => {
         ...registryUseCases(core),
         ...messagingUseCases(core),
       ...historyUseCases(core),
-        ping: () => Promise.reject(new Error('database unreachable')),
+        ping: () => Promise.reject(failure),
       },
       checkDatabase: reachable,
       latestMigration: () => Promise.resolve(LATEST_MIGRATION),
@@ -662,7 +706,20 @@ describe('error responses', () => {
     });
   });
 
-  it("leave the whole failure in the server log under the request's id: its path, its reason and its stack", async () => {
+  it('keeps arbitrary non-database failure text out of procedure logs while retaining correlation', async () => {
+    const lines: string[] = [];
+    startWithFailingPing(lines, new Error('harmless-procedure-marker', { cause: new Error('harmless-cause-marker') }));
+    const cookie = cookieOf(await signIn(OPERATOR));
+
+    const response = await ping({ cookie });
+
+    const { error } = failureBody.parse(response.json());
+    expect(response.statusCode).toBe(500);
+    expect(lines.join('')).not.toMatch(/harmless-(procedure|cause)-marker/);
+    expect(lines.map((line) => z.record(z.string(), z.unknown()).parse(JSON.parse(line)))).toContainEqual(expect.objectContaining({ reqId: error.data.requestId, path: 'system.ping', reason: 'Unexpected failure' }));
+  });
+
+  it("leave safe failure diagnostics under the request's id and procedure path", async () => {
     const lines: string[] = [];
     startWithFailingPing(lines);
     const cookie = cookieOf(await signIn(OPERATOR));
@@ -675,9 +732,11 @@ describe('error responses', () => {
       msg: 'procedure failed',
       reqId: error.data.requestId,
       path: 'system.ping',
-      reason: 'database unreachable',
+      reason: 'Unexpected failure',
+      errorType: 'Error',
     });
-    expect(logged?.stack).toMatch(/^Error: database unreachable\n\s+at \S/);
+    expect(logged).not.toHaveProperty('stack');
+    expect(lines.join('')).not.toContain('database unreachable');
   });
 });
 

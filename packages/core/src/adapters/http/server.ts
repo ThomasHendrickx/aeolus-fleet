@@ -4,6 +4,7 @@ import fastifyWebsocket from '@fastify/websocket';
 import { fastifyTRPCPlugin, type FastifyTRPCPluginOptions } from '@trpc/server/adapters/fastify';
 import { getWSConnectionHandler, handleKeepAlive } from '@trpc/server/adapters/ws';
 import Fastify, { type FastifyError, type FastifyInstance, type FastifyRequest, type FastifyServerOptions } from 'fastify';
+import { z } from 'zod';
 
 import type { Clock } from '../../domain/shared/clock.js';
 import { registerMcpEndpoint } from '../mcp/mcp-endpoint.js';
@@ -110,6 +111,14 @@ const PREFLIGHT_MAX_AGE_S = 600;
  */
 const NO_SESSION_COOKIE: SessionCookie = { set: () => undefined, clear: () => undefined, setAccountToken: () => undefined, clearAccountToken: () => undefined };
 
+const procedureParamsSchema = z.object({ path: z.string() });
+
+/** Only the router's own procedure names are safe diagnostics; never echo an unrecognised path. */
+function proceduresForLog(params: unknown): string[] {
+  const path = procedureParamsSchema.safeParse(params).data?.path;
+  return path === undefined ? [] : path.split(',').filter((name) => Object.hasOwn(appRouter._def.procedures, name));
+}
+
 /**
  * The HTTP host: `/trpc` for the API (its subscriptions over a WebSocket on
  * the same path), `/api/v1` (REST) and `/mcp` for ships, and `/health` for
@@ -154,7 +163,8 @@ export function buildHttpServer(options: HttpServerOptions): FastifyInstance {
 
   // eslint-disable-next-line @typescript-eslint/max-params -- Fastify calls a callback hook with three arguments.
   server.addHook('onRequest', (request, _reply, done) => {
-    request.log.debug({ req: request }, 'incoming request');
+    // Route templates are server-owned; raw URLs, queries and headers can hold caller data.
+    request.log.debug({ method: request.method, route: request.routeOptions.url ?? 'unmatched', procedures: proceduresForLog(request.params) }, 'incoming request');
     done();
   });
   // eslint-disable-next-line @typescript-eslint/max-params -- Fastify calls a callback hook with three arguments.
@@ -278,7 +288,7 @@ export function buildHttpServer(options: HttpServerOptions): FastifyInstance {
             },
           },
         }),
-      // The whole failure goes to the log only, under the request's id (the
+      // Safe failure diagnostics go to the log under the request's id (the
       // label Fastify's own request lines use); the answer carries that id.
       onError: ({ path, error, ctx }) => {
         if (error.code === 'INTERNAL_SERVER_ERROR') {

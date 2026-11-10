@@ -9,7 +9,7 @@ import { failureForLog } from './adapters/prisma/failure-log.js';
 import { createFleetEventWakeups, fleetEventWakeupsOf } from './adapters/prisma/fleet-event-wakeups.js';
 import { createReceiverWakeups } from './adapters/prisma/receiver-wakeups.js';
 import type { Clock } from './domain/shared/clock.js';
-import { repeatPass } from './repeating-pass.js';
+import { startMaintenancePass } from './maintenance-pass.js';
 import { startScheduleTimer } from './schedule-timer.js';
 import { createUseCases, systemClock } from './wiring.js';
 import type { KeyVault } from './domain/messaging/key-vault.js';
@@ -140,38 +140,12 @@ export function createApp(options: AppOptions): FastifyInstance {
     },
   });
 
-  // One pass, every 30 seconds: the clocks, then the stuck snapshot's close,
-  // then the pruning of finished history (decision 0066), then the sealing of
-  // what a sealing fleet stored plain and the data keys by age (decision
-  // 0068), then whatever
-  // schedule is due that a lost timer missed (decision 0062, S14).
-  // Each failure is logged on its own, so one never keeps another from running.
-  const overduePasses = repeatPass({
-    pass: async () => {
-      await useCases.tellOverdueDeliveries().catch((error: unknown) => {
-        server.log.warn(failureForLog(error), 'the 10 and 60 minute clocks failed a pass: passing again shortly');
-      });
-      await useCases.closeHealthSnapshots((fleetId, error) => {
-        server.log.warn({ ...failureForLog(error), fleetId }, 'the stuck snapshot failed to close an hour for a fleet: closing it again next pass');
-      });
-      await useCases.pruneHistory((fleetId, error) => {
-        server.log.warn({ ...failureForLog(error), fleetId }, 'the pruning pass failed for a fleet: pruning it again next hour');
-      });
-      await useCases.sealStoredPayloads((fleetId, error) => {
-        server.log.warn({ ...failureForLog(error), fleetId }, 'the sealing pass failed for a fleet: sealing it again next pass');
-      });
-      await useCases.rotateDataKeys((fleetId, error) => {
-        server.log.warn({ ...failureForLog(error), fleetId }, 'the data key rotation failed for a fleet: rotating it again next pass');
-      });
-      const { nextAttemptAt } = await useCases.sendDueSchedules(scheduleSendFailed);
-      if (nextAttemptAt) {
-        scheduleTimer.told(nextAttemptAt);
-      }
-    },
+  const overduePasses = startMaintenancePass({
+    useCases,
+    log: server.log,
+    scheduleTimer,
+    scheduleSendFailed,
     everyMs: options.overduePassMs ?? OVERDUE_PASS_MS,
-    onError: (error) => {
-      server.log.warn(failureForLog(error), 'the stuck snapshot failed to close an hour: closing it again next pass');
-    },
   });
 
   // Before the server stops taking requests and waits for the ones it holds:

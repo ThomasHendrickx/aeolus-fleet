@@ -11,6 +11,8 @@ export const accountIdSchema = z.string().min(1).max(ACCOUNT_ID_MAX_LENGTH).bran
 export type AccountId = z.infer<typeof accountIdSchema>;
 
 const MILLISECONDS_PER_SECOND = 1000;
+/** JWT seconds must produce a representable date before authentication compares them. */
+const tokenDateSchema = z.number().transform((seconds) => new Date(seconds * MILLISECONDS_PER_SECOND)).pipe(z.date());
 
 /**
  * The claims of an account token pagasae signed for one account in one fleet
@@ -30,9 +32,10 @@ export const accountTokenClaimsSchema = z
     group: z.array(z.string()),
     person_ship: idSchema('ship').optional(),
     argo: z.boolean().optional(),
-    iat: z.number(),
-    exp: z.number(),
+    iat: tokenDateSchema,
+    exp: tokenDateSchema,
   })
+  .refine((claims) => claims.exp >= claims.iat, { message: 'Token end precedes issuance', path: ['exp'] })
   .transform((claims, context) => {
     const scopes = claims.scope.split(' ').filter((scope) => scope !== '');
     const parsed = z.array(scopeNameSchema).safeParse(scopes);
@@ -49,8 +52,8 @@ export const accountTokenClaimsSchema = z
       groupValues: claims.group,
       personShipId: claims.person_ship ?? null,
       isArgoAllowed: claims.argo ?? false,
-      issuedAt: new Date(claims.iat * MILLISECONDS_PER_SECOND),
-      endsAt: new Date(claims.exp * MILLISECONDS_PER_SECOND),
+      issuedAt: claims.iat,
+      endsAt: claims.exp,
     };
   });
 export type AccountTokenClaims = z.infer<typeof accountTokenClaimsSchema>;
