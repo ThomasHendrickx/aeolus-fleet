@@ -1,0 +1,60 @@
+
+> test
+> vitest run --project core:integration packages/core/test/person-ship-reads.integration.test.ts packages/core/test/person-permission.integration.test.ts packages/core/test/person-read-snapshot.integration.test.ts --reporter verbose
+
+(node:1518340) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+
+ RUN  v5.0.3 /home/thomas/.aeolus/trierarch/worktrees/aeolus-fleet/prototype-fleet-1741
+
+ ✓ |core:integration| test/person-read-snapshot.integration.test.ts > person read snapshot and shared settings lock > takes its snapshot after an earlier settings writer commits, then keeps one consistent snapshot 113ms
+ ✓ |core:integration| test/person-read-snapshot.integration.test.ts > person read snapshot and shared settings lock > rolls a failed query back and releases the session lock before returning its connection 20ms
+ ✓ |core:integration| test/person-read-snapshot.integration.test.ts > person read snapshot and shared settings lock > cleans up a cancelled read without retaining its advisory lock 67ms
+ ✓ |core:integration| test/person-read-snapshot.integration.test.ts > person read snapshot and shared settings lock > shuts down the shared pool even when only a raw snapshot read used the client 169ms
+ ✓ |core:integration| test/person-read-snapshot.integration.test.ts > person read snapshot and shared settings lock > discards a broken connection when cleanup cannot establish that its lock was released 15ms
+ ✓ |core:integration| test/person-permission.integration.test.ts > person read permission SQL parity > preserves read built-ins and positive and negative selector combinations for every actor 796ms
+ ✓ |core:integration| test/person-permission.integration.test.ts > person read permission SQL parity > preserves send built-ins and positive and negative selector combinations for every actor 593ms
+ ✓ |core:integration| test/person-ship-reads.integration.test.ts > person ship reads through PostgreSQL > keeps authoritative declarations in PostgreSQL while preserving candidate, from-only and universal grants 499ms
+ ✓ |core:integration| test/person-ship-reads.integration.test.ts > person ship reads through PostgreSQL > keeps reply-only and meeting contribution rights out of direct discovery 682ms
+ ✓ |core:integration| test/person-ship-reads.integration.test.ts > person ship reads through PostgreSQL > retains ship and installation declaration semantics when loading only each operation required verbs 316ms
+ ✓ |core:integration| test/person-ship-reads.integration.test.ts > person ship reads through PostgreSQL > refreshes only concerned matching rows and keeps ended-crew exclusion until stored send scope is lost 184ms
+stdout | test/person-permission.integration.test.ts > person read permission SQL parity > keeps SQL syntax bounded with 3000 declarers each holding 20 distinct rules, conjunctions=false
+{
+  declarers: 3000,
+  rules: 60000,
+  hasConjunctions: false,
+  planningMs: 53.660203999999794,
+  queryMs: 159.1558789999999,
+  sqlBytes: 152,
+  parameters: 1
+}
+
+ ✓ |core:integration| test/person-ship-reads.integration.test.ts > person ship reads through PostgreSQL > pages more than 40 destinations once by folded name/id, and excludes the full sendable set from context 1693ms
+ ✓ |core:integration| test/person-ship-reads.integration.test.ts > person ship reads through PostgreSQL > uses literal short and trigram searches over authorized first sentences only, with no commission fallback 409ms
+ ✓ |core:integration| test/person-ship-reads.integration.test.ts > person ship reads through PostgreSQL > binds cursors to fleet, section, actor, association and normalized search, while continuing from a retired anchor 1647ms
+ ✓ |core:integration| test/person-ship-reads.integration.test.ts > person ship reads through PostgreSQL > keeps account groups and stored person send labels separate when composing context and reports 250ms
+ ✓ |core:integration| test/person-ship-reads.integration.test.ts > person ship reads through PostgreSQL > returns ordered unavailable reports without reasons and uses latest event sequence plus lease activity 342ms
+ ✓ |core:integration| test/person-ship-reads.integration.test.ts > person ship reads through PostgreSQL > preserves existing account owner facts for a retired association while send exclusion is empty 132ms
+ ✓ |core:integration| test/person-ship-reads.integration.test.ts > person ship reads through PostgreSQL > preserves existing account owner facts for a removed association while send exclusion is empty 140ms
+ ✓ |core:integration| test/person-ship-reads.integration.test.ts > person ship reads through PostgreSQL > preserves existing account owner facts for a unknown association while send exclusion is empty 89ms
+ ✓ |core:integration| test/person-ship-reads.integration.test.ts > person ship reads through PostgreSQL > preserves existing account owner facts for a otherFleet association while send exclusion is empty 147ms
+ ✓ |core:integration| test/person-ship-reads.integration.test.ts > person ship reads through PostgreSQL > keeps scope, labels, statement and report coherent when writers commit after actor facts are read 394ms
+ ✓ |core:integration| test/person-permission.integration.test.ts > person read permission SQL parity > keeps SQL syntax bounded with 3000 declarers each holding 20 distinct rules, conjunctions=false 3833ms
+stdout | test/person-permission.integration.test.ts > person read permission SQL parity > keeps SQL syntax bounded with 3000 declarers each holding 20 distinct rules, conjunctions=true
+{
+  declarers: 3000,
+  rules: 60000,
+  hasConjunctions: true,
+  planningMs: 355.7978059999987,
+  queryMs: 113.86801399999968,
+  sqlBytes: 410,
+  parameters: 1
+}
+
+ ✓ |core:integration| test/person-permission.integration.test.ts > person read permission SQL parity > keeps SQL syntax bounded with 3000 declarers each holding 20 distinct rules, conjunctions=true 5721ms
+
+ Test Files  3 passed (3)
+      Tests  23 passed (23)
+   Start at  21:42:05
+   Duration  21.59s (tests 68%, transform 22%, import 9%)
+

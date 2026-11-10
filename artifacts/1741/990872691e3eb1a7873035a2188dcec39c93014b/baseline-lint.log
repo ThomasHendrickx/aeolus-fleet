@@ -1,0 +1,5 @@
+
+> lint
+> eslint --max-warnings 0 . && node scripts/check-train-dependencies.ts
+
+no other train: ok

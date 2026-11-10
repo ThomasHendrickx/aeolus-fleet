@@ -1,0 +1,18 @@
+
+> lint
+> eslint --max-warnings 0 . && node scripts/check-train-dependencies.ts
+
+
+/home/thomas/.aeolus/trierarch/worktrees/aeolus-fleet/prototype-fleet-1741/packages/console/app/api/reads/[read]/route.ts
+  12:5   error  Unsafe assignment of an error typed value                     @typescript-eslint/no-unsafe-assignment
+  12:26  error  Unsafe member access .read on a type that cannot be resolved  @typescript-eslint/no-unsafe-member-access
+
+/home/thomas/.aeolus/trierarch/worktrees/aeolus-fleet/prototype-fleet-1741/packages/console/app/api/reports/[procedure]/route.ts
+  7:38  error  Unsafe assignment of an error typed value                          @typescript-eslint/no-unsafe-assignment
+  7:64  error  Unsafe member access .procedure on a type that cannot be resolved  @typescript-eslint/no-unsafe-member-access
+
+/home/thomas/.aeolus/trierarch/worktrees/aeolus-fleet/prototype-fleet-1741/packages/core/src/adapters/prisma/person-declared-permission.ts
+  74:1  error  Function 'selector' has too many parameters (3). Maximum allowed is 2  @typescript-eslint/max-params
+
+✖ 5 problems (5 errors, 0 warnings)
+

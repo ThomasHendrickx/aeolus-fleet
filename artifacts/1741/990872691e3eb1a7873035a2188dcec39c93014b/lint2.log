@@ -1,0 +1,27 @@
+
+> lint
+> eslint --max-warnings 0 . && node scripts/check-train-dependencies.ts
+
+
+<--- Last few GCs --->
+
+[1663116:0x15976000]   349026 ms: Scavenge (during sweeping) 4063.1 (4098.5) -> 4062.6 (4098.8) MB, pooled: 0.0 MB, 5.46 / 0.00 ms (average mu = 0.174, current mu = 0.003) allocation failure; 
+[1663116:0x15976000]   350548 ms: Mark-Compact 4066.3 (4100.8) -> 4064.0 (4100.8) MB, pooled: 4.2 MB, 1513.67 / 0.00 ms (average mu = 0.090, current mu = 0.015) allocation failure; scavenge might not succeed
+
+FATAL ERROR: Ineffective mark-compacts near heap limit Allocation failed - JavaScript heap out of memory
+----- Native stack trace -----
+
+ 1: 0x841e50  [node]
+ 2: 0x8420bd node::OOMErrorHandler(char const*, v8::OOMDetails const&) [node]
+ 3: 0xcd3d1b  [node]
+ 4: 0xf43655  [node]
+ 5: 0xf4185c  [node]
+ 6: 0xf348f4  [node]
+ 7: 0xf3471c  [node]
+ 8: 0xf340af  [node]
+ 9: 0xf0e9cd  [node]
+10: 0xef3c93  [node]
+11: 0x129d5e8  [node]
+12: 0x13c2f52  [node]
+13: 0x745d4be7ea76 
+Aborted (core dumped)

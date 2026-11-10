@@ -1,0 +1,33 @@
+
+> test
+> vitest run --project core:integration packages/core/test/person-ship-reads.integration.test.ts -t keeps authoritative declarations --reporter verbose
+
+(node:1506210) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+
+ RUN  v5.0.3 /home/thomas/.aeolus/trierarch/worktrees/aeolus-fleet/prototype-fleet-1741
+
+ ✓ |core:integration| test/person-ship-reads.integration.test.ts > person ship reads through PostgreSQL > keeps authoritative declarations in PostgreSQL while preserving candidate, from-only and universal grants 653ms
+ ↓ |core:integration| test/person-ship-reads.integration.test.ts > person ship reads through PostgreSQL > keeps reply-only and meeting contribution rights out of direct discovery
+ ↓ |core:integration| test/person-ship-reads.integration.test.ts > person ship reads through PostgreSQL > retains ship and installation declaration semantics when loading only each operation required verbs
+ ↓ |core:integration| test/person-ship-reads.integration.test.ts > person ship reads through PostgreSQL > refreshes only concerned matching rows and keeps ended-crew exclusion until stored send scope is lost
+ ↓ |core:integration| test/person-ship-reads.integration.test.ts > person ship reads through PostgreSQL > pages more than 40 destinations once by folded name/id, and excludes the full sendable set from context
+ ↓ |core:integration| test/person-ship-reads.integration.test.ts > person ship reads through PostgreSQL > uses literal short and trigram searches over authorized first sentences only, with no commission fallback
+ ↓ |core:integration| test/person-ship-reads.integration.test.ts > person ship reads through PostgreSQL > binds cursors to fleet, section, actor, association and normalized search, while continuing from a retired anchor
+ ↓ |core:integration| test/person-ship-reads.integration.test.ts > person ship reads through PostgreSQL > keeps account groups and stored person send labels separate when composing context and reports
+ ↓ |core:integration| test/person-ship-reads.integration.test.ts > person ship reads through PostgreSQL > returns ordered unavailable reports without reasons and uses latest event sequence plus lease activity
+ ↓ |core:integration| test/person-ship-reads.integration.test.ts > person ship reads through PostgreSQL > preserves existing account owner facts for a retired association while send exclusion is empty
+ ↓ |core:integration| test/person-ship-reads.integration.test.ts > person ship reads through PostgreSQL > preserves existing account owner facts for a removed association while send exclusion is empty
+ ↓ |core:integration| test/person-ship-reads.integration.test.ts > person ship reads through PostgreSQL > preserves existing account owner facts for a unknown association while send exclusion is empty
+ ↓ |core:integration| test/person-ship-reads.integration.test.ts > person ship reads through PostgreSQL > preserves existing account owner facts for a otherFleet association while send exclusion is empty
+ ↓ |core:integration| test/person-ship-reads.integration.test.ts > person ship reads through PostgreSQL > keeps scope, labels, statement and report coherent when writers commit after actor facts are read
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 13 skipped (14)
+   Start at  21:41:23
+   Duration  11.52s (transform 56%, tests 26%, import 18%)
+
+  Transform  |core:integration| transforming modules took 2.22s · 56% of tracked time, re-done on every run
+             persist transforms across runs with fsModuleCache: true
+             learn more: https://vitest.dev/guide/improving-performance#caching-between-reruns
+

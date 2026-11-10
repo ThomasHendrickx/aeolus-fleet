@@ -1,0 +1,436 @@
+diff --git a/packages/core/src/adapters/prisma/migrations/20261110220000_person_declared_universal/migration.sql b/packages/core/src/adapters/prisma/migrations/20261110220000_person_declared_universal/migration.sql
+new file mode 100644
+index 000000000..7aeebbdba
+--- /dev/null
++++ b/packages/core/src/adapters/prisma/migrations/20261110220000_person_declared_universal/migration.sql
+@@ -0,0 +1,10 @@
++-- Authoritative declaration JSON maintains universal grants transactionally.
++-- Fixed renderer predicates must match these partial-index predicates exactly.
++CREATE INDEX declared_network_rules_person_read_universal_idx
++  ON declared_network_rules (fleet_id)
++  WHERE jsonb_path_exists(rules,
++    '$[*] ? (@.verb == "read" && @.from.size() == 0 && @.to.size() == 0)');
++CREATE INDEX declared_network_rules_person_send_universal_idx
++  ON declared_network_rules (fleet_id)
++  WHERE jsonb_path_exists(rules,
++    '$[*] ? (@.verb == "send" && @.from.size() == 0 && @.to.size() == 0)');
+diff --git a/packages/core/src/adapters/prisma/person-declared-permission.ts b/packages/core/src/adapters/prisma/person-declared-permission.ts
+new file mode 100644
+index 000000000..d18467167
+--- /dev/null
++++ b/packages/core/src/adapters/prisma/person-declared-permission.ts
+@@ -0,0 +1,110 @@
++/** Fixed interpretation of authoritative declarations. Each candidate selects only
++ * its carried labels' definers; statement inputs cover from-only and universal grants.
++ */
++import type { FleetId } from '@aeolus-fleet/common';
++
++import type { DeclaredPermissionProgram, PersonPermissionPlan } from '../../domain/registry/person-permission.js';
++import { Prisma } from './generated/client.js';
++
++function names(program: DeclaredPermissionProgram) {
++  return program.verb === 'read'
++    ? { subject: Prisma.sql`read_subject`, installation: Prisma.sql`read_installation`, fixed: Prisma.sql`read_fixed` }
++    : { subject: Prisma.sql`send_subject`, installation: Prisma.sql`send_installation`, fixed: Prisma.sql`send_fixed` };
++}
++
++export function personDeclaredInputs(fleetId: FleetId, plans: readonly PersonPermissionPlan[]): Prisma.Sql[] {
++  return plans.flatMap((plan) => {
++    const program = plan.declared;
++    if (plan.isEvery || program === undefined) { return []; }
++    const own = names(program);
++    const labels = JSON.stringify(program.labels);
++    const universal = program.verb === 'read'
++      ? Prisma.sql`jsonb_path_exists(rules, '$[*] ? (@.verb == "read" && @.from.size() == 0 && @.to.size() == 0)')`
++      : Prisma.sql`jsonb_path_exists(rules, '$[*] ? (@.verb == "send" && @.from.size() == 0 && @.to.size() == 0)')`;
++    return [Prisma.sql`${own.subject} AS MATERIALIZED (
++      SELECT DISTINCT label.owner_ship_id AS ship_id
++      FROM jsonb_to_recordset(${labels}::jsonb) AS held("labelId" text, "valueId" text)
++      JOIN labels label ON label.fleet_id = ${fleetId} AND label.id = held."labelId"
++      WHERE label.owner_kind = 'ship' AND label.owner_ship_id IS NOT NULL
++    )`, Prisma.sql`${own.installation} AS MATERIALIZED (
++      SELECT rules FROM installation_declared_network_rules WHERE fleet_id = ${fleetId}
++    )`, Prisma.sql`${own.fixed} AS MATERIALIZED (
++      SELECT EXISTS (SELECT 1 FROM declared_network_rules WHERE fleet_id = ${fleetId} AND ${universal} LIMIT 1)
++        OR EXISTS (
++          SELECT 1 FROM ${own.subject} definer
++          CROSS JOIN LATERAL (SELECT rules FROM declared_network_rules
++            WHERE fleet_id = ${fleetId} AND ship_id = definer.ship_id OFFSET 0) declaration
++          CROSS JOIN LATERAL jsonb_array_elements(declaration.rules) rule(doc)
++          WHERE rule.doc->>'verb' = ${program.verb}
++            AND jsonb_array_length(rule.doc->'to') = 0 AND jsonb_array_length(rule.doc->'from') > 0
++            AND ${selector(program, { side: 'from', isFixed: true })}
++        ) AS allows
++    )`];
++  });
++}
++
++export function personDeclaredPermissionSql(program: DeclaredPermissionProgram): Prisma.Sql {
++  const own = names(program);
++  return Prisma.sql`(
++    (SELECT allows FROM ${own.fixed})
++    OR EXISTS (
++      SELECT 1 FROM ${own.installation} declaration
++      CROSS JOIN LATERAL jsonb_array_elements(declaration.rules) rule(doc)
++      WHERE rule.doc->>'verb' = ${program.verb} AND ${selector(program, { side: 'from' })} AND ${selector(program, { side: 'to' })}
++    )
++    OR EXISTS (
++      SELECT 1 FROM (
++        SELECT DISTINCT label.owner_ship_id AS ship_id
++        FROM ship_labels held JOIN labels label ON label.fleet_id = held.fleet_id AND label.id = held.label_id
++        WHERE held.fleet_id = s.fleet_id AND held.ship_id = s.id
++          AND label.owner_kind = 'ship' AND label.owner_ship_id IS NOT NULL OFFSET 0
++      ) definer
++      CROSS JOIN LATERAL (
++        SELECT rules FROM declared_network_rules
++        WHERE fleet_id = s.fleet_id AND ship_id = definer.ship_id OFFSET 0
++      ) declaration
++      CROSS JOIN LATERAL jsonb_array_elements(declaration.rules) rule(doc)
++      WHERE rule.doc->>'verb' = ${program.verb} AND jsonb_array_length(rule.doc->'to') > 0
++        AND ${selector(program, { side: 'from' })} AND ${selector(program, { side: 'to' })}
++      OFFSET 0
++    )
++  )`;
++}
++
++function selector(program: DeclaredPermissionProgram, input: { side: 'from' | 'to'; isFixed?: boolean }): Prisma.Sql {
++  const { side, isFixed = false } = input;
++  const labels = JSON.stringify(program.labels);
++  const terms = side === 'from' ? Prisma.sql`rule.doc->'from'` : Prisma.sql`rule.doc->'to'`;
++  const selected = Prisma.sql`EXISTS (
++    SELECT 1 FROM jsonb_to_recordset(${labels}::jsonb) AS selected("labelId" text, "valueId" text)
++    WHERE CASE WHEN jsonb_typeof(term.doc) = 'string' THEN selected."valueId" = term.doc #>> '{}'
++      ELSE selected."labelId" = term.doc->>'labelId' END
++  )`;
++  const exact = side === 'from' ? selected : Prisma.sql`EXISTS (
++    SELECT 1 FROM ship_labels carried WHERE carried.fleet_id = s.fleet_id AND carried.ship_id = s.id
++      AND carried.value_id = term.doc #>> '{}' OFFSET 0
++  )`;
++  const any = side === 'from' ? selected : Prisma.sql`EXISTS (
++    SELECT 1 FROM ship_labels carried WHERE carried.fleet_id = s.fleet_id AND carried.ship_id = s.id
++      AND carried.label_id = term.doc->>'labelId' OFFSET 0
++  )`;
++  const same = Prisma.sql`EXISTS (
++    SELECT 1 FROM ship_labels carried WHERE carried.fleet_id = s.fleet_id AND carried.ship_id = s.id
++      AND carried.label_id = term.doc->>'labelId'
++      AND EXISTS (
++        SELECT 1 FROM jsonb_to_recordset(${labels}::jsonb) AS selected("labelId" text, "valueId" text)
++        WHERE selected."labelId" = carried.label_id AND selected."valueId" = carried.value_id
++      ) OFFSET 0
++  )`;
++  // A corrupt operation is a database decoding failure, never an empty successful read.
++  const invalid = Prisma.sql`(term.doc::text || ' invalid declared term')::boolean`;
++  return Prisma.sql`NOT EXISTS (
++    SELECT 1 FROM jsonb_array_elements(${terms}) term(doc)
++    WHERE NOT COALESCE(CASE
++      WHEN jsonb_typeof(term.doc) = 'string' THEN ${exact}
++      WHEN jsonb_typeof(term.doc) = 'object' AND term.doc->>'labelId' IS NOT NULL THEN
++        CASE term.doc->>'value' WHEN '*' THEN ${any} WHEN '#' THEN ${isFixed ? invalid : same} ELSE ${invalid} END
++      ELSE ${invalid}
++    END, false)
++  )`;
++}
+diff --git a/packages/core/src/adapters/prisma/person-permission.ts b/packages/core/src/adapters/prisma/person-permission.ts
+index b4321c384..a0d0c3928 100644
+--- a/packages/core/src/adapters/prisma/person-permission.ts
++++ b/packages/core/src/adapters/prisma/person-permission.ts
+@@ -2,6 +2,7 @@
+  * OFFSET 0 keeps simple EXISTS correlated, preventing global hashed label scans.
+  */
+ import type { PersonPermissionPlan, PersonPermissionTerm } from '../../domain/registry/person-permission.js';
++import { personDeclaredPermissionSql } from './person-declared-permission.js';
+ import { Prisma } from './generated/client.js';
+ 
+ export function personPermissionSql(plan: PersonPermissionPlan): Prisma.Sql {
+@@ -30,6 +31,7 @@ export function personPermissionSql(plan: PersonPermissionPlan): Prisma.Sql {
+   if (plan.byValue.size > 0 || plan.byLabel.size > 0) {
+     branches.push(indexedClauses(plan));
+   }
++  if (plan.declared !== undefined) { branches.push(personDeclaredPermissionSql(plan.declared)); }
+   return branches.length === 0 ? Prisma.sql`false` : Prisma.sql`COALESCE((${Prisma.join(branches, ' OR ')}), false)`;
+ }
+ 
+diff --git a/packages/core/src/adapters/prisma/person-ship-facts.ts b/packages/core/src/adapters/prisma/person-ship-facts.ts
+index 2759dbaac..59024f076 100644
+--- a/packages/core/src/adapters/prisma/person-ship-facts.ts
++++ b/packages/core/src/adapters/prisma/person-ship-facts.ts
+@@ -4,14 +4,12 @@ import { z } from 'zod';
+ 
+ import { isCrew, type Caller } from '../../domain/shared/caller.js';
+ import { rulesInForce, type ReachingActor, type ReachingShip } from '../../domain/registry/network-settings.js';
+-import type { DeclaredNetworkRules } from '../../domain/registry/declared-network-rules.js';
+ import { associatedShipIdOf, type PersonShipReadFacts } from '../../domain/registry/person-ship-reads.js';
+ import { Prisma } from './generated/client.js';
+ import type { PersonShipQuery } from './person-ship-query.js';
+ 
+ const labelSchema = z.object({ labelId: idSchema('label'), valueId: idSchema('labelValue') });
+ const settingsSchema = z.object({ rules: networkRulesSchema, isViewerReadOn: z.boolean() });
+-const declarationSchema = z.object({ shipId: idSchema('ship').nullable(), rules: networkRulesSchema.unwrap() });
+ const subjectSchema = z.object({
+   id: idSchema('ship'), kind: shipKindSchema, owner: idSchema('ship').nullable(),
+   scopes: z.array(scopeNameSchema), labels: z.array(labelSchema),
+@@ -63,25 +61,9 @@ async function readerOf(query: PersonShipQuery, input: { caller: Caller; subject
+ }
+ 
+ export async function readPersonShipFacts(query: PersonShipQuery, input: { caller: Caller; verbs: readonly ('read' | 'send')[] }): Promise<PersonShipReadFacts> {
+-  const { caller, verbs } = input;
++  const { caller } = input;
+   const [kept] = await query(Prisma.sql`SELECT rules, built_in_viewer_read AS "isViewerReadOn" FROM network_settings WHERE fleet_id = ${caller.fleetId}`, settingsSchema);
+   const settings = kept ?? { rules: null, isViewerReadOn: true };
+-  const declared: DeclaredNetworkRules[] = [];
+-  if (settings.rules !== null) {
+-    const rows = await query(Prisma.sql`
+-      SELECT ship_id AS "shipId", CASE WHEN jsonb_path_exists(rules, '$[*] ? (!(@.verb == $verbs[*]))', ${JSON.stringify({ verbs })}::jsonb)
+-        THEN jsonb_path_query_array(rules, '$[*] ? (@.verb == $verbs[*])', ${JSON.stringify({ verbs })}::jsonb) ELSE rules END AS rules
+-      FROM declared_network_rules
+-      WHERE fleet_id = ${caller.fleetId} AND jsonb_path_exists(rules, '$[*] ? (@.verb == $verbs[*])', ${JSON.stringify({ verbs })}::jsonb)
+-      UNION ALL
+-      SELECT NULL::text AS "shipId", CASE WHEN jsonb_path_exists(rules, '$[*] ? (!(@.verb == $verbs[*]))', ${JSON.stringify({ verbs })}::jsonb)
+-        THEN jsonb_path_query_array(rules, '$[*] ? (@.verb == $verbs[*])', ${JSON.stringify({ verbs })}::jsonb) ELSE rules END AS rules
+-      FROM installation_declared_network_rules
+-      WHERE fleet_id = ${caller.fleetId} AND jsonb_path_exists(rules, '$[*] ? (@.verb == $verbs[*])', ${JSON.stringify({ verbs })}::jsonb)`, declarationSchema);
+-    for (const row of rows) {
+-      declared.push({ fleetId: caller.fleetId, declarer: row.shipId === null ? { kind: 'installation' } : { kind: 'ship', shipId: row.shipId }, rules: row.rules });
+-    }
+-  }
+   const subject = await subjectOf(query, caller);
+   const reader = await readerOf(query, { caller, subject });
+   return {
+@@ -89,6 +71,6 @@ export async function readPersonShipFacts(query: PersonShipQuery, input: { calle
+     scopes: caller.kind === 'account' || caller.kind === 'installation' ? caller.scopes : subject?.scopes ?? [],
+     sender: subject?.isActive === true ? { ship: reaching(subject), scopes: subject.scopes } : null,
+     isCrewActive: subject?.isActive === true && subject.isCrewActive,
+-    rules: rulesInForce(settings, declared),
++    rules: rulesInForce(settings, []),
+   };
+ }
+diff --git a/packages/core/src/adapters/prisma/person-ship-page.ts b/packages/core/src/adapters/prisma/person-ship-page.ts
+index 080bda325..1dd37e0f2 100644
+--- a/packages/core/src/adapters/prisma/person-ship-page.ts
++++ b/packages/core/src/adapters/prisma/person-ship-page.ts
+@@ -2,6 +2,7 @@
+ import { PERSON_SHIP_PAGE_SIZE, type FleetId } from '@aeolus-fleet/common';
+ 
+ import type { DirectSendPermission, PersonShipPageRead } from '../../domain/registry/person-ship-reads.js';
++import { personDeclaredInputs } from './person-declared-permission.js';
+ import { personPermissionSql } from './person-permission.js';
+ import { Prisma } from './generated/client.js';
+ 
+@@ -20,7 +21,7 @@ function permissionOf(read: PersonShipPageRead): Prisma.Sql {
+ }
+ 
+ function candidates(fleetId: FleetId, pattern: string): Prisma.Sql {
+-  return Prisma.sql`WITH matching_ships AS (
++  return Prisma.sql`matching_ships AS (
+     SELECT named.id FROM ships named
+     WHERE named.fleet_id = ${fleetId} AND named.retired_at IS NULL AND named.removed_at IS NULL
+       AND lower(named.name) LIKE lower(${pattern}) ESCAPE ${'\\'}
+@@ -36,7 +37,11 @@ function candidates(fleetId: FleetId, pattern: string): Prisma.Sql {
+ export function personShipPageStatement(fleetId: FleetId, read: PersonShipPageRead): Prisma.Sql {
+   const pattern = literal(read.search);
+   const hasCandidates = read.shipIds === undefined && Array.from(read.search).length >= 3;
+-  const matched = hasCandidates ? candidates(fleetId, pattern) : Prisma.empty;
++  const policy = read.policy;
++  const plans = policy.section === 'discovery' ? [policy.sender.permission]
++    : [policy.reader, ...(policy.sender === null ? [] : [policy.sender.permission])];
++  const inputs = [...personDeclaredInputs(fleetId, plans), ...(hasCandidates ? [candidates(fleetId, pattern)] : [])];
++  const matched = inputs.length === 0 ? Prisma.empty : Prisma.sql`WITH ${Prisma.join(inputs)}`;
+   const join = hasCandidates ? Prisma.sql`JOIN matching_ships matching ON matching.id = s.id` : Prisma.empty;
+   // The lateral fence makes each refresh id a primary-key probe, even when
+   // PostgreSQL would otherwise combine a whole-fleet GIN bitmap with id filters.
+diff --git a/packages/core/src/adapters/prisma/person-ship-reports.ts b/packages/core/src/adapters/prisma/person-ship-reports.ts
+index 25e0f7c8b..d6d5557df 100644
+--- a/packages/core/src/adapters/prisma/person-ship-reports.ts
++++ b/packages/core/src/adapters/prisma/person-ship-reports.ts
+@@ -3,12 +3,15 @@ import type { FleetId, ShipId } from '@aeolus-fleet/common';
+ 
+ import type { PersonPermissionPlan } from '../../domain/registry/person-permission.js';
+ import { harbourStateOfShip } from './harbour.js';
++import { personDeclaredInputs } from './person-declared-permission.js';
+ import { personPermissionSql } from './person-permission.js';
+ import { Prisma } from './generated/client.js';
+ 
+ export function personShipReportsStatement(fleetId: FleetId, read: { permission: PersonPermissionPlan | null; shipIds: readonly ShipId[] }): Prisma.Sql {
+   const hasAlert = Prisma.sql`EXISTS (SELECT 1 FROM alerts alert WHERE alert.fleet_id = s.fleet_id AND alert.ship_id = s.id AND alert.cleared_at IS NULL OFFSET 0)`;
+-  return Prisma.sql`
++  const inputs = personDeclaredInputs(fleetId, read.permission === null ? [] : [read.permission]);
++  const prefix = inputs.length === 0 ? Prisma.empty : Prisma.sql`WITH ${Prisma.join(inputs)}`;
++  return Prisma.sql`${prefix}
+     SELECT requested.id AS "shipId", s.id IS NOT NULL AS "isAvailable",
+            ${harbourStateOfShip(hasAlert)} AS state, l.report_note AS note,
+            GREATEST(activity.occurred_at, l.activity_at) AS "lastActivityAt"
+diff --git a/packages/core/src/domain/registry/person-permission.ts b/packages/core/src/domain/registry/person-permission.ts
+index 1add2e901..4798621c3 100644
+--- a/packages/core/src/domain/registry/person-permission.ts
++++ b/packages/core/src/domain/registry/person-permission.ts
+@@ -1,7 +1,7 @@
+ /** A fixed subject's reach expressed as candidate predicates, without enumerating ships. */
+ import { isOwnerTerm, type LabelId, type LabelValueId, type NetworkVerb, type SelectorTerm, type ShipId, type ShipKind } from '@aeolus-fleet/common';
+ 
+-import { owningShipOf, selectedOf, type NetworkRule, type ReachingActor, type RulesInForce } from './network-settings.js';
++import { owningShipOf, selectedOf, type NetworkRule, type ReachingActor, type RulesInForce, type ReachingLabel } from './network-settings.js';
+ 
+ export type PersonPermissionTerm =
+   | { kind: 'value'; valueId: LabelValueId }
+@@ -14,7 +14,13 @@ type Clause = readonly PersonPermissionTerm[];
+ type ClausesBy<Key> = ReadonlyMap<Key, readonly Clause[]>;
+ type CollectedBy<Key> = Map<Key, Clause[]>;
+ 
++export interface DeclaredPermissionProgram {
++  readonly verb: 'read' | 'send';
++  readonly labels: readonly Readonly<ReachingLabel>[];
++}
++
+ export interface PersonPermissionPlan {
++  readonly declared?: DeclaredPermissionProgram;
+   isEvery: boolean;
+   anyOf: readonly Clause[];
+   valueIds: readonly LabelValueId[];
+@@ -80,6 +86,12 @@ export function personPermissionPlan(inForce: RulesInForce, read: { subject: Rea
+   return { isEvery: false, anyOf: [...anyOf.values()], valueIds: [...valueIds], labelIds: [...labelIds], valuePairs, byValue, byLabel };
+ }
+ 
++/** Keep authoritative declarations behind the projection port. */
++export function personPermissionProgram(inForce: RulesInForce, read: { subject: ReachingActor; verb: 'read' | 'send' }): PersonPermissionPlan {
++  const plan = personPermissionPlan({ ...inForce, declared: [] }, read);
++  return plan.isEvery ? plan : { ...plan, declared: { verb: read.verb, labels: selectedOf(read.subject).labels.map((label) => ({ ...label })) } };
++}
++
+ function everyPlan(): PersonPermissionPlan {
+   return { isEvery: true, anyOf: [], valueIds: [], labelIds: [], valuePairs: new Map(), byValue: new Map(), byLabel: new Map() };
+ }
+diff --git a/packages/core/src/domain/registry/person-ship-permissions.ts b/packages/core/src/domain/registry/person-ship-permissions.ts
+index 1018564fb..5d217e42f 100644
+--- a/packages/core/src/domain/registry/person-ship-permissions.ts
++++ b/packages/core/src/domain/registry/person-ship-permissions.ts
+@@ -1,7 +1,7 @@
+ /** Read and send rights stay separate even when they share an associated ship. */
+ import { refuse } from '../shared/errors.js';
+ import { ok, type Result } from '../shared/result.js';
+-import { personPermissionPlan, type PersonPermissionPlan } from './person-permission.js';
++import { personPermissionProgram, type PersonPermissionPlan } from './person-permission.js';
+ import type { DirectSendPermission, PersonShipReadFacts, PersonShipReadRefusal } from './person-ship-reads.js';
+ 
+ export function personShipReadPermission(facts: PersonShipReadFacts): Result<PersonPermissionPlan, PersonShipReadRefusal> {
+@@ -11,7 +11,7 @@ export function personShipReadPermission(facts: PersonShipReadFacts): Result<Per
+   if (!facts.scopes.includes('fleet:read')) {
+     return refuse('SCOPE_NOT_HELD', 'This call needs the fleet:read scope');
+   }
+-  return ok(personPermissionPlan(facts.rules, { subject: facts.reader, verb: 'read' }));
++  return ok(personPermissionProgram(facts.rules, { subject: facts.reader, verb: 'read' }));
+ }
+ 
+ export function personShipSendPermission(facts: PersonShipReadFacts): DirectSendPermission | null {
+@@ -19,5 +19,5 @@ export function personShipSendPermission(facts: PersonShipReadFacts): DirectSend
+   if (sender?.scopes.includes('messages:send') !== true) {
+     return null;
+   }
+-  return { shipId: sender.ship.id, permission: personPermissionPlan(facts.rules, { subject: sender.ship, verb: 'send' }) };
++  return { shipId: sender.ship.id, permission: personPermissionProgram(facts.rules, { subject: sender.ship, verb: 'send' }) };
+ }
+diff --git a/packages/core/test/person-ship-reads-scale.integration.test.ts b/packages/core/test/person-ship-reads-scale.integration.test.ts
+index c4b2fd029..89e0fede1 100644
+--- a/packages/core/test/person-ship-reads-scale.integration.test.ts
++++ b/packages/core/test/person-ship-reads-scale.integration.test.ts
+@@ -1,4 +1,4 @@
+-import { idSchema, personShipCursorOf, type PersonShipPageInput, type ShipId } from '@aeolus-fleet/common';
++import { idSchema, personShipCursorOf, type PersonShipPageInput, type ShipId, type LabelValueId } from '@aeolus-fleet/common';
+ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+ 
+ import { createPrismaClientTellingStatements, type PrismaClient } from '../src/adapters/prisma/client.js';
+@@ -121,6 +121,59 @@ function pageInput(section: 'discovery' | 'readableContext', shape: { search: st
+ }
+ 
+ describe('bounded person reads with 3000 seeded active ships, retained history and other fleets', () => {
++  it('measures the combined maximum-fanout 20-term missing-witness discovery path', async () => {
++    // Given 3,000 candidates, each carrying one value from each of 20 active definers.
++    await core.prisma.$executeRaw`DELETE FROM declared_network_rules WHERE fleet_id = ${fleet.fleetId}`;
++    await core.prisma.$executeRaw`DELETE FROM ship_labels WHERE fleet_id = ${fleet.fleetId} AND ship_id >= ${seededId(1)} AND ship_id <= ${seededId(SHIPS)}`;
++    await core.prisma.$executeRaw`UPDATE ships SET owner_ship_id = ${fleet.argo.shipId} WHERE fleet_id = ${fleet.fleetId} AND id >= ${seededId(1)} AND id <= ${seededId(SHIPS)}`;
++    for (let definer = 0; definer < 20; definer += 1) {
++      const owner = await fleet.crew({ name: `definer-${String(definer).padStart(2, '0')}`, scopes: ['labels:define'] });
++      const values: LabelValueId[] = [];
++      for (let label = 0; label < 20; label += 1) {
++        const defined = unwrap(await core.useCases.defineLabel(owner.crew, { key: `fanout-${String(definer)}-${String(label)}`, values: ['only'] }));
++        const value = defined.values[0];
++        if (value === undefined) { throw new Error('Every owned label has one actual value'); }
++        values.push(value.id);
++        if (label === 0) {
++          await core.prisma.$executeRaw`
++            INSERT INTO ship_labels (fleet_id, ship_id, label_id, value_id)
++            SELECT ${fleet.fleetId}, id, ${defined.labelId}, ${value.id} FROM ships
++            WHERE fleet_id = ${fleet.fleetId} AND id >= ${seededId(1)} AND id <= ${seededId(SHIPS)} AND retired_at IS NULL`;
++        }
++      }
++      const rules = Array.from({ length: 20 }, (_, index) => ({ verb: 'send' as const, from: [], to: [...values.slice(index), ...values.slice(0, index)] }));
++      unwrap(await core.useCases.declareNetworkRules(owner.crew, { rules }));
++    }
++    await fleet.setRules([]);
++    const [counts] = await core.prisma.$queryRaw<{ candidates: number; carried: number; definers: number; rules: number }[]>`
++      SELECT (SELECT count(*)::int FROM ships WHERE fleet_id = ${fleet.fleetId} AND id >= ${seededId(1)} AND id <= ${seededId(SHIPS)} AND retired_at IS NULL) AS candidates,
++        (SELECT count(*)::int FROM ship_labels WHERE fleet_id = ${fleet.fleetId} AND ship_id >= ${seededId(1)} AND ship_id <= ${seededId(SHIPS)}) AS carried,
++        count(*)::int AS definers, sum(jsonb_array_length(rules))::int AS rules
++      FROM declared_network_rules WHERE fleet_id = ${fleet.fleetId}`;
++    expect(counts).toEqual({ candidates: 3000, carried: 60000, definers: 20, rules: 400 });
++    await core.prisma.$executeRaw`ANALYZE`;
++
++    // When blank and common searches must exhaust the legal candidate witnesses.
++    for (const search of ['', 'common']) {
++      await measured.$disconnect();
++      resetMeasuredReads();
++      const startedAt = performance.now();
++      try {
++        const page = unwrap(await reads.discoveryPage(fleet.person.crew, { search }));
++        // Then all conjunctions fail, without built-in grants or an early page limit.
++        expect(page.rows.map(({ shipId }) => shipId)).toEqual(search === '' ? [fleet.argo.shipId] : []);
++        console.info(JSON.stringify({ proof: 'combined-failed-witness-first-call', search, totalMs: performance.now() - startedAt, queries: statements.length, phases }));
++      } catch (error) {
++        console.info(JSON.stringify({ proof: 'combined-failed-witness-first-call-failure', search, totalMs: performance.now() - startedAt, queries: statements.length, error: error instanceof Error ? error.message : String(error) }));
++        throw error;
++      }
++      await prove({ name: `combined-discovery/${search || 'blank'}`, isDense: false }, async () => {
++        const page = unwrap(await reads.discoveryPage(fleet.person.crew, { search }));
++        expect(page.rows.map(({ shipId }) => shipId)).toEqual(search === '' ? [fleet.argo.shipId] : []);
++      });
++    }
++  }, 180000);
++
+   it.each([false, true])('records complete core operations and proves indexed bounds with dense rules=%s', async (isDense) => {
+     // Given sparse or 60,000 valid distinct declared conjunctions, never a reach-id list.
+     await density(isDense);
+diff --git a/packages/core/test/person-ship-reads.integration.test.ts b/packages/core/test/person-ship-reads.integration.test.ts
+index 8e6d7617a..7c64b9d4e 100644
+--- a/packages/core/test/person-ship-reads.integration.test.ts
++++ b/packages/core/test/person-ship-reads.integration.test.ts
+@@ -32,6 +32,31 @@ async function fortyFiveShips() {
+ }
+ 
+ describe('person ship reads through PostgreSQL', () => {
++  it('keeps authoritative declarations in PostgreSQL while preserving candidate, from-only and universal grants', async () => {
++    // Given an owned candidate witness and a fixed-subject witness in a closed fleet.
++    const valueId = await fleet.label('candidate-local');
++    const target = await fleet.crew({ name: 'candidate-local-target' });
++    unwrap(await core.useCases.assignLabel(fleet.argo, { shipId: target.shipId, valueId }));
++    unwrap(await core.useCases.assignLabel(fleet.argo, { shipId: fleet.person.shipId, valueId }));
++    await fleet.setRules([]);
++    const variants = [
++      [{ verb: 'send' as const, from: [], to: [valueId] }],
++      [{ verb: 'send' as const, from: [valueId], to: [] }],
++      [{ verb: 'send' as const, from: [], to: [] }],
++    ];
++
++    for (const rules of variants) {
++      unwrap(await core.useCases.declareNetworkRules(fleet.argo, { rules }));
++      // When the complete core call evaluates each legal declaration path.
++      const facts = unwrap(await personReadUnitOfWork(core).run(fleet.fleetId, async (tx) => ok(await tx.facts.find(fleet.person.crew))));
++      const page = unwrap(await fleet.reads.discoveryPage(fleet.person.crew, { search: 'candidate-local-target' }));
++
++      // Then the grant survives without transporting fleet-wide declaration JSON.
++      expect(facts.rules.declared).toEqual([]);
++      expect(page.rows.map(({ shipId }) => shipId)).toEqual([target.shipId]);
++    }
++  });
++
+   it('keeps reply-only and meeting contribution rights out of direct discovery', async () => {
+     // Given a prior incoming message and shared meeting, before direct reach closes.
+     const peer = await fleet.crew({ name: 'meeting-peer' });

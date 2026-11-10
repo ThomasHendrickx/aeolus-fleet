@@ -1,0 +1,22 @@
+
+> typecheck
+> tsc --project tsconfig.json && npm run typecheck --workspaces
+
+
+> @aeolus-fleet/common@0.0.0 typecheck
+> tsc --project tsconfig.json
+
+
+> @aeolus-fleet/ui@0.0.0 typecheck
+> tsc --project tsconfig.json
+
+
+> @aeolus-fleet/core@0.0.0 typecheck
+> tsc --project tsconfig.json
+
+
+> @aeolus-fleet/console@0.0.0 typecheck
+> next typegen && tsc --project tsconfig.json
+
+Generating route types...
+✓ Types generated successfully

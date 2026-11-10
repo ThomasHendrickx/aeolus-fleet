@@ -1,0 +1,45 @@
+
+> test
+> vitest run --project core:integration packages/core/test/person-ship-reads-scale.integration.test.ts -t combined maximum-fanout --reporter verbose
+
+(node:1729937) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+
+ RUN  v5.0.3 /home/thomas/.aeolus/trierarch/worktrees/aeolus-fleet/prototype-fleet-1741
+
+stdout | test/person-ship-reads-scale.integration.test.ts > bounded person reads with 3000 seeded active ships, retained history and other fleets > measures the combined maximum-fanout 20-term missing-witness discovery path
+{"proof":"combined-failed-witness-first-call-failure","search":"","totalMs":5056.114317,"queries":9,"error":"canceling statement due to statement timeout"}
+
+ × |core:integration| test/person-ship-reads-scale.integration.test.ts > bounded person reads with 3000 seeded active ships, retained history and other fleets > measures the combined maximum-fanout 20-term missing-witness discovery path 25162ms
+   → canceling statement due to statement timeout
+ ↓ |core:integration| test/person-ship-reads-scale.integration.test.ts > bounded person reads with 3000 seeded active ships, retained history and other fleets > records complete core operations and proves indexed bounds with dense rules=false
+ ↓ |core:integration| test/person-ship-reads-scale.integration.test.ts > bounded person reads with 3000 seeded active ships, retained history and other fleets > records complete core operations and proves indexed bounds with dense rules=true
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |core:integration| test/person-ship-reads-scale.integration.test.ts > bounded person reads with 3000 seeded active ships, retained history and other fleets > measures the combined maximum-fanout 20-term missing-witness discovery path
+error: canceling statement due to statement timeout
+ ❯ ../../node_modules/pg/lib/client.js:694:17
+ ❯ src/adapters/prisma/person-ship-query.ts:13:28
+     11|     options.onStatement?.(statement.text);
+     12|     options.onQuery?.(statement);
+     13|     const rows: unknown = (await options.connection.query(statement.te…
+       |                            ^
+     14|     return z.array(schema).parse(rows);
+     15|   };
+ ❯ Object.page src/adapters/prisma/person-ship-reads.ts:32:22
+ ❯ Object.page test/person-ship-reads-scale.integration.test.ts:86:148
+ ❯ src/domain/registry/discovery-page.ts:29:20
+ ❯ Object.run src/adapters/prisma/person-read-unit-of-work.ts:31:24
+ ❯ test/person-ship-reads-scale.integration.test.ts:162:29
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { length: 109, severity: 'ERROR', code: '57014', detail: undefined, hint: undefined, position: undefined, internalPosition: undefined, internalQuery: undefined, where: undefined, schema: undefined, table: undefined, dataType: undefined, constraint: undefined, file: 'postgres.c', routine: 'ProcessInterrupts' }
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 2 skipped (3)
+   Start at  21:53:56
+   Duration  78.85s (tests 97%, transform 2%, import 1%)
+
