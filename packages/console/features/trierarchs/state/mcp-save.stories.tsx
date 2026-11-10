@@ -96,6 +96,9 @@ export const SaveShowsPendingThenVersion: Story = {
     await expect(screen.getByTestId('mcp-submit')).toHaveAttribute('aria-busy', 'true');
     await expect(screen.getByTestId('mcp-name')).toBeDisabled();
     await expect(screen.getByTestId('mcp-cancel')).toBeDisabled();
+    // And Add tool looks disabled like every other control, not only blocked by the fieldset.
+    await expect(screen.getByTestId('mcp-add-tool')).toHaveAttribute('data-disabled');
+    await waitFor(() => expect(screen.getByTestId('mcp-add-tool')).toHaveStyle({ opacity: '0.45' }));
     args.plugin.saveAnswer.resolve(Response.json({ result: { data: { version: 8 } } }));
     await waitFor(() => expect(screen.queryByTestId('mcp-form')).toBeNull());
     await expect(screen.getByText('Version 8')).toBeVisible();
