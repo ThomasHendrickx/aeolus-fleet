@@ -1,3 +1,4 @@
+import type { CommissionApproval, CommissionApprovalRepository } from '../../src/domain/registry/commission-approval.js';
 import { createIdGenerator, idSchema, LEASE_END_REASONS, PING_CONTENT_TYPE, type DeliveryId, type FeatureFlag, type FleetId, type IdGenerator, type LabelValueId, type LeaseWaker, type MessageId, type ShipId } from '@aeolus-fleet/common';
 
 import type { ConsoleSession } from '../../src/domain/identity/console-session.js';
@@ -186,6 +187,7 @@ export interface InMemoryState {
   /** The plugin namespaces, one per declaring ship (decision 0046). */
   scopeNamespaces: ScopeNamespace[];
   /** The fleet's own scopes (design gateway-scopes, 4.1). */
+  commissionApprovals: CommissionApproval[];
   definedScopes: DefinedScope[];
   /** The verified facts, one set per ship and writer (decision 0059). */
   verifiedFacts: WrittenFacts[];
@@ -257,6 +259,7 @@ export interface InMemoryTx {
   declaredNetworkRules: DeclaredNetworkRulesRepository;
   networkRulesDrafts: NetworkRulesDraftRepository;
   scopeNamespaces: ScopeNamespaceRepository;
+  commissionApprovals: CommissionApprovalRepository;
   definedScopes: DefinedScopeRepository;
   verifiedFacts: VerifiedFactsRepository;
   alerts: AlertRepository;
@@ -356,6 +359,7 @@ export interface InMemoryCore {
   /** The plugin namespaces, read outside a unit of work. */
   scopeNamespaces: ScopeNamespaceRepository;
   /** The fleet's own scopes, read outside a unit of work. */
+  commissionApprovals: CommissionApprovalRepository;
   definedScopes: DefinedScopeRepository;
   /** The fleets' sealing and data keys, read outside a unit of work. */
   sealings: FleetSealingRepository;
@@ -455,6 +459,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     declaredNetworkRules: [],
     networkRulesDrafts: [],
     scopeNamespaces: [],
+    commissionApprovals: [],
     definedScopes: [],
     verifiedFacts: [],
     alerts: [],
@@ -980,6 +985,11 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         state.scopeNamespaces.splice(0, state.scopeNamespaces.length, ...state.scopeNamespaces.filter((held) => held.fleetId !== fleetId || held.namespace !== namespace));
         return Promise.resolve();
       },
+    },
+    commissionApprovals: {
+      create: (approval) => { state.commissionApprovals.push(structuredClone(approval)); return Promise.resolve(); },
+      findForUpdate: (fleetId, id) => Promise.resolve(structuredClone(state.commissionApprovals.find((approval) => approval.fleetId === fleetId && approval.id === id))),
+      withdraw: ({ fleetId, id, at }) => { const index = state.commissionApprovals.findIndex((approval) => approval.fleetId === fleetId && approval.id === id); const approval = state.commissionApprovals[index]; if (approval) { state.commissionApprovals[index] = { ...approval, withdrawnAt: at }; } return Promise.resolve(); },
     },
     definedScopes: {
       find: (fleetId, scope) => Promise.resolve(structuredClone(state.definedScopes.find((held) => held.fleetId === fleetId && held.scope === scope))),
@@ -2696,7 +2706,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     },
   };
 
-  return { state, uow, fleets: tx.fleets, scheduleAttempts, pushedCrews, ships: tx.ships, leases: tx.leases, crewRequests: tx.crewRequests, clearRequests: tx.clearRequests, labels: tx.labels, reachRefusals: tx.reachRefusals, declaredNetworkRules: tx.declaredNetworkRules, scopeNamespaces: tx.scopeNamespaces, definedScopes: tx.definedScopes, sealings: tx.sealings, featureFlags: tx.featureFlags, featureFlagReads: { source: { kind: 'installation' }, flags: tx.featureFlags }, keyVault, recoveryKeys: inMemoryRecoveryKeys, sealing: { sealer: inMemoryPayloadSealer, dataKeys: createFleetDataKeys({ sealings: tx.sealings, vault: keyVault.vault, sealer: inMemoryPayloadSealer, recoveryKeys: inMemoryRecoveryKeys, clock, uow, ids }) }, callers, accounts, listing, installationFleets, installationSettings: installationSettingsRepository, fleetLimitReads, feed, history, health: healthRecords, healthSnapshots, notices, noticeDismissals, guide, guideProgress, clock, ids, hasher, passwords, random, wakeups, wakeStreams, fleetNews };
+  return { state, uow, fleets: tx.fleets, scheduleAttempts, pushedCrews, ships: tx.ships, leases: tx.leases, crewRequests: tx.crewRequests, clearRequests: tx.clearRequests, labels: tx.labels, reachRefusals: tx.reachRefusals, declaredNetworkRules: tx.declaredNetworkRules, scopeNamespaces: tx.scopeNamespaces, commissionApprovals: tx.commissionApprovals, definedScopes: tx.definedScopes, sealings: tx.sealings, featureFlags: tx.featureFlags, featureFlagReads: { source: { kind: 'installation' }, flags: tx.featureFlags }, keyVault, recoveryKeys: inMemoryRecoveryKeys, sealing: { sealer: inMemoryPayloadSealer, dataKeys: createFleetDataKeys({ sealings: tx.sealings, vault: keyVault.vault, sealer: inMemoryPayloadSealer, recoveryKeys: inMemoryRecoveryKeys, clock, uow, ids }) }, callers, accounts, listing, installationFleets, installationSettings: installationSettingsRepository, fleetLimitReads, feed, history, health: healthRecords, healthSnapshots, notices, noticeDismissals, guide, guideProgress, clock, ids, hasher, passwords, random, wakeups, wakeStreams, fleetNews };
 }
 
 /** The tables whose rows belong to a fleet by their fleet id: all but the fleets and the installation's requests. */
@@ -2732,6 +2742,7 @@ const FLEET_TABLES = [
   'networkRulesDrafts',
   'scopeNamespaces',
   'definedScopes',
+  'commissionApprovals',
   'verifiedFacts',
   'alerts',
   'expectations',
@@ -2777,6 +2788,7 @@ const TABLES = [
   'networkRulesDrafts',
   'scopeNamespaces',
   'definedScopes',
+  'commissionApprovals',
   'verifiedFacts',
   'alerts',
   'expectations',

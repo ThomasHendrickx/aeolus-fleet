@@ -1,3 +1,4 @@
+import { findShipWithOwnerHeld, findWithOwnerHeld } from './held-ship.js';
 import type { AccountId, CommissionedShipKind, FleetId, IdGenerator, LabelValueId, ShipId } from '@aeolus-fleet/common';
 
 import type { SecretTools } from '../identity/public.js';
@@ -8,6 +9,7 @@ import { recordEvent, type Actor, type NewEvent } from '../shared/events.js';
 import { idempotencyKey } from '../shared/idempotency-key.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
+import type { CommissionApprovalRepository, CommissionApprovalUse } from './commission-approval.js';
 import { appliedLimits, type AppliedLimitsTx } from './applied-limits.js';
 import { lockNamedNamespaces, type NamedNamespacesTx } from './named-namespaces.js';
 import { GROUP_LABEL_KEY } from './check-reach.js';
@@ -18,6 +20,7 @@ import { issueStartingPrompt, type StartingPromptTx } from './starting-prompt.js
 
 export interface CommissionShipTx extends StartingPromptTx, AppliedLimitsTx, NamedNamespacesTx {
   ships: ShipRepository;
+  commissionApprovals: CommissionApprovalRepository;
   labels: Pick<LabelRepository, 'findByValueForShare' | 'carriedBy' | 'findByKey' | 'assign'>;
 }
 
@@ -32,6 +35,7 @@ export interface CommissionShipInput {
   valueIds?: readonly LabelValueId[];
   /** The ship that asked the caller, a plugin's ship holding fleet:on-behalf, for this one: the new ship gets its owner (decision 0045). */
   ownerOf?: ShipId;
+  approval?: CommissionApprovalUse;
   /** The owner argo picked for an app ship that a ship holding fleet:on-behalf, the gateway, commissions (decision 0045). */
   owner?: ShipId;
   /** The caller's own key for this commission, so a retry never commissions twice. */
@@ -52,7 +56,7 @@ export interface CommissionedShip {
 
 export type CommissionShipRefusal =
   | CommissionRefusal
-  | DomainError<'INVALID_IDEMPOTENCY_KEY' | 'IDEMPOTENCY_KEY_REUSED' | 'SHIP_LIMIT_REACHED' | 'SHIP_NOT_FOUND' | 'LABEL_VALUE_NOT_FOUND' | 'NOT_THE_LABEL_OWNER'>;
+  | DomainError<'INVALID_IDEMPOTENCY_KEY' | 'IDEMPOTENCY_KEY_REUSED' | 'SHIP_LIMIT_REACHED' | 'SHIP_NOT_FOUND' | 'LABEL_VALUE_NOT_FOUND' | 'NOT_THE_LABEL_OWNER' | 'COMMISSION_APPROVAL_NOT_FOUND'>;
 
 export type CommissionShip = (caller: Caller, input: CommissionShipInput) => Promise<Result<CommissionedShip, CommissionShipRefusal>>;
 
@@ -69,48 +73,8 @@ function commissionRequestText(input: CommissionShipInput): string {
     valueIds,
     ownerOf: input.ownerOf ?? null,
     owner: input.owner ?? null,
+    ...(input.approval === undefined ? {} : { approval: { approvalId: input.approval.approvalId, subjectDigest: input.approval.subjectDigest } }),
   });
-}
-
-/**
- * The ship, read again once its owner is held FOR SHARE, so the owner the new
- * ship gets is never a retired one. A retire locks the owner first: one that
- * committed before has moved the ship to argo, so the owner read changed and
- * its new owner is held instead; one after waits for this commission and finds
- * the new ship among those it hands to argo.
- */
-async function findWithOwnerHeld(tx: CommissionShipTx, ref: { fleetId: FleetId; shipId: ShipId }): Promise<Ship | undefined> {
-  let ship = await tx.ships.find(ref.fleetId, ref.shipId);
-  while (ship?.owner) {
-    const owner = ship.owner;
-    await tx.ships.findForShare(ref.fleetId, owner);
-    ship = await tx.ships.find(ref.fleetId, ref.shipId);
-    if (ship?.owner === owner) {
-      return ship;
-    }
-  }
-  return ship;
-}
-
-/**
- * The ship that asked, held FOR SHARE after its owner, the order a retire of
- * the owner takes, and read again once held. A revoke of one of its scopes
- * waits for this commission: it lands before (the commission is refused) or
- * after (the new ship was commissioned while the asking ship held the scope),
- * never between the read and the new ship's store (decision 0046).
- */
-async function findAskingShipHeld(tx: CommissionShipTx, ref: { fleetId: FleetId; shipId: ShipId }): Promise<Ship | undefined> {
-  for (;;) {
-    const read = await findWithOwnerHeld(tx, ref);
-    if (!read) {
-      return undefined;
-    }
-    await tx.ships.findForShare(ref.fleetId, ref.shipId);
-    const held = await tx.ships.find(ref.fleetId, ref.shipId);
-    if (held?.owner === read.owner) {
-      return held;
-    }
-  }
 }
 
 /**
@@ -243,9 +207,10 @@ function commissionerOf(caller: Caller): Commissioner {
  * its owner held, its scopes from the server; an account with its person
  * ship held FOR SHARE, so a retire of it waits; the installation as it is.
  */
-async function commissioningActorOf(tx: CommissionShipTx, caller: Caller): Promise<CommissioningActor | undefined> {
+async function commissioningActorOf(tx: CommissionShipTx, ref: { caller: Caller; isApproval: boolean }): Promise<CommissioningActor | undefined> {
+  const { caller } = ref;
   if (isShipCaller(caller)) {
-    const ship = await findWithOwnerHeld(tx, { fleetId: caller.fleetId, shipId: caller.shipId });
+    const ship = await (ref.isApproval ? findShipWithOwnerHeld : findWithOwnerHeld)(tx, { fleetId: caller.fleetId, shipId: caller.shipId });
     return ship && { kind: 'ship', ship };
   }
   if (caller.kind === 'account') {
@@ -309,6 +274,11 @@ export function createCommissionShip(deps: {
         });
       }
 
+      const approval = input.approval === undefined ? undefined : await tx.commissionApprovals.findForUpdate(fleetId, input.approval.approvalId);
+      if (input.approval !== undefined && approval === undefined) {
+        return refuse('COMMISSION_APPROVAL_NOT_FOUND', 'This fleet has no such commission approval');
+      }
+
       const account = caller.kind === 'account' && caller.personShipId === null ? caller : undefined;
       const heldPersonShip = account && (await heldPersonShipOf(tx, account));
       const isPersonShipNeeded = account !== undefined && heldPersonShip === undefined;
@@ -322,7 +292,7 @@ export function createCommissionShip(deps: {
       }
 
       const argo = await tx.ships.findOperatorShip(fleetId);
-      let commissioner = await commissioningActorOf(tx, caller);
+      let commissioner = await commissioningActorOf(tx, { caller, isApproval: approval !== undefined });
       if (!commissioner || !argo) {
         return refuse('SHIP_NOT_FOUND', "The commissioning ship or its fleet's argo does not exist");
       }
@@ -333,7 +303,7 @@ export function createCommissionShip(deps: {
         }
         commissioner = { kind: 'account', scopes: account.scopes, personShip: personShip.value };
       }
-      const askingShip = input.ownerOf === undefined ? undefined : await findAskingShipHeld(tx, { fleetId, shipId: input.ownerOf });
+      const askingShip = input.ownerOf === undefined ? undefined : await findShipWithOwnerHeld(tx, { fleetId, shipId: input.ownerOf });
       if (input.ownerOf !== undefined && askingShip === undefined) {
         return refuse('SHIP_NOT_FOUND', `Ship ${input.ownerOf}, named as the ship that asked, does not exist`);
       }
@@ -342,7 +312,7 @@ export function createCommissionShip(deps: {
       await tx.ships.lockName(fleetId, input.name);
       const { namespaces, defined } = await lockNamedNamespaces(tx, { fleetId, scopes: input.scopes ?? [] });
       const commissioned = commissionShip(
-        { ...input, id: deps.ids('ship'), fleetId, commissioner, argoShipId: argo.id, askingShip, namedOwner, at, actor, commission: { by: commissionKey.by, idempotencyKey: key.value, requestHash } },
+        { ...input, approval, subjectDigest: input.approval?.subjectDigest, id: deps.ids('ship'), fleetId, commissioner, argoShipId: argo.id, askingShip, namedOwner, at, actor, commission: { by: commissionKey.by, idempotencyKey: key.value, requestHash } },
         { activeShipNamed: await tx.ships.findActiveByName(fleetId, input.name), namespaces, defined },
       );
       if (!commissioned.isOk) {

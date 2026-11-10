@@ -191,6 +191,8 @@ describe('eventTypeSchema', () => {
       'BuiltInRuleChanged',
       'ScopesDeclared',
       'ScopesChanged',
+      'CommissionApproved',
+      'CommissionApprovalWithdrawn',
       'ScopeDefined',
       'ScopeDescribed',
       'ScopeRemoved',

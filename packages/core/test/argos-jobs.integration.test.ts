@@ -380,3 +380,26 @@ describe('the person ship of an account that has none, commissioned with its fir
     });
   });
 });
+
+describe('recorded commission approval by an account (0046)', () => {
+  const RIGHTS: Scope[] = ['scopes:grant', 'fleet:commission', 'fleet:on-behalf', 'fleet:read'];
+
+  it.each(['scopes:grant', 'fleet:commission', 'fleet:on-behalf'])('requires %s at the API door', async (missing) => {
+    const commissionerId = await commissioned(`approval-target-${missing.replace(':', '-')}`);
+
+    const result = await refusalOf(anAccountHolding(RIGHTS.filter((scope) => scope !== missing)).fleet.approveCommission.mutate({ commissionerId, scopes: ['fleet:read'], subjectDigest: 'build-v1' }));
+
+    expect(result.code).toBe('FORBIDDEN');
+  });
+
+  it('records an account as approver and lets another authorised account withdraw', async () => {
+    const commissionerId = await commissioned('account-approval-target');
+    const approver = anAccountHolding(RIGHTS, { id: 'acc-approval-author' });
+
+    const { approvalId } = await approver.fleet.approveCommission.mutate({ commissionerId, scopes: ['fleet:read'], subjectDigest: 'build-v1' });
+    await anAccountHolding(RIGHTS, { id: 'acc-approval-withdrawer' }).fleet.withdrawCommissionApproval.mutate({ approvalId });
+
+    await expect(database.commissionApproval.findUnique({ where: { id: approvalId } })).resolves.toMatchObject({ approver: { kind: 'account', accountId: 'acc-approval-author', throughShipId: null }, withdrawnAt: clock.now() });
+    await expect(lastEventAbout(commissionerId, 'CommissionApprovalWithdrawn')).resolves.toMatchObject({ actorKind: 'account', actorAccountId: 'acc-approval-withdrawer' });
+  });
+});

@@ -1,3 +1,4 @@
+import { checkCommissionApproval, type CommissionApproval, type CommissionApprovalRefusal } from './commission-approval.js';
 import {
   type AccountId,
   type CommissionedShipKind,
@@ -161,7 +162,7 @@ function isCoreScope(scope: string): boolean {
   return SCOPES.some((core) => core === scope);
 }
 
-export type CommissionRefusal = DomainError<
+export type CommissionRefusal = CommissionApprovalRefusal | DomainError<
   | 'INVALID_SHIP_NAME'
   | 'SHIP_NAME_RESERVED'
   | 'INVALID_SHIP_TYPE'
@@ -205,6 +206,8 @@ export function commissionShip(
     argoShipId: ShipId;
     /** The ship that asked a plugin's ship for this one, whose owner the new ship gets (decision 0045). */
     askingShip?: Ship;
+    approval?: CommissionApproval;
+    subjectDigest?: string;
     /** The id of the owner argo picked for an app ship, as the gateway named it, and that ship as the fleet holds it, if it does (decision 0045). */
     owner?: ShipId;
     namedOwner?: Ship;
@@ -225,6 +228,22 @@ export function commissionShip(
 ): Result<{ ship: Ship; events: NewEvent[] }, CommissionRefusal> {
   const { kind = 'agent' } = input;
   const held = scopesOf(input.commissioner);
+  if (input.approval !== undefined) {
+    const commissioner = input.commissioner.kind === 'ship' ? input.commissioner.ship : undefined;
+    if (commissioner === undefined) {
+      return refuse('COMMISSION_APPROVAL_MISMATCH', 'Only the permitted ship commissioner may use this approval');
+    }
+    if (commissioner.retiredAt !== null) {
+      return refuse('SHIP_ALREADY_RETIRED', 'A retired commissioner cannot use commission approval');
+    }
+    const allowed = checkCommissionApproval(input.approval, { commissionerId: commissioner.id, subjectDigest: input.subjectDigest ?? '', scopes: input.scopes ?? [] });
+    if (!allowed.isOk) {
+      return allowed;
+    }
+    if (input.askingShip === undefined) {
+      return refuse('INVALID_OWNER', 'A commission using approval must name the requester through ownerOf');
+    }
+  }
   const isOnBehalf = held.includes('fleet:on-behalf');
   const mayCommission = checkKindScope(kind, held);
   if (!mayCommission.isOk) {
@@ -261,7 +280,9 @@ export function commissionShip(
   const shipId = commissioningShip?.id ?? null;
   // On behalf, the asking ship's scopes are checked; the commissioner still grants its own namespace (design on-behalf-scopes).
   const granter: Granter =
-    askingShip === undefined
+    input.approval !== undefined
+      ? { shipId: null, isOperator: false, scopes: input.approval.scopes }
+      : askingShip === undefined
       ? { shipId, isOperator: commissioningShip?.kind === 'operator', scopes: held }
       : { shipId, isOperator: askingShip.kind === 'operator', scopes: askingShip.scopes, onBehalfOf: askingShip.name };
   // Every ship has the agent scopes, so naming one grants nothing.
@@ -315,7 +336,9 @@ export function commissionShip(
           kind: ship.kind,
           scopes: ship.scopes.join(' '),
           // The ship the scopes were checked against, when not the commissioner (design on-behalf-scopes).
-          ...(askingShip === undefined ? {} : { scopesFrom: askingShip.id }),
+          ...(input.approval === undefined
+            ? askingShip === undefined ? {} : { scopesFrom: askingShip.id }
+            : { approvalId: input.approval.id, subjectDigest: input.approval.subjectDigest }),
         },
       },
       { fleetId, type: 'OwnerSet', occurredAt: at, actor, shipId: id, details: owner },

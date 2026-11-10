@@ -1,3 +1,5 @@
+import type { ApproveCommission } from '../../domain/registry/approve-commission.js';
+import type { WithdrawCommissionApproval } from '../../domain/registry/withdraw-commission-approval.js';
 import type { FleetId, SystemVersionOutput } from '@aeolus-fleet/common';
 
 import type { Authenticate } from '../../domain/identity/authenticate.js';
@@ -183,6 +185,8 @@ export interface UseCases {
   authenticateInstallation: AuthenticateInstallation;
   cutOffAccount: CutOffAccount;
   signOutAccount: SignOutAccount;
+  approveCommission: ApproveCommission;
+  withdrawCommissionApproval: WithdrawCommissionApproval;
   commissionShip: CommissionShip;
   getStartingPrompt: GetStartingPrompt;
   releaseShip: ReleaseShip;

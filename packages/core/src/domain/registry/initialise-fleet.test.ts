@@ -165,6 +165,7 @@ describe('initialise fleet', () => {
       networkRulesDrafts: [],
       scopeNamespaces: [],
       definedScopes: [],
+      commissionApprovals: [],
       verifiedFacts: [],
       alerts: [],
       expectations: [],

@@ -1,3 +1,5 @@
+import type { CommissionApprovalRepository } from '../../domain/registry/commission-approval.js';
+import { createPrismaCommissionApprovalRepository } from './commission-approvals.js';
 import type {
   CallerLookup,
   ConsoleSessionRepository,
@@ -82,6 +84,7 @@ export interface PrismaTx {
   networkRulesDrafts: NetworkRulesDraftRepository;
   scopeNamespaces: ScopeNamespaceRepository;
   definedScopes: DefinedScopeRepository;
+  commissionApprovals: CommissionApprovalRepository;
   verifiedFacts: VerifiedFactsRepository;
   alerts: AlertRepository;
   expectations: ExpectationsRepository;
@@ -128,6 +131,7 @@ export function createPrismaTx(db: Db): PrismaTx {
     networkRulesDrafts: createPrismaNetworkRulesDraftRepository(db),
     scopeNamespaces: createPrismaScopeNamespaceRepository(db),
     definedScopes: createPrismaDefinedScopeRepository(db),
+    commissionApprovals: createPrismaCommissionApprovalRepository(db),
     verifiedFacts: createPrismaVerifiedFactsRepository(db),
     alerts: createPrismaAlertRepository(db),
     expectations: createPrismaExpectationsRepository(db),

@@ -33,6 +33,8 @@ export const ID_PREFIXES = {
   dataKey: 'dky',
   /** An alert on a ship, open until it clears (decision 0071). */
   alert: 'alt',
+  /** A recorded bounded approval of commission rights (decision 0046). */
+  commissionApproval: 'cap',
 } as const;
 
 export type IdKind = keyof typeof ID_PREFIXES;
@@ -63,6 +65,7 @@ export type MeetingId = Id<'meeting'>;
 export type ScheduleId = Id<'schedule'>;
 export type DataKeyId = Id<'dataKey'>;
 export type AlertId = Id<'alert'>;
+export type CommissionApprovalId = Id<'commissionApproval'>;
 
 /** Crockford base32, lowercase. Leaves out i, l, o and u. */
 const ALPHABET = '0123456789abcdefghjkmnpqrstvwxyz';

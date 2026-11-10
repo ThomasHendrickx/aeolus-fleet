@@ -111,6 +111,7 @@ export function createPrismaFleetRepository(db: Db): FleetRepository {
       await db.$executeRaw`DELETE FROM health_snapshot_deliveries WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM health_snapshots WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM events WHERE fleet_id = ${fleetId}`;
+      await db.$executeRaw`DELETE FROM commission_approvals WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM overdue_deliveries WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM exchanges WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM pruned_exchanges WHERE fleet_id = ${fleetId}`;

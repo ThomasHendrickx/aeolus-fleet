@@ -154,6 +154,8 @@ const FLEET_ACTIONS = [
   'scopes',
   'declareScopes',
   'grantScopes',
+  'approveCommission',
+  'withdrawCommissionApproval',
   'defineScope',
   'describeScope',
   'removeScope',
