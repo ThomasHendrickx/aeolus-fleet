@@ -84,6 +84,7 @@ model Fleet {
   networkRulesDraft                NetworkRulesDraft?
   declaredNetworkRules             DeclaredNetworkRules[]
   installationDeclaredNetworkRules InstallationDeclaredNetworkRules?
+  commissionApprovals              CommissionApproval[]
   scopeNamespaces                  ScopeNamespace[]
   definedScopes                    DefinedScope[]
   verifiedFacts                    VerifiedFacts[]
@@ -182,6 +183,7 @@ model Ship {
   ownedLabels          Label[]                @relation("LabelOwner")
   labels               ShipLabel[]            @relation("ShipLabelShip")
   declaredNetworkRules DeclaredNetworkRules[]
+  commissionApprovals  CommissionApproval[]
   declaredNamespace    ScopeNamespace?
   verifiedFacts        VerifiedFacts[]
   alerts               Alert[]
@@ -1594,4 +1596,22 @@ model DataKey {
   /// One current data key per fleet.
   @@unique([fleetId], map: "data_keys_fleet_id_current_key", where: { isCurrent: true })
   @@map("data_keys")
+}
+
+/// Immutable bounded commission rights. Only withdrawnAt changes after recording.
+model CommissionApproval {
+  id             String    @id
+  fleetId        String    @map("fleet_id")
+  approver       Json
+  commissionerId String    @map("commissioner_id")
+  scopes         String[]
+  subjectDigest  String    @map("subject_digest")
+  createdAt      DateTime  @map("created_at") @db.Timestamptz(3)
+  withdrawnAt    DateTime? @map("withdrawn_at") @db.Timestamptz(3)
+  fleet          Fleet     @relation(fields: [fleetId], references: [id], onDelete: Restrict)
+  commissioner   Ship      @relation(fields: [fleetId, commissionerId], references: [fleetId, id], onDelete: Restrict)
+
+  @@unique([fleetId, id])
+  @@index([fleetId, commissionerId])
+  @@map("commission_approvals")
 }

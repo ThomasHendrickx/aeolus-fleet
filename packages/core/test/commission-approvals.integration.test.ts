@@ -83,3 +83,25 @@ it('rolls back approval when its event cannot be recorded', async () => {
   await expect(core.prisma.commissionApproval.count({ where: { fleetId: argo.fleetId } })).resolves.toBe(0);
   await expect(core.prisma.event.count({ where: { fleetId: argo.fleetId, type: 'CommissionApproved' } })).resolves.toBe(0);
 });
+
+it('rolls back withdrawal and its event when recording the event fails', async () => {
+  const { approvalId } = await approved();
+  const held = heldUnitOfWork(core.prisma, (tx) => ({ ...tx, events: { ...tx.events, append: () => Promise.reject(new Error('event failed')) } }));
+  const withdraw = createWithdrawCommissionApproval({ uow: held.uow, clock: core.clock, ids: createIdGenerator() });
+
+  await expect(withdraw(argo, { approvalId })).rejects.toThrow('event failed');
+
+  await expect(core.prisma.commissionApproval.findUnique({ where: { id: approvalId } })).resolves.toMatchObject({ withdrawnAt: null });
+  await expect(core.prisma.event.count({ where: { fleetId: argo.fleetId, type: 'CommissionApprovalWithdrawn' } })).resolves.toBe(0);
+});
+
+it('rolls back an approved commission without a ship, credential or commission event', async () => {
+  const { approvalId } = await approved();
+  const before = { ships: await core.prisma.ship.count(), credentials: await core.prisma.credential.count(), events: await core.prisma.event.count() };
+  const held = heldUnitOfWork(core.prisma, (tx) => ({ ...tx, events: { ...tx.events, append: () => Promise.reject(new Error('event failed')) } }));
+  const commission = createCommissionShip({ uow: held.uow, clock: core.clock, ids: createIdGenerator(), secrets: { hasher: sha256Hasher, random: cryptoRandomTokens } });
+
+  await expect(commission(commissioner, request(approvalId))).rejects.toThrow('event failed');
+
+  expect({ ships: await core.prisma.ship.count(), credentials: await core.prisma.credential.count(), events: await core.prisma.event.count() }).toEqual(before);
+});

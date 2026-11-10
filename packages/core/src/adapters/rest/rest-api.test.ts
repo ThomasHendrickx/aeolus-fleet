@@ -250,6 +250,8 @@ describe('the OpenAPI spec at /api/v1/openapi.json', () => {
       ['/fleet/scopes', ['get']],
       ['/fleet/declareScopes', ['post']],
       ['/fleet/grantScopes', ['post']],
+      ['/fleet/approveCommission', ['post']],
+      ['/fleet/withdrawCommissionApproval', ['post']],
       ['/fleet/defineScope', ['post']],
       ['/fleet/describeScope', ['post']],
       ['/fleet/removeScope', ['post']],

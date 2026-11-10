@@ -1,3 +1,5 @@
+import { createApproveCommission } from '../../src/domain/registry/approve-commission.js';
+import { createWithdrawCommissionApproval } from '../../src/domain/registry/withdraw-commission-approval.js';
 import { FLEET_URL, OPERATOR } from '../../src/testing/fleet.js';
 import {
   accountIdSchema,
@@ -276,6 +278,8 @@ export function registryUseCases(core: InMemoryCore) {
   return {
     readFeatureFlags: createReadFeatureFlags({ featureFlags: core.featureFlagReads.flags, source: core.featureFlagReads.source }),
     setFeatureFlag: createSetFeatureFlag({ uow: core.uow, clock: core.clock, ids: core.ids }),
+    approveCommission: createApproveCommission({ uow: core.uow, clock: core.clock, ids: core.ids }),
+    withdrawCommissionApproval: createWithdrawCommissionApproval({ uow: core.uow, clock: core.clock, ids: core.ids }),
     commissionShip: createCommissionShip(deps),
     getStartingPrompt: createGetStartingPrompt(deps),
     releaseShip: createReleaseShip(deps),

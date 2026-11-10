@@ -33,6 +33,7 @@ export const ID_PREFIXES = {
   dataKey: 'dky',
   /** An alert on a ship, open until it clears (decision 0071). */
   alert: 'alt',
+  /** A recorded bounded approval of commission rights (decision 0046). */
   commissionApproval: 'cap',
 } as const;
 

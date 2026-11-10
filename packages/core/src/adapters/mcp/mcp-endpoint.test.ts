@@ -120,6 +120,8 @@ const SHIP_TOOLS = [
   'fleet_scopes',
   'fleet_declareScopes',
   'fleet_grantScopes',
+  'fleet_approveCommission',
+  'fleet_withdrawCommissionApproval',
   'fleet_defineScope',
   'fleet_describeScope',
   'fleet_removeScope',

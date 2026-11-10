@@ -1,3 +1,5 @@
+import { createApproveCommission, type ApproveCommission } from './domain/registry/approve-commission.js';
+import { createWithdrawCommissionApproval, type WithdrawCommissionApproval } from './domain/registry/withdraw-commission-approval.js';
 import { createIdGenerator, type IdGenerator } from '@aeolus-fleet/common';
 
 import { argon2idPasswordHasher } from './adapters/crypto/passwords.js';
@@ -226,6 +228,8 @@ export interface UseCases {
   ping: Ping;
   initialiseFleet: InitialiseFleet;
   listFleets: ListFleets;
+  approveCommission: ApproveCommission;
+  withdrawCommissionApproval: WithdrawCommissionApproval;
   commissionShip: CommissionShip;
   getStartingPrompt: GetStartingPrompt;
   releaseShip: ReleaseShip;
@@ -495,6 +499,8 @@ export function createUseCases(options: {
       snapshots: createPrismaHealthSnapshots(prisma),
       clock,
     }),
+    approveCommission: createApproveCommission({ uow, clock, ids }),
+    withdrawCommissionApproval: createWithdrawCommissionApproval({ uow, clock, ids }),
     commissionShip: createCommissionShip({ uow, clock, ids, secrets }),
     getStartingPrompt: createGetStartingPrompt({ uow, clock, ids, secrets }),
     releaseShip: createReleaseShip({ uow, clock, ids }),

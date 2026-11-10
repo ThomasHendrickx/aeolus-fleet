@@ -131,6 +131,7 @@ describe('migrations', () => {
       'account_guide_progress',
       'account_notice_dismissals',
       'alerts',
+      'commission_approvals',
       'console_sessions',
       'credentials',
       'crew_request_give_backs',

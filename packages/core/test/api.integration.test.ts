@@ -301,6 +301,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_delivery_in_flight_claimed_index$/),
       expect.stringMatching(/^\d{14}_crew_request_requested_by$/),
       expect.stringMatching(/^\d{14}_pruned_exchanges$/),
+      expect.stringMatching(/^\d{14}_commission_approvals$/),
     ]);
   });
 });
@@ -424,7 +425,7 @@ describe('the fleet procedures at the API', () => {
 
   it('refuse every fleet procedure but its own to a ship with only crew:run', async () => {
     const crewToken = await crewedShip(['messages:send', 'messages:receive', 'crew:run']);
-    const others = Object.entries(appRouter.fleet).filter(([name]) => !['ship', 'getStartingPrompt', 'release', 'reportCrewStatus', 'reportActivity', 'confirmCrewRelease', 'giveBackCrewRequest', 'assignedCrewRequests', 'clearRequests', 'confirmWorktreeCleared', 'checkManage'].includes(name));
+    const others = Object.entries(appRouter.fleet).filter(([name]) => !['ship', 'getStartingPrompt', 'release', 'reportCrewStatus', 'reportActivity', 'confirmCrewRelease', 'giveBackCrewRequest', 'assignedCrewRequests', 'clearRequests', 'confirmWorktreeCleared', 'checkManage', 'withdrawCommissionApproval'].includes(name));
     // argo's inbox takes the message scopes every agent ship holds: each refuses any ship but argo once its input parses.
     const deliveryId = newId('delivery');
     const inputs: Record<string, unknown> = {

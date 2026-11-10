@@ -1,3 +1,4 @@
+import { approveCommissionInputSchema, approveCommissionOutputSchema, withdrawCommissionApprovalInputSchema, withdrawCommissionApprovalOutputSchema } from '@aeolus-fleet/common';
 import { alertOutputOf } from './alert-output.js';
 import {
   messageTaskAccessInputSchema,
@@ -235,6 +236,18 @@ function pingOutputOf(ping: PingStatus | null) {
  */
 export const fleetRouter = router({
   /** A new agent ship awaiting crew, and its first starting prompt: shown once. */
+  approveCommission: actorAllScopesProcedure('scopes:grant', 'fleet:commission', 'fleet:on-behalf')
+    .meta({ description: 'Record exact scopes you may grant for one permitted commissioner and opaque subject digest, within manage reach. Immutable until withdrawal; ownership remains separate at commission.' })
+    .input(approveCommissionInputSchema)
+    .output(approveCommissionOutputSchema)
+    .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.approveCommission(ctx.caller, input))),
+
+  withdrawCommissionApproval: actorProcedure
+    .meta({ description: 'Withdraw a commission approval within manage reach of its commissioner. The original approver may withdraw its own; another actor needs the approval rights. Existing ships and completed commission retries remain unchanged.' })
+    .input(withdrawCommissionApprovalInputSchema)
+    .output(withdrawCommissionApprovalOutputSchema)
+    .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.withdrawCommissionApproval(ctx.caller, input))),
+
   commission: actorAnyScopeProcedure('fleet:commission', 'fleet:person', 'fleet:connect')
     .meta({
       description: [
@@ -243,6 +256,7 @@ export const fleetRouter = router({
         "The new ship's owner is your owner, you when you are a person ship, or your person ship when you are an account; an account without a person ship in the fleet is refused.",
         'valueIds gives it label values from the start, each a value of a label you defined or a value you carry yourself (decision 0053).',
         "ownerOf, which needs fleet:on-behalf, names the ship that asked it for this one: the new ship gets that ship's owner instead of yours.",
+        'approval names a kept approvalId and matching subjectDigest. Only its permitted commissioner may use it, for a subset of its scopes, with ownerOf still naming requester ownership. Withdrawal stops new commissions and leaves completed retries unchanged.',
         'kind is agent unless you state person, app or plugin: a person ship needs fleet:person instead and owns itself, an app ship needs fleet:on-behalf as well, and a plugin ship needs fleet:connect instead, which connects it (decision 0050).',
         "owner, which needs fleet:on-behalf and only for an app ship, names the owner argo picked for it: a person's ship or argo, never beside ownerOf.",
         'Answers its shipId, its first starting prompt, one crew line per harness (claude-code, codex, copilot) and its secret, shown only this once.',

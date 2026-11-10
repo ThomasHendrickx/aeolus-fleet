@@ -85,7 +85,7 @@ it('refuses an approval from a different fleet', async () => {
 
   const result = await registry.commissionShip({ ...commissioner, fleetId: otherFleet }, { ...request, approval: { approvalId, subjectDigest: SUBJECT } });
 
-  expect(result.isOk).toBe(false);
+  expect(result).toMatchObject({ isOk: false, error: { kind: 'COMMISSION_APPROVAL_NOT_FOUND' } });
   expect(core.state.ships.some((ship) => ship.name === 'baker')).toBe(false);
 });
 

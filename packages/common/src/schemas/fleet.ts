@@ -1,3 +1,4 @@
+import { commissionApprovalUseSchema } from './commission-approval.js';
 import { z } from 'zod';
 
 import { commissionedShipKindSchema, eventTypeSchema, locationKindSchema, scopeNameSchema, shipKindSchema, shipStatusSchema } from '../fleet/index.js';
@@ -43,6 +44,7 @@ export const commissionShipInputSchema = z.object({
   valueIds: z.array(idSchema('labelValue')).max(SHIP_LABELS_MAX).optional(),
   /** The ship that asked a plugin's ship for this one, whose owner it gets; naming one needs fleet:on-behalf (decision 0045). */
   ownerOf: idSchema('ship').optional(),
+  approval: commissionApprovalUseSchema.optional(),
   /** The owner argo picked for an app ship the gateway commissions, a person's ship or argo; naming one needs fleet:on-behalf (decision 0045). */
   owner: idSchema('ship').optional(),
   note: z
