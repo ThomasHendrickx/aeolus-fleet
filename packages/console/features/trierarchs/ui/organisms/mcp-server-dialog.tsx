@@ -226,6 +226,7 @@ export function McpServerDialog({
             <Button
               type="button"
               icon={<Plus aria-hidden />}
+              disabled={isPending}
               onClick={() => {
                 addTools(tool);
               }}
