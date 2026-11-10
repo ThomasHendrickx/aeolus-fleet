@@ -10,10 +10,11 @@ export const PERSON_SHIP_PAGE_SIZE = 20;
 const distinctShipIds = z.array(idSchema('ship')).max(PERSON_SHIP_PAGE_SIZE).refine((ids) => new Set(ids).size === ids.length, 'Ship ids must be distinct');
 
 /** A page or a refresh of concerned resource ids, never a chosen permission subject. */
-export const personShipPageInputSchema = z.union([
-  z.strictObject({ search: z.string().optional(), cursor: z.string().nullable().optional() }),
-  z.strictObject({ search: z.string().optional(), shipIds: distinctShipIds.refine((ids) => ids.length > 0, 'Name at least one ship') }),
-]);
+export const personShipPageInputSchema = z.strictObject({
+  search: z.string().optional(),
+  cursor: z.string().nullable().optional(),
+  shipIds: distinctShipIds.min(1).optional(),
+}).refine((input) => input.shipIds === undefined || input.cursor === undefined, 'A concerned-id refresh takes no cursor');
 export type PersonShipPageInput = z.infer<typeof personShipPageInputSchema>;
 
 export const personShipRowSchema = z.strictObject({ shipId: idSchema('ship'), name: z.string(), kind: shipKindSchema, description: z.string().nullable() });

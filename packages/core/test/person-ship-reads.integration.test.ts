@@ -4,11 +4,14 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createPrismaPersonReadUnitOfWork } from '../src/adapters/prisma/person-read-unit-of-work.js';
 import { createPrismaPersonShipReadTx } from '../src/adapters/prisma/person-ship-reads.js';
 import { createPrismaUnitOfWork } from '../src/adapters/prisma/unit-of-work.js';
+import { allowsReach } from '../src/domain/registry/network-settings.js';
+import { personPermissionPlan } from '../src/domain/registry/person-permission.js';
 import { actorAsItIs } from '../src/domain/registry/check-reach.js';
 import { ok } from '../src/domain/shared/result.js';
+import type { PersonShipReadTx } from '../src/domain/registry/person-ship-reads.js';
 import { newKey } from '../src/testing/keys.js';
 import { refusalOf, unwrap } from '../src/testing/result.js';
-import { aPersonReadFleet, personReadsOf, personReadUow } from './support/person-read-postgres.js';
+import { aPersonReadFleet, personReadsOf, personReadUnitOfWork } from './support/person-read-postgres.js';
 import { createPostgresCore, type PostgresCore } from './support/postgres-core.js';
 
 let core: PostgresCore;
@@ -29,6 +32,88 @@ async function fortyFiveShips() {
 }
 
 describe('person ship reads through PostgreSQL', () => {
+  it('keeps reply-only and meeting contribution rights out of direct discovery', async () => {
+    // Given a prior incoming message and shared meeting, before direct reach closes.
+    const peer = await fleet.crew({ name: 'meeting-peer' });
+    const incoming = unwrap(await core.useCases.sendMessage(peer.crew, { selector: { kind: 'ship', name: 'person-one' }, payload: 'Original message', idempotencyKey: newKey(), model: 'gpt-6.1-sol' }));
+    const meeting = unwrap(await core.useCases.openMeeting(fleet.argo, { ships: [{ shipId: fleet.person.shipId }, { shipId: peer.shipId }], idempotencyKey: newKey() }));
+    unwrap(await core.useCases.changeMic(fleet.argo, { meetingId: meeting.meetingId, change: { kind: 'give', shipId: fleet.person.shipId } }));
+    await fleet.setRules([]);
+
+    // When existing reply and contribution exceptions work, but a new direct send is refused.
+    const reply = await core.useCases.sendMessage(fleet.person.crew, { selector: { kind: 'ship', name: 'meeting-peer' }, payload: 'Reply', inReplyTo: incoming.messageId, idempotencyKey: newKey() });
+    const contribution = await core.useCases.sendMessage(fleet.person.crew, { selector: { kind: 'meeting', meetingId: meeting.meetingId }, payload: 'Contribution', idempotencyKey: newKey() });
+    const direct = await core.useCases.sendMessage(fleet.person.crew, { selector: { kind: 'ship', name: 'meeting-peer' }, payload: 'New direct message', idempotencyKey: newKey() });
+    const page = unwrap(await fleet.reads.discoveryPage(fleet.person.crew, { search: 'meeting-peer' }));
+
+    // Then discovery describes only ordinary direct destinations, preserving both existing exceptions.
+    expect(reply.isOk).toBe(true);
+    expect(contribution.isOk).toBe(true);
+    expect(refusalOf(direct).kind).toBe('NOT_REACHABLE');
+    expect(page.rows).toEqual([]);
+  });
+
+  it('retains ship and installation declaration semantics when loading only each operation required verbs', async () => {
+    // Given mixed verbs declared by a ship and the installation in a closed fleet.
+    const allowed = await fleet.label('declared');
+    const target = await fleet.crew({ name: 'declared-target' });
+    unwrap(await core.useCases.assignLabel(fleet.argo, { shipId: target.shipId, valueId: allowed }));
+    const installation = { kind: 'installation' as const, fleetId: fleet.fleetId, scopes: ['labels:define'] as const };
+    const readLabel = unwrap(await core.useCases.defineLabel(installation, { key: 'installation-read', values: ['allowed'] }));
+    const readValue = readLabel.values[0];
+    if (readValue === undefined) { throw new Error('The installation label must have its value'); }
+    unwrap(await core.useCases.assignLabel(fleet.argo, { shipId: target.shipId, valueId: readValue.id }));
+    await fleet.setRules([]);
+    unwrap(await core.useCases.declareNetworkRules(fleet.argo, { rules: [{ verb: 'send', from: [], to: [allowed] }, { verb: 'manage', from: [], to: [allowed] }] }));
+    unwrap(await core.useCases.declareNetworkRules(installation, { rules: [{ verb: 'read', from: [], to: [readValue.id] }] }));
+    const sendValue = await core.prisma.labelValue.findUniqueOrThrow({ where: { id: allowed }, select: { labelId: true } });
+    const candidate = { id: target.shipId, kind: 'agent' as const, owner: null, labels: [], isOwnedByPerson: false };
+
+    // When the same fixed actor is loaded with each operation's required verbs.
+    const both = unwrap(await personReadUnitOfWork(core).run(fleet.fleetId, async (tx) => ok(await tx.facts.find(fleet.account()))));
+    for (const verb of ['read', 'send'] as const) {
+      const filtered = unwrap(await personReadUnitOfWork(core).run(fleet.fleetId, async (tx) => ok(await tx.facts.find(fleet.account(), { verbs: [verb] }))));
+      if (both.reader === null || filtered.reader === null) { throw new Error('The account must remain a reader'); }
+      // Then pruning unrelated verbs leaves the domain plan and positive/negative reach unchanged.
+      expect(personPermissionPlan(filtered.rules, { subject: filtered.reader, verb })).toEqual(personPermissionPlan(both.rules, { subject: both.reader, verb }));
+      for (const labels of [[], [{ labelId: idSchema('label').parse(sendValue.labelId), valueId: allowed }, { labelId: readLabel.labelId, valueId: readValue.id }]]) {
+        const recipient = { ...candidate, labels };
+        expect(allowsReach(filtered.rules, { verb, sender: filtered.reader, recipient, isAnswerToSender: false })).toBe(allowsReach(both.rules, { verb, sender: both.reader, recipient, isAnswerToSender: false }));
+      }
+    }
+    expect(unwrap(await fleet.reads.discoveryPage(fleet.person.crew, { search: 'declared-target' })).rows.map(({ shipId }) => shipId)).toEqual([target.shipId]);
+    expect(unwrap(await fleet.reads.shipReports(fleet.account(), { shipIds: [target.shipId] })).rows[0]?.report.status).toBe('read');
+    expect(unwrap(await fleet.reads.readableContextShips(fleet.account(), { search: 'declared-target' })).rows).toEqual([]);
+  });
+
+  it('refreshes only concerned matching rows and keeps ended-crew exclusion until stored send scope is lost', async () => {
+    // Given two loaded destinations and a separate matching ship outside the refresh.
+    const loaded = await fleet.crew({ name: 'loaded-match' });
+    const changed = await fleet.crew({ name: 'changed-match' });
+    await fleet.crew({ name: 'outside-match' });
+    const ids = [loaded.shipId, changed.shipId];
+    const initial = unwrap(await fleet.reads.discoveryPage(fleet.person.crew, { shipIds: ids, search: 'match' }));
+    unwrap(await core.useCases.renameShip(fleet.argo, { shipId: changed.shipId, name: 'changed-away' }));
+    const refreshed = unwrap(await fleet.reads.discoveryPage(fleet.person.crew, { shipIds: ids, search: 'match' }));
+
+    // When the person crew ends, then its stored send scope is removed separately.
+    unwrap(await core.useCases.deregister(fleet.person.crew));
+    const afterCrew = unwrap(await fleet.reads.readableContextShips(fleet.account(), { shipIds: ids }));
+    const endedDiscovery = await fleet.reads.discoveryPage(fleet.person.crew, {});
+    // The public grant operation retains this base scope; exercise the approved stored-fact boundary directly.
+    await core.prisma.$executeRaw`UPDATE ships SET scopes = array_remove(scopes, 'messages:send') WHERE fleet_id = ${fleet.fleetId} AND id = ${fleet.person.shipId}`;
+    const afterScope = unwrap(await fleet.reads.readableContextShips(fleet.account(), { shipIds: ids, search: 'match' }));
+
+    // Then refresh never discovers outside ids, current search applies, and ended crew changes no identity.
+    expect(initial.rows.map(({ shipId }) => shipId)).toEqual([changed.shipId, loaded.shipId]);
+    expect(refreshed.rows.map(({ shipId }) => shipId)).toEqual([loaded.shipId]);
+    expect([initial.nextCursor, refreshed.nextCursor, afterScope.nextCursor]).toEqual([null, null, null]);
+    expect(afterCrew.rows).toEqual([]);
+    expect(refusalOf(endedDiscovery).kind).toBe('LEASE_ENDED');
+    expect(afterScope.rows.map(({ shipId }) => shipId)).toEqual([loaded.shipId]);
+    expect(afterScope.rows[0]?.report.status).toBe('read');
+  });
+
   it('pages more than 40 destinations once by folded name/id, and excludes the full sendable set from context', async () => {
     // Given an open fleet with more than two pages of messageable ships.
     const [firstShip, secondShip] = await fortyFiveShips();
@@ -183,7 +268,7 @@ describe('person ship reads through PostgreSQL', () => {
     const caller = fleet.account({ personShipId: association });
 
     // When the new snapshot resolves its actor facts beside the existing checker.
-    const facts = unwrap(await personReadUow(core).run(fleet.fleetId, async (tx) => ok(await tx.facts.find(caller))));
+    const facts = unwrap(await personReadUnitOfWork(core).run(fleet.fleetId, async (tx) => ok(await tx.facts.find(caller))));
     const existing = unwrap(await createPrismaUnitOfWork(core.prisma).run(async (tx) => ok(await actorAsItIs(tx, caller))));
     const page = unwrap(await fleet.reads.readableContextShips(caller, {}));
 
@@ -202,13 +287,13 @@ describe('person ship reads through PostgreSQL', () => {
     unwrap(await core.useCases.setStatement(target.crew, { summary: 'Old description.', capabilities: [] }));
     unwrap(await core.useCases.report(target.crew, { state: 'working', note: 'Old report' }));
     await fleet.setRules([{ verb: 'read', from: [], to: [allowed] }]);
-    const loaded = Promise.withResolvers<void>();
-    const resume = Promise.withResolvers<void>();
-    const held = createPrismaPersonReadUnitOfWork({ prisma: core.prisma, portsOf: (connection) => {
+    const loaded = Promise.withResolvers<undefined>();
+    const resume = Promise.withResolvers<undefined>();
+    const held = createPrismaPersonReadUnitOfWork({ prisma: core.prisma, portsOf: (connection): PersonShipReadTx => {
       const tx = createPrismaPersonShipReadTx({ connection });
-      return { ...tx, facts: { find: async (caller) => {
-        const facts = await tx.facts.find(caller);
-        loaded.resolve();
+      return { ...tx, facts: { find: async (caller, read) => {
+        const facts = await tx.facts.find(caller, read);
+        loaded.resolve(undefined);
         await resume.promise;
         return facts;
       } } };
@@ -223,7 +308,7 @@ describe('person ship reads through PostgreSQL', () => {
       unwrap(await core.useCases.setStatement(target.crew, { summary: 'New description.', capabilities: [] }));
       unwrap(await core.useCases.report(target.crew, { state: 'idle', note: 'New report' }));
     } finally {
-      resume.resolve();
+      resume.resolve(undefined);
     }
     const page = unwrap(await pending);
     const next = await fleet.reads.readableContextShips(reader.crew, { search: 'target' });

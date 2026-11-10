@@ -1,5 +1,9 @@
 import { alertOutputOf } from './alert-output.js';
 import {
+  personShipPageInputSchema,
+  readableContextShipsOutputSchema,
+  shipReportsInputSchema,
+  shipReportsOutputSchema,
   messageTaskAccessInputSchema,
   messageTaskAccessOutputSchema,
   turnOnSealingInputSchema,
@@ -1229,6 +1233,18 @@ export const fleetRouter = router({
    * With the overview bar's filter, only the ships it selects; the numbers
    * still count the whole fleet.
    */
+  shipReports: actorScopedProcedure('fleet:read', { shouldReadOnBehalf: false })
+    .meta({ description: 'Needs fleet:read as the authenticated actor. Reads reports for 0 to 20 distinct loaded ship ids in request order. Each is read with Harbour state, nullable note and activity time, or unavailable without a reason for missing, retired, removed or unreadable ids. Discovery grants no report access. Takes no on-behalf header or chosen permission subject.' })
+    .input(shipReportsInputSchema)
+    .output(shipReportsOutputSchema)
+    .query(async ({ ctx, input }) => okOrThrow(await ctx.useCases.shipReports(ctx.caller, input))),
+
+  readableContextShips: actorScopedProcedure('fleet:read', { shouldReadOnBehalf: false })
+    .meta({ description: 'Needs fleet:read as the authenticated actor. A page of 20 active readable ships, excluding every current direct destination of the verified associated ship before pagination. Includes nullable crew descriptions and authorized reports. Search is a trimmed literal substring; order is folded name then id. An opaque query-bound cursor continues with current rights. For bounded refresh, shipIds names 1 to 20 distinct concerned ids instead of a cursor. No totals, chosen subjects or on-behalf header.' })
+    .input(personShipPageInputSchema)
+    .output(readableContextShipsOutputSchema)
+    .query(async ({ ctx, input }) => okOrThrow(await ctx.useCases.readableContextShips(ctx.caller, input))),
+
   harbour: actorScopedProcedure('fleet:read')
     .input(harbourInputSchema)
     .output(harbourOutputSchema)

@@ -2,7 +2,9 @@ import { createIdGenerator, type IdGenerator } from '@aeolus-fleet/common';
 
 import { argon2idPasswordHasher } from './adapters/crypto/passwords.js';
 import { cryptoRandomTokens, sha256Hasher } from './adapters/crypto/secrets.js';
-import type { PrismaClient } from './adapters/prisma/client.js';
+import { prismaPoolOf, type PrismaClient } from './adapters/prisma/client.js';
+import { createPrismaPersonReadUnitOfWork } from './adapters/prisma/person-read-unit-of-work.js';
+import { createPrismaPersonShipReadTx } from './adapters/prisma/person-ship-reads.js';
 import { createPrismaFleetEventFeed } from './adapters/prisma/event-log.js';
 import { createPrismaFleetCounter } from './adapters/prisma/fleet-counter.js';
 import { createPrismaShipHistory } from './adapters/prisma/history.js';
@@ -139,6 +141,9 @@ import { createRetireShip, type RetireShip } from './domain/registry/retire-ship
 import { createReport, type Report } from './domain/registry/report.js';
 import { createSetStatement, type SetStatement } from './domain/registry/set-statement.js';
 import { createDiscover, type Discover } from './domain/registry/discover.js';
+import { createDiscoveryPage, type DiscoveryPage } from './domain/registry/discovery-page.js';
+import { createReadShipReports, type ReadShipReports } from './domain/registry/read-ship-reports.js';
+import { createReadableContextShips, type ReadableContextShips } from './domain/registry/readable-context-ships.js';
 import { createReportTurn, type ReportTurn } from './domain/registry/report-turn.js';
 import { createRequestCrew, type RequestCrew } from './domain/registry/request-crew.js';
 import { createRemoveCrewRequest, type RemoveCrewRequest } from './domain/registry/remove-crew-request.js';
@@ -251,6 +256,9 @@ export interface UseCases {
   report: Report;
   setStatement: SetStatement;
   discover: Discover;
+  discoveryPage: DiscoveryPage;
+  shipReports: ReadShipReports;
+  readableContextShips: ReadableContextShips;
   reportTurn: ReportTurn;
   requestCrew: RequestCrew;
   removeCrewRequest: RemoveCrewRequest;
@@ -434,6 +442,7 @@ export function createUseCases(options: {
   const clock = options.clock ?? systemClock;
   const ids = options.ids ?? createIdGenerator();
   const uow = createPrismaUnitOfWork(prisma);
+  const personReadUnitOfWork = createPrismaPersonReadUnitOfWork({ prisma, portsOf: (connection) => createPrismaPersonShipReadTx({ connection, onStatement: prismaPoolOf(prisma).onStatement }) });
   const readReach = createReadReachOf({ uow });
   // A fleet delete and a retire grow with the fleet's history and the ship's pending deliveries.
   const bulkUow = createPrismaBulkUnitOfWork(prisma);
@@ -520,6 +529,9 @@ export function createUseCases(options: {
     report: createReport({ uow, clock, ids }),
     setStatement: createSetStatement({ uow, clock, ids }),
     discover: createDiscover({ uow }),
+    discoveryPage: createDiscoveryPage({ uow: personReadUnitOfWork }),
+    shipReports: createReadShipReports({ uow: personReadUnitOfWork }),
+    readableContextShips: createReadableContextShips({ uow: personReadUnitOfWork }),
     reportTurn: createReportTurn({ uow, clock, ids }),
     requestCrew: createRequestCrew({ uow, clock, ids }),
     removeCrewRequest: createRemoveCrewRequest({ uow, clock, ids }),

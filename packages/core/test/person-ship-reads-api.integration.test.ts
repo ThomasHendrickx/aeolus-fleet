@@ -29,9 +29,10 @@ function client(headers: Record<string, string>): TRPCClient<AppRouter> {
   return createTRPCClient<AppRouter>({ links: [httpLink({ url: `${address}/trpc`, headers })] });
 }
 
-function token(scope = 'fleet:read', hasExpired = false): string {
+function token(scope = 'fleet:read', options: { hasExpired?: boolean; hasAssociation?: boolean } = {}): string {
+  const hasExpired = options.hasExpired === true;
   const now = Math.floor(core.clock.now().getTime() / 1000);
-  return issuer.sign({ iss: issuer.issuer, aud: fleet.fleetId, sub: 'person-read-account', org: 'test-organisation', scope, group: [], person_ship: fleet.person.shipId, iat: now - (hasExpired ? 600 : 0), exp: now + (hasExpired ? -60 : 600) });
+  return issuer.sign({ iss: issuer.issuer, aud: fleet.fleetId, sub: 'person-read-account', org: 'test-organisation', scope, group: [], ...(options.hasAssociation === false ? {} : { person_ship: fleet.person.shipId }), iat: now - (hasExpired ? 600 : 0), exp: now + (hasExpired ? -60 : 600) });
 }
 
 beforeAll(async () => {
@@ -57,7 +58,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await server.close();
-  await new Promise<void>((closed, reject) => keys.close((error) => error === undefined ? closed() : reject(error)));
+  await new Promise<void>((closed, reject) => keys.close((error) => { if (error === undefined) { closed(); } else { reject(error); } }));
   await core.close();
 });
 
@@ -65,16 +66,15 @@ describe('person ship read API boundaries', () => {
   it('keeps crew discovery, account context and report scope independent', async () => {
     // Given a person crew and a signed-in account with no read scope.
     const crew = client({ authorization: `Bearer ${fleet.person.crewToken}` });
-    const account = client({ [ACCOUNT_TOKEN_HEADER]: token('') });
+    const account = client({ [ACCOUNT_TOKEN_HEADER]: token('fleet:manage') });
 
     // When discovery succeeds while the independent account reads are refused.
     const discovery = await crew.ship.discoveryPage.query({ search: 'target' });
-    const reports = account.fleet.shipReports.query({ shipIds: [target.shipId] });
-    const context = account.fleet.readableContextShips.query({});
 
     // Then description access does not grant reports or account context.
     expect(discovery.rows).toEqual([{ shipId: target.shipId, name: 'target', kind: 'agent', description: 'API target description.' }]);
-    await Promise.all([expect(reports).rejects.toMatchObject({ data: { code: 'FORBIDDEN' } }), expect(context).rejects.toMatchObject({ data: { code: 'FORBIDDEN' } })]);
+    await expect(account.fleet.shipReports.query({ shipIds: [target.shipId] })).rejects.toMatchObject({ data: { code: 'FORBIDDEN' } });
+    await expect(account.fleet.readableContextShips.query({})).rejects.toMatchObject({ data: { code: 'FORBIDDEN' } });
   });
 
   it('refuses chosen on-behalf subjects on both new fleet reads, retaining the old read contract', async () => {
@@ -106,10 +106,23 @@ describe('person ship read API boundaries', () => {
       expect(reports.rows[0]?.report.status).toBe('read');
       expect(context.rows.some(({ name }) => name === 'viewer')).toBe(true);
     }
-    const expired = client({ [ACCOUNT_TOKEN_HEADER]: token('fleet:read', true) }).fleet.shipReports.query({ shipIds: [target.shipId] });
+    const expired = client({ [ACCOUNT_TOKEN_HEADER]: token('fleet:read', { hasExpired: true }) }).fleet.shipReports.query({ shipIds: [target.shipId] });
 
     // Then expiry is never disguised as an unavailable report.
     await expect(expired).rejects.toMatchObject({ data: { code: 'UNAUTHORIZED' } });
+  });
+
+  it('reads account context without a person association and never commissions or crews one', async () => {
+    // Given a verified read account with no associated person ship.
+    const before = await Promise.all([core.prisma.ship.count({ where: { fleetId: fleet.fleetId } }), core.prisma.lease.count({ where: { fleetId: fleet.fleetId, endedAt: null } })]);
+
+    // When its independent readable context is opened.
+    const context = await client({ [ACCOUNT_TOKEN_HEADER]: token('fleet:read', { hasAssociation: false }) }).fleet.readableContextShips.query({});
+    const after = await Promise.all([core.prisma.ship.count({ where: { fleetId: fleet.fleetId } }), core.prisma.lease.count({ where: { fleetId: fleet.fleetId, endedAt: null } })]);
+
+    // Then no send set is excluded and the read creates no ship or lease.
+    expect(context.rows.some(({ shipId }) => shipId === target.shipId)).toBe(true);
+    expect(after).toEqual(before);
   });
 
   it('rejects unknown permission/filter fields, duplicate/oversized batches and cursor-plus-refresh inputs through REST', async () => {

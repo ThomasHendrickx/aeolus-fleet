@@ -1,3 +1,7 @@
+import { createDiscoveryPage } from '../../src/domain/registry/discovery-page.js';
+import { createReadShipReports } from '../../src/domain/registry/read-ship-reports.js';
+import { createReadableContextShips } from '../../src/domain/registry/readable-context-ships.js';
+import { PersonReadMemory } from './person-read-memory.js';
 import { FLEET_URL, OPERATOR } from '../../src/testing/fleet.js';
 import {
   accountIdSchema,
@@ -267,6 +271,9 @@ export function everyShipMay(verb: NetworkVerb): NetworkRule {
 
 /** The registry use cases, wired to the in-memory core: the operator's, and the claim and deregister a session makes. */
 export function registryUseCases(core: InMemoryCore) {
+  // These bounded projections have dedicated memory-port and PostgreSQL scenarios.
+  const personReads = new PersonReadMemory();
+  personReads.ships = [];
   const deps = {
     uow: core.uow,
     clock: core.clock,
@@ -274,6 +281,9 @@ export function registryUseCases(core: InMemoryCore) {
     secrets: { hasher: core.hasher, random: core.random },
   };
   return {
+    discoveryPage: createDiscoveryPage({ uow: personReads.uow }),
+    shipReports: createReadShipReports({ uow: personReads.uow }),
+    readableContextShips: createReadableContextShips({ uow: personReads.uow }),
     readFeatureFlags: createReadFeatureFlags({ featureFlags: core.featureFlagReads.flags, source: core.featureFlagReads.source }),
     setFeatureFlag: createSetFeatureFlag({ uow: core.uow, clock: core.clock, ids: core.ids }),
     commissionShip: createCommissionShip(deps),

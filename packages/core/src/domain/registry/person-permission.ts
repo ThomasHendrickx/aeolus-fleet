@@ -1,7 +1,7 @@
 /** A fixed subject's reach expressed as candidate predicates, without enumerating ships. */
 import { isOwnerTerm, type LabelId, type LabelValueId, type NetworkVerb, type SelectorTerm, type ShipId, type ShipKind } from '@aeolus-fleet/common';
 
-import { owningShipOf, selectedOf, type ReachingActor, type RulesInForce } from './network-settings.js';
+import { owningShipOf, selectedOf, type NetworkRule, type ReachingActor, type RulesInForce } from './network-settings.js';
 
 export type PersonPermissionTerm =
   | { kind: 'value'; valueId: LabelValueId }
@@ -38,38 +38,24 @@ export function personPermissionPlan(inForce: RulesInForce, read: { subject: Rea
   const pairsSeen = new Set<string>();
   const byValue: CollectedBy<LabelValueId> = new Map();
   const byLabel: CollectedBy<LabelId> = new Map();
-  for (const raw of candidateClauses(inForce, read)) {
-    // Single values are common in declarations and need no JSON normalization.
+  const rememberValues = (first: LabelValueId, second?: LabelValueId): void => {
+    if (second === undefined || first === second) { valueIds.add(first); return; }
+    const isAscending = first < second;
+    const left = isAscending ? first : second;
+    const right = isAscending ? second : first;
+    const pair = `${left}:${right}`;
+    if (!pairsSeen.has(pair)) {
+      pairsSeen.add(pair);
+      const held = valuePairs.get(left);
+      if (held === undefined) { valuePairs.set(left, [right]); } else { held.push(right); }
+    }
+  };
+  for (const raw of candidateClauses(inForce, { ...read, rememberValues })) {
     const [only] = raw;
-    if (raw.length === 1 && only?.kind === 'value') {
-      valueIds.add(only.valueId);
-      continue;
-    }
-    if (raw.length === 1 && only?.kind === 'label' && only.valueIds === null) {
-      labelIds.add(only.labelId);
-      continue;
-    }
+    if (raw.length === 1 && only?.kind === 'value') { rememberValues(only.valueId); continue; }
+    if (raw.length === 1 && only?.kind === 'label' && only.valueIds === null) { labelIds.add(only.labelId); continue; }
     const [first, second] = raw;
-    if (raw.length === 2 && first?.kind === 'value' && second?.kind === 'value') {
-      if (first.valueId === second.valueId) {
-        valueIds.add(first.valueId);
-      } else {
-        const isAscending = first.valueId < second.valueId;
-        const left = isAscending ? first.valueId : second.valueId;
-        const right = isAscending ? second.valueId : first.valueId;
-        const pair = `${left}:${right}`;
-        if (!pairsSeen.has(pair)) {
-          pairsSeen.add(pair);
-          const held = valuePairs.get(left);
-          if (held === undefined) {
-            valuePairs.set(left, [right]);
-          } else {
-            held.push(right);
-          }
-        }
-      }
-      continue;
-    }
+    if (raw.length === 2 && first?.kind === 'value' && second?.kind === 'value') { rememberValues(first.valueId, second.valueId); continue; }
     const { terms, key } = normalized(raw);
     if (terms.length === 0) {
       return everyPlan();
@@ -123,7 +109,12 @@ function remember<Key>(target: CollectedBy<Key>, clause: { key: Key; terms: Clau
   }
 }
 
-function* candidateClauses(inForce: RulesInForce, read: { subject: ReachingActor; verb: 'read' | 'send' }): Generator<Clause> {
+function* rulesOf(inForce: RulesInForce): Generator<NetworkRule> {
+  yield* inForce.rules;
+  for (const declaration of inForce.declared) { yield* declaration.rules; }
+}
+
+function* candidateClauses(inForce: RulesInForce, read: { subject: ReachingActor; verb: 'read' | 'send'; rememberValues: (first: LabelValueId, second?: LabelValueId) => void }): Generator<Clause> {
   const { subject, verb } = read;
   const owningShipId = owningShipOf(subject);
   if (owningShipId !== null) {
@@ -135,8 +126,15 @@ function* candidateClauses(inForce: RulesInForce, read: { subject: ReachingActor
   } else if ('id' in subject) {
     yield [{ kind: 'ship', shipId: subject.id }];
   }
-  for (const rule of [...inForce.rules, ...inForce.declared.flatMap((declaration) => declaration.rules)]) {
+  for (const rule of rulesOf(inForce)) {
     if (rule.verb === verb) {
+      // Common declaration shapes go directly into the indexed plan, avoiding
+      // transient term objects and generator yields for tens of thousands of rules.
+      const [first, second] = rule.to;
+      if (rule.from.length === 0 && typeof first === 'string' && (rule.to.length === 1 || (rule.to.length === 2 && typeof second === 'string'))) {
+        read.rememberValues(first, typeof second === 'string' ? second : undefined);
+        continue;
+      }
       const terms = candidateTerms(subject, rule);
       if (terms !== undefined) {
         yield terms;

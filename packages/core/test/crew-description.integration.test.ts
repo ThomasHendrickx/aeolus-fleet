@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/client.js';
-import { createMigratedDatabase } from '../src/testing/database.js';
+import { createEmptyDatabase, createMigratedDatabase } from '../src/testing/database.js';
 import { CREW_DESCRIPTION_FIXTURES } from './support/crew-description-fixtures.js';
 
 let prisma: PrismaClient;
@@ -9,6 +9,27 @@ beforeAll(async () => { prisma = createPrismaClient(await createMigratedDatabase
 afterAll(async () => { await prisma.$disconnect(); });
 
 describe('crew description in PostgreSQL', () => {
+  it('enables both trusted search extensions with a non-superuser migration role holding database CREATE', async () => {
+    // Given supported Postgres 16 with a database owner granting migration CREATE.
+    const database = createPrismaClient(await createEmptyDatabase());
+    try {
+      await database.$executeRaw`CREATE ROLE person_read_migrator`;
+      await database.$executeRaw`DO $$ BEGIN EXECUTE format('GRANT CREATE ON DATABASE %I TO person_read_migrator', current_database()); END $$`;
+      // When the ordinary migration role installs the extensions, without superuser.
+      const extensions = await database.$transaction(async (tx) => {
+        await tx.$executeRaw`SET LOCAL ROLE person_read_migrator`;
+        await tx.$executeRaw`CREATE EXTENSION pg_trgm`;
+        await tx.$executeRaw`CREATE EXTENSION btree_gin`;
+        return tx.$queryRaw<{ name: string; isTrusted: boolean; isSuperuser: boolean }[]>`
+          SELECT extension.name, extension.trusted AS "isTrusted", role.rolsuper AS "isSuperuser"
+          FROM pg_available_extension_versions extension JOIN pg_roles role ON role.rolname = current_user
+          WHERE extension.name IN ('pg_trgm', 'btree_gin') AND extension.installed ORDER BY extension.name`;
+      });
+      // Then package availability and trusted installation need no elevated role.
+      expect(extensions).toEqual([{ name: 'btree_gin', isTrusted: true, isSuperuser: false }, { name: 'pg_trgm', isTrusted: true, isSuperuser: false }]);
+    } finally { await database.$disconnect(); }
+  });
+
   it.each(CREW_DESCRIPTION_FIXTURES)('projects only the authorized first sentence of %j', async (summary, expected) => {
     // Given the same approved summary examples as the pure domain helper.
     const statement = summary === null ? null : JSON.stringify({ summary });

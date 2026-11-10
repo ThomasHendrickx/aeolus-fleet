@@ -4,9 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createPrismaClientTellingStatements, type PrismaClient } from '../src/adapters/prisma/client.js';
 import { Prisma } from '../src/adapters/prisma/generated/client.js';
 import { createPrismaPersonReadUnitOfWork } from '../src/adapters/prisma/person-read-unit-of-work.js';
-import { personShipPageStatement } from '../src/adapters/prisma/person-ship-page.js';
 import { createPrismaPersonShipReadTx } from '../src/adapters/prisma/person-ship-reads.js';
-import { personShipReportsStatement } from '../src/adapters/prisma/person-ship-reports.js';
 import type { PersonShipReadTx } from '../src/domain/registry/person-ship-reads.js';
 import { unwrap } from '../src/testing/result.js';
 import { aPersonReadFleet, personReadsOf } from './support/person-read-postgres.js';
@@ -21,8 +19,12 @@ let core: PostgresCore;
 let fleet: Awaited<ReturnType<typeof aPersonReadFleet>>;
 let measured: PrismaClient;
 let statements: string[] = [];
-let projections: Prisma.Sql[] = [];
+let projectionCount = 0;
+let readStatements: Prisma.Sql[] = [];
 let reportIds: readonly ShipId[] = [];
+let phases: Partial<Record<string, number>> = {};
+let factsEndedAt = 0;
+let projectionSentAt = 0;
 let reads: ReturnType<typeof personReadsOf>;
 
 beforeAll(async () => {
@@ -44,6 +46,7 @@ beforeAll(async () => {
     FROM (VALUES ('0', ${fleet.fleetId}, NULL::timestamptz, ${SHIPS}),
                  ('1', ${fleet.fleetId}, now(), 30000), ('2', ${other.fleetId}, NULL::timestamptz, 30000)) seed(prefix, tenant, ended, size)
     CROSS JOIN LATERAL generate_series(1, size) i`;
+  await core.prisma.$executeRaw`INSERT INTO declared_network_rules (fleet_id, ship_id, rules) SELECT ${other.fleetId}, id, '[]'::jsonb FROM ships WHERE fleet_id = ${other.fleetId} AND id LIKE 'shp_2%'`;
   // Each declarer owns a label with forty legitimate values and twenty pairs.
   await core.prisma.$executeRaw`
     INSERT INTO labels (id, fleet_id, key, owner_ship_id)
@@ -60,6 +63,11 @@ beforeAll(async () => {
     INSERT INTO events (id, fleet_id, type, occurred_at, actor_kind, actor_ship_id, details, seq)
     SELECT 'evt_0' || lpad(i::text, 25, '0'), ${fleet.fleetId}, CASE WHEN i % 10 = 0 THEN 'MessageAccepted' ELSE 'ReportUpdated' END,
            now(), 'ship', 'shp_0' || lpad(((i - 1) % ${SHIPS} + 1)::text, 25, '0'), '{}', i + 1000000 FROM generate_series(1, 100000) i`;
+  await core.prisma.$executeRaw`
+    INSERT INTO alerts (id, fleet_id, ship_id, signal, occurrence_key, facts, since, raised_at, cleared_at)
+    SELECT 'alt_0' || lpad(i::text, 25, '0'), ${fleet.fleetId}, 'shp_0' || lpad(((i - 1) % ${SHIPS} + 1)::text, 25, '0'),
+           'report', 'occurrence-' || i, '{}', now(), now(), CASE WHEN i <= 300 THEN NULL ELSE now() END
+    FROM generate_series(1, 30000) i`;
   const send = await fleet.label('sendable');
   await core.prisma.$executeRaw`
     INSERT INTO ship_labels (fleet_id, ship_id, label_id, value_id)
@@ -67,15 +75,20 @@ beforeAll(async () => {
     WHERE s.fleet_id = ${fleet.fleetId} AND s.id LIKE 'shp_0%' AND s.name <= 'common-01500' AND s.retired_at IS NULL`;
   await fleet.setRules([{ verb: 'send', from: [], to: [send] }]);
   await core.prisma.$executeRaw`ANALYZE`;
+  resetMeasuredReads();
+}, 120000);
+
+function resetMeasuredReads(): void {
   measured = createPrismaClientTellingStatements(core.databaseUrl, (statement) => { statements.push(statement); });
   reads = personReadsOf(createPrismaPersonReadUnitOfWork({ prisma: measured, portsOf: (connection): PersonShipReadTx => {
-    const tx = createPrismaPersonShipReadTx({ connection, onStatement: (statement) => { statements.push(statement); } });
-    return { facts: tx.facts, projection: {
-      page: (fleetId, read) => { projections.push(personShipPageStatement(fleetId, read)); return tx.projection.page(fleetId, read); },
-      reports: (fleetId, read) => { reportIds = read.shipIds; projections.push(personShipReportsStatement(fleetId, read)); return tx.projection.reports(fleetId, read); },
+    const tx = createPrismaPersonShipReadTx({ connection, onQuery: (statement) => { readStatements.push(statement); }, onStatement: (statement) => { statements.push(statement); projectionSentAt = performance.now(); } });
+    return { facts: { find: async (caller, read) => { const start = performance.now(); const facts = await tx.facts.find(caller, read); factsEndedAt = performance.now(); phases.facts = factsEndedAt - start; return facts; } }, projection: {
+      page: async (fleetId, read) => { const start = performance.now(); phases.compiler = start - factsEndedAt; projectionCount += 1; const page = await tx.projection.page(fleetId, read); phases.pageRender = projectionSentAt - start; phases.pageQuery = performance.now() - projectionSentAt; return page; },
+      selectedReports: async (fleetId, selected) => { const start = performance.now(); reportIds = selected.map(({ row }) => row.shipId); projectionCount += 1; const reports = await tx.projection.selectedReports(fleetId, selected); phases.reportRender = projectionSentAt - start; phases.reportQuery = performance.now() - projectionSentAt; return reports; },
+      reports: async (fleetId, read) => { const start = performance.now(); phases.compiler ??= start - factsEndedAt; reportIds = read.shipIds; projectionCount += 1; const reports = await tx.projection.reports(fleetId, read); phases.reportRender = projectionSentAt - start; phases.reportQuery = performance.now() - projectionSentAt; return reports; },
     } };
   } }));
-}, 120000);
+}
 
 afterAll(async () => { await measured.$disconnect(); await core.close(); });
 
@@ -115,14 +128,16 @@ describe('bounded person reads with 3000 seeded active ships, retained history a
     const shapes = [
       { name: 'blank', search: '', isDeep: false }, { name: 'one-character', search: 'm', isDeep: false },
       { name: 'two-character', search: 'om', isDeep: false }, { name: 'selective-trigram', search: 'Needle', isDeep: false },
-      { name: 'common-trigram', search: 'Common', isDeep: false }, { name: 'deep', search: '', isDeep: true },
+      { name: 'common-trigram', search: 'Common', isDeep: false }, { name: 'selective-name', search: '02800', isDeep: false },
+      { name: 'no-match', search: 'absent-needle', isDeep: false }, { name: 'deep', search: '', isDeep: true },
+      { name: 'deep-search', search: 'common', isDeep: true },
       { name: 'refresh', search: '', isDeep: false },
     ];
     for (const section of ['discovery', 'readableContext'] as const) {
       for (const shape of shapes) {
         const input = shape.name === 'refresh' ? { shipIds: ids } : pageInput(section, shape);
         const operation = () => section === 'discovery' ? reads.discoveryPage(fleet.person.crew, input) : reads.readableContextShips(fleet.account(), input);
-        await prove({ name: `${section}/${shape.name}`, isDense }, async () => { const page = unwrap(await operation()); expect(page.rows.length).toBeLessThanOrEqual(20); });
+        await prove({ name: `${section}/${shape.name}`, isDense }, async () => { const page = unwrap(await operation()); expect(page.rows.length).toBeLessThanOrEqual(20); expect(reportIds).toEqual(section === 'readableContext' ? page.rows.map(({ shipId }) => shipId) : []); });
       }
     }
     await prove({ name: 'shipReports/20', isDense }, async () => { expect(unwrap(await reads.shipReports(fleet.account(), { shipIds: ids })).rows.map((row) => row.shipId)).toEqual(ids); });
@@ -131,37 +146,60 @@ describe('bounded person reads with 3000 seeded active ships, retained history a
 
 async function prove(shape: { name: string; isDense: boolean }, operation: () => Promise<void>): Promise<void> {
   const { name, isDense } = shape;
+  // Cold means a new client/pool; database pages and process code may be warm.
+  // Every sample reloads rights and recompiles its plan without a permission cache.
+  await measured.$disconnect();
+  resetMeasuredReads();
   const times: number[] = [];
   const counts: number[] = [];
-  // First sample includes an initially unprepared operation; no permission cache exists.
+  const phaseSamples: Record<string, number[]> = {};
+  // First sample includes new-pool connection/adapter overhead; the next 30 reuse that pool.
   for (let sample = 0; sample <= SAMPLES; sample += 1) {
-    statements = []; projections = []; reportIds = [];
+    statements = []; projectionCount = 0; reportIds = []; phases = {}; readStatements = [];
     const start = performance.now();
     await operation();
     times.push(performance.now() - start);
+    if (sample > 0) { for (const [phase, milliseconds] of Object.entries(phases)) { if (milliseconds !== undefined) { (phaseSamples[phase] ??= []).push(milliseconds); } } }
     counts.push(statements.length);
     expect(reportIds.length).toBeLessThanOrEqual(20);
-    expect(projections.length).toBeLessThanOrEqual(name.startsWith('readableContext') ? 2 : 1);
+    expect(projectionCount).toBeLessThanOrEqual(name.startsWith('readableContext') ? 2 : 1);
     expect(statements.some((statement) => /FROM\s+messages\b/i.test(statement))).toBe(false);
     expect(statements.length).toBeLessThanOrEqual(14);
   }
   // When each actual projection shape is explained, including permission parameters.
   const plans: unknown[] = [];
-  for (const statement of projections) {
+  for (const statement of readStatements) {
+    const isProjection = statement.text.includes('AS "shipId"') && !statement.text.includes('jsonb_path_query_array');
     const [row] = await core.prisma.$queryRaw<{ 'QUERY PLAN': unknown }[]>(Prisma.sql`EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) ${statement}`);
     const plan = row?.['QUERY PLAN'];
-    plans.push(plan);
+    plans.push(nodes(plan).map((node) => Object.fromEntries([...node].filter(([, value]) => typeof value !== 'object').map(([key, value]) => [key, typeof value === 'string' && value.length > 512 ? `${value.slice(0, 512)} [${String(value.length)} characters]` : value]))));
     // Then history is reached only by indexed fleet/ship probes, never a full scan.
     for (const node of nodes(plan)) {
-      if (['ships', 'leases', 'events', 'alerts', 'ship_labels'].includes(String(node.get('Relation Name')))) {
-        expect(node.get('Node Type'), `${name}: ${JSON.stringify(Object.fromEntries(node))}`).not.toBe('Seq Scan');
+      if (['ships', 'leases', 'events', 'alerts', 'ship_labels', 'declared_network_rules'].includes(String(node.get('Relation Name')))) {
+        expect.soft(node.get('Node Type'), `${name}: ${JSON.stringify(Object.fromEntries(node))}`).not.toBe('Seq Scan');
+      }
+      if (isProjection && name.endsWith('/refresh') && node.get('Relation Name') === 'ships') {
+        expect.soft(Number(node.get('Actual Rows')) * Number(node.get('Actual Loops')), `${name}: only concerned ship probes`).toBeLessThanOrEqual(20);
+      }
+      if (['ships_person_name_search_idx', 'leases_crew_description_search_idx'].includes(String(node.get('Index Name')))) {
+        expect.soft(name.endsWith('/refresh'), 'refresh uses primary keys instead of fleet search').toBe(false);
+        expect.soft(Number(node.get('Actual Rows')), `${name}: trigram candidates stay fleet-bounded`).toBeLessThanOrEqual(SHIPS);
+      }
+      if (isProjection && node.get('Relation Name') === 'ship_labels' && Number(node.get('Actual Loops')) > 0) {
+        expect.soft(String(node.get('Index Cond')), `${name}: labels stay correlated to one candidate`).toContain('ship_id = s.id');
+        expect.soft(Number(node.get('Actual Rows'))).toBeLessThanOrEqual(3);
+      }
+      if (node.get('Relation Name') === 'alerts' && Number(node.get('Actual Loops')) > 0) {
+        expect.soft(String(node.get('Index Cond')), `${name}: alerts stay limited to requested ships`).toContain('ship_id = s.id');
+        expect.soft(Number(node.get('Actual Loops'))).toBeLessThanOrEqual(20);
+        expect.soft(Number(node.get('Actual Rows'))).toBeLessThanOrEqual(1);
       }
       if (node.get('Relation Name') === 'events') {
-        expect(node.get('Index Name')).toBe('events_person_activity_idx');
-        expect(Number(node.get('Actual Loops'))).toBeLessThanOrEqual(20);
+        expect.soft(node.get('Index Name')).toBe('events_person_activity_idx');
+        expect.soft(Number(node.get('Actual Loops'))).toBeLessThanOrEqual(20);
       }
       expect(node.get('Relation Name')).not.toBe('messages');
     }
   }
-  console.info(JSON.stringify({ proof: 'bounded-core-only', name, isDense, seededActive: SHIPS, rules: isDense ? 60000 : 600, samples: SAMPLES, firstMs: times[0], p95Ms: percentile(times.slice(1), .95), p99Ms: percentile(times.slice(1), .99), errors: 0, queries: [...new Set(counts)], plans }));
+  console.info(JSON.stringify({ proof: 'bounded-core-only', name, isDense, seededActive: SHIPS, rules: isDense ? 60000 : 600, samples: SAMPLES, coldPoolMs: times[0], databaseCache: 'warm after seed/analyze', p95Ms: percentile(times.slice(1), .95), p99Ms: percentile(times.slice(1), .99), errors: 0, queries: [...new Set(counts)], phasesP95: Object.fromEntries(Object.entries(phaseSamples).map(([phase, values]) => [phase, percentile(values, .95)])), plans }));
 }

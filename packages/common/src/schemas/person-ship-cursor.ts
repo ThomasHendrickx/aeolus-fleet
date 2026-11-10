@@ -28,7 +28,7 @@ function base64url(binary: string): string {
 
 export function personShipCursorOf(record: PersonShipCursorRecord): string {
   const bytes = new TextEncoder().encode(JSON.stringify(record));
-  return base64url(String.fromCharCode(...bytes));
+  return base64url(Array.from(bytes, (byte) => String.fromCharCode(byte)).join(''));
 }
 
 /** Invalid encodings and unknown record fields never provide a continuation key. */

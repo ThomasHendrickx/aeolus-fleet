@@ -1,4 +1,6 @@
-/** Parameterized predicates against candidate s, with label-indexed rule data. */
+/** Parameterized predicates against candidate s, with label-indexed rule data.
+ * OFFSET 0 keeps simple EXISTS correlated, preventing global hashed label scans.
+ */
 import type { PersonPermissionPlan, PersonPermissionTerm } from '../../domain/registry/person-permission.js';
 import { Prisma } from './generated/client.js';
 
@@ -8,10 +10,10 @@ export function personPermissionSql(plan: PersonPermissionPlan): Prisma.Sql {
   }
   const branches = plan.anyOf.map((terms) => Prisma.sql`(${Prisma.join(terms.map(termSql), ' AND ')})`);
   if (plan.valueIds.length > 0) {
-    branches.push(Prisma.sql`EXISTS (SELECT 1 FROM ship_labels sl WHERE sl.fleet_id = s.fleet_id AND sl.ship_id = s.id AND sl.value_id = ANY(${[...plan.valueIds]}::text[]))`);
+    branches.push(Prisma.sql`EXISTS (SELECT 1 FROM ship_labels sl WHERE sl.fleet_id = s.fleet_id AND sl.ship_id = s.id AND sl.value_id = ANY(${[...plan.valueIds]}::text[]) OFFSET 0)`);
   }
   if (plan.labelIds.length > 0) {
-    branches.push(Prisma.sql`EXISTS (SELECT 1 FROM ship_labels sl WHERE sl.fleet_id = s.fleet_id AND sl.ship_id = s.id AND sl.label_id = ANY(${[...plan.labelIds]}::text[]))`);
+    branches.push(Prisma.sql`EXISTS (SELECT 1 FROM ship_labels sl WHERE sl.fleet_id = s.fleet_id AND sl.ship_id = s.id AND sl.label_id = ANY(${[...plan.labelIds]}::text[]) OFFSET 0)`);
   }
   if (plan.valuePairs.size > 0) {
     const pairs = JSON.stringify(Object.fromEntries(plan.valuePairs));
@@ -63,9 +65,9 @@ function indexedClauses(plan: PersonPermissionPlan): Prisma.Sql {
 function termSql(term: PersonPermissionTerm): Prisma.Sql {
   switch (term.kind) {
     case 'value':
-      return Prisma.sql`EXISTS (SELECT 1 FROM ship_labels sl WHERE sl.fleet_id = s.fleet_id AND sl.ship_id = s.id AND sl.value_id = ${term.valueId})`;
+      return Prisma.sql`EXISTS (SELECT 1 FROM ship_labels sl WHERE sl.fleet_id = s.fleet_id AND sl.ship_id = s.id AND sl.value_id = ${term.valueId} OFFSET 0)`;
     case 'label':
-      return Prisma.sql`EXISTS (SELECT 1 FROM ship_labels sl WHERE sl.fleet_id = s.fleet_id AND sl.ship_id = s.id AND sl.label_id = ${term.labelId} ${term.valueIds === null ? Prisma.empty : Prisma.sql`AND sl.value_id = ANY(${[...term.valueIds]}::text[])`})`;
+      return Prisma.sql`EXISTS (SELECT 1 FROM ship_labels sl WHERE sl.fleet_id = s.fleet_id AND sl.ship_id = s.id AND sl.label_id = ${term.labelId} ${term.valueIds === null ? Prisma.empty : Prisma.sql`AND sl.value_id = ANY(${[...term.valueIds]}::text[])`} OFFSET 0)`;
     case 'owner':
       return term.shipId === null ? Prisma.sql`s.owner_ship_id IS NOT NULL` : Prisma.sql`COALESCE(s.owner_ship_id = ${term.shipId}, false)`;
     case 'ship':

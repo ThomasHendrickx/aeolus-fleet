@@ -18,14 +18,14 @@ import { afterPosition, isInReachOfShip, orderOfPage, shipFilterCondition, shipP
 
 /**
  * The state of the ship `s` of the outer query, with `l` its open lease,
- * first match wins: an open alert, awaiting crew (no open lease; argo is
+ * first match wins: an open alert, awaiting crew (no open lease; argo and the viewer are
  * always crewed), a blocked report, a working report, else idle.
  */
-function harbourStateOfShip(hasOpenAlert: Prisma.Sql): Prisma.Sql {
+export function harbourStateOfShip(hasOpenAlert: Prisma.Sql): Prisma.Sql {
   return Prisma.sql`
     CASE
       WHEN ${hasOpenAlert} THEN 'alert'
-      WHEN l.id IS NULL AND s.kind <> 'operator' THEN 'awaitingCrew'
+      WHEN l.id IS NULL AND s.kind NOT IN ('operator', 'viewer') THEN 'awaitingCrew'
       WHEN l.report_state = 'blocked' THEN 'blocked'
       WHEN l.report_state = 'working' THEN 'working'
       ELSE 'idle'

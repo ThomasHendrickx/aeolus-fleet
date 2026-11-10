@@ -1,7 +1,7 @@
 import { accountIdSchema, idSchema, type FleetId, type ScopeName, type ShipId, type ShipKind } from '@aeolus-fleet/common';
 import { harbourStateOf } from '@aeolus-fleet/common/rules';
 
-import type { PersonPermissionPlan, PersonPermissionTerm } from '../../src/domain/registry/person-permission.js';
+import { personPermissionPlan, type PersonPermissionPlan, type PersonPermissionTerm } from '../../src/domain/registry/person-permission.js';
 import type { PersonShipPageRead, PersonShipReadTx } from '../../src/domain/registry/person-ship-reads.js';
 import { crewDescription } from '../../src/domain/registry/crew-description.js';
 import type { PersonReadUnitOfWork } from '../../src/domain/registry/person-read-unit-of-work.js';
@@ -56,9 +56,9 @@ function reaches(plan: PersonPermissionPlan, ship: PersonReadShipFixture): boole
   };
   return plan.isEvery || plan.anyOf.some((clause) => clause.every(termHolds))
     || ship.labels.some((label) => plan.valueIds.includes(label.valueId) || plan.labelIds.includes(label.labelId)
-      || plan.valuePairs.get(label.valueId)?.some((other) => ship.labels.some((carried) => carried.valueId === other))
-      || plan.byValue.get(label.valueId)?.some((clause) => clause.every(termHolds))
-      || plan.byLabel.get(label.labelId)?.some((clause) => clause.every(termHolds)));
+      || plan.valuePairs.get(label.valueId)?.some((other) => ship.labels.some((carried) => carried.valueId === other)) === true
+      || plan.byValue.get(label.valueId)?.some((clause) => clause.every(termHolds)) === true
+      || plan.byLabel.get(label.labelId)?.some((clause) => clause.every(termHolds)) === true);
 }
 
 export class PersonReadMemory {
@@ -98,35 +98,36 @@ export class PersonReadMemory {
 
   readonly tx: PersonShipReadTx = {
     facts: {
-      find: async (caller: Caller) => {
+      find: (caller: Caller) => {
         const associatedId = caller.kind === 'account' ? caller.personShipId : isShipCaller(caller) ? caller.shipId : null;
         const stored = this.ships.find((ship) => ship.fleetId === caller.fleetId && ship.id === associatedId);
         const associated = stored?.isActive === true ? stored : undefined;
         const reader = caller.kind === 'account' ? { kind: 'account' as const, personShipId: stored?.id ?? null, labels: [] }
           : caller.kind === 'installation' ? { kind: 'installation' as const } : associated === undefined ? null : this.reaching(associated);
-        return { reader, scopes: isShipCaller(caller) ? associated?.scopes ?? [] : caller.scopes,
+        return Promise.resolve({ reader, scopes: isShipCaller(caller) ? associated?.scopes ?? [] : caller.scopes,
           sender: associated === undefined ? null : { ship: this.reaching(associated), scopes: associated.scopes },
           isCrewActive: isCrew(caller) && associated?.isCrewed === true,
-          rules: rulesInForce({ rules: this.rules, isViewerReadOn: true }, []) };
+          rules: rulesInForce({ rules: this.rules, isViewerReadOn: true }, []) });
       },
     },
     projection: {
-      page: async (fleetId, page) => this.ships.filter((ship) => ship.fleetId === fleetId && ship.isActive && this.isSelected(ship, page))
+      page: (fleetId, page) => Promise.resolve(this.ships.filter((ship) => ship.fleetId === fleetId && ship.isActive && this.isSelected(ship, page))
         .map((ship) => ({ row: { shipId: ship.id, name: ship.name, kind: ship.kind, description: crewDescription(ship.isCrewed && ship.summary !== null ? { summary: ship.summary } : null) }, position: { name: ship.name.toLowerCase(), shipId: ship.id } }))
         .sort((first, second) => first.position.name < second.position.name ? -1 : first.position.name > second.position.name ? 1 : first.position.shipId < second.position.shipId ? -1 : 1)
-        .slice(0, page.shipIds === undefined ? 21 : 20),
-      reports: async (fleetId, read) => {
+        .slice(0, page.shipIds === undefined ? 21 : 20)),
+      selectedReports: (fleetId, selected) => this.tx.projection.reports(fleetId, { permission: personPermissionPlan({ isOpen: true, isViewerReadOn: true, rules: [], declared: [] }, { subject: { kind: 'installation' }, verb: 'read' }), shipIds: selected.map(({ row }) => row.shipId) }),
+      reports: (fleetId, read) => {
         if (this.hasReportFailure || read.shipIds.length === 0 || read.shipIds.length > 20 || read.shipIds.some((id) => this.forbiddenReportIds.has(id))) {
-          throw new Error('The report projection must receive only concerned loaded ids');
+          return Promise.reject(new Error('The report projection must receive only concerned loaded ids'));
         }
-        return { rows: read.shipIds.map((shipId) => {
+        return Promise.resolve({ rows: read.shipIds.map((shipId) => {
           const ship = this.active(fleetId, shipId);
           if (ship === undefined || !reaches(read.permission, ship)) {
             return { shipId, report: { status: 'unavailable' as const } };
           }
           const isCrewed = ship.kind === 'operator' || ship.kind === 'viewer' || ship.isCrewed;
           return { shipId, report: { status: 'read' as const, state: harbourStateOf({ status: isCrewed ? 'crewed' : 'awaitingCrew', reportState: ship.reportState, hasOpenAlert: ship.hasOpenAlert }), note: ship.isCrewed ? ship.note : null, lastActivityAt: ship.lastActivityAt } };
-        }) };
+        }) });
       },
     },
   };

@@ -18,7 +18,7 @@ export function personReadsOf(uow: PersonReadUnitOfWork<PersonShipReadTx>) {
   return { discoveryPage: createDiscoveryPage({ uow }), shipReports: createReadShipReports({ uow }), readableContextShips: createReadableContextShips({ uow }) };
 }
 
-export function personReadUow(core: PostgresCore): PersonReadUnitOfWork<PersonShipReadTx> {
+export function personReadUnitOfWork(core: PostgresCore): PersonReadUnitOfWork<PersonShipReadTx> {
   return createPrismaPersonReadUnitOfWork({ prisma: core.prisma, portsOf: (connection) => createPrismaPersonShipReadTx({ connection, onStatement: prismaPoolOf(core.prisma).onStatement }) });
 }
 
@@ -49,5 +49,5 @@ export async function aPersonReadFleet(core: PostgresCore) {
     }
     return value.id;
   };
-  return { fleetId, argo, person, account, commission, crew, setRules, label, reads: personReadsOf(personReadUow(core)) };
+  return { fleetId, argo, person, account, commission, crew, setRules, label, reads: personReadsOf(personReadUnitOfWork(core)) };
 }

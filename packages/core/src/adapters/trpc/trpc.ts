@@ -165,6 +165,7 @@ const ERROR_CODES: Record<DomainErrorKind, TRPCError['code']> = {
   INVALID_LABEL_KEY: 'BAD_REQUEST',
   INVALID_LABEL_VALUE: 'BAD_REQUEST',
   INVALID_LABEL_VALUES: 'BAD_REQUEST',
+  INVALID_CURSOR: 'BAD_REQUEST',
   INVALID_LIMIT: 'BAD_REQUEST',
   INVALID_LOCATION: 'BAD_REQUEST',
   INVALID_NETWORK_RULES: 'BAD_REQUEST',
@@ -693,12 +694,13 @@ export function scopedCrewProcedure(scope: Scope) {
  * the request, and are checked before any use case runs, the same way for a
  * ship, an account or the installation.
  */
-export function actorScopedProcedure(scope: Scope) {
-  return (scope === 'fleet:read' ? readingProcedure : actorProcedure).use(async ({ ctx, next }) => {
+export function actorScopedProcedure(scope: Scope, options: { shouldReadOnBehalf?: boolean } = {}) {
+  const shouldReadOnBehalf = scope === 'fleet:read' && options.shouldReadOnBehalf !== false;
+  return (shouldReadOnBehalf ? readingProcedure : actorProcedure).use(async ({ ctx, next }) => {
     if (!hasScope(ctx.caller, scope)) {
       throw new TRPCError({ code: 'FORBIDDEN', message: `This call needs the ${scope} scope` });
     }
-    return next({ ctx: { caller: await readerOf(ctx, ctx.caller) } });
+    return next({ ctx: { caller: shouldReadOnBehalf ? await readerOf(ctx, ctx.caller) : ctx.caller } });
   });
 }
 
