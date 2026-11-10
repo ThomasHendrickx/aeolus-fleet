@@ -299,6 +299,22 @@ export const ReplaceValue: Story = {
   },
 };
 export const RemoveSecret: Story = { args: { frame: 'removeSecret' } };
-export const Phone: Story = { globals: { viewport: { value: 'mobile1' } } };
-export const Desktop1440: Story = { parameters: { viewport: { defaultViewport: 'desktop1440' } } };
+/** The drawn space between the Trierarchs tabs and what they show, 16 px at every width. */
+async function expectContentBelowTabs(canvas: Parameters<NonNullable<Story['play']>>[0]['canvas']) {
+  const tabs = canvas.getByRole('tablist', { name: 'Trierarchs sections' }).getBoundingClientRect();
+  const version = canvas.getByText('Version 7').getBoundingClientRect();
+  await expect(version.top - tabs.bottom).toBe(16);
+}
+export const Phone: Story = {
+  globals: { viewport: { value: 'mobile1' } },
+  play: async ({ canvas }) => {
+    await expectContentBelowTabs(canvas);
+  },
+};
+export const Desktop1440: Story = {
+  parameters: { viewport: { defaultViewport: 'desktop1440' } },
+  play: async ({ canvas }) => {
+    await expectContentBelowTabs(canvas);
+  },
+};
 export const Desktop1920: Story = { parameters: { viewport: { defaultViewport: 'desktop1920' } } };
