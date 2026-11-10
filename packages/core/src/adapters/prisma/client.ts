@@ -1,4 +1,5 @@
 import { PrismaPg } from '@prisma/adapter-pg';
+import { Pool } from 'pg';
 
 import { PrismaClient, type Prisma } from './generated/client.js';
 
@@ -18,7 +19,7 @@ const CONNECTION_WAIT_MS = 10_000;
  * How long a call's transaction may run before Prisma rolls it back; the
  * call is then refused as busy too (fleet-busy.ts).
  */
-const TRANSACTION_TIME_MS = 5_000;
+export const TRANSACTION_TIME_MS = 5_000;
 
 /**
  * How long a bulk operation's transaction may run instead: one whose work
@@ -27,12 +28,32 @@ const TRANSACTION_TIME_MS = 5_000;
  */
 export const BULK_TRANSACTION_TIME_MS = 30_000;
 
+interface ClientPool {
+  pool: Pool;
+  onStatement?: (statement: string) => void;
+}
+
+// Share one bounded pool and its shutdown with reads that must lock before BEGIN.
+const clientPools = new WeakMap<PrismaClient, ClientPool>();
+
+/** The existing client's pool, whose lifecycle remains Prisma's. */
+export function prismaPoolOf(client: PrismaClient): ClientPool {
+  const found = clientPools.get(client);
+  if (found === undefined) {
+    throw new Error('Person reads require a client from createPrismaClient');
+  }
+  return found;
+}
+
 /** Creates a Prisma client on a pg connection pool for the given database. */
 export function createPrismaClient(databaseUrl: string): PrismaClient {
-  return new PrismaClient({
-    adapter: new PrismaPg({ connectionString: databaseUrl, connectionTimeoutMillis: CONNECTION_WAIT_MS }),
+  const pool = new Pool({ connectionString: databaseUrl, connectionTimeoutMillis: CONNECTION_WAIT_MS });
+  const client = new PrismaClient({
+    adapter: new PrismaPg(pool, { disposeExternalPool: true }),
     transactionOptions: { maxWait: CONNECTION_WAIT_MS, timeout: TRANSACTION_TIME_MS },
   });
+  clientPools.set(client, { pool });
+  return client;
 }
 
 /**
@@ -41,11 +62,13 @@ export function createPrismaClient(databaseUrl: string): PrismaClient {
  * runs, which a time would not show without flaking.
  */
 export function createPrismaClientTellingStatements(databaseUrl: string, onStatement: (statement: string) => void): PrismaClient {
+  const pool = new Pool({ connectionString: databaseUrl, connectionTimeoutMillis: CONNECTION_WAIT_MS });
   const client = new PrismaClient({
-    adapter: new PrismaPg({ connectionString: databaseUrl, connectionTimeoutMillis: CONNECTION_WAIT_MS }),
+    adapter: new PrismaPg(pool, { disposeExternalPool: true }),
     transactionOptions: { maxWait: CONNECTION_WAIT_MS, timeout: TRANSACTION_TIME_MS },
     log: [{ emit: 'event', level: 'query' }],
   });
+  clientPools.set(client, { pool, onStatement });
   client.$on('query', (event) => {
     onStatement(event.query);
   });

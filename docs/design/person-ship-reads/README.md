@@ -147,7 +147,7 @@ The last key is the last returned row, not the look-ahead row. The database requ
 
 ### Permission plan
 
-A registry read port takes fleet, validated page position, normalized search and a domain permission plan. In the same read unit of work, load only the network settings, applied/declared rules, the authenticated actor's labels and associated ship scopes/labels. Never call `readReachOf`, `ships.list`, `listActive`, or full `discover` to supply a set of recipient ids. Read the fleet's and installation's declared rules by fleet; no recipient materialization in the domain or gateway.
+A registry read port takes fleet, validated page position, normalized search and a domain permission plan. In the same read unit of work, load only the network settings, applied/declared rules, the authenticated actor's labels and associated ship scopes/labels. Never call `readReachOf`, `ships.list`, `listActive`, or full `discover` to supply a set of recipient ids. Read the fleet's and installation's declared rules by fleet, filtering unrelated verbs before transfer: send for discovery, read for reports, both for context. Built-ins remain part of the domain plan. No recipient materialization in the domain or gateway.
 
 The plan retains domain selectors; the Prisma adapter renders parameterized SQL predicates. Before rendering, reject rules whose subject-side fixed terms cannot match, substitute the subject values into same-value terms, and deduplicate identical remaining candidate predicates. A matching rule with no candidate restriction collapses that verb to true. Do this for the fixed authenticated subjects, never by enumerating recipients. The scale run must include many declarers and verify planning time as well as execution time; a giant unbounded OR tree is not an acceptable implementation. Build one predicate per verb and subject. Built-ins are boolean branches equivalent to `reachRuleOf`; own and declared rules are OR branches; every selector's terms are AND branches. Account labels come only from verified token group values resolved against this fleet's label `group`; unknown group values match none. Owner terms see the account's person ship, as `selectedOf` already does.
 
@@ -160,7 +160,7 @@ The plan retains domain selectors; the Prisma adapter renders parameterized SQL 
 | Any owner | `s.owner_ship_id IS NOT NULL` |
 | Same owner `#` | Subject selected owner is non-null AND `s.owner_ship_id = $subjectOwner` |
 
-Subject-side exact/any terms are resolved from authenticated subject facts. Subject-side `#` also tests the candidate's matching label or owner; it cannot be pre-evaluated to true merely because the subject has some value. Render every permission predicate as a total boolean, using `COALESCE(predicate, false)` for nullable comparisons. In particular, exclusion is `NOT COALESCE(sendable, false)`, so a null owner never accidentally removes a readable ship. All SQL values are parameters; only fixed operators/column names come from the renderer.
+Subject-side exact/any terms are resolved from authenticated subject facts. Subject-side `#` also tests the candidate's matching label or owner; it cannot be pre-evaluated to true merely because the subject has some value. Render every permission predicate as a total boolean, using `COALESCE(predicate, false)` for nullable comparisons. In particular, exclusion is `NOT COALESCE(sendable, false)`, so a null owner never accidentally removes a readable ship. Keep simple label EXISTS correlated with `OFFSET 0`: PostgreSQL can otherwise replace them with a global hashed label scan. All SQL values are parameters; only fixed operators/column names come from the renderer.
 
 Send built-ins: operator sender or recipient; subject owns candidate; plugin sender or recipient; open. No answer exception without a reply. Read built-ins: operator reader, actor owns candidate, plugin reader, enabled viewer reader, open; ship readers also read themselves as `readReachOf` does. Reading argo is not an automatic recipient exception. Installation's manage-only rule does not become read/send permission. For this new account route the relevant subset is account owner/open/explicit read rules and the associated ship's send rules, but parity tests cover the shared renderer's branches.
 
@@ -175,30 +175,33 @@ The scalar expression is:
 ```sql
 CREATE FUNCTION crew_description(doc jsonb) RETURNS text
 LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
-  WITH trimmed AS (
+  WITH whitespace AS (
+    SELECT U&'\0009\000A\000B\000C\000D\0020\00A0\1680\2000\2001\2002\2003\2004\2005\2006\2007\2008\2009\200A\2028\2029\202F\205F\3000\FEFF' AS chars
+  ), trimmed AS (
     SELECT regexp_replace(COALESCE(doc->>'summary', ''),
-             '^[[:space:]]+|[[:space:]]+$', '', 'g') AS summary
+             '^[' || chars || ']+|[' || chars || ']+$', '', 'g') AS summary, chars
+    FROM whitespace
   )
   SELECT NULLIF(regexp_replace(
-           COALESCE(substring(summary FROM '^.*?[.!?](?:[[:space:]]|$)'), summary),
-           '[[:space:]]+$', '', 'g'), '')
+           COALESCE(substring(summary FROM '^.*?[.!?](?:[' || chars || ']|$)'), summary),
+           '[' || chars || ']+$', '', 'g'), '')
   FROM trimmed
 $$;
 ```
 
-The matched terminating whitespace is trimmed back off; punctuation is retained. Statement schema validation already guarantees summary is text. The implementation migration must verify the shared sentence fixtures against PostgreSQL, including a newline inside a sentence.
+Whitespace follows ECMAScript `trim` and `\s`, including NBSP, BOM and Unicode separators; PostgreSQL POSIX space classes differ. The matched terminating whitespace is trimmed back off; punctuation is retained. Statement schema validation already guarantees summary is text. The implementation migration must verify the shared sentence fixtures against PostgreSQL, including a newline inside a sentence.
 
-No description column, permission cache or parallel statement store is added. Expression indexes maintain derived search keys transactionally on statement writes; release removes the open-lease index entry automatically. Enable Postgres `pg_trgm` in the migration, then add:
+No description column, permission cache or parallel statement store is added. Expression indexes maintain derived search keys transactionally on statement writes; release removes the open-lease index entry automatically. Enable Postgres `pg_trgm` and `btree_gin` in the migration, then add:
 
 ```sql
 CREATE INDEX ships_person_page_idx
   ON ships (fleet_id, (lower(name)) COLLATE "C", id COLLATE "C")
   WHERE retired_at IS NULL AND removed_at IS NULL;
 CREATE INDEX ships_person_name_search_idx
-  ON ships USING gin ((lower(name)) gin_trgm_ops)
+  ON ships USING gin (fleet_id, (lower(name)) gin_trgm_ops)
   WHERE retired_at IS NULL AND removed_at IS NULL;
 CREATE INDEX leases_crew_description_search_idx
-  ON leases USING gin ((lower(crew_description(statement))) gin_trgm_ops)
+  ON leases USING gin (fleet_id, (lower(crew_description(statement))) gin_trgm_ops)
   WHERE ended_at IS NULL;
 CREATE INDEX leases_person_open_idx
   ON leases (fleet_id, ship_id) WHERE ended_at IS NULL;
@@ -211,7 +214,7 @@ CREATE INDEX events_person_activity_idx
 
 The existing `ships_listing_idx` sorts argo first and cannot serve this exact global name ordering. Existing ship-label primary key `(fleet_id, ship_id, value_id)` serves exact values; the new index also serves any/same-label probes. Reuse existing `(fleet_id, owner_ship_id)`, fleet-scoped ship keys, label/group lookup keys, rule-table fleet keys and `alerts_open_on_ship_idx`. The open-lease unique key already enforces one lease; the fleet-leading index keeps open-lease search bounded by fleet. The partial activity index avoids walking other event types at 10,000,000 retained messages. Do not add a messages-table scan.
 
-Trigram indexes are search accelerators, not permission stores. Because a GIN trigram index alone is not fleet-partitioned, combine it with the fleet's active/open index paths and verify plans with many fleets. For blank or fewer than three search characters use the fleet's active name-order index and candidate open-lease lookups: literal one/two-character substring search has no reliable trigram. It may inspect up to this fleet's 3,000 active index entries, but returns only a page. It must not scan global tables, ended leases, retired ships or history. Candidate evaluation in the database is not permission filtering after pagination.
+Trigram indexes are search accelerators, not permission stores. Each composite GIN index includes `fleet_id` through `btree_gin`, so common matches in other fleets do not enter its candidate bitmap. A single-column trigram index can make PostgreSQL ignore the separate fleet index for common search. Verify selective, common and no-match plans with many fleets, alongside the active/open index paths. For blank or fewer than three search characters use the fleet's active name-order index and candidate open-lease lookups: literal one/two-character substring search has no reliable trigram. It may inspect up to this fleet's 3,000 active index entries, but returns only a page. It must not scan global tables, ended leases, retired ships or history. Candidate evaluation in the database is not permission filtering after pagination.
 
 ### Paged queries
 
@@ -239,7 +242,7 @@ LIMIT 21;
 
 Generate separate first/continuation and blank/nonblank SQL shapes, omitting unused predicates rather than requiring PostgreSQL to plan generic `$blank`/`$first` branches. `$literal` escapes backslash, percent and underscore then wraps the normalized lower-case text in `%`. Case folding is PostgreSQL `lower` for both keys and search; `COLLATE "C"` supplies deterministic byte ordering of folded names and ids, matching the index. Do not use JavaScript locale sorting.
 
-For search with at least three characters, produce candidate ids from a UNION of fleet-scoped active name matches and open-lease description matches using the trigram indexes. Join candidates to active ships in the same fleet, then apply SENDABLE, cursor, exact literal-search recheck, order and LIMIT 21 as above. UNION removes duplicate name/description matches before the limit. Do not LIMIT either search branch before permissions/order. Every branch joins or constrains its fleet. The resulting page has the same semantics as the short-search query. The RowRefreshInput shape instead uses the fleet-scoped ship primary/unique key for its at most 20 ids, then the same permission and literal search predicates; it never runs either search over the whole fleet.
+For search with at least three characters, produce candidate ids from a UNION of fleet-scoped active name matches and open-lease description matches using the trigram indexes. Join candidates to active ships in the same fleet, then apply SENDABLE, cursor, exact literal-search recheck, order and LIMIT 21 as above. UNION removes duplicate name/description matches before the limit. Do not LIMIT either search branch before permissions/order. Every branch joins or constrains its fleet. The resulting page has the same semantics as the short-search query. The RowRefreshInput shape instead uses the fleet-scoped ship primary/unique key for its at most 20 ids, then the same permission and literal search predicates; it never runs either search over the whole fleet. A correlated lateral primary-key probe with `OFFSET 0` per concerned id prevents the optimizer from adding a whole-fleet bitmap to the refresh path.
 
 For readable context, use the same search shapes, replacing `SENDABLE(s)` with:
 
@@ -263,7 +266,7 @@ WHERE e.fleet_id = $fleet AND e.actor_ship_id = $ship
 ORDER BY e.seq DESC LIMIT 1;
 ```
 
-Use a LATERAL join for each selected ship through `events_person_activity_idx`, and `GREATEST` with the open lease's `activity_at`, exactly as Harbour does. Check open alerts through the existing partial per-ship index. A report row returns `status: read` plus state/note/time, even if note/time are null. Context reports remain in the same core snapshot as row authorization. A batch's distinct ids are the only report candidates, never the full fleet. Core performs look-ahead slicing only on at most 21 already authorized rows; it never slices a full collection.
+Use a LATERAL join for each selected ship through `events_person_activity_idx`, and `GREATEST` with the open lease's `activity_at`, exactly as Harbour does. Check open alerts through the existing partial per-ship index. A report row returns `status: read` plus state/note/time, even if note/time are null. Context reports remain in the same core snapshot as row authorization. A batch's distinct ids are the only report candidates, never the full fleet. Context enrichment takes only the selected row objects through an internal snapshot port; those rows already passed READABLE, so their enrichment need not compile or transfer the same predicate twice. Arbitrary requested report ids always pass the full current read predicate. Core performs look-ahead slicing only on at most 21 already authorized rows; it never slices a full collection.
 
 ## Acceptance and scale proof
 

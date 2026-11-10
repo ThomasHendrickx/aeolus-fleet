@@ -281,7 +281,7 @@ interface Selected {
   labels: readonly ReachingLabel[];
 }
 
-function selectedOf(actor: ReachingActor): Selected {
+export function selectedOf(actor: ReachingActor): Selected {
   if (actor.kind === 'account') {
     return { owner: actor.personShipId, labels: actor.labels };
   }
@@ -289,7 +289,7 @@ function selectedOf(actor: ReachingActor): Selected {
 }
 
 /** The ship the actor owns ships as: a ship itself, an account its person ship; the installation none. */
-function owningShipOf(actor: ReachingActor): ShipId | null {
+export function owningShipOf(actor: ReachingActor): ShipId | null {
   if (actor.kind === 'account') {
     return actor.personShipId;
   }

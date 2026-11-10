@@ -1,4 +1,6 @@
 import {
+  personShipPageInputSchema,
+  discoveryPageOutputSchema,
   ackInputSchema,
   askInputSchema,
   stepInputSchema,
@@ -875,6 +877,12 @@ export const shipRouter = router({
    * statement and verified facts (decisions 0047, 0059). Needs messages:send;
    * records nothing.
    */
+  discoveryPage: scopedCrewProcedure('messages:send')
+    .meta({ description: 'Needs messages:send and an existing crew. A page of 20 active direct destinations in current send reach, ordered by folded name then id, with nullable first-sentence crew descriptions. Search is a trimmed literal substring. A cursor binds this fleet, actor, association, section and search; current rights are checked again. For bounded refresh, shipIds names 1 to 20 distinct concerned ids instead of a cursor. No totals or implicit crew action.' })
+    .input(personShipPageInputSchema)
+    .output(discoveryPageOutputSchema)
+    .query(async ({ ctx, input }) => okOrThrow(await ctx.useCases.discoveryPage(ctx.crew, input))),
+
   discover: scopedProcedure('messages:send')
     .meta({
       description: [

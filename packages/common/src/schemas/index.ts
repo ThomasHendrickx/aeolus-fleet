@@ -43,3 +43,5 @@ export * from './system.js';
 export * from './verified-fact.js';
 
 export * from './message-task-access.js';
+export * from './person-ship-reads.js';
+export * from './person-ship-cursor.js';
