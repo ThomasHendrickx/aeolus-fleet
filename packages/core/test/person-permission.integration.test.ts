@@ -37,7 +37,8 @@ let prisma: PrismaClient;
 beforeAll(async () => { prisma = createPrismaClient(await createEmptyDatabase()); });
 afterAll(async () => { await prisma.$disconnect(); });
 
-async function reached(subject: ReachingActor, inForce: RulesInForce, verb: 'read' | 'send') {
+async function reached(subject: ReachingActor, read: { inForce: RulesInForce; verb: 'read' | 'send' }) {
+  const { inForce, verb } = read;
   const carried = candidates.flatMap((candidate) => candidate.labels.map((label) => Prisma.sql`(${fleetId}::text, ${candidate.id}::text, ${label.labelId}::text, ${label.valueId}::text)`));
   const ships = candidates.map((candidate) => Prisma.sql`(${fleetId}::text, ${candidate.id}::text, ${candidate.kind}::text, ${candidate.owner}::text)`);
   return prisma.$queryRaw<{ id: string }[]>(Prisma.sql`
@@ -59,7 +60,7 @@ describe('person read permission SQL parity', () => {
     for (const inForce of settings) {
       for (const subject of subjects) {
         // When Postgres evaluates the compiled plan without materialized reach ids.
-        const rows = await reached(subject, inForce, verb);
+        const rows = await reached(subject, { inForce, verb });
 
         // Then it agrees with the existing permission model, including self-read only.
         const expected = candidates.filter((recipient) => (verb === 'read' && 'id' in subject && subject.id === recipient.id)
