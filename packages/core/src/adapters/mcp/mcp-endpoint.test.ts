@@ -636,3 +636,71 @@ describe('a failure inside the MCP adapter, outside any procedure', () => {
     expect(logged).toMatchObject({ msg: 'request failed', reqId: answered.requestId, reason: 'Invalid URL' });
   });
 });
+
+describe('the ask, step and withdraw tools (docs/design/ask-and-step)', () => {
+  const MODEL = 'claude-opus-5-5';
+  const QUESTION_ID = '11111111-1111-4111-8111-111111111111';
+  const STEP_ID = '22222222-2222-4222-8222-222222222222';
+
+  function storedOf(messageId: unknown) {
+    const message = core.state.messages.find((stored) => stored.id === messageId);
+    return { payload: message?.payload, contentType: message?.contentType, recipients: core.state.deliveries.filter((delivery) => delivery.messageId === messageId).map((delivery) => delivery.recipient) };
+  }
+
+  it('ask: stores the question as JSON of the question content type, with one delivery to the ship named, and answers its message id', async () => {
+    await start();
+    const crewToken = crewedShip('scout');
+    const client = await connect();
+
+    const result = await callTool(client, {
+      name: 'ask',
+      arguments: {
+        crewToken,
+        selector: { kind: 'ship', name: 'argo' },
+        id: QUESTION_ID,
+        title: 'Merge "ship"?',
+        context: 'Line one\nLine two ⛵',
+        options: [{ key: 1, label: 'Merge', detail: 'Now' }, { key: 2, label: 'Wait', detail: '' }],
+        pick: { option: 1, why: 'CI is green' },
+        model: MODEL,
+        idempotencyKey: 'ask-1',
+      },
+    });
+
+    const { messageId } = z.object({ messageId: z.string() }).parse(result.structuredContent);
+    expect(storedOf(messageId)).toEqual({
+      payload: `{"id":"${QUESTION_ID}","title":"Merge \\"ship\\"?","context":"Line one\\nLine two ⛵","options":[{"key":1,"label":"Merge","detail":"Now"},{"key":2,"label":"Wait","detail":""}],"pick":{"option":1,"why":"CI is green"}}`,
+      contentType: 'application/vnd.aeolus.question+json',
+      recipients: [{ kind: 'ship', shipId: argoIdOf(core, fleetId) }],
+    });
+  });
+
+  it('withdraw: stores the existing step withdrawal for the ship named', async () => {
+    await start();
+    const crewToken = crewedShip('scout');
+    const client = await connect();
+
+    const result = await callTool(client, {
+      name: 'withdraw',
+      arguments: { crewToken, selector: { kind: 'ship', name: 'argo' }, target: { kind: 'step', stepId: STEP_ID }, model: MODEL, idempotencyKey: 'withdraw-1' },
+    });
+
+    const { messageId } = z.object({ messageId: z.string() }).parse(result.structuredContent);
+    expect(storedOf(messageId)).toMatchObject({ payload: `{"stepId":"${STEP_ID}"}`, contentType: 'application/vnd.aeolus.step-withdrawal+json' });
+  });
+
+  it('step: refuses a step without a title as a bad request naming the field, and sends nothing', async () => {
+    await start();
+    const crewToken = crewedShip('scout');
+    const client = await connect();
+
+    const text = await refusalText(client, {
+      name: 'step',
+      arguments: { crewToken, selector: { kind: 'ship', name: 'argo' }, id: STEP_ID, title: '', why: '', model: MODEL, idempotencyKey: 'step-1' },
+    });
+
+    expect(text).toMatch(/^BAD_REQUEST: /);
+    expect(text).toContain('at title');
+    expect(core.state.messages).toEqual([]);
+  });
+});
