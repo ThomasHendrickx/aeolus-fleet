@@ -1,14 +1,16 @@
 import { sessionCookieOf } from './plugin-call';
 import { trierarchPluginUrlFrom } from './trierarch-plugin-url';
+import { mcpAnswerSchemas } from './trierarch-plugin-mcp-schemas';
 
 /**
  * The trierarch plugin's MCP configuration procedures as a manager reaches
- * them from outside, with no page (fleet crew MCP design, section 4; #1732):
+ * them from the console (fleet crew MCP design, section 4; #1732, #1735):
  * `GET /api/trierarch-plugin/mcp.get` and `POST /api/trierarch-plugin/mcp.replace`.
  * The web app's server forwards only these two, with only the caller's console
  * sign-in cookies and the Origin it sent, never one made up, and for a
  * replacement its content type and body unchanged. The plugin checks the
- * session, scope and Origin, and its answer goes back as it is. The body holds
+ * session, scope and Origin, and its refusals go back as they are. Successful answers are parsed here
+ * and projected to metadata or a committed version, never secret values. The body holds
  * secret values: nothing here logs it or names it. A body over the plugin's own
  * limit is refused here, read no further than that.
  */
@@ -58,10 +60,19 @@ export async function forwardMcpCall(
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
     answerText = await answer.text();
+    if (answer.ok) {
+      const answerBody: unknown = JSON.parse(answerText);
+      const parsed = mcpAnswerSchemas[procedure].safeParse(answerBody);
+      if (!parsed.success) return Response.json(NO_ANSWER, { status: 502 });
+      answerText = JSON.stringify(parsed.data);
+    }
   } catch {
     return Response.json(NO_ANSWER, { status: 502 });
   }
-  return new Response(answerText, { status: answer.status, headers: { 'content-type': answer.headers.get('content-type') ?? 'application/json', 'cache-control': 'no-store' } });
+  return new Response(answerText, {
+    status: answer.status,
+    headers: { 'content-type': answer.headers.get('content-type') ?? 'application/json', 'cache-control': 'no-store' },
+  });
 }
 
 /** The request body as text, or tooLarge as soon as it passes the limit (leaving the loop cancels the rest), so an endless body is never held whole. */
