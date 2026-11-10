@@ -18,6 +18,7 @@ const kinds: ShipKind[] = ['operator', 'plugin', 'viewer', 'agent', 'person', 'a
 const candidates: ReachingShip[] = kinds.flatMap((kind, index) => [null, shipId(50), shipId(51)].map((owner, offset) => ({
   id: shipId(index * 3 + offset + 1), kind, owner, isOwnedByPerson: false, labels: offset === 0 ? [] : [labels[offset - 1]].filter((label) => label !== undefined),
 })));
+candidates.push({ id: shipId(70), kind: 'agent', owner: null, isOwnedByPerson: false, labels });
 const subjects: ReachingActor[] = [
   ...candidates,
   { kind: 'account', personShipId: shipId(50), labels },
@@ -32,6 +33,9 @@ const rules: NetworkRule[] = [
   { verb: 'read', from: [{ owner: '*' }], to: [{ owner: shipId(50) }] },
   { verb: 'send', from: [{ owner: shipId(50) }], to: [{ owner: '*' }, blue] },
   { verb: 'read', from: [{ labelId, value: '*' }], to: [blue] },
+  { verb: 'read', from: [red, { labelId, value: '#' }], to: [{ labelId, value: '#' }, blue] },
+  { verb: 'read', from: [{ labelId, value: '#' }, { owner: '#' }], to: [{ labelId, value: '#' }, { owner: '#' }] },
+  { verb: 'read', from: [], to: [] },
 ];
 let prisma: PrismaClient;
 beforeAll(async () => { prisma = createPrismaClient(await createEmptyDatabase()); });
@@ -56,6 +60,7 @@ describe('person read permission SQL parity', () => {
       { isOpen: false, isViewerReadOn: false, rules: [], declared: [] },
       ...rules.map((rule) => ({ isOpen: false, isViewerReadOn: false, rules: [rule], declared: [] })),
       { isOpen: false, isViewerReadOn: false, rules: [], declared: [{ fleetId, declarer: { kind: 'installation' }, rules }] },
+      { isOpen: false, isViewerReadOn: false, rules: [], declared: [{ fleetId, declarer: { kind: 'ship', shipId: shipId(100) }, rules }] },
     ];
     for (const inForce of settings) {
       for (const subject of subjects) {
@@ -69,4 +74,39 @@ describe('person read permission SQL parity', () => {
       }
     }
   });
+
+  it.each([false, true])('keeps SQL syntax bounded with 3000 declarers each holding 20 distinct rules, conjunctions=%s', async (hasConjunctions) => {
+    // Given the approved ship/rule density, with each declarer's own distinct values.
+    const settings = (count: number): RulesInForce => ({
+      isOpen: false,
+      isViewerReadOn: false,
+      rules: [],
+      declared: Array.from({ length: count }, (_, declarer) => ({
+        fleetId,
+        declarer: { kind: 'ship', shipId: shipId(1000 + declarer) },
+        rules: Array.from({ length: 20 }, (_, index): NetworkRule => {
+          const number = 1000 + (declarer * 20 + index) * 2;
+          const first = declarer === 0 && index === 0 ? red : idSchema('labelValue').parse(`lbv_${String(number).padStart(26, '0')}`);
+          const second = declarer === 0 && index === 0 ? blue : idSchema('labelValue').parse(`lbv_${String(number + 1).padStart(26, '0')}`);
+          return { verb: 'read', from: [], to: hasConjunctions ? [first, second] : [first] };
+        }),
+      })),
+    });
+    const subject: ReachingActor = { kind: 'installation' };
+    const small = personPermissionSql(personPermissionPlan(settings(1), { subject, verb: 'read' }));
+
+    // When a dense permission plan is rendered without enumerating recipient ids.
+    const dense = settings(3000);
+    const startedAt = performance.now();
+    const statement = personPermissionSql(personPermissionPlan(dense, { subject, verb: 'read' }));
+    const planningMs = performance.now() - startedAt;
+
+    // Then data grows as parameters, never as an unbounded SQL OR tree.
+    expect(statement.text.length).toBe(small.text.length);
+    expect(statement.values.length).toBe(small.values.length);
+    const rows = await reached(subject, { inForce: dense, verb: 'read' });
+    expect(rows.map(({ id }) => id)).toEqual(hasConjunctions ? [shipId(70)] : [shipId(2), shipId(5), shipId(8), shipId(11), shipId(14), shipId(17), shipId(70)]);
+    console.info({ declarers: 3000, rules: 60000, hasConjunctions, planningMs, sqlBytes: statement.text.length, parameters: statement.values.length });
+  });
+
 });

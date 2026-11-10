@@ -134,6 +134,7 @@ describe('person read snapshot and shared settings lock', () => {
 
     // When both the query and cleanup lose their backend.
     await expect(pending).rejects.toBeInstanceOf(Error);
+    expect(pid).toBeGreaterThan(0);
 
     // Then the backend holds no lock and a later read uses a working connection.
     expect(await locksOf(pid)).toEqual([{ count: 0 }]);

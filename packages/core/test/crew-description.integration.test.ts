@@ -19,4 +19,19 @@ describe('crew description in PostgreSQL', () => {
     // Then its punctuation, whitespace and null behavior match the approved examples.
     expect(rows).toEqual([{ description: expected }]);
   });
+
+  it('keeps activity time covering the ordered partial index rather than adding an ordering key', async () => {
+    // Given the approved activity lookup at retained-history scale.
+    // When PostgreSQL describes the committed index, independently of Prisma metadata.
+    const rows = await prisma.$queryRaw<{ keys: number; attributes: number; definition: string }[]>`
+      SELECT i.indnkeyatts::int AS keys, i.indnatts::int AS attributes,
+             pg_get_indexdef(i.indexrelid) AS definition
+      FROM pg_index i JOIN pg_class c ON c.oid = i.indexrelid
+      WHERE c.relname = 'events_person_activity_idx'`;
+
+    // Then only fleet, actor and sequence order the index; time is included for the projection.
+    expect(rows.map(({ keys, attributes }) => ({ keys, attributes }))).toEqual([{ keys: 3, attributes: 4 }]);
+    expect(rows[0]?.definition).toContain('INCLUDE (occurred_at)');
+  });
+
 });
