@@ -1,5 +1,6 @@
 import { once } from 'node:events';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
+import { z } from 'zod';
 
 /**
  * The trierarch plugin as the console meets it in the end-to-end tests:
@@ -14,6 +15,8 @@ export interface FakeTrierarchPlugin {
   url: string;
   /** The fleet's enabled models as the plugin holds them now. */
   enabledModels(): readonly string[];
+  mcpReads(): number;
+  mcpSaves(): number;
   stop(): Promise<void>;
 }
 
@@ -28,7 +31,13 @@ const MACHINE = {
   isSilent: false,
   report: null,
   details: {
-    harnesses: [{ harness: 'claude-code', options: { type: 'object', properties: { model: { enum: REPORTED_MODELS, default: REPORTED_MODELS[0] } }, additionalProperties: false }, flags: [] }],
+    harnesses: [
+      {
+        harness: 'claude-code',
+        options: { type: 'object', properties: { model: { enum: REPORTED_MODELS, default: REPORTED_MODELS[0] } }, additionalProperties: false },
+        flags: [],
+      },
+    ],
     workspaces: { repositories: ['aeolus-fleet'], folders: [] },
     caps: { ships: 4, running: 2 },
     kept: [],
@@ -56,6 +65,9 @@ function modelOf(input: unknown): string {
 
 export async function startFakeTrierarchPlugin(): Promise<FakeTrierarchPlugin> {
   const enabled = new Set<string>();
+  let mcpReads = 0;
+  let mcpSaves = 0;
+  let mcp: { version: number; servers: unknown[]; secrets: string[] } = { version: 7, servers: [], secrets: [] };
   const server = createServer((request, response) => {
     void (async () => {
       const path = new URL(request.url ?? '/', 'http://localhost').pathname;
@@ -72,6 +84,18 @@ export async function startFakeTrierarchPlugin(): Promise<FakeTrierarchPlugin> {
           return;
         case '/trpc/requests.check':
           answer(response, { kind: 'fits' });
+          return;
+        case '/trpc/mcp.get':
+          mcpReads += 1;
+          answer(response, mcp);
+          return;
+        case '/trpc/mcp.replace':
+          {
+            const metadata = z.object({ servers: z.array(z.unknown()), secrets: z.array(z.string()) }).parse(await bodyOf(request));
+            mcp = { version: mcp.version + 1, ...metadata };
+            mcpSaves += 1;
+            answer(response, { version: mcp.version });
+          }
           return;
         case '/trpc/models.list':
           answer(response, [...enabled]);
@@ -99,6 +123,8 @@ export async function startFakeTrierarchPlugin(): Promise<FakeTrierarchPlugin> {
   return {
     url: `http://127.0.0.1:${String(bound.port)}`,
     enabledModels: () => [...enabled],
+    mcpReads: () => mcpReads,
+    mcpSaves: () => mcpSaves,
     stop: async () => {
       server.close();
       await once(server, 'close');
