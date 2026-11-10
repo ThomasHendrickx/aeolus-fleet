@@ -75,6 +75,12 @@ export const labelValuesSelectorSchema = z.strictObject({
     .refine((valueIds) => new Set(valueIds).size === valueIds.length, 'A label selection names each value id once'),
 });
 
+/** One ship, by id or by name: whom ask, step and withdraw go to (docs/design/ask-and-step). */
+export const shipSelectorSchema = z.union([
+  z.strictObject({ kind: z.literal('ship'), shipId: idSchema('ship') }),
+  z.strictObject({ kind: z.literal('ship'), name: shipHandleSchema }),
+]);
+
 /**
  * Who a message is for (docs/blueprint.md, "Selector"): one ship, by id or by
  * name, any ship of a type, every other participant of a meeting (decision
@@ -82,8 +88,7 @@ export const labelValuesSelectorSchema = z.strictObject({
  * resolved to the ship's id at send time.
  */
 export const selectorSchema = z.union([
-  z.strictObject({ kind: z.literal('ship'), shipId: idSchema('ship') }),
-  z.strictObject({ kind: z.literal('ship'), name: shipHandleSchema }),
+  ...shipSelectorSchema.options,
   z.strictObject({ kind: z.literal('type'), type: shipHandleSchema }),
   z.strictObject({ kind: z.literal('meeting'), meetingId: idSchema('meeting') }),
   labelValuesSelectorSchema,

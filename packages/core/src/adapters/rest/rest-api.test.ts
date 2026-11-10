@@ -161,6 +161,9 @@ describe('the OpenAPI spec at /api/v1/openapi.json', () => {
       ['/ship/register', ['post']],
       ['/ship/whoami', ['get']],
       ['/ship/send', ['post']],
+      ['/ship/ask', ['post']],
+      ['/ship/step', ['post']],
+      ['/ship/withdraw', ['post']],
       ['/ship/openMeeting', ['post']],
       ['/ship/meeting', ['post']],
       ['/ship/requestMic', ['post']],
@@ -1021,5 +1024,96 @@ describe('the wake stream at GET /api/v1/ship/wakeups', () => {
     expect(wakeups.security).toEqual([{ crewToken: [] }]);
     expect(Object.keys(wakeups.responses['200']?.content ?? {})).toEqual(['text/event-stream']);
     expect(wakeups.description).toContain('event: wake');
+  });
+});
+
+describe('ask, step and withdraw at /api/v1 (docs/design/ask-and-step)', () => {
+  const MODEL = 'claude-opus-5-5';
+  const QUESTION_ID = '11111111-1111-4111-8111-111111111111';
+  const STEP_ID = '22222222-2222-4222-8222-222222222222';
+  const aQuestionInput = { id: QUESTION_ID, title: 'Ship it?', context: '', options: [{ key: 2, label: 'Ship' }, { key: 4, label: 'Wait', detail: 'After the walk' }], pick: { option: 2, why: 'Ready' } };
+
+  async function post(call: string, request: { crewToken: string; body: Record<string, unknown> }) {
+    const { crewToken, body } = request;
+    return server.inject({ method: 'POST', url: `/api/v1/ship/${call}`, headers: { authorization: `Bearer ${crewToken}` }, payload: { selector: { kind: 'ship', name: 'argo' }, model: MODEL, idempotencyKey: core.ids('message'), ...body } });
+  }
+
+  function storedOf(messageId: unknown) {
+    const message = core.state.messages.find((stored) => stored.id === messageId);
+    return { payload: message?.payload, contentType: message?.contentType, recipients: core.state.deliveries.filter((delivery) => delivery.messageId === messageId).map((delivery) => delivery.recipient) };
+  }
+
+  it('step: POST /ship/step stores the step as JSON of the step content type, with one delivery to the ship named, and answers its message id', async () => {
+    start();
+    const crewToken = crewedShip('scout');
+
+    const response = await post('step', { crewToken, body: { id: STEP_ID, title: 'Sign in', why: '', link: 'https://github.com/login' } });
+
+    expect(response.statusCode).toBe(200);
+    const { messageId } = z.object({ messageId: z.string() }).parse(response.json());
+    expect(storedOf(messageId)).toEqual({
+      payload: `{"id":"${STEP_ID}","title":"Sign in","why":"","link":"https://github.com/login"}`,
+      contentType: 'application/vnd.aeolus.step+json',
+      recipients: [{ kind: 'ship', shipId: argoIdOf(core, fleetId) }],
+    });
+  });
+
+  it('ask: POST /ship/ask fills an omitted option detail with empty text and keeps empty context and keys that are not consecutive', async () => {
+    start();
+    const crewToken = crewedShip('scout');
+
+    const response = await post('ask', { crewToken, body: aQuestionInput });
+
+    expect(response.statusCode).toBe(200);
+    expect(storedOf(z.object({ messageId: z.string() }).parse(response.json()).messageId)).toMatchObject({
+      payload: `{"id":"${QUESTION_ID}","title":"Ship it?","context":"","options":[{"key":2,"label":"Ship","detail":""},{"key":4,"label":"Wait","detail":"After the walk"}],"pick":{"option":2,"why":"Ready"}}`,
+      contentType: 'application/vnd.aeolus.question+json',
+    });
+  });
+
+  it.each([
+    { target: { kind: 'question', questionId: QUESTION_ID }, payload: `{"questionId":"${QUESTION_ID}"}`, contentType: 'application/vnd.aeolus.question-withdrawal+json' },
+    { target: { kind: 'step', stepId: STEP_ID }, payload: `{"stepId":"${STEP_ID}"}`, contentType: 'application/vnd.aeolus.step-withdrawal+json' },
+  ])('withdraw: POST /ship/withdraw of a $target.kind stores its existing withdrawal payload and content type', async ({ target, payload, contentType }) => {
+    start();
+    const crewToken = crewedShip('scout');
+
+    const response = await post('withdraw', { crewToken, body: { target } });
+
+    expect(response.statusCode).toBe(200);
+    expect(storedOf(z.object({ messageId: z.string() }).parse(response.json()).messageId)).toEqual({ payload, contentType, recipients: [{ kind: 'ship', shipId: argoIdOf(core, fleetId) }] });
+  });
+
+  it.each([
+    { label: 'an ask with two options of one number', call: 'ask', body: { ...aQuestionInput, options: [{ key: 2, label: 'Ship' }, { key: 2, label: 'Wait' }] }, field: 'options' },
+    { label: 'an ask whose pick names no option', call: 'ask', body: { ...aQuestionInput, pick: { option: 3, why: 'Ready' } }, field: 'pick.option' },
+    { label: 'a step whose link is no http(s) URL', call: 'step', body: { id: STEP_ID, title: 'Sign in', why: '', link: 'ftp://example.com' }, field: 'link' },
+    { label: 'a withdraw without a target', call: 'withdraw', body: {}, field: 'target' },
+    { label: 'a withdraw of an invalid uuid', call: 'withdraw', body: { target: { kind: 'question', questionId: 'not-a-uuid' } }, field: 'target.questionId' },
+    { label: "a withdraw with the other target's field", call: 'withdraw', body: { target: { kind: 'question', stepId: STEP_ID } }, field: 'target' },
+    { label: 'an ask to a type rather than one ship', call: 'ask', body: { ...aQuestionInput, selector: { kind: 'type', type: 'reviewer' } }, field: 'selector' },
+  ])('refuses $label with 400 BAD_REQUEST naming the field, and sends nothing', async ({ call, body, field }) => {
+    start();
+    const crewToken = crewedShip('scout');
+
+    const response = await post(call, { crewToken, body });
+
+    expect(response.statusCode).toBe(400);
+    const { code, message } = z.object({ code: z.string(), message: z.string() }).parse(response.json());
+    expect(code).toBe('BAD_REQUEST');
+    expect(message).toContain(`at ${field}`);
+    expect(core.state.messages).toEqual([]);
+  });
+
+  it('refuses a ship without messages:send with 403 FORBIDDEN, and sends nothing', async () => {
+    start();
+    const { shipId } = addAgentShip(core, { fleetId, name: 'listener', scopes: ['messages:receive'] });
+    const crewToken = crewShip(core, { fleetId, shipId });
+
+    const response = await post('step', { crewToken, body: { id: STEP_ID, title: 'Sign in', why: '' } });
+
+    expect(response.statusCode).toBe(403);
+    expect(z.object({ code: z.string() }).parse(response.json()).code).toBe('FORBIDDEN');
+    expect(core.state.messages).toEqual([]);
   });
 });

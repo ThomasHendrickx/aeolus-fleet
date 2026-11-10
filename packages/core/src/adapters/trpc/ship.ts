@@ -1,5 +1,8 @@
 import {
   ackInputSchema,
+  askInputSchema,
+  stepInputSchema,
+  withdrawInputSchema,
   cancelScheduleInputSchema,
   cancelScheduleOutputSchema,
   pauseScheduleInputSchema,
@@ -174,6 +177,83 @@ export const shipRouter = router({
     .input(sendInputSchema)
     .output(sendOutputSchema)
     .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.sendMessage(ctx.caller, input))),
+
+  /**
+   * Asks one ship a question (docs/design/ask-and-step): the question's
+   * fields, checked by common's schema; core builds its JSON and content type
+   * and sends it as `send` does, answering once it is stored.
+   */
+  ask: scopedProcedure('messages:send')
+    .meta({
+      description: [
+        'Asks one ship a question, as a message of the question content type that the fleet builds from these fields: no JSON to write.',
+        'selector is that one ship, by name { "kind": "ship", "name": "..." } or by id { "kind": "ship", "shipId": "shp_..." }.',
+        'id is a new uuid you make for the question and keep: an answer names it, and withdraw takes it.',
+        'title says what to decide; context what it takes to answer, may be empty;',
+        'options are numbered choices { "key": 1, "label": "...", "detail": "..." }, each key a positive whole number of its own, detail optional;',
+        'pick { "option": <a key>, "why": "..." } is the option you would choose and why.',
+        'A field that breaks these rules is refused (BAD_REQUEST) naming it, and nothing is sent: correct it and call again.',
+        'It answers with the messageId once the question is stored, as send does: an answer comes as a reply to it (inReplyTo).',
+        'model and idempotencyKey are as on send: after an error or a lost answer, call again with the same id, fields, selector and key, and get the original messageId.',
+      ].join(' '),
+      requiredOfCrews: ['model'],
+    })
+    .input(askInputSchema)
+    .output(sendOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      const { selector, model, idempotencyKey, ...question } = input;
+      return okOrThrow(await ctx.useCases.sendFormattedMessage(ctx.caller, { selector, model, idempotencyKey, message: { kind: 'question', question } }));
+    }),
+
+  /**
+   * Asks one ship for a step only a human can do (docs/design/ask-and-step):
+   * the step's fields, checked by common's schema; core builds its JSON and
+   * content type and sends it as `send` does.
+   */
+  step: scopedProcedure('messages:send')
+    .meta({
+      description: [
+        'Asks one ship for a step only a human can do, as a message of the step content type that the fleet builds from these fields: no JSON to write.',
+        'selector is that one ship, by name { "kind": "ship", "name": "..." } or by id { "kind": "ship", "shipId": "shp_..." }.',
+        'id is a new uuid you make for the step and keep: its outcome names it, and withdraw takes it.',
+        'title says what to do; why why it is needed, may be empty; link, optional, the http(s) URL where it is done.',
+        'A field that breaks these rules is refused (BAD_REQUEST) naming it, and nothing is sent: correct it and call again.',
+        'It answers with the messageId once the step is stored, as send does: its outcome comes as a reply to it (inReplyTo).',
+        'model and idempotencyKey are as on send: after an error or a lost answer, call again with the same id, fields, selector and key, and get the original messageId.',
+      ].join(' '),
+      requiredOfCrews: ['model'],
+    })
+    .input(stepInputSchema)
+    .output(sendOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      const { selector, model, idempotencyKey, ...step } = input;
+      return okOrThrow(await ctx.useCases.sendFormattedMessage(ctx.caller, { selector, model, idempotencyKey, message: { kind: 'step', step } }));
+    }),
+
+  /**
+   * Withdraws a question or step the caller sent (docs/design/ask-and-step):
+   * core builds the existing withdrawal message and sends it as `send` does.
+   * It checks the input's shape only, never the original or whether it is
+   * still open; the recipient decides whether it applies.
+   */
+  withdraw: scopedProcedure('messages:send')
+    .meta({
+      description: [
+        'Withdraws a question or step you asked, as a withdrawal message the fleet builds: no JSON to write.',
+        'selector is the ship you asked, as you named it to ask, by name { "kind": "ship", "name": "..." } or by id { "kind": "ship", "shipId": "shp_..." }.',
+        'target is { "kind": "question", "questionId": "<its uuid>" } or { "kind": "step", "stepId": "<its uuid>" }.',
+        'The fleet does not look up the original: the ship you asked shows it withdrawn while it is open, and keeps an answer or outcome already sent.',
+        'It answers with the messageId once the withdrawal is stored, as send does.',
+        'model is as on send. idempotencyKey is a new key, not the one you asked with; after an error or a lost answer, call again with the same target, selector and key.',
+      ].join(' '),
+      requiredOfCrews: ['model'],
+    })
+    .input(withdrawInputSchema)
+    .output(sendOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      const { selector, model, idempotencyKey, target } = input;
+      return okOrThrow(await ctx.useCases.sendFormattedMessage(ctx.caller, { selector, model, idempotencyKey, message: { kind: 'withdrawal', target } }));
+    }),
 
   /**
    * Opens a meeting of the calling ship and the ships it invites, owned and

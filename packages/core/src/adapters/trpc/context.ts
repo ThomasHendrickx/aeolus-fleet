@@ -33,6 +33,7 @@ import type { ReplyToMessage } from '../../domain/messaging/reply-to-message.js'
 import type { PingShip } from '../../domain/messaging/ping-ship.js';
 import type { ResendDelivery } from '../../domain/messaging/resend-delivery.js';
 import type { SendMessage } from '../../domain/messaging/send-message.js';
+import type { SendFormattedMessage } from '../../domain/messaging/send-formatted-message.js';
 import type { OpenMeeting } from '../../domain/messaging/open-meeting.js';
 import type { ScheduleMessage } from '../../domain/messaging/schedule-message.js';
 import type { ListSchedules } from '../../domain/messaging/list-schedules.js';
@@ -256,6 +257,7 @@ export interface UseCases {
   findLabelValue: FindLabelValue;
   deregister: Deregister;
   sendMessage: SendMessage;
+  sendFormattedMessage: SendFormattedMessage;
   openMeeting: OpenMeeting;
   scheduleMessage: ScheduleMessage;
   listSchedules: ListSchedules;

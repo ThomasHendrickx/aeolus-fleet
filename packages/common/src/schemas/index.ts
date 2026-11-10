@@ -13,6 +13,7 @@ export * from './expectations.js';
 export * from './feature-flags.js';
 export * from './fleet.js';
 export * from './follow.js';
+export * from './formatted-message.js';
 export * from './guide.js';
 export * from './health.js';
 export * from './history.js';
