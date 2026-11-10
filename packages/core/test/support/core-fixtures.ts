@@ -57,6 +57,7 @@ import { createReceiveDeliveries } from '../../src/domain/messaging/receive-deli
 import { createReceiveReply } from '../../src/domain/messaging/receive-reply.js';
 import { createResendDelivery } from '../../src/domain/messaging/resend-delivery.js';
 import { createSendMessage } from '../../src/domain/messaging/send-message.js';
+import { createSendFormattedMessage } from '../../src/domain/messaging/send-formatted-message.js';
 import { createOpenMeeting } from '../../src/domain/messaging/open-meeting.js';
 import { createReadMeeting } from '../../src/domain/messaging/read-meeting.js';
 import { createChangeMic } from '../../src/domain/messaging/change-mic.js';
@@ -400,6 +401,7 @@ export function messagingUseCases(core: InMemoryCore) {
   const { sealing } = core;
   return {
     sendMessage: createSendMessage({ ...deps, hasher: core.hasher, sealing }),
+    sendFormattedMessage: createSendFormattedMessage({ ...deps, hasher: core.hasher, sealing }),
     turnOnSealing: createTurnOnSealing({ ...deps, vault: core.keyVault.vault, sealer: sealing.sealer, recoveryKeys: core.recoveryKeys, sealings: core.sealings, featureFlags: core.featureFlagReads }),
     changeCompanyKey: createChangeCompanyKey({ ...deps, vault: core.keyVault.vault, sealer: sealing.sealer, sealings: core.sealings, featureFlags: core.featureFlagReads }),
     changeRecoveryKey: createChangeRecoveryKey({ ...deps, recoveryKeys: core.recoveryKeys, sealing, sealings: core.sealings, featureFlags: core.featureFlagReads }),

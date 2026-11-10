@@ -91,6 +91,7 @@ import { createReplyToMessage, type ReplyToMessage } from './domain/messaging/re
 import { createResendDelivery, type ResendDelivery } from './domain/messaging/resend-delivery.js';
 import { createPingShip, type PingShip } from './domain/messaging/ping-ship.js';
 import { createSendMessage, type SendMessage } from './domain/messaging/send-message.js';
+import { createSendFormattedMessage, type SendFormattedMessage } from './domain/messaging/send-formatted-message.js';
 import { createTurnOnSealing, type TurnOnSealing } from './domain/messaging/turn-on-sealing.js';
 import { createChangeCompanyKey, type ChangeCompanyKey } from './domain/messaging/change-company-key.js';
 import { createChangeRecoveryKey, type ChangeRecoveryKey } from './domain/messaging/change-recovery-key.js';
@@ -293,6 +294,7 @@ export interface UseCases {
   reportLog: ReadReportLog;
   deregister: Deregister;
   sendMessage: SendMessage;
+  sendFormattedMessage: SendFormattedMessage;
   turnOnSealing: TurnOnSealing;
   changeCompanyKey: ChangeCompanyKey;
   changeRecoveryKey: ChangeRecoveryKey;
@@ -561,6 +563,7 @@ export function createUseCases(options: {
     reportLog: createReadReportLog({ leases: createPrismaLeaseRepository(prisma) }),
     deregister: createDeregister({ uow, clock, ids }),
     sendMessage: createSendMessage({ uow, clock, ids, hasher: sha256Hasher, sealing }),
+    sendFormattedMessage: createSendFormattedMessage({ uow, clock, ids, hasher: sha256Hasher, sealing }),
     turnOnSealing: createTurnOnSealing({ uow, clock, ids, vault: keyVault, sealer: aesGcmPayloadSealer, recoveryKeys: ageRecoveryKeys, sealings, featureFlags }),
     changeCompanyKey: createChangeCompanyKey({ uow, clock, ids, vault: keyVault, sealer: aesGcmPayloadSealer, sealings, featureFlags }),
     changeRecoveryKey: createChangeRecoveryKey({ uow, clock, ids, recoveryKeys: ageRecoveryKeys, sealing, sealings, featureFlags }),

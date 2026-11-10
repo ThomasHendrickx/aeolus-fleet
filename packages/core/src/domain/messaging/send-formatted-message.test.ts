@@ -48,7 +48,8 @@ async function sent(input: FormattedMessageToSend): Promise<MessageId> {
 
 function storedOf(messageId: MessageId) {
   const message = core.state.messages.find((stored) => stored.id === messageId);
-  return { payload: message?.payload, contentType: message?.contentType, deliveries: core.state.deliveries.filter((delivery) => delivery.messageId === messageId) };
+  // An unsealed fleet stores the payload as plain text.
+  return { payload: typeof message?.payload === 'string' ? message.payload : undefined, contentType: message?.contentType, deliveries: core.state.deliveries.filter((delivery) => delivery.messageId === messageId) };
 }
 
 describe('asking one ship', () => {

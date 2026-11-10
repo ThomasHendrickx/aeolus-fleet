@@ -161,6 +161,9 @@ describe('the OpenAPI spec at /api/v1/openapi.json', () => {
       ['/ship/register', ['post']],
       ['/ship/whoami', ['get']],
       ['/ship/send', ['post']],
+      ['/ship/ask', ['post']],
+      ['/ship/step', ['post']],
+      ['/ship/withdraw', ['post']],
       ['/ship/openMeeting', ['post']],
       ['/ship/meeting', ['post']],
       ['/ship/requestMic', ['post']],
@@ -1030,7 +1033,8 @@ describe('ask, step and withdraw at /api/v1 (docs/design/ask-and-step)', () => {
   const STEP_ID = '22222222-2222-4222-8222-222222222222';
   const aQuestionInput = { id: QUESTION_ID, title: 'Ship it?', context: '', options: [{ key: 2, label: 'Ship' }, { key: 4, label: 'Wait', detail: 'After the walk' }], pick: { option: 2, why: 'Ready' } };
 
-  async function post(call: string, crewToken: string, body: Record<string, unknown>) {
+  async function post(call: string, request: { crewToken: string; body: Record<string, unknown> }) {
+    const { crewToken, body } = request;
     return server.inject({ method: 'POST', url: `/api/v1/ship/${call}`, headers: { authorization: `Bearer ${crewToken}` }, payload: { selector: { kind: 'ship', name: 'argo' }, model: MODEL, idempotencyKey: core.ids('message'), ...body } });
   }
 
@@ -1043,7 +1047,7 @@ describe('ask, step and withdraw at /api/v1 (docs/design/ask-and-step)', () => {
     start();
     const crewToken = crewedShip('scout');
 
-    const response = await post('step', crewToken, { id: STEP_ID, title: 'Sign in', why: '', link: 'https://github.com/login' });
+    const response = await post('step', { crewToken, body: { id: STEP_ID, title: 'Sign in', why: '', link: 'https://github.com/login' } });
 
     expect(response.statusCode).toBe(200);
     const { messageId } = z.object({ messageId: z.string() }).parse(response.json());
@@ -1058,7 +1062,7 @@ describe('ask, step and withdraw at /api/v1 (docs/design/ask-and-step)', () => {
     start();
     const crewToken = crewedShip('scout');
 
-    const response = await post('ask', crewToken, aQuestionInput);
+    const response = await post('ask', { crewToken, body: aQuestionInput });
 
     expect(response.statusCode).toBe(200);
     expect(storedOf(z.object({ messageId: z.string() }).parse(response.json()).messageId)).toMatchObject({
@@ -1074,7 +1078,7 @@ describe('ask, step and withdraw at /api/v1 (docs/design/ask-and-step)', () => {
     start();
     const crewToken = crewedShip('scout');
 
-    const response = await post('withdraw', crewToken, { target });
+    const response = await post('withdraw', { crewToken, body: { target } });
 
     expect(response.statusCode).toBe(200);
     expect(storedOf(z.object({ messageId: z.string() }).parse(response.json()).messageId)).toEqual({ payload, contentType, recipients: [{ kind: 'ship', shipId: argoIdOf(core, fleetId) }] });
@@ -1092,7 +1096,7 @@ describe('ask, step and withdraw at /api/v1 (docs/design/ask-and-step)', () => {
     start();
     const crewToken = crewedShip('scout');
 
-    const response = await post(call, crewToken, body);
+    const response = await post(call, { crewToken, body });
 
     expect(response.statusCode).toBe(400);
     const { code, message } = z.object({ code: z.string(), message: z.string() }).parse(response.json());
@@ -1106,7 +1110,7 @@ describe('ask, step and withdraw at /api/v1 (docs/design/ask-and-step)', () => {
     const { shipId } = addAgentShip(core, { fleetId, name: 'listener', scopes: ['messages:receive'] });
     const crewToken = crewShip(core, { fleetId, shipId });
 
-    const response = await post('step', crewToken, { id: STEP_ID, title: 'Sign in', why: '' });
+    const response = await post('step', { crewToken, body: { id: STEP_ID, title: 'Sign in', why: '' } });
 
     expect(response.statusCode).toBe(403);
     expect(z.object({ code: z.string() }).parse(response.json()).code).toBe('FORBIDDEN');
