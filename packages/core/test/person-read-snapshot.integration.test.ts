@@ -38,8 +38,8 @@ describe('person read snapshot and shared settings lock', () => {
     });
     try {
       await expect.poll(async () => {
-        const rows = await prisma.$queryRaw<{ waiting: boolean }[]>`SELECT EXISTS (SELECT 1 FROM pg_locks WHERE locktype = 'advisory' AND NOT granted AND classid = hashtext(${fleetId})::oid AND objid = hashtext('network-settings')::oid) AS waiting`;
-        return rows[0]?.waiting;
+        const rows = await prisma.$queryRaw<{ isWaiting: boolean }[]>`SELECT EXISTS (SELECT 1 FROM pg_locks WHERE locktype = 'advisory' AND NOT granted AND classid = hashtext(${fleetId})::oid AND objid = hashtext('network-settings')::oid) AS "isWaiting"`;
+        return rows[0]?.isWaiting;
       }).toBe(true);
 
       // When the writer commits and the read finally obtains its shared lock.
@@ -87,8 +87,8 @@ describe('person read snapshot and shared settings lock', () => {
     // Attach the rejection handler before cancellation, so no rejection is unhandled.
     const rejected = expect(pending).rejects.toMatchObject({ code: '57014' });
     await expect.poll(async () => {
-      const rows = await prisma.$queryRaw<{ sleeping: boolean }[]>`SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE pid = ${pid} AND wait_event = 'PgSleep') AS sleeping`;
-      return rows[0]?.sleeping;
+      const rows = await prisma.$queryRaw<{ isSleeping: boolean }[]>`SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE pid = ${pid} AND wait_event = 'PgSleep') AS "isSleeping"`;
+      return rows[0]?.isSleeping;
     }).toBe(true);
 
     // When PostgreSQL cancels it.
@@ -98,4 +98,50 @@ describe('person read snapshot and shared settings lock', () => {
     // Then its failed transaction and session lock have both ended.
     expect(await locksOf(pid)).toEqual([{ count: 0 }]);
   });
+
+  it('shuts down the shared pool even when only a raw snapshot read used the client', async () => {
+    // Given a client whose Prisma query engine has never made a query.
+    const raw = createPrismaClient(await createEmptyDatabase());
+    const { pool } = prismaPoolOf(raw);
+    try {
+      const unit = createPrismaPersonReadUnitOfWork({ prisma: raw, portsOf: (connection) => connection });
+      await unit.run(fleetId, async (connection) => {
+        await connection.query('SELECT 1');
+        return ok(undefined);
+      });
+
+      // When core shuts down through its existing client lifecycle.
+      await raw.$disconnect();
+
+      // Then no separate read pool remains alive.
+      expect(pool.ended).toBe(true);
+    } finally {
+      if (!pool.ended) {
+        await pool.end();
+      }
+    }
+  });
+
+  it('discards a broken connection when cleanup cannot establish that its lock was released', async () => {
+    // Given a read whose backend disappears while holding the session lock.
+    let pid = 0;
+    const pending = readUnit().run(fleetId, async (connection) => {
+      const rows = await connection.query<{ pid: number }>('SELECT pg_backend_pid() AS pid');
+      pid = rows.rows[0]?.pid ?? 0;
+      await connection.query('SELECT pg_terminate_backend(pg_backend_pid())');
+      return ok(undefined);
+    });
+
+    // When both the query and cleanup lose their backend.
+    await expect(pending).rejects.toBeInstanceOf(Error);
+
+    // Then the backend holds no lock and a later read uses a working connection.
+    expect(await locksOf(pid)).toEqual([{ count: 0 }]);
+    const next = await readUnit().run(fleetId, async (connection) => {
+      const rows = await connection.query<{ pid: number }>('SELECT pg_backend_pid() AS pid');
+      return ok(rows.rows[0]?.pid);
+    });
+    expect(next.isOk && next.value !== undefined && next.value !== pid).toBe(true);
+  });
+
 });
