@@ -348,7 +348,7 @@ export interface ShipCallRefusal {
 
 export type ShipCallResult = { isOk: true; output: unknown } | { isOk: false; refusal: ShipCallRefusal };
 
-/** Where a failure is logged whole: the request's own logger, which labels it with the request's id. */
+/** Where safe failure diagnostics are logged: the request's logger, labelled with its id. */
 export interface FailureLog {
   error(details: { path?: string } & LoggedFailure, message: string): void;
 }
@@ -360,7 +360,7 @@ export function refusalBody(refusal: ShipCallRefusal): { code: string; message: 
 }
 
 /**
- * A failure in a door itself, outside any procedure: the log holds it whole,
+ * A failure in a door itself, outside any procedure: the log holds safe diagnostics,
  * under the request's id, and the caller learns only that it failed, as for
  * a procedure's server failure.
  */

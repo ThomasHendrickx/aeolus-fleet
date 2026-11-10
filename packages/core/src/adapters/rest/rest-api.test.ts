@@ -817,9 +817,9 @@ describe('a ship call at /api/v1', () => {
     expect(core.state.leases.filter((lease) => lease.shipId === agent.shipId)).toEqual([]);
   });
 
-  it("answers a server failure with 500, a generic message and the request's id, and logs the whole failure under that id", async () => {
+  it("answers a server failure with 500, a generic message and the request's id, and logs safe diagnostics under that id", async () => {
     const logLines: string[] = [];
-    start({ useCases: useCasesOf({ whoami: () => Promise.reject(new Error('database unreachable')) }), logLines });
+    start({ useCases: useCasesOf({ whoami: () => Promise.reject(new Error('harmless-rest-procedure-marker')) }), logLines });
     const crewToken = crewedShip();
 
     const response = await server.inject({
@@ -832,26 +832,28 @@ describe('a ship call at /api/v1', () => {
       .strictObject({ code: z.literal('INTERNAL_SERVER_ERROR'), message: z.literal('Internal error'), requestId: z.string() })
       .parse(response.json());
     expect(response.statusCode).toBe(500);
-    expect(response.body).not.toContain('database unreachable');
+    expect(response.body).not.toContain('harmless-rest-procedure-marker');
     const [logged, ...more] = logLines.map((line) => z.record(z.string(), z.unknown()).parse(JSON.parse(line)));
     expect(more).toEqual([]);
     expect(logged).toMatchObject({
       msg: 'procedure failed',
       reqId: answered.requestId,
       path: 'ship.whoami',
-      reason: 'database unreachable',
+      reason: 'Unexpected failure',
+      errorType: 'Error',
     });
-    expect(logged?.stack).toMatch(/^Error: database unreachable\n\s+at \S/);
+    expect(logged).not.toHaveProperty('stack');
+    expect(logLines.join('')).not.toContain('harmless-');
   });
 });
 
 describe('a failure inside the REST adapter, outside any procedure', () => {
-  it("answers 500 with the generic message and the request's id, and logs the whole failure under that id", async () => {
+  it("answers 500 with the generic message and the request's id, and logs safe diagnostics under that id", async () => {
     const logLines: string[] = [];
     server = Fastify({ logger: { level: 'error', stream: { write: (line: string) => void logLines.push(line) } } });
     registerRestApi(server, {
       contextFor: () => {
-        throw new Error('context lost');
+        throw new Error('harmless-rest-context-marker');
       },
     });
 
@@ -865,11 +867,12 @@ describe('a failure inside the REST adapter, outside any procedure', () => {
       .strictObject({ code: z.literal('INTERNAL_SERVER_ERROR'), message: z.literal('Internal error'), requestId: z.string() })
       .parse(response.json());
     expect(response.statusCode).toBe(500);
-    expect(response.body).not.toContain('context lost');
+    expect(response.body).not.toContain('harmless-rest-context-marker');
     const [logged, ...more] = logLines.map((line) => z.record(z.string(), z.unknown()).parse(JSON.parse(line)));
     expect(more).toEqual([]);
-    expect(logged).toMatchObject({ msg: 'request failed', reqId: answered.requestId, reason: 'context lost' });
-    expect(logged?.stack).toMatch(/^Error: context lost\n\s+at \S/);
+    expect(logged).toMatchObject({ msg: 'request failed', reqId: answered.requestId, reason: 'Unexpected failure', errorType: 'Error' });
+    expect(logged).not.toHaveProperty('stack');
+    expect(logLines.join('')).not.toContain('harmless-');
   });
 
   it("leaves Fastify's own refusal of a body that is not JSON a refusal: 400, never a server failure", async () => {

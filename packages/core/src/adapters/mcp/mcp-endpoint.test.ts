@@ -563,10 +563,10 @@ describe('a ship tool call', () => {
     expect(core.state.leases.filter((lease) => lease.shipId === agent.shipId)).toEqual([]);
   });
 
-  it("answers a server failure with a generic message and the request's id, and logs the whole failure under that id", async () => {
+  it("answers a server failure with a generic message and the request's id, and logs safe diagnostics under that id", async () => {
     const logLines: string[] = [];
     await start({
-      useCases: useCasesOf({ whoami: () => Promise.reject(new Error('database unreachable')) }),
+      useCases: useCasesOf({ whoami: () => Promise.reject(new Error('harmless-mcp-procedure-marker')) }),
       logLines,
     });
     const crewToken = crewedShip();
@@ -582,9 +582,11 @@ describe('a ship tool call', () => {
       msg: 'procedure failed',
       reqId: requestId,
       path: 'ship.whoami',
-      reason: 'database unreachable',
+      reason: 'Unexpected failure',
+      errorType: 'Error',
     });
-    expect(logged?.stack).toMatch(/^Error: database unreachable\n\s+at \S/);
+    expect(logged).not.toHaveProperty('stack');
+    expect(logLines.join('')).not.toContain('harmless-');
   });
 });
 
@@ -594,7 +596,7 @@ describe('a failure inside the MCP adapter, outside any procedure', () => {
     server = Fastify({ logger: { level: 'error', stream: { write: (line: string) => void logLines.push(line) } } });
     registerMcpEndpoint(server, {
       contextFor: () => {
-        throw new Error('context lost');
+        throw new Error('harmless-mcp-context-marker');
       },
     });
   }
@@ -603,7 +605,7 @@ describe('a failure inside the MCP adapter, outside any procedure', () => {
     return logLines.map((line) => z.record(z.string(), z.unknown()).parse(JSON.parse(line)));
   }
 
-  it("answers a tool call with the generic message and the request's id, and logs the whole failure under that id", async () => {
+  it("answers a tool call with the generic message and the request's id, and logs safe diagnostics under that id", async () => {
     const logLines: string[] = [];
     startFailingEndpoint(logLines);
     address = await server.listen({ host: '127.0.0.1', port: 0 });
@@ -615,8 +617,9 @@ describe('a failure inside the MCP adapter, outside any procedure', () => {
     expect(requestId).toBeDefined();
     const [logged, ...more] = loggedOf(logLines);
     expect(more).toEqual([]);
-    expect(logged).toMatchObject({ msg: 'request failed', reqId: requestId, reason: 'context lost' });
-    expect(logged?.stack).toMatch(/^Error: context lost\n\s+at \S/);
+    expect(logged).toMatchObject({ msg: 'request failed', reqId: requestId, reason: 'Unexpected failure', errorType: 'Error' });
+    expect(logged).not.toHaveProperty('stack');
+    expect(logLines.join('')).not.toContain('harmless-');
   });
 
   it("answers a request it cannot turn into one for the MCP server (a Host no URL can hold) with 500, the generic message and the request's id", async () => {
@@ -626,7 +629,7 @@ describe('a failure inside the MCP adapter, outside any procedure', () => {
     const response = await server.inject({
       method: 'POST',
       url: '/mcp',
-      headers: { host: 'not a host', 'content-type': 'application/json', accept: 'application/json, text/event-stream' },
+      headers: { host: 'harmless-host-marker not a host', 'content-type': 'application/json', accept: 'application/json, text/event-stream' },
       payload: { jsonrpc: '2.0', id: 1, method: 'tools/list' },
     });
 
@@ -636,7 +639,9 @@ describe('a failure inside the MCP adapter, outside any procedure', () => {
     expect(response.statusCode).toBe(500);
     const [logged, ...more] = loggedOf(logLines);
     expect(more).toEqual([]);
-    expect(logged).toMatchObject({ msg: 'request failed', reqId: answered.requestId, reason: 'Invalid URL' });
+    expect(logged).toMatchObject({ msg: 'request failed', reqId: answered.requestId, reason: 'Unexpected failure', errorType: 'Error' });
+    expect(logged).not.toHaveProperty('stack');
+    expect(logLines.join('')).not.toContain('harmless-host-marker');
   });
 });
 

@@ -55,6 +55,19 @@ describe('accountTokenClaimsSchema', () => {
   });
 
   it.each([
+    ['an unrepresentable issue date', { iat: 8_640_000_000_001 }],
+    ['an unrepresentable end date', { exp: 8_640_000_000_001 }],
+    ['overflowing date conversion', { exp: Number.MAX_VALUE }],
+    ['an end before issuance', { exp: 1_759_999_999 }],
+  ])('refuses %s before producing verified claims', (_case, overrides) => {
+    const input = claims(overrides);
+
+    const result = accountTokenClaimsSchema.safeParse(input);
+
+    expect(result.success).toBe(false);
+  });
+
+  it.each([
     ['a missing account', { sub: undefined }],
     ['an empty account', { sub: '' }],
     ['an account id over 128 characters', { sub: 'a'.repeat(129) }],

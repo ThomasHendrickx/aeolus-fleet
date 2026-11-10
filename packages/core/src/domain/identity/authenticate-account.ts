@@ -43,12 +43,18 @@ export function createAuthenticateAccount(deps: {
     if (!claims || !(await isForThisFleet(deps.fleets, { claims, through }))) {
       return refuseInvalid();
     }
+    const issuedAt = claims.issuedAt.getTime();
+    const endsAt = claims.endsAt.getTime();
+    // Keep the port boundary defensive even when another signatures adapter supplies claims.
+    if (!Number.isFinite(issuedAt) || !Number.isFinite(endsAt) || endsAt < issuedAt) {
+      return refuseInvalid();
+    }
     const now = deps.clock.now().getTime();
-    if (now > claims.endsAt.getTime() + ACCOUNT_TOKEN_CLOCK_ALLOWANCE_MS) {
+    if (now > endsAt + ACCOUNT_TOKEN_CLOCK_ALLOWANCE_MS) {
       return refuse('ACCOUNT_TOKEN_ENDED', 'This account token has ended; present a fresh one');
     }
-    const life = claims.endsAt.getTime() - claims.issuedAt.getTime();
-    if (life > ACCOUNT_TOKEN_LIFE_MS + ACCOUNT_TOKEN_CLOCK_ALLOWANCE_MS || claims.issuedAt.getTime() > now + ACCOUNT_TOKEN_CLOCK_ALLOWANCE_MS) {
+    const life = endsAt - issuedAt;
+    if (life > ACCOUNT_TOKEN_LIFE_MS + ACCOUNT_TOKEN_CLOCK_ALLOWANCE_MS || issuedAt > now + ACCOUNT_TOKEN_CLOCK_ALLOWANCE_MS) {
       return refuseInvalid();
     }
     const cutOffAt = await deps.cutOffs.cutOffAt(claims.accountId, deps.clock.now());

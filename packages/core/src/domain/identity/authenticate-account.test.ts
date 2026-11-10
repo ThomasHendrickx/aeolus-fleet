@@ -89,6 +89,26 @@ describe('authenticating with an account token', () => {
     expect(await authenticate('token', { through: null })).toMatchObject({ isOk: false, error: { kind: 'ACCOUNT_TOKEN_INVALID' } });
   });
 
+  it.each([
+    ['an invalid issue date', { issuedAt: new Date(Number.NaN) }],
+    ['an invalid end date', { endsAt: new Date(Number.NaN) }],
+    ['an end before issuance', { issuedAt: at(1), endsAt: NOW }],
+  ])('refuses %s without producing a caller', async (_case, overrides) => {
+    const authenticate = authenticateAccountWith({ token: aToken(overrides) });
+
+    const result = await authenticate('token', { through: null });
+
+    expect(result).toMatchObject({ isOk: false, error: { kind: 'ACCOUNT_TOKEN_INVALID' } });
+  });
+
+  it('accepts issuance exactly 30 seconds ahead', async () => {
+    const authenticate = authenticateAccountWith({ token: aToken({ issuedAt: at(30 * SECOND_MS), endsAt: at(10 * MINUTE_MS) }) });
+
+    const result = await authenticate('token', { through: null });
+
+    expect(result.isOk).toBe(true);
+  });
+
   it('accepts a token up to 30 seconds after its end', async () => {
     const authenticate = authenticateAccountWith({ token: aToken({ issuedAt: at(-10 * MINUTE_MS), endsAt: at(-30 * SECOND_MS) }) });
 
