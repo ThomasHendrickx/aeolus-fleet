@@ -19,6 +19,15 @@ function encoded(value: unknown): string {
 }
 
 describe('strict opaque person ship continuation record', () => {
+  it('continues a valid long Unicode literal search without exceeding the JavaScript argument limit', () => {
+    // Given a literal that can match a valid statement within the payload bound.
+    const long = { ...record, search: '界'.repeat(60000) };
+    // When its authorized page needs a continuation.
+    const cursor = personShipCursorOf(long);
+    // Then the full query binding survives without a service failure.
+    expect(parsePersonShipCursor(cursor)).toEqual(long);
+  });
+
   it('round trips the version, authenticated bindings and database ordering key including Unicode', () => {
     // Given a continuation record from an authorized last row.
     // When the core encodes and later validates it.
