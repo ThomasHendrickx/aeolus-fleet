@@ -458,6 +458,8 @@ Each event records its type and time, who caused it (a ship, `argo` included, or
 | `OwnerSet` | Registry | A ship got its owner at commission: the owner and how (itself for a person ship, its person-ship commissioner, the commissioning account's person ship, inherited, named by a plugin, argo by default) (decisions 0045, 0057) |
 | `OwnerChanged` | Registry | An actor holding `fleet:owner` changed a ship's owner, or its owner's ship retired and it fell to argo: the old and new owner and why (decision 0045) |
 | `ScopesDeclared` | Registry | A plugin declared its namespace and scopes: the declaring ship, the namespace, how many scopes (decision 0046) |
+| `CommissionApproved` | Registry | An actor approved exact scopes for a permitted commissioner and immutable subject, until withdrawn (0046) |
+| `CommissionApprovalWithdrawn` | Registry | A recorded approval was withdrawn, stopping new commissions without changing existing ships (0046) |
 | `ScopesChanged` | Registry | A live ship's scopes were granted or revoked: added, removed, by whom (decision 0046) |
 | `ScopeDefined` | Registry | The fleet defined a scope of its own: the scope, its description, by whom (decision 0046) |
 | `ScopeDescribed` | Registry | One of the fleet's own scopes got a new description: the scope, the description, by whom (decision 0046) |

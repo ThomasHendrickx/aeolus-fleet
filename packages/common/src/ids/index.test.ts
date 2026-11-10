@@ -174,6 +174,7 @@ describe('ID_KINDS', () => {
       'schedule',
       'dataKey',
       'alert',
+      'commissionApproval',
     ]);
   });
 

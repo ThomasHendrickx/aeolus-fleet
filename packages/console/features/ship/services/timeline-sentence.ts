@@ -329,6 +329,10 @@ export function timelineSentence(entry: TimelineEntry, shipId: string): Timeline
         icon: 'fleet',
       };
     }
+    case 'CommissionApproved':
+      return { parts: [text('Commission rights approved'), ...by(entry.actor)], tone: 'ended', icon: 'commissioned' };
+    case 'CommissionApprovalWithdrawn':
+      return { parts: [text('Commission approval withdrawn'), ...by(entry.actor)], tone: 'ended', icon: 'commissioned' };
     case 'ScopesChanged': {
       const granted = stringDetail(entry, 'added') ?? '';
       const revoked = stringDetail(entry, 'removed') ?? '';

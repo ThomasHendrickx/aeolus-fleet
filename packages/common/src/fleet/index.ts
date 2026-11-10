@@ -269,6 +269,8 @@ export const EVENT_TYPES = [
   'BuiltInRuleChanged',
   'ScopesDeclared',
   'ScopesChanged',
+  'CommissionApproved',
+  'CommissionApprovalWithdrawn',
   'ScopeDefined',
   'ScopeDescribed',
   'ScopeRemoved',
