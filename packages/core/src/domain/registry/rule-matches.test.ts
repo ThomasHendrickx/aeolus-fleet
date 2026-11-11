@@ -31,11 +31,11 @@ describe('rule matches', () => {
 
             // Then the decision is the network rules' own, a ship reading itself included.
             const isSelf = verb === 'read' && 'id' in subject && subject.id === candidate.id;
-            const expected = isSelf || allowsReach(fleet.inForce, { verb, sender: subject, recipient: candidate, isAnswerToSender: false });
-            if (isGranted !== expected) {
-              mismatches.push(JSON.stringify({ seed, verb, subject, candidate: candidate.id, expected }));
+            const isExpected = isSelf || allowsReach(fleet.inForce, { verb, sender: subject, recipient: candidate, isAnswerToSender: false });
+            if (isGranted !== isExpected) {
+              mismatches.push(JSON.stringify({ seed, verb, subject, candidate: candidate.id, isExpected }));
             }
-            if (expected) {
+            if (isExpected) {
               granted += 1;
             } else {
               refused += 1;

@@ -112,21 +112,21 @@ export function aGeneratedRuleFleet(seed: number): GeneratedRuleFleet {
         from.push(term);
       }
     }
-    const unique = (selector: SelectorTerm[]) => selector.filter((term, index) => selector.findIndex((other) => text(other) === text(term)) === index);
+    const unique = (selector: SelectorTerm[]) => [...new Map(selector.map((term) => [text(term), term])).values()];
     const rule: NetworkRule = { verb: pick(VERBS), from: unique(from), to: unique(to) };
     return invalidRule(rule) === undefined ? rule : undefined;
   };
-  const rulesOf = (count: number, pool: readonly GeneratedLabel[], hasOwnerTerms: boolean): NetworkRule[] =>
-    Array.from({ length: count }, () => ruleOf(pool, hasOwnerTerms)).flatMap((rule) => (rule === undefined ? [] : [rule]));
+  const rulesOf = (count: number, of: { pool: readonly GeneratedLabel[]; hasOwnerTerms: boolean }): NetworkRule[] =>
+    Array.from({ length: count }, () => ruleOf(of.pool, of.hasOwnerTerms)).flatMap((rule) => (rule === undefined ? [] : [rule]));
   const ownedBy = (owner: LabelOwner) => labels.filter((label) => JSON.stringify(label.owner) === JSON.stringify(owner));
-  const declarationOf = (declarer: LabelOwner): DeclaredNetworkRules => ({ fleetId, declarer, rules: rulesOf(Math.floor(random() * 5), ownedBy(declarer), false) });
+  const declarationOf = (declarer: LabelOwner): DeclaredNetworkRules => ({ fleetId, declarer, rules: rulesOf(Math.floor(random() * 5), { pool: ownedBy(declarer), hasOwnerTerms: false }) });
   const declared = [
     declarationOf(installation),
     declarationOf({ kind: 'ship', shipId: generatedShipId(DECLARER_ONE) }),
     declarationOf({ kind: 'ship', shipId: generatedShipId(DECLARER_TWO) }),
   ];
   const isOpen = chance(0.1);
-  const inForce: RulesInForce = { isOpen, isViewerReadOn: chance(0.5), rules: isOpen ? [] : rulesOf(Math.floor(random() * 7), labels, true), declared };
+  const inForce: RulesInForce = { isOpen, isViewerReadOn: chance(0.5), rules: isOpen ? [] : rulesOf(Math.floor(random() * 7), { pool: labels, hasOwnerTerms: true }), declared };
   const groups = labels.filter((label) => label.key === 'group');
   const accounts: ReachingAccount[] = [
     { kind: 'account', personShipId: people[0] ?? null, labels: carriedOf(groups, 0.5) },

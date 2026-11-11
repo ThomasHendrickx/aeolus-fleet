@@ -370,6 +370,16 @@ export function allowsReach(inForce: RulesInForce, send: { verb: NetworkVerb; se
   return reachRuleOf(inForce, send) !== undefined;
 }
 
+/**
+ * Whether a selector holds for an actor on its own side, each term of the same
+ * value read as its one-sided part: carrying some value of the label, or having
+ * an owner. The actor is its own other side, so `holds` stays the one meaning.
+ */
+export function matchesOneSided(selector: readonly SelectorTerm[], actor: ReachingActor): boolean {
+  const selected = selectedOf(actor);
+  return matches(selector, { actor: selected, otherSide: selected });
+}
+
 /** An actor matches a selector when every term of it holds, combined with AND. */
 function matches(selector: readonly SelectorTerm[], sides: { actor: Selected; otherSide: Selected }): boolean {
   return selector.every((term) => holds(term, sides));
