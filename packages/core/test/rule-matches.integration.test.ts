@@ -10,7 +10,7 @@ import { everyCandidateVerbsOf, ruleMatchFilterOf, ruleMatchesOf, ruleSourcesOf,
 import { createMigratedDatabase } from '../src/testing/database.js';
 import { aGeneratedRuleFleet, declarersOfCarried, type GeneratedRuleFleet } from './support/generated-rule-fleets.js';
 
-const GENERATED_FLEETS = 60;
+const GENERATED_FLEETS = 200;
 const fleetId = idSchema('fleet').parse('flt_00000000000000000000000001');
 
 /** Thrown to end a seed's transaction, so every generated fleet starts from an empty database. */
@@ -28,7 +28,7 @@ async function storeFleet(db: Prisma.TransactionClient, fleet: GeneratedRuleFlee
   await db.$executeRaw`INSERT INTO fleets (id, name, created_at) VALUES (${fleetId}, 'generated', now())`;
   await db.$executeRaw`
     INSERT INTO ships (id, fleet_id, name, type, kind, scopes, created_at, owner_ship_id)
-    VALUES ${Prisma.join(fleet.ships.map((ship) => Prisma.sql`(${ship.id}, ${fleetId}, ${ship.id}, 'generated', ${ship.kind}::ship_kind, '{}', now(), ${ship.owner})`))}`;
+    VALUES ${Prisma.join(fleet.ships.map((ship) => Prisma.sql`(${ship.id}, ${fleetId}, ${ship.kind === 'operator' ? 'argo' : ship.id}, 'generated', ${ship.kind}::ship_kind, '{}', now(), ${ship.owner})`))}`;
   for (const label of fleet.labels) {
     const ownerShipId = label.owner.kind === 'ship' ? label.owner.shipId : null;
     await db.$executeRaw`INSERT INTO labels (id, fleet_id, key, owner_kind, owner_ship_id) VALUES (${label.id}, ${fleetId}, ${label.key}, ${label.owner.kind}::label_owner_kind, ${ownerShipId})`;

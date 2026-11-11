@@ -80,6 +80,7 @@ model Fleet {
   labels                           Label[]
   labelValues                      LabelValue[]
   shipLabels                       ShipLabel[]
+  shipRuleMatches                  ShipRuleMatch[]
   networkSettings                  NetworkSettings?
   networkRulesDraft                NetworkRulesDraft?
   declaredNetworkRules             DeclaredNetworkRules[]
@@ -181,6 +182,7 @@ model Ship {
   requestedClears      WorktreeClearRequest[] @relation("WorktreeClearRequestRequester")
   ownedLabels          Label[]                @relation("LabelOwner")
   labels               ShipLabel[]            @relation("ShipLabelShip")
+  ruleMatches          ShipRuleMatch[]
   declaredNetworkRules DeclaredNetworkRules[]
   declaredNamespace    ScopeNamespace?
   verifiedFacts        VerifiedFacts[]
@@ -516,6 +518,25 @@ model NetworkRulesDraft {
 /// The network rules a ship declared on the labels it owns (decision 0037),
 /// its whole list as JSON, at most 20. No row while it declares none; a retire
 /// removes its row.
+/// Rule matches for the person ship reads (#1741): per active ship, verb and
+/// rule source (`fleet`, `installation` or the declarer's ship id), the rules
+/// whose `to` holds for the ship on its own side, as bits by place in the
+/// source's list. Derived, rewritten with every change it derives from.
+model ShipRuleMatch {
+  fleetId           String @map("fleet_id")
+  shipId            String @map("ship_id")
+  verb              String
+  source            String
+  toRules           String @map("to_rules") @db.VarBit
+  toRulesEveryActor String @map("to_rules_every_actor") @db.VarBit
+
+  fleet Fleet @relation(fields: [fleetId], references: [id])
+  ship  Ship  @relation(fields: [fleetId, shipId], references: [fleetId, id])
+
+  @@id([fleetId, shipId, verb, source])
+  @@map("ship_rule_matches")
+}
+
 model DeclaredNetworkRules {
   fleetId String @map("fleet_id")
   shipId  String @map("ship_id")
@@ -525,6 +546,8 @@ model DeclaredNetworkRules {
   ship  Ship  @relation(fields: [fleetId, shipId], references: [fleetId, id])
 
   @@id([fleetId, shipId])
+  @@index([fleetId], map: "declared_network_rules_person_read_universal_idx", where: raw("jsonb_path_exists(rules, '$[*]?((@.\"verb\" == \"read\" && @.\"from\".size() == 0) && @.\"to\".size() == 0)'::jsonpath)"))
+  @@index([fleetId], map: "declared_network_rules_person_send_universal_idx", where: raw("jsonb_path_exists(rules, '$[*]?((@.\"verb\" == \"send\" && @.\"from\".size() == 0) && @.\"to\".size() == 0)'::jsonpath)"))
   @@map("declared_network_rules")
 }
 

@@ -112,6 +112,7 @@ describe('migrations', () => {
       '--exit-code',
     );
 
+    console.info(stdout);
     expect(stdout).toContain('No difference detected');
   });
 
@@ -170,6 +171,7 @@ describe('migrations', () => {
       'scope_namespaces',
       'ship_expectations',
       'ship_labels',
+      'ship_rule_matches',
       'ships',
       'sign_in_tickets',
       'verified_facts',

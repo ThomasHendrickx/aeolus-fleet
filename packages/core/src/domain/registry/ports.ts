@@ -17,6 +17,7 @@ import type { FleetLimitSettings, InstallationSettings } from './limits.js';
 import type { Lease, Location } from './lease.js';
 import type { DeclaredNetworkRules } from './declared-network-rules.js';
 import type { NetworkSettings } from './network-settings.js';
+import type { RuleMatch, RuleSource } from './rule-matches.js';
 import type { NetworkRulesDraft } from './network-rules-draft.js';
 import type { ReachRefusal } from './reach-refusal.js';
 import type { DefinedScope } from './defined-scope.js';
@@ -316,6 +317,20 @@ export interface DeclaredNetworkRulesRepository {
   find(fleetId: FleetId, declarer: LabelOwner): Promise<DeclaredNetworkRules | undefined>;
   /** Keeps the declarer's whole list from now on; an empty one keeps none. */
   save(declared: DeclaredNetworkRules): Promise<void>;
+}
+
+/**
+ * The fleet's rule matches (design rule-matches.md, #1741): derived from the
+ * rules and carried values, rewritten by every writer of either in its own
+ * unit of work, after the network settings lock.
+ */
+export interface RuleMatchRepository {
+  /** Every row of these ships goes, then these rows are kept. */
+  replaceOfShips(fleetId: FleetId, replaced: { shipIds: readonly ShipId[]; matches: readonly RuleMatch[] }): Promise<void>;
+  /** Every row of this source goes, across the fleet, then these rows are kept. */
+  replaceOfSource(fleetId: FleetId, replaced: { source: RuleSource; matches: readonly RuleMatch[] }): Promise<void>;
+  /** Every row of the fleet, by ship, verb and source. */
+  list(fleetId: FleetId): Promise<RuleMatch[]>;
 }
 
 /**
