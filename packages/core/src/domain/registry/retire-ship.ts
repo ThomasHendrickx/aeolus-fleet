@@ -27,6 +27,7 @@ import { removeCrewRequest } from './crew-request.js';
 import { retireLabelsWith } from './label.js';
 import { endLease, type LeaseTx } from './leases.js';
 import { withdrawWithRetiredShip } from './declared-network-rules.js';
+import { keepRuleMatchesOfShips, keepRuleMatchesOfSource, type KeepRuleMatchesTx } from './keep-rule-matches.js';
 import type { AlertRepository, ClearRequestRepository, ExpectationsRepository, CrewRequestRepository, DeclaredNetworkRulesRepository, LabelRepository, NetworkSettingsRepository, ScopeNamespaceRepository, ShipRepository, VerifiedFactsRepository } from './ports.js';
 import { changeOwner, checkCanRetire, type RetireRefusal } from './ship.js';
 import { releaseWithDeclarer } from './scope-namespace.js';
@@ -38,7 +39,8 @@ export interface RetireShipTx extends LeaseTx, CredentialTx, RetiredParticipantT
   clearRequests: ClearRequestRepository;
   labels: LabelRepository;
   networkSettings: Pick<NetworkSettingsRepository, 'find' | 'findForShare' | 'findForUpdate' | 'save'>;
-  declaredNetworkRules: Pick<DeclaredNetworkRulesRepository, 'list' | 'find' | 'save'>;
+  declaredNetworkRules: Pick<DeclaredNetworkRulesRepository, 'list' | 'find' | 'listBy' | 'save'>;
+  ruleMatches: KeepRuleMatchesTx['ruleMatches'];
   scopeNamespaces: Pick<ScopeNamespaceRepository, 'findByDeclarer' | 'lockNamespace' | 'remove'>;
   verifiedFacts: Pick<VerifiedFactsRepository, 'listAbout' | 'listBy' | 'lockWriter' | 'remove'>;
   alerts: Pick<AlertRepository, 'listOpenOnShipForUpdate' | 'saveCleared'>;
@@ -153,7 +155,8 @@ export function createRetireShip(deps: {
         await recordEvent(recorded, { fleetId, type: 'DeliveryAbandoned', occurredAt: at, actor, shipId, messageId, deliveryId });
       }
       const argo = await tx.ships.findOperatorShip(fleetId);
-      for (const ownedShip of await tx.ships.listActiveOwnedByForUpdate(fleetId, shipId)) {
+      const ownedShips = await tx.ships.listActiveOwnedByForUpdate(fleetId, shipId);
+      for (const ownedShip of ownedShips) {
         // Never refused: an owned ship is active and never argo's own, and argo is always active.
         const changed = changeOwner(ownedShip, { owner: argo, why: 'ownerRetired', at, actor });
         if (changed.isOk && changed.value.ship.owner !== null && changed.value.ship.owner !== ownedShip.owner) {
@@ -206,6 +209,12 @@ export function createRetireShip(deps: {
         for (const event of withdrawn.events) {
           await recordEvent(recorded, event);
         }
+      }
+      // Its own rows go, its ships' owner rows change, and the carriers of its retired labels lose those values.
+      const carriers = owned.flatMap(({ carriers: carriedBy }) => carriedBy.map((carrier) => carrier.shipId));
+      await keepRuleMatchesOfShips(tx, { fleetId, shipIds: [shipId, ...ownedShips.map(({ id }) => id), ...carriers] });
+      if (withdrawn !== undefined) {
+        await keepRuleMatchesOfSource(tx, { fleetId, source: withdrawn.declared.declarer, rules: [] });
       }
       const declared = await tx.scopeNamespaces.findByDeclarer(fleetId, shipId);
       if (declared !== undefined) {

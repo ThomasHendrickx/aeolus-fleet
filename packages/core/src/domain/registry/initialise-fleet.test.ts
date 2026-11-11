@@ -169,6 +169,7 @@ describe('initialise fleet', () => {
       alerts: [],
       expectations: [],
       reachRefusals: [],
+      ruleMatches: [],
       events: [],
       overdueDeliveries: [],
       installationRequests: [],

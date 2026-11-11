@@ -8,9 +8,11 @@ import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { checkManage, keepingReachRefusal, type CheckManageTx, type NotReachable } from './check-reach.js';
 import type { ShipRepository } from './ports.js';
+import { keepRuleMatchesOfShips, type KeepRuleMatchesTx } from './keep-rule-matches.js';
 import { changeOwner, type ChangeOwnerRefusal } from './ship.js';
 
-export interface SetOwnerTx extends Omit<CheckManageTx, 'ships'> {
+export interface SetOwnerTx extends Omit<CheckManageTx, 'ships' | 'declaredNetworkRules'>, Omit<KeepRuleMatchesTx, 'declaredNetworkRules'> {
+  declaredNetworkRules: CheckManageTx['declaredNetworkRules'] & KeepRuleMatchesTx['declaredNetworkRules'];
   ships: Pick<ShipRepository, 'find' | 'findForUpdate' | 'setOwner'>;
   events: EventLog;
 }
@@ -49,6 +51,7 @@ export function createSetOwner(deps: { uow: UnitOfWork<SetOwnerTx>; clock: Clock
       const { ship: owned, events } = changed.value;
       if (owned.owner !== null && owned.owner !== ship.owner) {
         await tx.ships.setOwner({ fleetId, shipId: ship.id, ownerShipId: owned.owner });
+        await keepRuleMatchesOfShips(tx, { fleetId, shipIds: [ship.id] });
       }
       for (const event of events) {
         await recordEvent({ events: tx.events, ids: deps.ids }, event);

@@ -26,6 +26,7 @@ import type {
   ReachRefusalRepository,
   ShipRepository,
   FeatureFlagRepository,
+  RuleMatchRepository,
 } from '../../domain/registry/ports.js';
 import type { Notifier } from '../../domain/shared/notifier.js';
 import type { Result } from '../../domain/shared/result.js';
@@ -53,6 +54,7 @@ import { createPrismaFeatureFlagRepository } from './feature-flags.js';
 import { createPrismaDeliveryRepository, createPrismaMessageRepository, type BufferedMessageRepository } from './messaging.js';
 import { createPrismaOverdueDeliveryRepository } from './overdue.js';
 import { createPrismaScheduleNotifier, createPrismaScheduleRepository } from './schedules.js';
+import { createPrismaRuleMatchRepository } from './rule-matches.js';
 import { createPrismaDeclaredNetworkRulesRepository, createPrismaNetworkRulesDraftRepository, createPrismaNetworkSettingsRepository, createPrismaReachRefusalRepository } from './network.js';
 import { createPrismaVerifiedFactsRepository } from './verified-facts.js';
 import { createPrismaAlertRepository } from './alerts.js';
@@ -79,6 +81,7 @@ export interface PrismaTx {
   labels: LabelRepository;
   networkSettings: NetworkSettingsRepository;
   declaredNetworkRules: DeclaredNetworkRulesRepository;
+  ruleMatches: RuleMatchRepository;
   networkRulesDrafts: NetworkRulesDraftRepository;
   scopeNamespaces: ScopeNamespaceRepository;
   definedScopes: DefinedScopeRepository;
@@ -125,6 +128,7 @@ export function createPrismaTx(db: Db): PrismaTx {
     labels: createPrismaLabelRepository(db),
     networkSettings: createPrismaNetworkSettingsRepository(db),
     declaredNetworkRules: createPrismaDeclaredNetworkRulesRepository(db),
+    ruleMatches: createPrismaRuleMatchRepository(db),
     networkRulesDrafts: createPrismaNetworkRulesDraftRepository(db),
     scopeNamespaces: createPrismaScopeNamespaceRepository(db),
     definedScopes: createPrismaDefinedScopeRepository(db),

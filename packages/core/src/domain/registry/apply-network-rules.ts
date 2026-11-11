@@ -9,9 +9,10 @@ import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { refuseNoDraft, type NoNetworkRulesDraft } from './network-rules-draft.js';
 import { applyNetworkRules } from './network-settings.js';
 import type { NetworkRulesDraftRepository, NetworkSettingsRepository } from './ports.js';
+import { keepRuleMatchesOfSource, type KeepRuleMatchesTx } from './keep-rule-matches.js';
 
-export interface ApplyNetworkRulesTx {
-  networkSettings: Pick<NetworkSettingsRepository, 'findForUpdate' | 'save'>;
+export interface ApplyNetworkRulesTx extends KeepRuleMatchesTx {
+  networkSettings: Pick<NetworkSettingsRepository, 'findForUpdate' | 'findForShare' | 'save'>;
   networkRulesDrafts: Pick<NetworkRulesDraftRepository, 'find' | 'remove'>;
   events: EventLog;
 }
@@ -41,6 +42,7 @@ export function createApplyNetworkRules(deps: { uow: UnitOfWork<ApplyNetworkRule
         return applied;
       }
       await tx.networkSettings.save(applied.value.settings);
+      await keepRuleMatchesOfSource(tx, { fleetId, source: { kind: 'fleet' }, rules: applied.value.settings.rules ?? [] });
       await tx.networkRulesDrafts.remove(fleetId);
       for (const event of applied.value.events) {
         await recordEvent({ events: tx.events, ids: deps.ids }, event);

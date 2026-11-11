@@ -9,12 +9,13 @@ import { declareNetworkRules, namedInRules, type DeclareNetworkRulesRefusal } fr
 import { labelOwnerOf, ownerNameOf, type Label } from './label.js';
 import type { NetworkRule } from './network-settings.js';
 import type { DeclaredNetworkRulesRepository, LabelRepository, NetworkSettingsRepository, ShipRepository } from './ports.js';
+import { keepRuleMatchesOfSource, type KeepRuleMatchesTx } from './keep-rule-matches.js';
 
-export interface DeclareNetworkRulesTx {
+export interface DeclareNetworkRulesTx extends KeepRuleMatchesTx {
   labels: Pick<LabelRepository, 'find' | 'findByValueForShare'>;
   ships: Pick<ShipRepository, 'find'>;
-  declaredNetworkRules: Pick<DeclaredNetworkRulesRepository, 'save'>;
-  networkSettings: Pick<NetworkSettingsRepository, 'findForUpdate' | 'save'>;
+  declaredNetworkRules: Pick<DeclaredNetworkRulesRepository, 'save' | 'find' | 'listBy'>;
+  networkSettings: Pick<NetworkSettingsRepository, 'findForUpdate' | 'findForShare' | 'save'>;
   events: EventLog;
 }
 
@@ -47,6 +48,7 @@ export function createDeclareNetworkRules(deps: { uow: UnitOfWork<DeclareNetwork
       }
       await tx.declaredNetworkRules.save(declared.value.declared);
       await tx.networkSettings.save(declared.value.settings);
+      await keepRuleMatchesOfSource(tx, { fleetId, source: declared.value.declared.declarer, rules: declared.value.declared.rules });
       for (const event of declared.value.events) {
         await recordEvent({ events: tx.events, ids: deps.ids }, event);
       }

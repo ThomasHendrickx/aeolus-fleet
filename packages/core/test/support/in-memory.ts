@@ -1,4 +1,4 @@
-import { createIdGenerator, idSchema, LEASE_END_REASONS, PING_CONTENT_TYPE, type DeliveryId, type FeatureFlag, type FleetId, type IdGenerator, type LabelValueId, type LeaseWaker, type MessageId, type ShipId } from '@aeolus-fleet/common';
+import { createIdGenerator, idSchema, LEASE_END_REASONS, PING_CONTENT_TYPE, type DeliveryId, type FeatureFlag, type FleetId, type IdGenerator, type LabelId, type LabelValueId, type LeaseWaker, type MessageId, type ShipId } from '@aeolus-fleet/common';
 
 import type { ConsoleSession } from '../../src/domain/identity/console-session.js';
 import type { Credential } from '../../src/domain/identity/credential.js';
@@ -59,6 +59,7 @@ import type {
   CrewRequestRepository,
   LabelRepository,
   DeclaredNetworkRulesRepository,
+  RuleMatchRepository,
   NetworkRulesDraftRepository,
   ScopeNamespaceRepository,
   DefinedScopeRepository,
@@ -76,6 +77,7 @@ import { matchesShipFilter } from '@aeolus-fleet/common/rules';
 import { readsShip } from '../../src/domain/registry/read-reach.js';
 import { comparePositions, positionOf } from '../../src/domain/registry/ship-order.js';
 import type { DeclaredNetworkRules } from '../../src/domain/registry/declared-network-rules.js';
+import { isSameSource, type RuleMatch } from '../../src/domain/registry/rule-matches.js';
 import type { NetworkRulesDraft } from '../../src/domain/registry/network-rules-draft.js';
 import type { DefinedScope } from '../../src/domain/registry/defined-scope.js';
 import type { ScopeNamespace } from '../../src/domain/registry/scope-namespace.js';
@@ -181,6 +183,8 @@ export interface InMemoryState {
   networkSettings: NetworkSettings[];
   /** The network rules each ship declared on the labels it owns (decision 0037): no row for a ship that declares none. */
   declaredNetworkRules: DeclaredNetworkRules[];
+  /** The ships' rule matches (#1741): derived, kept by every writer of rules, values and owners. */
+  ruleMatches: (RuleMatch & { fleetId: FleetId })[];
   /** Each fleet's draft of its own rules, while it has one (decision 0034). */
   networkRulesDrafts: NetworkRulesDraft[];
   /** The plugin namespaces, one per declaring ship (decision 0046). */
@@ -247,6 +251,7 @@ export function numberedEvents(state: Pick<InMemoryState, 'events' | 'prunedEven
 }
 
 export interface InMemoryTx {
+  ruleMatches: RuleMatchRepository;
   fleets: FleetRepository;
   ships: ShipRepository;
   leases: LeaseRepository;
@@ -453,6 +458,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     shipLabels: [],
     networkSettings: [],
     declaredNetworkRules: [],
+    ruleMatches: [],
     networkRulesDrafts: [],
     scopeNamespaces: [],
     definedScopes: [],
@@ -925,6 +931,38 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         return Promise.resolve();
       },
     },
+    ruleMatches: {
+      replaceOfShips: (fleetId, { shipIds, matches }) => {
+        state.ruleMatches = [...state.ruleMatches.filter((held) => held.fleetId !== fleetId || !shipIds.includes(held.shipId)), ...matches.map((match) => ({ ...structuredClone(match), fleetId }))];
+        return Promise.resolve();
+      },
+      replaceOfSource: (fleetId, { source, matches }) => {
+        state.ruleMatches = [...state.ruleMatches.filter((held) => held.fleetId !== fleetId || !isSameSource(held.source, source)), ...matches.map((match) => ({ ...structuredClone(match), fleetId }))];
+        return Promise.resolve();
+      },
+      list: (fleetId) =>
+        Promise.resolve(state.ruleMatches.filter((held) => held.fleetId === fleetId).map(({ shipId, verb, source, toRules, toRulesEveryActor }) => structuredClone({ shipId, verb, source, toRules, toRulesEveryActor }))),
+      matchedShips: (fleetId, of) => {
+        const ownerOf = (labelId: LabelId) => state.labels.find((label) => label.fleetId === fleetId && label.id === labelId)?.owner;
+        const active = state.ships.filter((ship) => ship.fleetId === fleetId && ship.retiredAt === null);
+        const carriedBy = (shipId: ShipId) => state.shipLabels.filter((carried) => carried.fleetId === fleetId && carried.shipId === shipId);
+        const chosen = active.filter((ship) => {
+          switch (of.kind) {
+            case 'ships':
+              return of.shipIds.includes(ship.id);
+            case 'carriers':
+              return carriedBy(ship.id).some((carried) => { const owner = ownerOf(carried.labelId); return owner !== undefined && isSameOwner(owner, of.owner); });
+            case 'fleet':
+              return true;
+          }
+        });
+        return Promise.resolve(chosen.map((ship) => {
+          const labels = carriedBy(ship.id).map(({ labelId, valueId }) => ({ labelId, valueId }));
+          const declarers = [...new Set(labels.flatMap(({ labelId }) => { const owner = ownerOf(labelId); return owner?.kind === 'ship' ? [owner.shipId] : []; }))];
+          return { ship: { id: ship.id, owner: ship.owner, labels }, declarers };
+        }));
+      },
+    },
     declaredNetworkRules: {
       list: (fleetId) =>
         Promise.resolve(
@@ -934,6 +972,8 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
             .map((held) => structuredClone(held)),
         ),
       find: (fleetId, declarer) => Promise.resolve(structuredClone(state.declaredNetworkRules.find((held) => held.fleetId === fleetId && isSameOwner(held.declarer, declarer)))),
+      listBy: (fleetId, shipIds) =>
+        Promise.resolve(state.declaredNetworkRules.filter((held) => held.fleetId === fleetId && held.declarer.kind === 'ship' && shipIds.includes(held.declarer.shipId)).map((held) => structuredClone(held))),
       save: (declared) => {
         const index = state.declaredNetworkRules.findIndex((held) => held.fleetId === declared.fleetId && isSameOwner(held.declarer, declared.declarer));
         const kept = declared.rules.length === 0 ? [] : [structuredClone(declared)];
@@ -2701,6 +2741,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
 
 /** The tables whose rows belong to a fleet by their fleet id: all but the fleets and the installation's requests. */
 const FLEET_TABLES = [
+  'ruleMatches',
   'healthSnapshots',
   'featureFlags',
   'fleetSealings',

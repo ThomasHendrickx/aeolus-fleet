@@ -13,10 +13,11 @@ import { lockNamedNamespaces, type NamedNamespacesTx } from './named-namespaces.
 import { GROUP_LABEL_KEY } from './check-reach.js';
 import { labelOwnerOf, labelsAtCommission, ownerNameOf, type GivenValue, type ShipLabel } from './label.js';
 import type { LabelRepository, ShipRepository } from './ports.js';
+import { keepRuleMatchesOfShips, type KeepRuleMatchesTx } from './keep-rule-matches.js';
 import { commissionShip, type Commissioner, type CommissioningActor, type CommissionRefusal, type Ship } from './ship.js';
 import { issueStartingPrompt, type StartingPromptTx } from './starting-prompt.js';
 
-export interface CommissionShipTx extends StartingPromptTx, AppliedLimitsTx, NamedNamespacesTx {
+export interface CommissionShipTx extends StartingPromptTx, AppliedLimitsTx, NamedNamespacesTx, KeepRuleMatchesTx {
   ships: ShipRepository;
   labels: Pick<LabelRepository, 'findByValueForShare' | 'carriedBy' | 'findByKey' | 'assign'>;
 }
@@ -154,6 +155,7 @@ async function storeCommissioned(
   for (const assignment of commissioned.assignments) {
     await tx.labels.assign(assignment);
   }
+  await keepRuleMatchesOfShips(tx, { fleetId: ship.fleetId, shipIds: [ship.id] });
   for (const event of commissioned.events) {
     await recordEvent({ events: tx.events, ids: deps.ids }, event);
   }

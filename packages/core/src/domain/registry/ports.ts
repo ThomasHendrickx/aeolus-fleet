@@ -17,7 +17,7 @@ import type { FleetLimitSettings, InstallationSettings } from './limits.js';
 import type { Lease, Location } from './lease.js';
 import type { DeclaredNetworkRules } from './declared-network-rules.js';
 import type { NetworkSettings } from './network-settings.js';
-import type { RuleMatch, RuleSource } from './rule-matches.js';
+import type { MatchedShip, RuleMatch, RuleSource } from './rule-matches.js';
 import type { NetworkRulesDraft } from './network-rules-draft.js';
 import type { ReachRefusal } from './reach-refusal.js';
 import type { DefinedScope } from './defined-scope.js';
@@ -315,6 +315,8 @@ export interface DeclaredNetworkRulesRepository {
   list(fleetId: FleetId): Promise<DeclaredNetworkRules[]>;
   /** The declarer's declared rules; none while it declares none. */
   find(fleetId: FleetId, declarer: LabelOwner): Promise<DeclaredNetworkRules | undefined>;
+  /** The declared rules of these ship declarers, those that declare some, by id. */
+  listBy(fleetId: FleetId, shipIds: readonly ShipId[]): Promise<DeclaredNetworkRules[]>;
   /** Keeps the declarer's whole list from now on; an empty one keeps none. */
   save(declared: DeclaredNetworkRules): Promise<void>;
 }
@@ -331,6 +333,20 @@ export interface RuleMatchRepository {
   replaceOfSource(fleetId: FleetId, replaced: { source: RuleSource; matches: readonly RuleMatch[] }): Promise<void>;
   /** Every row of the fleet, by ship, verb and source. */
   list(fleetId: FleetId): Promise<RuleMatch[]>;
+  /**
+   * What rule matches derive from, for the active ships among these, those
+   * carrying a value of a label this owner owns, or every active ship of the
+   * fleet: each with its owner, its carried values and the ship declarers of
+   * their labels.
+   */
+  matchedShips(fleetId: FleetId, of: MatchedShipsOf): Promise<MatchedShipFacts[]>;
+}
+
+export type MatchedShipsOf = { kind: 'ships'; shipIds: readonly ShipId[] } | { kind: 'carriers'; owner: LabelOwner } | { kind: 'fleet' };
+
+export interface MatchedShipFacts {
+  ship: MatchedShip;
+  declarers: readonly ShipId[];
 }
 
 /**

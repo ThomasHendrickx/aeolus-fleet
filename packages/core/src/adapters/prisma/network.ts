@@ -137,6 +137,8 @@ export function createPrismaDeclaredNetworkRulesRepository(db: Db): DeclaredNetw
       const row = await db.declaredNetworkRules.findUnique({ where: { fleetId_shipId: { fleetId, shipId: declarer.shipId } } });
       return row ? shipsOf(row) : undefined;
     },
+    listBy: async (fleetId, shipIds) =>
+      shipIds.length === 0 ? [] : (await db.declaredNetworkRules.findMany({ where: { fleetId, shipId: { in: [...shipIds] } }, orderBy: { shipId: 'asc' } })).map(shipsOf),
     save: async ({ fleetId, declarer, rules }) => {
       if (declarer.kind === 'installation') {
         if (rules.length === 0) {

@@ -9,8 +9,10 @@ import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { labelOwnerOf, ownerNameOf, unassignLabel, type UnassignLabelRefusal } from './label.js';
 import { checkManage, keepingReachRefusal, type CheckManageTx, type NotReachable } from './check-reach.js';
 import type { LabelRepository, ShipRepository } from './ports.js';
+import { keepRuleMatchesOfShips, type KeepRuleMatchesTx } from './keep-rule-matches.js';
 
-export interface UnassignLabelTx extends Omit<CheckManageTx, 'ships' | 'labels'> {
+export interface UnassignLabelTx extends Omit<CheckManageTx, 'ships' | 'labels' | 'declaredNetworkRules'>, Omit<KeepRuleMatchesTx, 'declaredNetworkRules'> {
+  declaredNetworkRules: CheckManageTx['declaredNetworkRules'] & KeepRuleMatchesTx['declaredNetworkRules'];
   ships: Pick<ShipRepository, 'find' | 'findForUpdate'>;
   labels: Pick<LabelRepository, 'findByValueForShare' | 'carriedBy' | 'unassign'> & CheckManageTx['labels'];
   events: EventLog;
@@ -58,6 +60,7 @@ export function createUnassignLabel(deps: { uow: UnitOfWork<UnassignLabelTx>; cl
       }
       if (unassigned.value.unassigned) {
         await tx.labels.unassign(unassigned.value.unassigned);
+        await keepRuleMatchesOfShips(tx, { fleetId, shipIds: [ship.id] });
       }
       for (const event of unassigned.value.events) {
         await recordEvent({ events: tx.events, ids: deps.ids }, event);
