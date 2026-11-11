@@ -1,5 +1,7 @@
 # Fleet page purpose assessment
 
+Superseded by [the job catalogue](job-catalogue.md): Thomas set a new purpose. Kept as evidence; its options are not the direction.
+
 A docs-only look at why the Fleet page needs the person ship reads, before more backend design goes in. It decides nothing: the options and questions are for Thomas.
 
 Sources, pinned: app design [app-060 Fleet](https://github.com/ThomasHendrickx/aeolus-app/blob/65b9e8ca70328f9f533eb66538f9d5eda4c2b804/docs/design/app-060/README.md) (purpose, answers, approved design), [app #97](https://github.com/ThomasHendrickx/aeolus-app/issues/97), [fleet #1741](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1741), [person ship reads](README.md), [rule matches](rule-matches.md), PR #1747 and the [lock order addendum](https://github.com/ThomasHendrickx/aeolus-fleet/blob/4e58297c83720c907b5c881b6aa07e462b21633b/docs/design/person-ship-reads/rule-matches-lock-order.md).
