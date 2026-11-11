@@ -1,0 +1,3 @@
+# Rule-matches prototype evidence (#1741)
+
+Isolated prototype from frozen checkpoint `b7b6f0dee`. These are bounded local Testcontainers results, not an implementation or a performance claim. `logs/` holds each named run's raw output, numbered in the order it ran, and `logs/SHA256SUMS` their hashes. Integration runs used `DOCKER_HOST=unix:///run/user/1000/podman/podman.sock`. The red logs (01, 03, 06) show each scenario failing before its code existed. Log 13 is a deliberate mutation run and is expected to fail. The lock-order question is in `docs/design/person-ship-reads/rule-matches-lock-order.md`.
