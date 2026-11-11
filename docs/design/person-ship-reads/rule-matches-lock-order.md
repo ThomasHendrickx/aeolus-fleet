@@ -51,7 +51,7 @@ What makes it correct is mutual exclusion plus fresh statements, not READ COMMIT
 | Declare first | D: settings exclusive. A: ship X, label share, insert `ship_labels` (uncommitted), waits shared. D: carriers statement does not see A's row; D writes its source's rows and commits. A: shared granted; its declarations and labels statements see D's committed declaration; A recomputes X from every source. | Fresh |
 | Assign first | A: shared granted, recomputes X from the old declaration, commits. D: exclusive granted; its carriers statement sees A's committed value; replace-of-source rewrites X's row. | Fresh |
 
-**[db]** Reproduced deterministically: the queue order is set on a held settings lock and confirmed in `pg_locks`, `rule-match-concurrency.integration.test.ts` "a declaration and an assignment of its label race, assign first / declare first". Each run ends with stored matches equal to a fresh computation, and the person ship discovers the target. Mutation evidence: without the writer's shared lock, both cases fail on the queue check.
+**[db]** Reproduced deterministically: the queue order is set on a held settings lock and confirmed in `pg_locks`, `rule-match-concurrency.integration.test.ts` "a declaration and an assignment of its label race, assign first / declare first". Each run ends with stored matches equal to a fresh computation, and the person ship discovers the target. Mutation evidence: without the writer's shared lock, both cases fail on the queue check (the writer no longer waits). No run observed a skewed result directly: the tests show the lock is taken and that the result is fresh when it is, not a stale recomputation when it is not.
 
 ### Apply against setOwner
 
@@ -96,5 +96,7 @@ These are unchanged in both options:
 Neither option requires changing the approved read behavior. Only the literal order requires changing sends.
 
 ## Evidence
+
+The prototype's stages 0 to 4 ran on option 1, which is a deviation from the approved order. They are evidence for this question, not acceptance of the approved structure.
 
 Prototype head and logs are as reported to the orchestrator. The concurrency test is `packages/core/test/rule-match-concurrency.integration.test.ts`, run green at `a489b6542`, with its mutation run recorded. These concurrency runs and the stage 7 build scenarios ran before the hold. No measurement of reads, writers or sends has run. The read, writer and build harnesses are committed but have not been run.
