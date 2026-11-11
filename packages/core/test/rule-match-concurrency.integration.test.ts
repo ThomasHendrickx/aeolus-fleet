@@ -1,5 +1,4 @@
 import type { FleetId, ShipId } from '@aeolus-fleet/common';
-import type { PoolClient } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { prismaPoolOf } from '../src/adapters/prisma/client.js';
@@ -25,7 +24,7 @@ afterAll(async () => {
 
 /** Holds the fleet's settings lock exclusively on its own connection, so writers queue behind it in a chosen order. */
 async function heldSettings(fleetId: FleetId): Promise<{ release(): Promise<void> }> {
-  const connection: PoolClient = await prismaPoolOf(core.prisma).pool.connect();
+  const connection = await prismaPoolOf(core.prisma).pool.connect();
   await connection.query('BEGIN');
   await connection.query("SELECT pg_advisory_xact_lock(hashtext($1), hashtext('network-settings'))", [fleetId]);
   return {
@@ -148,7 +147,11 @@ describe('rule matches under concurrent writers', () => {
       ]);
 
       // Then nothing deadlocks and the matches are fresh.
-      failures.push(...settled.flatMap((outcome) => (outcome.status === 'rejected' ? [outcome.reason] : [])));
+      for (const outcome of settled) {
+        if (outcome.status === 'rejected') {
+          failures.push(outcome.reason);
+        }
+      }
       await expectRuleMatchesKept(core, fleet.fleetId);
     }
     expect(failures.filter((failure) => JSON.stringify(failure).includes(DEADLOCK))).toEqual([]);
