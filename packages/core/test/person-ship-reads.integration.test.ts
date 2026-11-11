@@ -4,8 +4,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createPrismaPersonReadUnitOfWork } from '../src/adapters/prisma/person-read-unit-of-work.js';
 import { createPrismaPersonShipReadTx } from '../src/adapters/prisma/person-ship-reads.js';
 import { createPrismaUnitOfWork } from '../src/adapters/prisma/unit-of-work.js';
-import { allowsReach } from '../src/domain/registry/network-settings.js';
-import { personPermissionPlan } from '../src/domain/registry/person-permission.js';
+import { ruleMatchFilterOf } from '../src/domain/registry/rule-matches.js';
 import { actorAsItIs } from '../src/domain/registry/check-reach.js';
 import { ok } from '../src/domain/shared/result.js';
 import type { PersonShipReadTx } from '../src/domain/registry/person-ship-reads.js';
@@ -66,20 +65,14 @@ describe('person ship reads through PostgreSQL', () => {
     await fleet.setRules([]);
     unwrap(await core.useCases.declareNetworkRules(fleet.argo, { rules: [{ verb: 'send', from: [], to: [allowed] }, { verb: 'manage', from: [], to: [allowed] }] }));
     unwrap(await core.useCases.declareNetworkRules(installation, { rules: [{ verb: 'read', from: [], to: [readValue.id] }] }));
-    const sendValue = await core.prisma.labelValue.findUniqueOrThrow({ where: { id: allowed }, select: { labelId: true } });
-    const candidate = { id: target.shipId, kind: 'agent' as const, owner: null, labels: [], isOwnedByPerson: false };
 
     // When the same fixed actor is loaded with each operation's required verbs.
     const both = unwrap(await personReadUnitOfWork(core).run(fleet.fleetId, async (tx) => ok(await tx.facts.find(fleet.account()))));
     for (const verb of ['read', 'send'] as const) {
       const filtered = unwrap(await personReadUnitOfWork(core).run(fleet.fleetId, async (tx) => ok(await tx.facts.find(fleet.account(), { verbs: [verb] }))));
       if (both.reader === null || filtered.reader === null) { throw new Error('The account must remain a reader'); }
-      // Then pruning unrelated verbs leaves the domain plan and positive/negative reach unchanged.
-      expect(personPermissionPlan(filtered.rules, { subject: filtered.reader, verb })).toEqual(personPermissionPlan(both.rules, { subject: both.reader, verb }));
-      for (const labels of [[], [{ labelId: idSchema('label').parse(sendValue.labelId), valueId: allowed }, { labelId: readLabel.labelId, valueId: readValue.id }]]) {
-        const recipient = { ...candidate, labels };
-        expect(allowsReach(filtered.rules, { verb, sender: filtered.reader, recipient, isAnswerToSender: false })).toBe(allowsReach(both.rules, { verb, sender: both.reader, recipient, isAnswerToSender: false }));
-      }
+      // Then pruning unrelated verbs leaves the subject's rule-match filter unchanged.
+      expect(ruleMatchFilterOf(filtered.rules, { subject: filtered.reader, verb })).toEqual(ruleMatchFilterOf(both.rules, { subject: both.reader, verb }));
     }
     expect(unwrap(await fleet.reads.discoveryPage(fleet.person.crew, { search: 'declared-target' })).rows.map(({ shipId }) => shipId)).toEqual([target.shipId]);
     expect(unwrap(await fleet.reads.shipReports(fleet.account(), { shipIds: [target.shipId] })).rows[0]?.report.status).toBe('read');

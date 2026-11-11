@@ -2,7 +2,7 @@
 import { PERSON_SHIP_PAGE_SIZE, type FleetId } from '@aeolus-fleet/common';
 
 import type { DirectSendPermission, PersonShipPageRead } from '../../domain/registry/person-ship-reads.js';
-import { personPermissionSql } from './person-permission.js';
+import { ruleMatchPermissionSql } from './rule-match-permission.js';
 import { Prisma } from './generated/client.js';
 
 function literal(search: string): string {
@@ -10,13 +10,13 @@ function literal(search: string): string {
 }
 
 function sendable(sender: DirectSendPermission | null): Prisma.Sql {
-  return sender === null ? Prisma.sql`false` : Prisma.sql`COALESCE((s.id <> ${sender.shipId} AND s.kind <> 'viewer' AND ${personPermissionSql(sender.permission)}), false)`;
+  return sender === null ? Prisma.sql`false` : Prisma.sql`COALESCE((s.id <> ${sender.shipId} AND s.kind <> 'viewer' AND ${ruleMatchPermissionSql(sender.permission)}), false)`;
 }
 
 function permissionOf(read: PersonShipPageRead): Prisma.Sql {
   const { policy } = read;
   return policy.section === 'discovery' ? sendable(policy.sender)
-    : Prisma.sql`${personPermissionSql(policy.reader)} AND NOT COALESCE(${sendable(policy.sender)}, false)`;
+    : Prisma.sql`${ruleMatchPermissionSql(policy.reader)} AND NOT COALESCE(${sendable(policy.sender)}, false)`;
 }
 
 function candidates(fleetId: FleetId, pattern: string): Prisma.Sql {

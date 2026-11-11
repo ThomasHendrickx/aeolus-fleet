@@ -1,11 +1,11 @@
 import { accountIdSchema, idSchema, type FleetId, type ScopeName, type ShipId, type ShipKind } from '@aeolus-fleet/common';
 import { harbourStateOf } from '@aeolus-fleet/common/rules';
 
-import { personPermissionPlan, type PersonPermissionPlan, type PersonPermissionTerm } from '../../src/domain/registry/person-permission.js';
+import { isGrantedByRuleMatches, ruleMatchesOf, type RuleMatchFilter } from '../../src/domain/registry/rule-matches.js';
 import type { PersonShipPageRead, PersonShipReadTx } from '../../src/domain/registry/person-ship-reads.js';
 import { crewDescription } from '../../src/domain/registry/crew-description.js';
 import type { PersonReadUnitOfWork } from '../../src/domain/registry/person-read-unit-of-work.js';
-import { rulesInForce, type NetworkRule, type ReachingShip } from '../../src/domain/registry/network-settings.js';
+import type { NetworkRule, ReachingShip } from '../../src/domain/registry/network-settings.js';
 import { isCrew, isShipCaller, type AccountCaller, type Caller, type Crew } from '../../src/domain/shared/caller.js';
 import type { Result } from '../../src/domain/shared/result.js';
 
@@ -44,21 +44,10 @@ export function aPersonReadAccount(change: Partial<AccountCaller> = {}): Account
   return { kind: 'account', accountId: accountIdSchema.parse('account-one'), fleetId: PERSON_READ_FLEET, scopes: ['fleet:read'], groupValues: [], personShipId: personReadShipId(90), throughShipId: null, ...change };
 }
 
-function reaches(plan: PersonPermissionPlan, ship: PersonReadShipFixture): boolean {
-  const termHolds = (term: PersonPermissionTerm) => {
-    switch (term.kind) {
-      case 'value': return ship.labels.some((label) => label.valueId === term.valueId);
-      case 'label': return ship.labels.some((label) => label.labelId === term.labelId && (term.valueIds === null || term.valueIds.includes(label.valueId)));
-      case 'owner': return term.shipId === null ? ship.owner !== null : ship.owner === term.shipId;
-      case 'ship': return ship.id === term.shipId;
-      case 'kind': return ship.kind === term.shipKind;
-    }
-  };
-  return plan.isEvery || plan.anyOf.some((clause) => clause.every(termHolds))
-    || ship.labels.some((label) => plan.valueIds.includes(label.valueId) || plan.labelIds.includes(label.labelId)
-      || plan.valuePairs.get(label.valueId)?.some((other) => ship.labels.some((carried) => carried.valueId === other)) === true
-      || plan.byValue.get(label.valueId)?.some((clause) => clause.every(termHolds)) === true
-      || plan.byLabel.get(label.labelId)?.some((clause) => clause.every(termHolds)) === true);
+/** The in-memory form of the read's decision: the subject's filter against the ship's matches of the fleet's own rules. */
+function reachesBy(rules: readonly NetworkRule[]) {
+  return (filter: RuleMatchFilter, ship: PersonReadShipFixture): boolean =>
+    isGrantedByRuleMatches(filter, { candidate: ship, matches: ruleMatchesOf(ship, [{ source: { kind: 'fleet' }, rules }]) });
 }
 
 export class PersonReadMemory {
@@ -79,14 +68,18 @@ export class PersonReadMemory {
     return this.ships.find((ship) => ship.fleetId === fleetId && ship.id === id && ship.isActive);
   }
 
-  private isSendable(ship: PersonReadShipFixture, sender: { shipId: ShipId; permission: PersonPermissionPlan } | null) {
-    return sender !== null && ship.id !== sender.shipId && ship.kind !== 'viewer' && reaches(sender.permission, ship);
+  private reaches(filter: RuleMatchFilter, ship: PersonReadShipFixture): boolean {
+    return reachesBy(this.rules ?? [])(filter, ship);
+  }
+
+  private isSendable(ship: PersonReadShipFixture, sender: { shipId: ShipId; permission: RuleMatchFilter } | null) {
+    return sender !== null && ship.id !== sender.shipId && ship.kind !== 'viewer' && this.reaches(sender.permission, ship);
   }
 
   private isSelected(ship: PersonReadShipFixture, page: PersonShipPageRead) {
     const policy = page.policy;
     const isAuthorized = policy.section === 'discovery' ? this.isSendable(ship, policy.sender)
-      : reaches(policy.reader, ship) && !this.isSendable(ship, policy.sender);
+      : this.reaches(policy.reader, ship) && !this.isSendable(ship, policy.sender);
     const description = crewDescription(ship.isCrewed && ship.summary !== null ? { summary: ship.summary } : null);
     const query = page.search.toLowerCase();
     const name = ship.name.toLowerCase();
@@ -107,7 +100,7 @@ export class PersonReadMemory {
         return Promise.resolve({ reader, scopes: isShipCaller(caller) ? associated?.scopes ?? [] : caller.scopes,
           sender: associated === undefined ? null : { ship: this.reaching(associated), scopes: associated.scopes },
           isCrewActive: isCrew(caller) && associated?.isCrewed === true,
-          rules: rulesInForce({ rules: this.rules, isViewerReadOn: true }, []) });
+          rules: { isOpen: this.rules === null, isViewerReadOn: true, sources: [{ source: { kind: 'fleet' as const }, rules: this.rules ?? [] }], everyCandidateVerbs: [] } });
       },
     },
     projection: {
@@ -115,14 +108,14 @@ export class PersonReadMemory {
         .map((ship) => ({ row: { shipId: ship.id, name: ship.name, kind: ship.kind, description: crewDescription(ship.isCrewed && ship.summary !== null ? { summary: ship.summary } : null) }, position: { name: ship.name.toLowerCase(), shipId: ship.id } }))
         .sort((first, second) => first.position.name < second.position.name ? -1 : first.position.name > second.position.name ? 1 : first.position.shipId < second.position.shipId ? -1 : 1)
         .slice(0, page.shipIds === undefined ? 21 : 20)),
-      selectedReports: (fleetId, selected) => this.tx.projection.reports(fleetId, { permission: personPermissionPlan({ isOpen: true, isViewerReadOn: true, rules: [], declared: [] }, { subject: { kind: 'installation' }, verb: 'read' }), shipIds: selected.map(({ row }) => row.shipId) }),
+      selectedReports: (fleetId, selected) => this.tx.projection.reports(fleetId, { permission: { isEvery: true }, shipIds: selected.map(({ row }) => row.shipId) }),
       reports: (fleetId, read) => {
         if (this.hasReportFailure || read.shipIds.length === 0 || read.shipIds.length > 20 || read.shipIds.some((id) => this.forbiddenReportIds.has(id))) {
           return Promise.reject(new Error('The report projection must receive only concerned loaded ids'));
         }
         return Promise.resolve({ rows: read.shipIds.map((shipId) => {
           const ship = this.active(fleetId, shipId);
-          if (ship === undefined || !reaches(read.permission, ship)) {
+          if (ship === undefined || !this.reaches(read.permission, ship)) {
             return { shipId, report: { status: 'unavailable' as const } };
           }
           const isCrewed = ship.kind === 'operator' || ship.kind === 'viewer' || ship.isCrewed;

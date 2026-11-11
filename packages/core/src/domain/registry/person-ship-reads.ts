@@ -3,8 +3,8 @@ import type { FleetId, PersonShipCursorRecord, PersonShipRow, ScopeName, ShipId,
 
 import type { Caller } from '../shared/caller.js';
 import type { DomainError } from '../shared/errors.js';
-import type { ReachingActor, ReachingShip, RulesInForce } from './network-settings.js';
-import type { PersonPermissionPlan } from './person-permission.js';
+import type { ReachingActor, ReachingShip } from './network-settings.js';
+import type { RuleMatchFilter, SubjectRuleSources } from './rule-matches.js';
 
 export type PersonShipReadRefusal = DomainError<'INVALID_CURSOR' | 'SCOPE_NOT_HELD' | 'LEASE_ENDED'>;
 
@@ -13,17 +13,18 @@ export interface PersonShipReadFacts {
   scopes: readonly ScopeName[];
   sender: { ship: ReachingShip; scopes: readonly ScopeName[] } | null;
   isCrewActive: boolean;
-  rules: RulesInForce;
+  /** The fleet's own rules, the installation's and the declarations of the subjects' label owners, never every declaration. */
+  rules: SubjectRuleSources;
 }
 
 export interface DirectSendPermission {
   shipId: ShipId;
-  permission: PersonPermissionPlan;
+  permission: RuleMatchFilter;
 }
 
 export type PersonShipPagePolicy =
   | { section: 'discovery'; sender: DirectSendPermission }
-  | { section: 'readableContext'; reader: PersonPermissionPlan; sender: DirectSendPermission | null };
+  | { section: 'readableContext'; reader: RuleMatchFilter; sender: DirectSendPermission | null };
 
 export interface PersonShipPageRead {
   policy: PersonShipPagePolicy;
@@ -47,7 +48,7 @@ export interface PersonShipReadTx {
     page(fleetId: FleetId, read: PersonShipPageRead): Promise<readonly PersonShipPageRow[]>;
     /** Only rows selected by this snapshot, sliced to 20 by the use case. No request ids. */
     selectedReports(fleetId: FleetId, selected: readonly PersonShipPageRow[]): Promise<ShipReportsOutput>;
-    reports(fleetId: FleetId, read: { permission: PersonPermissionPlan; shipIds: readonly ShipId[] }): Promise<ShipReportsOutput>;
+    reports(fleetId: FleetId, read: { permission: RuleMatchFilter; shipIds: readonly ShipId[] }): Promise<ShipReportsOutput>;
   };
 }
 
