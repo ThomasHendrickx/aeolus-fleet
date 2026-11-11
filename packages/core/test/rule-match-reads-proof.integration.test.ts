@@ -2,6 +2,7 @@ import { idSchema, type PersonShipPageInput, type ShipId } from '@aeolus-fleet/c
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
+import { buildRuleMatchesOf } from '../src/adapters/prisma/build-rule-matches.js';
 import { createPrismaClientTellingStatements, type PrismaClient } from '../src/adapters/prisma/client.js';
 import { createPrismaDeclaredNetworkRulesRepository, createPrismaNetworkSettingsRepository } from '../src/adapters/prisma/network.js';
 import { Prisma } from '../src/adapters/prisma/generated/client.js';
@@ -10,6 +11,7 @@ import { createPrismaPersonShipReadTx } from '../src/adapters/prisma/person-ship
 import { allowsReach, type ReachingShip } from '../src/domain/registry/network-settings.js';
 import type { PersonShipReadTx } from '../src/domain/registry/person-ship-reads.js';
 import { aPersonReadFleet, personReadsOf } from './support/person-read-postgres.js';
+import { expectRuleMatchesKept } from './support/rule-match-postgres.js';
 import { createPostgresCore, type PostgresCore } from './support/postgres-core.js';
 import { hostConditions, percentile, recordEvidence, seededShipId, seedPopulation, SEEDED_SHIPS, storeWorkload, WORKLOADS, type Workload } from './support/rule-match-proof.js';
 
@@ -235,5 +237,33 @@ describe.runIf(process.env.RULE_MATCH_PROOF === '1')('person ship reads by rule 
     for (const shape of shapes()) {
       await measureShape({ workload, shape, truth });
     }
+  }, 900_000);
+
+  it('build every fleet before core serves, as the release step, and again unchanged', async () => {
+    // Given the densest stored workload, its matches gone as before the release, beside the other fleet's 30000 active ships.
+    const densest = WORKLOADS.find(({ name }) => name === 'context-pair-shared-excluded');
+    if (densest === undefined) {
+      throw new Error('The densest workload is defined');
+    }
+    await storeWorkload(core, { fleetId: fleet.fleetId, subjectId: fleet.person.shipId, workload: densest });
+    const kept = await core.prisma.$queryRaw<{ rows: number }[]>`SELECT count(*)::int AS rows FROM ship_rule_matches WHERE fleet_id = ${fleet.fleetId}`;
+    await core.prisma.$executeRaw`DELETE FROM ship_rule_matches`;
+
+    // When the release step builds every fleet, then builds again.
+    const firstStartedAt = performance.now();
+    await buildRuleMatchesOf(core.databaseUrl);
+    const firstMs = performance.now() - firstStartedAt;
+    const secondStartedAt = performance.now();
+    await buildRuleMatchesOf(core.databaseUrl);
+    const secondMs = performance.now() - secondStartedAt;
+
+    // Then the fleet holds its fresh matches, and the cost is recorded.
+    await expectRuleMatchesKept(core, fleet.fleetId);
+    const [size] = await core.prisma.$queryRaw<{ rows: number; bytes: bigint; fleets: number }[]>`
+      SELECT (SELECT count(*)::int FROM ship_rule_matches) AS rows, pg_total_relation_size('ship_rule_matches') AS bytes, (SELECT count(*)::int FROM fleets) AS fleets`;
+    expect(size?.rows).toBe(kept[0]?.rows);
+    const summary = { kind: 'build', fleets: size?.fleets, activeShipsAllFleets: SEEDED_SHIPS + 30000, rows: size?.rows, tableBytes: Number(size?.bytes ?? 0), firstBuildMs: firstMs, secondBuildMs: secondMs, host: hostConditions() };
+    recordEvidence(summary);
+    console.info(JSON.stringify(summary));
   }, 900_000);
 });
