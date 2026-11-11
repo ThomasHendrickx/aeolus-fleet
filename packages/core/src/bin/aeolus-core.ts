@@ -13,6 +13,7 @@ import { operatorResetPassword } from '../adapters/cli/operator-reset-password.j
 import { runAtTerminal, runCommand } from '../adapters/cli/run.js';
 import { signIn } from '../adapters/cli/sign-in.js';
 import { describeFailure } from '../adapters/prisma/failure-log.js';
+import { buildRuleMatchesOf } from '../adapters/prisma/build-rule-matches.js';
 import { migrateDatabase, MigrationError } from '../adapters/prisma/migrate.js';
 import { ConfigError } from '../config.js';
 import { start } from '../start.js';
@@ -34,7 +35,7 @@ switch (command) {
     }
     break;
   case 'migrate':
-    await runAtTerminal((io) => migrate({ environment: process.env, migrateDatabase, io }));
+    await runAtTerminal((io) => migrate({ environment: process.env, migrateDatabase, buildRuleMatches: buildRuleMatchesOf, io }));
     break;
   case 'fleet:init':
     await runCommand(args, ({ useCases, consoleOrigin, io }) =>

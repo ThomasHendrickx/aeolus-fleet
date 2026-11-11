@@ -1,18 +1,21 @@
 import { createAwsKmsKeyVault } from './adapters/kms/aws-kms-key-vault.js';
+import { prepareDatabase } from './adapters/cli/prepare-database.js';
+import { buildRuleMatchesOf } from './adapters/prisma/build-rule-matches.js';
 import { migrateDatabase } from './adapters/prisma/migrate.js';
 import { startTelemetry } from './adapters/telemetry/telemetry.js';
 import { createApp } from './app.js';
 import { loadConfig, startupWarnings } from './config.js';
 
 /**
- * `aeolus-core start`: migrates the database, then serves the fleet until
+ * `aeolus-core start`: migrates the database and builds every fleet's rule
+ * matches, failing before it listens if either fails, then serves the fleet until
  * SIGINT or SIGTERM. A stop ends waiting receives and closes idle
  * connections at once (see app.ts), then sends the telemetry still buffered.
  * Telemetry starts first, so the server's database client is traced too.
  */
 export async function start(): Promise<void> {
   const config = loadConfig(process.env);
-  await migrateDatabase(config.databaseUrl);
+  await prepareDatabase({ databaseUrl: config.databaseUrl, migrateDatabase, buildRuleMatches: buildRuleMatchesOf });
   const telemetry = await startTelemetry(process.env);
   const server = createApp({
     databaseUrl: config.databaseUrl,
