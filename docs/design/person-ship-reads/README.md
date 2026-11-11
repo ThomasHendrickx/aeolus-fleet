@@ -145,6 +145,8 @@ The last key is the last returned row, not the look-ahead row. The database requ
 
 ## Database design
 
+For the proposed replacement of the declared-rule load-and-compile boundary, read [Candidate-local declared permissions](candidate-local-permissions.md). That structure awaits Thomas's full approval; the approved behavior and the current design below remain the baseline.
+
 ### Permission plan
 
 A registry read port takes fleet, validated page position, normalized search and a domain permission plan. In the same read unit of work, load only the network settings, applied/declared rules, the authenticated actor's labels and associated ship scopes/labels. Never call `readReachOf`, `ships.list`, `listActive`, or full `discover` to supply a set of recipient ids. Read the fleet's and installation's declared rules by fleet; no recipient materialization in the domain or gateway.
