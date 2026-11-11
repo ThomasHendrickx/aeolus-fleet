@@ -4,7 +4,7 @@ A docs-only proposal for Thomas. It comes before any technical design: no search
 
 ## Direction
 
-Thomas, 11 Nov, relayed by orchestrator (message `msg_01m75x3w4f9gs49rsayxj96ywp`; this is the relayed sense, not his words): the page answers "I want to get xyz done; is there a potential ship that can do that for me?" Templates and their short descriptions come first, and current ships second. Semantic or vector search is noted as a new area.
+Thomas, 11 Nov, relayed by orchestrator (message `msg_01m75x3w4f9gs49rsayxj96ywp`; this is the relayed sense, not his words): the page answers "I want to get xyz done; is there a potential ship that can do that for me?" It matches the job against the short descriptions of templates or ships, and looking at current ships is secondary. Semantic or vector search is noted as a new area.
 
 This approves none of the following: the small contactable directory, the prior Fleet structure (the two sections of [app-060](https://github.com/ThomasHendrickx/aeolus-app/blob/65b9e8ca70328f9f533eb66538f9d5eda4c2b804/docs/design/app-060/README.md)) or a vector implementation.
 
@@ -12,7 +12,7 @@ This approves none of the following: the small contactable directory, the prior 
 
 Help a person start from the work they want done and find what can do it: a kind of work they may ask for (a template), or a ship that already does it. Then they take the one next step that fits, which is either asking for a ship or messaging one.
 
-This is step 1 of the approved [asking for a ship](https://github.com/ThomasHendrickx/aeolus-fleet-squadrons/blob/221896c5630f95ff1ca892aa299b4253add000e3/docs/design/asking-for-a-ship/asking-for-a-ship.md) experience ("Find and ask: the person picks from a list of kinds of work described in everyday words"). Today that experience has no place to find work from. Existing ships come second because a person who finds a ship already doing the work may not need a new one. Whether a ship made from a template counts as "already doing it" is the template owner's behaviour (that design, items 4 and 9), not this page's.
+This is step 1 of the approved [asking for a ship](https://github.com/ThomasHendrickx/aeolus-fleet-squadrons/blob/221896c5630f95ff1ca892aa299b4253add000e3/docs/design/asking-for-a-ship/asking-for-a-ship.md) experience ("Find and ask: the person picks from a list of kinds of work described in everyday words"). Today that experience has no place to find work from. How templates and ships are ordered or presented together is proposed here and still open (question 3); the direction does not fix a ranking. A person who finds a ship already doing the work may not need a new one. Whether a ship made from a template counts as "already doing it" is the template owner's behaviour (that design, items 4 and 9), not this page's.
 
 ## Four facts kept apart
 
@@ -43,7 +43,7 @@ flowchart TD
     TA --> TB[Template behaviour: new ship, shared ship or wait]
     S --> SA[Open the conversation, send the request]
     SA --> SR[Send refused: nothing sent, read again]
-    N --> NB[Say so plainly; next step is question 6]
+    N --> NB[Say so plainly; next step is question 4]
     B --> F[Catalogue unavailable: Conversations and Home stay usable]
 ```
 
@@ -60,15 +60,17 @@ Unhappy paths:
 
 ## Example job queries
 
-These are illustrative and invented here, not user evidence. Each shows what the matching has to bridge.
+These are illustrative and invented here, not user evidence. Each shows what the matching has to bridge. Exact substring is #1741's search: the trimmed query must appear, as written, inside the text. Token matching compares single words, perhaps reduced to a stem. Semantic matching compares meaning.
 
-| Person types | Template or ship described as | Literal text match? |
-| --- | --- | --- |
-| "review my pull request" | "Reviews a branch or pull request" | Yes |
-| "write the release notes" | "Drafts the changelog for a release" | No: different words |
-| "is our site down?" | "Watches the fleet's monitoring and reports outages" | No: a question, not a task |
-| "contract check" | "Reads agreements and flags unusual clauses" | No: a synonym |
-| "TypeScript slice" | "Implements a slice in a TypeScript repository" (squadrons' own example) | Yes, but only for a developer's wording |
+| Person types | Template or ship described as | Exact substring | Token | Semantic |
+| --- | --- | --- | --- | --- |
+| "review my pull request" | "Reviews a branch or pull request" | No | "pull" and "request"; "review" only with stems | Likely |
+| "write the release notes" | "Drafts the changelog for a release" | No | "release" only: a weak overlap | Likely |
+| "is our site down?" | "Watches the fleet's monitoring and reports outages" | No | No shared word | Needed |
+| "contract check" | "Reads agreements and flags unusual clauses" | No | No shared word, unless the owner lists "contract" as a synonym | Needed, or the owner's synonym |
+| "TypeScript slice" | "Implements a slice in a TypeScript repository" (squadrons' own example) | No | "TypeScript" and "slice", in a developer's words | Likely |
+
+None of these examples matches by exact substring. That says more about the examples than about real queries, so question 2 asks for real jobs.
 
 Today a template's one-line `description` is required and written for template lists ([squadrons.md](https://github.com/ThomasHendrickx/aeolus-fleet-squadrons/blob/main/docs/squadrons.md)). Its existing examples use a developer's words. A ship's description is the first sentence of its crew statement, and it may be missing. The quality of these texts limits every way of finding below.
 
@@ -77,10 +79,13 @@ Today a template's one-line `description` is required and written for template l
 | Way | Fits when | Person gains | Person loses | Costs, without assuming a design |
 | --- | --- | --- | --- | --- |
 | Browse: the list, perhaps grouped | The list is short enough to scan | Sees everything they may ask for; no wrong guesses | Slow on a long list | Only the list and its access check |
-| Text: literal or word search over name and description (#1741's search) | The person's words appear in the description | Predictable: they see why it matched | Misses synonyms and questions (rows 2 to 4) | Owners may write better descriptions or add example asks |
-| Semantic: matching by meaning | The words differ but the job is the same | Rows 2 to 4 match | Less predictable; may suggest a wrong fit with confidence | A new area. It could be done by embeddings, by an agent ship reading the person's words (like the case-handling ship asking-for-a-ship proposes), or by owner-written synonyms. A vector database is one option, not a requirement. Each option has its own cost in privacy (the person's words go to a model), freshness and access filtering |
+| Exact substring (#1741's search) | The person types a phrase the description contains | Predictable: they see why it matched | Misses reworded, inflected and question-style asks (every example above) | Nothing beyond the text itself |
+| Token, perhaps with owner-written synonyms | The person's words, or listed synonyms, appear in the description | Still predictable; catches rows 1, 2, 4 (with a synonym) and 5 | Weak overlaps and questions (rows 2 and 3) | A proposal. Owners keep the synonyms; probably simpler than model matching, not shown to be |
+| Semantic: matching by meaning | The words differ but the job is the same | Rows 2 to 4 match | Less predictable; may suggest a wrong fit with confidence | A new area. It could be done by embeddings or by an agent ship reading the person's words (like the case-handling ship asking-for-a-ship proposes). A vector database is one option, not a requirement. Each option has its own cost in privacy (the person's words go to a model), freshness and access filtering |
 
-How big the catalogue is decides much of this. Templates per organisation are likely far fewer than ships, but no figure is known. The 3,000-ship target belongs to the old directory and does not carry over.
+How big the catalogue is decides much of this, but no figure is known. Scale and freshness targets for a catalogue are undecided. This direction does not waive #1741's gates or exempt anything from them; any target is Thomas's to set.
+
+Every way keeps the existing boundaries. Core stays content-blind and interprets no request. A person's words leave their conversation only where Thomas approves it. Matching never shows what the person may not see, and grants nothing.
 
 ## Known and assumed
 
@@ -101,10 +106,11 @@ Assumed:
 
 ## Questions for Thomas
 
-1. Is the proposed purpose right: start from the work, templates first, then existing ships, and one next step (ask or message)?
-2. Should the catalogue be part of asking-for-a-ship's step 1, a page of its own in the app, or both?
-3. Who writes the business words? The template owner, with today's one-line `description` rewritten for business users, or a new field, such as example asks?
-4. For the first version: browse only, browse plus text search, or semantic? And what catalogue size should decide it?
+1. Is the proposed purpose right: start from the work, find a template or a ship whose short description fits, and take one next step (ask or message)?
+2. What are three to five real jobs people have asked for, or would ask for, in their own words? The matching, the descriptions and the first version should be judged against those, not against the invented examples above.
+3. When both a template and an existing ship fit, how should they appear: templates first, ships first, together, or as the person chooses?
+4. When nothing fits, what is the next step: say so only, ask someone (whom?), or request a new kind of work?
 5. Do read-only context ships or reports belong on this page at all, or elsewhere?
-6. When nothing fits, what is the next step: say so only, ask someone (whom?), or request a new kind of work?
-7. May the 1741 rule matches prototype, PR #1747's context and report reads, and PR #1750 now be closed, kept frozen as evidence, or kept for messaging existing ships?
+6. May the 1741 rule matches prototype, PR #1747's context and report reads, and PR #1750 now be closed, kept frozen as evidence, or kept for messaging existing ships?
+
+Where the catalogue lives, who writes its wording, and browse, token or semantic matching come after these answers and the real jobs.
