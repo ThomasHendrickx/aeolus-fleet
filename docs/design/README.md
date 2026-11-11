@@ -42,6 +42,7 @@ Feature designs, one folder each; the status of each is at its top:
 | [oauth-servers](oauth-servers/oauth-servers.md) | Outside MCP servers that take only an OAuth sign-in |
 | [on-behalf-scopes](on-behalf-scopes/on-behalf-scopes.md) | Scopes granted on behalf of the asking ship |
 | [performance](performance/performance.md) | Performance at scale: paged reads and their limits |
+| [questions-for-a-person](questions-for-a-person/README.md) | A person answers their ships' questions in one place |
 | [re-read-delivery](re-read-delivery/README.md) | A crew re-reads an acknowledged delivery |
 | [retention](retention/retention.md) | What a fleet keeps, and for how long |
 | [retired-sender](retired-sender/README.md) | A delivery's sender, retired or not: the fact a ship reads beside the sender's name and type |
