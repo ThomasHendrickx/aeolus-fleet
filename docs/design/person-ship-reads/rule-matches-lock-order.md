@@ -95,6 +95,60 @@ These are unchanged in both options:
 
 Neither option requires changing the approved read behavior. Only the literal order requires changing sends.
 
+## 6. Recommended hierarchy: the settings lock first, on every path that takes it
+
+Neither option above is deadlock-free as written: option 1 keeps a commission against retirement cycle (section 3), and the literal order keeps the send against retirement cycle (section 2). This section recommends one hierarchy and states exactly what it proves and what it does not.
+
+### Rule
+
+- **H1.** Every unit of work that can take the fleet's network settings lock in any mode takes it before its first other lock: before any row lock (`FOR SHARE`, `FOR NO KEY UPDATE`, `FOR UPDATE`, claims) and before any other advisory lock (idempotency, commission, opener and creator keys, names, label keys, namespaces, ship count, verified-facts writer). A path that takes the lock only on some branches (for example `checkManage` for a `labels:any` caller) takes it first, every time.
+- **H2.** It takes the strongest mode it can need, once: exclusive for `retireShip`, `declareNetworkRules`, `applyNetworkRules`, `setBuiltInRule` and the rule-match build; shared for every other path. No path upgrades from shared to exclusive. Taking the lock again in the same transaction is granted immediately, so the existing `checkManage`, `checkReach` and `keepRuleMatches*` calls stay as they are.
+- **H3.** Ownership stays as today. Writers and sends hold a transaction-level lock (`pg_advisory_xact_lock[_shared]`), released at commit or rollback. Person reads hold a session-level shared lock taken before `BEGIN ... REPEATABLE READ READ ONLY` and released after `ROLLBACK`, so their lock-before-snapshot behaviour is unchanged. No other pre-transaction lock is involved: sealing key unwrapping runs before the unit of work and holds no database lock.
+- **H4.** Every unit takes the lock of one fleet only, as today.
+
+### Why it removes every cycle through the settings lock [code]
+
+Under H1, a unit waiting for the settings lock holds no other database lock: a person read holds none before `BEGIN`, and every other unit has not yet taken anything. A wait-for cycle that passes through the settings lock needs its waiter to hold a lock another member waits for, so no such cycle can form. That holds whatever each path locks after the settings lock, including FIFO queueing behind a waiting exclusive request. The three cycles found so far all pass through the settings lock and are removed: send against retire (section 2), commission against a namespace declarer's retire, and assign, setOwner or grantScopes on a namespace holder against that declarer's retire (section 3).
+
+**Not claimed.** Cycles that never touch the settings lock, among row and advisory locks of paths that take no settings lock (receive, acknowledge, meeting contribution, lease and crew paths that do not reach `checkManage`), are unchanged from the baseline and were not inventoried. This hierarchy says nothing about them.
+
+### Rule matches under H [code]
+
+A writer of rules holds the exclusive lock for its whole transaction, and a writer of values or owners holds the shared lock for its whole transaction, authoritative write included. So a rule writer and a value writer never overlap, and the second recomputes from the first's committed change. Two value writers on one ship still serialize on the ship row. Stale recomputation would need a rule writer and a value writer to overlap, which H excludes. The prototype's recompute placement (after the authoritative write, under the lock) carries over unchanged.
+
+### Affected paths: a finite inventory from the current code
+
+Each row gives the locks taken before the settings lock today, in order, and the change H requires: move the settings acquisition in front of them. Line numbers are at the prototype head. Paths whose lock is already first need no change.
+
+| Path | Locks before the settings lock today | Mode |
+| --- | --- | --- |
+| `sendWithin` (send, `send-message.ts:217-241`), also via `replyToMessage`, `pingShip`, `sendDueSchedules` | idempotency key; recipient ship `FOR SHARE`; reply: delivery `FOR UPDATE` first (`reply-to-message.ts:48`); scheduler: schedule claim first (`send-due-schedules.ts:62,112`); ping: `checkManage` | shared |
+| `sendToLabelWithin`, `scheduleMessage` (`checkReachToEach`) | idempotency or creator key (`schedule-message.ts:102`) | shared |
+| `resendDelivery` | delivery `FOR UPDATE`, idempotency key, recipient `FOR SHARE` (`resend-delivery.ts:92-140`) | shared |
+| `openMeeting`, `addToMeeting`, `changeMeeting` | opener key (`open-meeting.ts:111`); meeting `FOR UPDATE` (`add-to-meeting.ts:57`, `change-meeting.ts:38`) | shared |
+| `cancelSchedule`, `pauseSchedule`, `listSchedules` (`scheduleAccess`) | schedule `FOR UPDATE` (`cancel-schedule.ts:36`, `pause-schedule.ts:35`) | shared |
+| `assignLabel`, `unassignLabel` | ship `FOR NO KEY UPDATE`, label `FOR SHARE` | shared |
+| `setOwner` | owner, ship `FOR NO KEY UPDATE` | shared |
+| `commissionShip` (with the prototype's recompute) | commission key, ship count, owner `FOR SHARE`, name, namespaces, value labels `FOR SHARE` | shared |
+| `grantScopes`, `renameShip`, `recrewShip`, `releaseShip`, `getStartingPrompt`, `requestCrew`, `removeCrewRequest`, `requestWorktreeClear`, `setExpectations`, `setVerifiedFacts`, `checkManage` use case | ship `FOR NO KEY UPDATE` (trierarch ship for worktree clear); rename also name | shared |
+| `raiseAlert`, `clearAlert`, `readShipWay` reads (`checkRead`) | ship `FOR NO KEY UPDATE`, alert `FOR UPDATE` (clear) | shared |
+| `importNetworkRules` | definer ship `FOR SHARE`, label keys (`import-network-rules.ts:51-63`) | shared |
+| `discover`, `readReach`, `explainReach`, `exportNetworkRules`, `readNetworkRules`, `readNetworkRulesDraftChanges`, `readBuiltInRules`, `saveNetworkRulesDraft` | none: already first | shared |
+| Person reads (`person-read-unit-of-work.ts:29`) | none: session lock before `BEGIN` | shared, session |
+| `declareNetworkRules` | value labels `FOR SHARE` (`:39`) | exclusive |
+| `retireShip` | meetings, schedules, ship, lease, owned ships, owned labels (`:113-185`), all before the lock at `:204` | exclusive |
+| `applyNetworkRules`, `setBuiltInRule`, rule-match build | none: already first | exclusive |
+
+### What it costs
+
+- **Scope widening.** About 40 existing use cases change lock order, sends, replies, the scheduler, meetings and schedules included: more than the three new reads. The order among the locks after the settings lock does not change.
+- **Waiting.** An exclusive writer now holds the lock for its whole transaction, retirement's meeting, schedule, label and namespace work included. Every lock-taking call in that fleet (sends, reads, managed writes) waits for all of it. How long is unmeasured. The approved writer and send-wait gates (p95 < 100 ms, p99 < 500 ms at 3,000 carriers) would measure it.
+- **Reads.** Unchanged: the shared session lock, then one snapshot.
+
+### The rows-first alternative is not supported by this inventory
+
+Keeping rows first needs the opposite guarantee: no unit, while holding the settings lock in any mode, waits for a lock that a unit waiting for the settings lock can hold. Shared holders count too, because a shared request queues behind a waiting exclusive one. Retirement could move its holder-ship and namespace locks in front of its settings lock, and that would remove both namespace cycles. Proving the rest needs an inventory of every lock taken after the settings lock on all of the paths above (event-sequence row, delivery, lease and alert rows, verified-facts writer, FK key-share locks). I have not made that inventory, so I cannot claim this alternative deadlock-free.
+
 ## Evidence
 
 The prototype's stages 0 to 4 ran on option 1, which is a deviation from the approved order. They are evidence for this question, not acceptance of the approved structure.
