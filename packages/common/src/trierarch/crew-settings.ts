@@ -43,7 +43,7 @@ export type TrierarchWorkspace = z.infer<typeof trierarchWorkspaceSchema>;
  * optional first prompt, options, optional machine labels and optional MCP
  * servers. Without a harness, the trierarch it goes to crews it with its default: the first in its configuration. The server refuses a request whose settings this schema refuses (#809) but never acts on them; the trierarch
  * plugin and the trierarch parse them with this schema. Never a path or a
- * command-line flag: a workspace names a repository or folder, options pick
+ * command-line flag: a workspace names repositories or a folder, options pick
  * named settings, and a first prompt never starts with `-`.
  */
 export const crewSettingsSchema = z.strictObject({
