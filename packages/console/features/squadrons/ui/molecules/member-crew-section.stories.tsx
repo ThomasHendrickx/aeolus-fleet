@@ -111,6 +111,16 @@ export const NotOffered: Story = {
     await expect(canvas.queryByTestId('member-crew-ready')).toBeNull();
   },
 };
+/** On a phone the header note wraps under the slot and template, so the whole reason reads (#1769). */
+export const NotOfferedPhone: Story = {
+  args: { member: { ...READY, slot: 'implementer-1', workspace: repositories('tidewater', 'harbour') } },
+  globals: { viewport: { value: 'mobile1' } },
+  play: async ({ canvasElement }) => {
+    const note = within(canvasElement).getByTestId('member-crew-missing');
+    await expect(note).toHaveTextContent('No machine offers harbour.');
+    await expect(note.getBoundingClientRect().right).toBeLessThanOrEqual(canvasElement.getBoundingClientRect().right);
+  },
+};
 /** Its main repository no machine offers: Workspace says so (#1769). */
 export const MainNotOffered: Story = {
   args: { isOpen: true, member: { ...READY, workspace: repositories('harbour') } },

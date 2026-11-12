@@ -99,7 +99,7 @@ export function MemberCrewSection({ member, offers, machineLabels, isOpen, onOpe
         type="button"
         aria-expanded={isOpen}
         data-testid="member-crew-toggle"
-        className="flex min-h-11 items-center gap-2.5 px-3.5 py-2 text-left focus-visible:outline-2 focus-visible:outline-ring [&_svg]:size-(--size-icon-sm) [&_svg]:shrink-0"
+        className="flex min-h-11 flex-wrap items-center gap-x-2.5 gap-y-1 px-3.5 py-2 text-left focus-visible:outline-2 focus-visible:outline-ring [&_svg]:size-(--size-icon-sm) [&_svg]:shrink-0"
         onClick={() => {
           onOpenChange(!isOpen);
         }}
@@ -114,7 +114,7 @@ export function MemberCrewSection({ member, offers, machineLabels, isOpen, onOpe
             Ready
           </span>
         ) : (
-          <span className="inline-flex items-center gap-1 text-meta text-tone-waiting-fg" data-testid="member-crew-missing">
+          <span className="inline-flex min-w-0 max-w-full items-start gap-1 text-meta text-tone-waiting-fg" data-testid="member-crew-missing">
             <CircleDashed aria-hidden />
             {missing.length === 0 ? workspaceNote : `Needs ${missing.join(', ')}`}
           </span>
