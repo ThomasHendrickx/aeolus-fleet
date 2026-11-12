@@ -85,6 +85,20 @@ export const REPOSITORY_SPOTS: Spot[] = [
   { shipId: shipId('sr04'), name: 'docs-writer', status: 'running', attempt: 0, startedAt: minutesAgo(35), workspace: { kind: 'repositories', main: 'hemma', subRepositories: [] } },
 ];
 
+/** A ship whose main repository comes with more sub-repositories than one line holds at desktop width. */
+export const MANY_REPOSITORIES_SPOT: Spot = {
+  shipId: shipId('sr05'),
+  name: 'aeolus-fleet',
+  status: 'running',
+  attempt: 0,
+  startedAt: minutesAgo(172),
+  workspace: {
+    kind: 'repositories',
+    main: 'aeolus-fleet',
+    subRepositories: ['aeolus-fleet-trierarch', 'aeolus-fleet-squadrons', 'aeolus-fleet-gateway', 'aeolus-fleet-plugin', 'skills', 'hemma', 'website', 'design-system', 'infrastructure', 'release-notes'],
+  },
+};
+
 /** The fleet as the list reads it: the trierarchs' ships, with where they run, and ships assigned to trierarch-mac. */
 export const FLEET: ListedShip[] = [
   ...MACHINES.map(

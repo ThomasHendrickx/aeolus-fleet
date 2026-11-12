@@ -139,6 +139,10 @@ export const NotOffered: Story = {
   play: async ({ canvasElement }) => {
     const [, row] = within(canvasElement).getAllByTestId('crew-settings-sub-repository-row');
     await expect(row).toHaveTextContent('No machine offers aeolus-website. Remove it, or join a machine that has it.');
+    // The explanation is tied to the row's controls, so a screen reader hears it with them.
+    const explanation = 'No machine offers aeolus-website. Remove it, or join a machine that has it.';
+    await expect(within(canvasElement).getByRole('textbox', { name: 'Branch of aeolus-website' })).toHaveAccessibleDescription(explanation);
+    await expect(within(canvasElement).getByRole('button', { name: 'Remove aeolus-website' })).toHaveAccessibleDescription(explanation);
   },
 };
 
@@ -195,6 +199,7 @@ export const RefusedUnderRow: Story = {
     const [row] = within(canvasElement).getAllByTestId('crew-settings-sub-repository-row');
     await expect(row).toHaveTextContent('no trierarch offering claude-code has repository skills');
     await expect(within(canvasElement).getAllByText('no trierarch offering claude-code has repository skills')).toHaveLength(1);
+    await expect(within(canvasElement).getByRole('textbox', { name: 'Branch of skills' })).toHaveAccessibleDescription('no trierarch offering claude-code has repository skills');
   },
 };
 

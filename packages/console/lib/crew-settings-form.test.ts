@@ -217,6 +217,19 @@ describe('a main repository and its sub-repositories in the form (#1761)', () =>
     expect(refusedSubRepository('no trierarch offering claude-code has repository aeolus-fleet-trierarch', workspace)).toBe(0);
     expect(refusedSubRepository('no trierarch offering claude-code has repository aeolus-fleet', workspace)).toBeUndefined();
   });
+
+  it('finds the sub-repository the refusal names in quotes or parentheses, never a name that only contains it', () => {
+    const workspace = repositories('aeolus-fleet', 'aeolus-fleet-trierarch', 'skills');
+
+    expect(refusedSubRepository("Repository 'skills' is unavailable", workspace)).toBe(1);
+    expect(refusedSubRepository('Repository "skills" is unavailable', workspace)).toBe(1);
+    expect(refusedSubRepository('Repository `aeolus-fleet-trierarch` is unavailable', workspace)).toBe(0);
+    expect(refusedSubRepository('no trierarch has it (skills)', workspace)).toBe(1);
+    expect(refusedSubRepository('no trierarch has repository [skills].', workspace)).toBe(1);
+    expect(refusedSubRepository("Repository 'aeolus-fleet' is unavailable", workspace)).toBeUndefined();
+    expect(refusedSubRepository('no trierarch has repository my-skills', workspace)).toBeUndefined();
+    expect(refusedSubRepository('no trierarch has repository skills.old', workspace)).toBeUndefined();
+  });
 });
 
 describe('settingsRows', () => {

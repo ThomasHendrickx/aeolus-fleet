@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { expect, fn, userEvent, within } from 'storybook/test';
 
-import { ALIVE_MACHINE, KEPT_SHIP_ID, MACHINE_LABELS, MACHINE_VALUES, NEW_MACHINE, NOW, REPOSITORY_SPOTS, SILENT_MACHINE, SPOTS } from '../../../../lib/fixtures/machines.fixtures';
+import { ALIVE_MACHINE, KEPT_SHIP_ID, MACHINE_LABELS, MANY_REPOSITORIES_SPOT, MACHINE_VALUES, NEW_MACHINE, NOW, REPOSITORY_SPOTS, SILENT_MACHINE, SPOTS } from '../../../../lib/fixtures/machines.fixtures';
 import { MachineDetail } from './machine-detail';
 
 const meta = {
@@ -59,5 +59,19 @@ export const RunningHereRepositories: Story = {
       'Workspace: aeolus-fleet · main repository · sub-repository skills',
       'Workspace: hemma · main repository',
     ]);
+  },
+};
+
+/** A long list of sub-repositories at desktop width wraps, so every name stays readable (docs/design/ship-repositories, trierarch boards). */
+export const RunningHereManyRepositories: Story = {
+  args: {
+    spots: [MANY_REPOSITORIES_SPOT],
+  },
+  globals: { viewport: { value: 'desktop' } },
+  play: async ({ canvasElement }) => {
+    await expect(canvasElement.ownerDocument.defaultView?.innerWidth).toBeGreaterThanOrEqual(640);
+    const line = within(canvasElement).getByTestId('machine-spot-workspace');
+    await expect(line).toHaveTextContent('release-notes');
+    await expect(line.scrollWidth).toBeLessThanOrEqual(line.clientWidth);
   },
 };
