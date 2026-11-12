@@ -250,7 +250,7 @@ export function MachineDetail({ machine, state, spots, location, labels, now, sh
                     {spot.name}
                   </Link>
                   {spot.workspace === undefined ? null : (
-                    <span className="text-meta break-words text-muted-foreground sm:truncate" data-testid="machine-spot-workspace">
+                    <span className="text-meta break-words text-muted-foreground" data-testid="machine-spot-workspace">
                       <span className="sr-only">Workspace: </span>
                       {spot.workspace.kind === 'repositories' ? (
                         <>

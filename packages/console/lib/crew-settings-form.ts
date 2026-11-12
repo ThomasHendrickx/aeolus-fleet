@@ -179,10 +179,18 @@ export function refusedSubRepository(reason: string, workspace: WorkspaceChoice 
   if (workspace?.kind !== 'repositories') {
     return undefined;
   }
-  // A name may hold dots, so only punctuation that ends a word is left off.
-  const words = reason.split(/\s+/).map((word) => word.replace(/[,.:;]+$/, ''));
-  const index = workspace.subRepositories.findIndex(({ repository }) => words.includes(repository));
+  const index = workspace.subRepositories.findIndex(({ repository }) => namesRepository(reason, repository));
   return index === -1 ? undefined : index;
+}
+
+/**
+ * Whether the text names the repository whole: quotes, brackets or other
+ * punctuation may surround it, but no letter, digit, `-`, `_` or `.` that
+ * goes on into a longer name (a dot ending a sentence is no part of it).
+ */
+function namesRepository(text: string, repository: string): boolean {
+  const name = repository.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`(?<![\\w.-])${name}(?![\\w-]|\\.[\\w-])`).test(text);
 }
 
 /** The form's values: always strings, so a field is never uncontrolled; empty means not given. */

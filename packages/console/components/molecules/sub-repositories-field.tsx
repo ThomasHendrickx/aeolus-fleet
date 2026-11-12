@@ -1,6 +1,7 @@
 'use client';
 
 import { Plus, X } from 'lucide-react';
+import { useId } from 'react';
 
 import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, InlineError, Input, Tooltip, TooltipContent, TooltipTrigger } from '@aeolus-fleet/ui';
 import type { RepositoryChoice } from '../../lib/crew-settings-form';
@@ -27,6 +28,7 @@ interface SubRepositoriesFieldProps {
  * says why, as Add server does. A row's error shows under it.
  */
 export function SubRepositoriesField({ shipName, subRepositories, addable, errors, isDisabled = false, onAdd, onBranchChange, onRemove }: SubRepositoriesFieldProps) {
+  const errorIdPrefix = useId();
   const isAllAdded = addable.length === 0;
   const addSubRepository = (
     <Button type="button" variant="ghost" size="xs" icon={<Plus />} disabled={isDisabled || isAllAdded} focusableWhenDisabled={isAllAdded && !isDisabled} data-testid="crew-settings-sub-repositories-add">
@@ -42,6 +44,8 @@ export function SubRepositoriesField({ shipName, subRepositories, addable, error
         <ul className="divide-y divide-border rounded-lg border border-border bg-card">
           {subRepositories.map(({ repository, ref }, index) => {
             const error = errors[index];
+            // The row's error explains the repository, so its Branch and × both carry it.
+            const errorId = error === undefined ? undefined : `${errorIdPrefix}-${String(index)}`;
             return (
               // A repository may be named twice while the form says so, so its place keys it too.
               <li key={`${repository}-${String(index)}`} className="flex flex-col gap-1.5 px-2.5 py-2" data-testid="crew-settings-sub-repository-row">
@@ -53,6 +57,7 @@ export function SubRepositoriesField({ shipName, subRepositories, addable, error
                     isMono
                     aria-label={`Branch of ${repository}`}
                     aria-invalid={error === undefined ? undefined : true}
+                    aria-describedby={errorId}
                     placeholder="Default branch"
                     className="h-(--size-control-sm) w-32 shrink-0 px-2 text-id sm:w-36"
                     value={ref}
@@ -70,6 +75,7 @@ export function SubRepositoriesField({ shipName, subRepositories, addable, error
                       size="sm"
                       isIconOnly
                       aria-label={`Remove ${repository}`}
+                      aria-describedby={errorId}
                       icon={<X />}
                       onClick={() => {
                         onRemove(index);
@@ -77,7 +83,7 @@ export function SubRepositoriesField({ shipName, subRepositories, addable, error
                     />
                   )}
                 </span>
-                {error === undefined ? null : <InlineError variant="field" title={error} />}
+                {error === undefined ? null : <InlineError variant="field" id={errorId} title={error} />}
               </li>
             );
           })}
