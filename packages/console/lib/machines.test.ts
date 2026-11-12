@@ -65,17 +65,20 @@ describe('spotsOf', () => {
 describe('withWorkspaces', () => {
   const spot = (name: string) => ({ shipId: newId('ship'), name, status: 'running' as const, attempt: 0, startedAt: null });
 
-  it('names each spot’s workspace from its crew request’s settings: a repository or a folder', () => {
+  it('names each spot’s workspace from its crew request’s settings: a main repository and its sub-repositories, or a folder', () => {
     const builder = spot('builder');
+    const triage = spot('triage-bot');
     const writer = spot('docs-writer');
     const settings = new Map<string, CrewSettings | null>([
       [builder.shipId, { harness: 'claude-code', workspace: { kind: 'repositories', main: { repository: 'aeolus-fleet' }, subRepositories: [] }, options: {} }],
+      [triage.shipId, { harness: 'claude-code', workspace: { kind: 'repositories', main: { repository: 'aeolus-fleet', ref: 'main' }, subRepositories: [{ repository: 'skills', ref: 'v1' }, { repository: 'hemma' }] }, options: {} }],
       [writer.shipId, { harness: 'claude-code', workspace: { kind: 'folder', name: 'notes' }, options: {} }],
     ]);
 
-    expect(withWorkspaces([builder, writer], settings).map((each) => each.workspace)).toEqual([
-      { name: 'aeolus-fleet', kind: 'worktree' },
-      { name: 'notes', kind: 'folder' },
+    expect(withWorkspaces([builder, triage, writer], settings).map((each) => each.workspace)).toEqual([
+      { kind: 'repositories', main: 'aeolus-fleet', subRepositories: [] },
+      { kind: 'repositories', main: 'aeolus-fleet', subRepositories: ['skills', 'hemma'] },
+      { kind: 'folder', name: 'notes' },
     ]);
   });
 
