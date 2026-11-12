@@ -1,6 +1,4 @@
-import { spawn, type ChildProcess } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { createInterface } from 'node:readline';
 
 import { getContainerRuntimeClient } from 'testcontainers';
 import { describe, expect, inject, it } from 'vitest';
@@ -8,8 +6,7 @@ import { describe, expect, inject, it } from 'vitest';
 import { POSTGRES_IMAGE } from '../src/testing/container-images.js';
 import { TEST_RUN_LABEL } from '../src/testing/container-sweeper.js';
 import { TestPostgres } from '../src/testing/postgres-container.js';
-
-const SWEEPER = new URL('../src/testing/container-sweeper.ts', import.meta.url).href;
+import { startRunProcess } from './support/test-run-process.js';
 
 /** Waits long enough for a Postgres to start on a loaded machine, and for the sweeper to remove it. */
 const CONTAINER_TIMEOUT = 120_000;
@@ -41,17 +38,6 @@ async function existingVolumes(names: readonly string[]): Promise<string[]> {
     }),
   );
   return found.flat();
-}
-
-/** A test run's process: it starts the sweeper for its run, then waits to be killed, as a run interrupted mid-test. */
-async function startRunProcess(run: string): Promise<ChildProcess> {
-  const script = `import { startContainerSweeper } from ${JSON.stringify(SWEEPER)}; startContainerSweeper(process.argv[1]); console.log('sweeping'); setInterval(() => {}, 60_000);`;
-  const child = spawn(process.execPath, ['--input-type=module', '--eval', script, run], { stdio: ['ignore', 'pipe', 'inherit'] });
-  for await (const line of createInterface({ input: child.stdout })) {
-    expect(line).toBe('sweeping');
-    break;
-  }
-  return child;
 }
 
 // Rootless Podman often runs no reaper, so a run's own teardown and its sweeper are all that remove its containers (#1581).
