@@ -49,7 +49,7 @@ describe('the operator account repository', () => {
     const account = await anAccount();
     await accounts().create(account);
 
-    await expect(accounts().findByEmailForUpdate(account.email)).resolves.toEqual(account);
+    await expect(accounts().findAllByEmailForUpdate(account.email)).resolves.toEqual([account]);
   });
 
   it('stores accounts with no email and no password, any number of them', async () => {
@@ -62,10 +62,19 @@ describe('the operator account repository', () => {
     await expect(accounts().findForFleetForUpdate(second.fleetId)).resolves.toEqual(second);
   });
 
+  it('finds every account holding an email the fleets the installation created share, in id order', async () => {
+    const first = await anAccount({ email: 'shared@example.com', passwordHash: null });
+    const second = await anAccount({ email: 'shared@example.com', passwordHash: null });
+    await accounts().create(second);
+    await accounts().create(first);
+
+    await expect(accounts().findAllByEmailForUpdate('shared@example.com')).resolves.toEqual([first, second]);
+  });
+
   it('finds no account for an email it does not hold', async () => {
     await accounts().create(await anAccount({ email: 'held@example.com' }));
 
-    await expect(accounts().findByEmailForUpdate('other@example.com')).resolves.toBeUndefined();
+    await expect(accounts().findAllByEmailForUpdate('other@example.com')).resolves.toEqual([]);
   });
 
   it("finds the fleet's account", async () => {
@@ -102,8 +111,8 @@ describe('the operator account repository', () => {
     await accounts().changeLogin({ fleetId: account.fleetId, operatorId: account.id, email, passwordHash: 'new hash' });
     await accounts().changeLogin({ fleetId: account.fleetId, operatorId: other.id, email: 'not-this-one@example.com', passwordHash: 'not this one' });
 
-    await expect(accounts().findByEmailForUpdate(email)).resolves.toEqual({ ...account, email, passwordHash: 'new hash' });
-    await expect(accounts().findByEmailForUpdate(account.email)).resolves.toBeUndefined();
+    await expect(accounts().findAllByEmailForUpdate(email)).resolves.toEqual([{ ...account, email, passwordHash: 'new hash' }]);
+    await expect(accounts().findAllByEmailForUpdate(account.email)).resolves.toEqual([]);
     await expect(accounts().findForFleetForUpdate(other.fleetId)).resolves.toEqual(other);
   });
 
@@ -116,7 +125,7 @@ describe('the operator account repository', () => {
     const { promise: firstLocked, resolve: signalLocked } = Promise.withResolvers<undefined>();
 
     const first = uow.run(async (tx) => {
-      await tx.operatorAccounts.findByEmailForUpdate(account.email);
+      await tx.operatorAccounts.findAllByEmailForUpdate(account.email);
       order.push('first locked');
       signalLocked(undefined);
       await firstHolds;

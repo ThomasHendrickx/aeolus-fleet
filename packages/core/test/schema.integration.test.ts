@@ -1032,23 +1032,24 @@ describe('the operator ship', () => {
 });
 
 describe('operator accounts', () => {
-  function account(fleetId: FleetId, email = `${newId('operator')}@example.com`, passwordHash: string | null = 'hash') {
+  function account(fleetId: FleetId, login: { email?: string; passwordHash?: string | null } = {}) {
+    const { email = `${newId('operator')}@example.com`, passwordHash = 'hash' } = login;
     return database.operator.create({
       data: { id: newId('operator'), fleetId, email, passwordHash, createdAt: now },
     });
   }
 
   it('hold the email of an own sign-in unique across all fleets', async () => {
-    await account(await createFleet(), 'thomas@example.com');
+    await account(await createFleet(), { email: 'thomas@example.com' });
 
-    await expect(account(await createFleet(), 'thomas@example.com')).rejects.toThrow(/Unique constraint/);
-    await expect(account(await createFleet(), 'thomas@example.com', null)).resolves.toMatchObject({ email: 'thomas@example.com' });
+    await expect(account(await createFleet(), { email: 'thomas@example.com' })).rejects.toThrow(/Unique constraint/);
+    await expect(account(await createFleet(), { email: 'thomas@example.com', passwordHash: null })).resolves.toMatchObject({ email: 'thomas@example.com' });
   });
 
   it('share an email between operators without a password', async () => {
-    await account(await createFleet(), 'ines@example.com', null);
+    await account(await createFleet(), { email: 'ines@example.com', passwordHash: null });
 
-    await expect(account(await createFleet(), 'ines@example.com', null)).resolves.toMatchObject({ email: 'ines@example.com' });
+    await expect(account(await createFleet(), { email: 'ines@example.com', passwordHash: null })).resolves.toMatchObject({ email: 'ines@example.com' });
   });
 
   it('are one per fleet', async () => {

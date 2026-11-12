@@ -68,16 +68,17 @@ export function createPrismaCredentialRepository(db: Db): CredentialRepository {
 
 export function createPrismaOperatorAccountLookup(db: Db): OperatorAccountLookup {
   return {
-    byEmail: async (email) => {
+    allByEmail: async (email) => {
       // Not scoped by fleet: signing in names no fleet (ADR 0007). No lock:
       // a plain read never waits for a sign-in or a reset holding the row.
-      const [row] = await db.$queryRaw<unknown[]>`
+      const rows = await db.$queryRaw<unknown[]>`
         SELECT id, fleet_id, email, password_hash, theme::text AS theme, created_at FROM operators
-        WHERE email = ${email}`;
-      return row ? toOperatorAccount(row) : undefined;
+        WHERE email = ${email}
+        ORDER BY id`;
+      return rows.map(toOperatorAccount);
     },
     byFleet: async (fleetId) => {
-      // No lock, as byEmail: the caller checks the row again under its lock.
+      // No lock, as allByEmail: the caller checks the row again under its lock.
       const [row] = await db.$queryRaw<unknown[]>`
         SELECT id, fleet_id, email, password_hash, theme::text AS theme, created_at FROM operators
         WHERE fleet_id = ${fleetId}`;
@@ -96,13 +97,15 @@ export function createPrismaOperatorAccountRepository(db: Db): OperatorAccountRe
       // released at commit or rollback, as the ship-name lock is per fleet.
       await db.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('operator-email'), hashtext(${email}))`;
     },
-    findByEmailForUpdate: async (email) => {
-      // Not scoped by fleet: signing in names no fleet (ADR 0007).
-      const [row] = await db.$queryRaw<unknown[]>`
+    findAllByEmailForUpdate: async (email) => {
+      // Not scoped by fleet: signing in names no fleet (ADR 0007). Locked in
+      // id order, so two units of work never wait on each other's rows.
+      const rows = await db.$queryRaw<unknown[]>`
         SELECT id, fleet_id, email, password_hash, theme::text AS theme, created_at FROM operators
         WHERE email = ${email}
+        ORDER BY id
         FOR UPDATE`;
-      return row ? toOperatorAccount(row) : undefined;
+      return rows.map(toOperatorAccount);
     },
     findForFleetForUpdate: async (fleetId) => {
       const [row] = await db.$queryRaw<unknown[]>`

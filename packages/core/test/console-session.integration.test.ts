@@ -153,7 +153,7 @@ describe('signing in on Postgres', () => {
     const { promise: held, resolve: release } = Promise.withResolvers<undefined>();
     const { promise: locked, resolve: signalLocked } = Promise.withResolvers<undefined>();
     const holder = createPrismaUnitOfWork(core.prisma).run(async (tx) => {
-      await tx.operatorAccounts.findByEmailForUpdate(OPERATOR.email);
+      await tx.operatorAccounts.findAllByEmailForUpdate(OPERATOR.email);
       signalLocked(undefined);
       await held;
       return ok(undefined);
