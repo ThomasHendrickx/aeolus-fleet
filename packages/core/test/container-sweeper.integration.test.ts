@@ -1,6 +1,6 @@
 import { spawn, type ChildProcess } from 'node:child_process';
-import { once } from 'node:events';
 import { randomUUID } from 'node:crypto';
+import { createInterface } from 'node:readline';
 
 import { getContainerRuntimeClient } from 'testcontainers';
 import { describe, expect, inject, it } from 'vitest';
@@ -47,8 +47,10 @@ async function existingVolumes(names: readonly string[]): Promise<string[]> {
 async function startRunProcess(run: string): Promise<ChildProcess> {
   const script = `import { startContainerSweeper } from ${JSON.stringify(SWEEPER)}; startContainerSweeper(process.argv[1]); console.log('sweeping'); setInterval(() => {}, 60_000);`;
   const child = spawn(process.execPath, ['--input-type=module', '--eval', script, run], { stdio: ['ignore', 'pipe', 'inherit'] });
-  const [line] = (await once(child.stdout, 'data')) as [Buffer];
-  expect(line.toString().trim()).toBe('sweeping');
+  for await (const line of createInterface({ input: child.stdout })) {
+    expect(line).toBe('sweeping');
+    break;
+  }
   return child;
 }
 
