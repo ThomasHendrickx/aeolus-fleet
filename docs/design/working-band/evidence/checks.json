@@ -1,0 +1,204 @@
+[
+  {
+    "device": "desktop",
+    "theme": "light",
+    "mode": "before",
+    "reduce": 0,
+    "duration": "2.4s",
+    "animation": "old",
+    "opacity": "0.7"
+  },
+  {
+    "device": "desktop",
+    "theme": "light",
+    "mode": "before",
+    "reduce": 1,
+    "duration": "0s",
+    "animation": "none",
+    "opacity": "0.35"
+  },
+  {
+    "device": "desktop",
+    "theme": "light",
+    "mode": "after",
+    "reduce": 0,
+    "duration": "3.8s",
+    "animation": "soft",
+    "opacity": "0.41956"
+  },
+  {
+    "device": "desktop",
+    "theme": "light",
+    "mode": "after",
+    "reduce": 1,
+    "duration": "0s",
+    "animation": "none",
+    "opacity": "0.45"
+  },
+  {
+    "device": "desktop",
+    "theme": "dark",
+    "mode": "before",
+    "reduce": 0,
+    "duration": "2.4s",
+    "animation": "old",
+    "opacity": "0.7"
+  },
+  {
+    "device": "desktop",
+    "theme": "dark",
+    "mode": "before",
+    "reduce": 1,
+    "duration": "0s",
+    "animation": "none",
+    "opacity": "0.35"
+  },
+  {
+    "device": "desktop",
+    "theme": "dark",
+    "mode": "after",
+    "reduce": 0,
+    "duration": "3.8s",
+    "animation": "soft",
+    "opacity": "0.42697"
+  },
+  {
+    "device": "desktop",
+    "theme": "dark",
+    "mode": "after",
+    "reduce": 1,
+    "duration": "0s",
+    "animation": "none",
+    "opacity": "0.45"
+  },
+  {
+    "device": "phone",
+    "theme": "light",
+    "mode": "before",
+    "reduce": 0,
+    "duration": "2.4s",
+    "animation": "old",
+    "opacity": "0.7"
+  },
+  {
+    "device": "phone",
+    "theme": "light",
+    "mode": "before",
+    "reduce": 1,
+    "duration": "0s",
+    "animation": "none",
+    "opacity": "0.35"
+  },
+  {
+    "device": "phone",
+    "theme": "light",
+    "mode": "after",
+    "reduce": 0,
+    "duration": "3.8s",
+    "animation": "soft",
+    "opacity": "0.423256"
+  },
+  {
+    "device": "phone",
+    "theme": "light",
+    "mode": "after",
+    "reduce": 1,
+    "duration": "0s",
+    "animation": "none",
+    "opacity": "0.45"
+  },
+  {
+    "device": "phone",
+    "theme": "dark",
+    "mode": "before",
+    "reduce": 0,
+    "duration": "2.4s",
+    "animation": "old",
+    "opacity": "0.7"
+  },
+  {
+    "device": "phone",
+    "theme": "dark",
+    "mode": "before",
+    "reduce": 1,
+    "duration": "0s",
+    "animation": "none",
+    "opacity": "0.35"
+  },
+  {
+    "device": "phone",
+    "theme": "dark",
+    "mode": "after",
+    "reduce": 0,
+    "duration": "3.8s",
+    "animation": "soft",
+    "opacity": "0.426983"
+  },
+  {
+    "device": "phone",
+    "theme": "dark",
+    "mode": "after",
+    "reduce": 1,
+    "duration": "0s",
+    "animation": "none",
+    "opacity": "0.45"
+  },
+  {
+    "state": "alert",
+    "box": {
+      "x": 16,
+      "y": 420.578125,
+      "width": 174,
+      "height": 140
+    },
+    "word": "△ Alert",
+    "bands": 0
+  },
+  {
+    "state": "awaitingCrew",
+    "box": {
+      "x": 16,
+      "y": 420.578125,
+      "width": 174,
+      "height": 140
+    },
+    "word": "◌ Awaiting crew",
+    "bands": 0
+  },
+  {
+    "state": "blocked",
+    "box": {
+      "x": 16,
+      "y": 420.578125,
+      "width": 174,
+      "height": 140
+    },
+    "word": "⊘ Blocked",
+    "bands": 0
+  },
+  {
+    "state": "idle",
+    "box": {
+      "x": 16,
+      "y": 420.578125,
+      "width": 174,
+      "height": 140
+    },
+    "word": "Ⅱ Idle",
+    "bands": 0
+  },
+  {
+    "state": "working",
+    "box": {
+      "x": 16,
+      "y": 420.578125,
+      "width": 174,
+      "height": 140
+    },
+    "word": "∿ Working",
+    "bands": 1
+  },
+  {
+    "osReduced": "none"
+  }
+]
