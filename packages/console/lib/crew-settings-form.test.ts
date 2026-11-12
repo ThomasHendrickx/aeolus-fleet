@@ -1,7 +1,7 @@
 import { idSchema, type CrewSettings, type LabelValueId } from '@aeolus-fleet/common';
 import { describe, expect, it } from 'vitest';
 
-import { addableSubRepositories, byteSize, defaultValues, offersOf, refusedSubRepository, settingsOf, settingsRows, valuesOf, withHarness, workspaceProblems } from './crew-settings-form';
+import { addableSubRepositories, byteSize, defaultValues, offersOf, refusedSubRepository, settingsOf, settingsRows, valuesOf, withHarness, workspaceFromItem, workspaceItemsOf, workspaceProblems } from './crew-settings-form';
 import type { Machine } from './trierarch-plugin-schemas';
 
 const CLAUDE = {
@@ -174,6 +174,25 @@ describe('a main repository and its sub-repositories in the form (#1761)', () =>
     const held: CrewSettings = { harness: 'claude-code', workspace: { kind: 'repositories', main: { repository: 'aeolus-fleet', ref: 'design/ship-folder' }, subRepositories: [{ repository: 'skills' }] }, options: {} };
 
     expect(valuesOf(held, { offers, enabledModels: NO_RULE }).workspace).toEqual({ kind: 'repositories', main: { repository: 'aeolus-fleet', ref: 'design/ship-folder' }, subRepositories: [{ repository: 'skills', ref: '' }] });
+  });
+
+  it('Workspace offers each repository as the main repository and each folder as it is; a held one no machine offers stays, so the form can say so (#1769)', () => {
+    expect(workspaceItemsOf({ repositories: ['aeolus-fleet', 'skills'], folders: ['notes'] }, repositories('harbour'))).toEqual({
+      'repository:harbour': 'harbour · main repository',
+      'repository:aeolus-fleet': 'aeolus-fleet · main repository',
+      'repository:skills': 'skills · main repository',
+      'folder:notes': 'notes · folder, as it is',
+    });
+  });
+
+  it('another main repository keeps the sub-repositories, so a repository named twice is shown; a folder has none (#1769)', () => {
+    const held = repositories('aeolus-fleet', 'skills');
+
+    expect([workspaceFromItem('repository:skills', held), workspaceFromItem('folder:notes', held), workspaceFromItem('', held)]).toEqual([
+      { kind: 'repositories', main: { repository: 'skills', ref: '' }, subRepositories: [{ repository: 'skills', ref: '' }] },
+      { kind: 'folder', name: 'notes' },
+      undefined,
+    ]);
   });
 
   it('Add sub-repository offers what the machines offer for the harness, less the main repository and those added', () => {
