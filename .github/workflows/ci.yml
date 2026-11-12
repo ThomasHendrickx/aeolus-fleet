@@ -117,6 +117,10 @@ jobs:
   integration:
     name: Integration tests (Postgres in Testcontainers)
     runs-on: ubuntu-latest
+    env:
+      # No reaper, as often on rootless Podman: the run's own teardown and its
+      # sweeper must remove every container, and the last step checks they did (#1581).
+      TESTCONTAINERS_RYUK_DISABLED: 'true'
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -127,10 +131,16 @@ jobs:
       # The images Testcontainers starts, from the Actions cache (#464).
       - uses: ./.github/actions/test-images
       - run: npm run test:integration
+      - name: The run left no container and no volume behind
+        if: ${{ !cancelled() }}
+        run: node scripts/check-test-run-leftovers.ts
 
   e2e:
     name: End-to-end tests (Playwright)
     runs-on: ubuntu-latest
+    env:
+      # No reaper, as in the integration job (#1581).
+      TESTCONTAINERS_RYUK_DISABLED: 'true'
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -146,6 +156,9 @@ jobs:
       - run: npx playwright install chromium
         timeout-minutes: 5
       - run: npm run test:e2e
+      - name: The run left no container and no volume behind
+        if: ${{ !cancelled() }}
+        run: node scripts/check-test-run-leftovers.ts
 
   publish-dry-run:
     name: Publish dry run
