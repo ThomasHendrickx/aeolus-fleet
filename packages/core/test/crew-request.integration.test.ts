@@ -1,3 +1,5 @@
+import { readFile } from 'node:fs/promises';
+
 import { createIdGenerator } from '@aeolus-fleet/common';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -288,5 +290,32 @@ describe('a crew request on Postgres', () => {
     await expect(core.useCases.readAssignedCrewRequests(trierarch)).resolves.toMatchObject([{ shipId: scoutId, status: 'crewing', isFinal: true }]);
     unwrap(await core.useCases.requestCrew(argo, { shipId: scoutId, settings: aCrewSettings({ harness: 'codex' }) }));
     await expect(core.useCases.readAssignedCrewRequests(trierarch)).resolves.toMatchObject([{ shipId: scoutId, settingsVersion: 2, isFinal: false }]);
+  });
+});
+
+describe('the repositories workspace migration on Postgres (#1760)', () => {
+  it('rewrites a stored worktree workspace as repositories, that repository as main with its ref and no sub-repositories', async () => {
+    const { shipId: plannerId } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'planner', type: 'planner' }));
+    unwrap(await core.useCases.requestCrew(argo, { shipId: scoutId, settings: aCrewSettings() }));
+    unwrap(await core.useCases.requestCrew(argo, { shipId: plannerId, settings: aCrewSettings() }));
+    // The settings as a request made before the migration holds them: raw, since the fleet now refuses a worktree workspace.
+    await core.prisma.crewRequest.update({ where: { shipId: scoutId }, data: { settings: { harness: 'codex', workspace: { kind: 'worktree', repository: 'aeolus-fleet', ref: 'next' }, options: { model: 'gpt-6' } } } });
+    await core.prisma.crewRequest.update({ where: { shipId: plannerId }, data: { settings: { workspace: { kind: 'worktree', repository: 'hemma' }, options: {} } } });
+    const migration = await readFile(new URL('../src/adapters/prisma/migrations/20261112100000_crew_request_repositories/migration.sql', import.meta.url), 'utf8');
+
+    await core.prisma.$executeRawUnsafe(migration);
+
+    const settingsOf = async (shipId: ShipCaller['shipId']) => (await core.prisma.crewRequest.findUnique({ where: { shipId } }))?.settings;
+    await expect(settingsOf(scoutId)).resolves.toEqual({ harness: 'codex', workspace: { kind: 'repositories', main: { repository: 'aeolus-fleet', ref: 'next' }, subRepositories: [] }, options: { model: 'gpt-6' } });
+    await expect(settingsOf(plannerId)).resolves.toEqual({ workspace: { kind: 'repositories', main: { repository: 'hemma' }, subRepositories: [] }, options: {} });
+  });
+
+  it('leaves a folder workspace as it is', async () => {
+    unwrap(await core.useCases.requestCrew(argo, { shipId: scoutId, settings: aCrewSettings() }));
+    const migration = await readFile(new URL('../src/adapters/prisma/migrations/20261112100000_crew_request_repositories/migration.sql', import.meta.url), 'utf8');
+
+    await core.prisma.$executeRawUnsafe(migration);
+
+    await expect(crewRequests()).resolves.toEqual([expect.objectContaining({ settings: aCrewSettings() })]);
   });
 });
