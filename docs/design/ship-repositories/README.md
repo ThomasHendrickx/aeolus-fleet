@@ -1,6 +1,6 @@
 # Crew settings: a ship's main repository and sub-repositories
 
-Mockups for Thomas's approval. Docs only. [Issue 1761](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1761), part of [#1759](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1759); the workspace shape is [#1760](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1760), the design is aeolus-fleet-trierarch's [ship-folder.md](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/blob/main/docs/design/ship-folder.md) (point 3). Once approved, these mockups are the build's acceptance criteria.
+Approved by Thomas on 12 Nov, as they are: these mockups are #1761's acceptance criteria. Docs only. [Issue 1761](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1761), part of [#1759](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1759); the workspace shape is [#1760](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1760), the design is aeolus-fleet-trierarch's [ship-folder.md](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/blob/main/docs/design/ship-folder.md) (point 3).
 
 Every image is the console's own parts (`CrewSettingsFields` in `RequestCrewDialog`, `CrewRequestCard` in `ShipHeader`, `MachineDetail`, inside `ConsoleFrame` and `DetailPage`), rendered in Storybook: before from `main`, after with the change drawn into those parts. Each board holds every state of one screen at one width and theme.
 
@@ -151,7 +151,7 @@ Each ship under Running here reads `<main> · main repository`, then `· sub-rep
 
 ## Choices the issues do not settle
 
-Each is this design's pick; Thomas approves or changes it with the mockups.
+Each is this design's pick, approved with the mockups.
 
 1. **The ref is labelled Branch**, empty for the default branch, as the task names it; `ref` stays the field's name in the settings.
 2. **Workspace stays one select** for repositories and folders, the picked repository being the main one; Sub-repositories and Branch show only for a repository (ship-folder.md Q3: a folder has none).
