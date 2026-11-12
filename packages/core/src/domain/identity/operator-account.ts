@@ -20,7 +20,11 @@ import { ok, type Result } from '../shared/result.js';
 export interface OperatorAccount {
   id: OperatorId;
   fleetId: FleetId;
-  /** Normalised: unique across the installation, found before the fleet is known (ADR 0007); null until argo sets one. */
+  /**
+   * Normalised, found before the fleet is known (ADR 0007); null until argo
+   * sets one. The fleets a hosting installation creates may share one; the
+   * email of argo's own sign-in is unique across the installation.
+   */
   email: string | null;
   /**
    * The Argon2id hash of the password; null for an operator who has none,
@@ -30,6 +34,15 @@ export interface OperatorAccount {
   /** How the console looks for this operator; System until they choose. */
   theme: Theme;
   createdAt: Date;
+}
+
+/**
+ * The account among those holding one email that signs in with it on its
+ * own: the one with a password. Only argo's own sign-in has one, and its
+ * email is no other operator's, so there is at most one.
+ */
+export function ownSignInOf(accounts: readonly OperatorAccount[]): OperatorAccount | undefined {
+  return accounts.find((account) => account.passwordHash !== null);
 }
 
 /** The form an email is stored and found in: without the spaces around it, in lowercase. */

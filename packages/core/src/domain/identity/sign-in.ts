@@ -7,7 +7,7 @@ import type { Result } from '../shared/result.js';
 import type { PasswordHasher, RandomTokens, SecretHasher } from '../shared/secrets.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { UNKNOWN_DEVICE } from './console-session.js';
-import { normaliseEmail } from './operator-account.js';
+import { normaliseEmail, ownSignInOf } from './operator-account.js';
 import type { OperatorAccountLookup, OperatorAccountRepository } from './ports.js';
 import { startConsoleSession, type StartConsoleSessionTx } from './start-console-session.js';
 
@@ -61,7 +61,7 @@ export function createSignIn(deps: {
 }): SignIn {
   return async (input) => {
     const email = normaliseEmail(input.email);
-    const account = await deps.accounts.byEmail(email);
+    const account = ownSignInOf(await deps.accounts.allByEmail(email));
     // An account without a password checks against none, as a missing account does: no password signs it in.
     const isPasswordRight = await deps.passwords.verify(input.password, account?.passwordHash ?? undefined);
     if (!account || !isPasswordRight) {
@@ -69,7 +69,7 @@ export function createSignIn(deps: {
     }
 
     return deps.uow.run(async (tx): Promise<Result<SignedIn, SignInRefusal>> => {
-      const locked = await tx.operatorAccounts.findByEmailForUpdate(email);
+      const locked = ownSignInOf(await tx.operatorAccounts.findAllByEmailForUpdate(email));
       if (locked?.id !== account.id || locked.passwordHash !== account.passwordHash) {
         return refuse('WRONG_EMAIL_OR_PASSWORD', WRONG_EMAIL_OR_PASSWORD);
       }

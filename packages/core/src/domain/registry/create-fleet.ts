@@ -1,6 +1,6 @@
 import type { FeatureFlag, FleetId, IdGenerator, ShipId } from '@aeolus-fleet/common';
 
-import { operatorEmail } from '../identity/public.js';
+import { operatorEmail, ownSignInOf } from '../identity/public.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { recordEvent } from '../shared/events.js';
@@ -39,8 +39,10 @@ export type CreateFleet = (input: {
  * Use case: the installation creates a fleet (docs/blueprint.md,
  * "Installation"), with its argo and its operator account, who has no
  * password: a password sign-in for that operator fails like a wrong password.
- * Unlike fleet:init it creates a fleet beside others. The operator email stays
- * unique across the installation. Asked for, the viewer ship comes with it
+ * Unlike fleet:init it creates a fleet beside others. The fleets it creates
+ * may share an operator email; the email argo of a fleet made before signs in
+ * with on its own is refused, so the installation still tells that fleet by
+ * it. Asked for, the viewer ship comes with it
  * (decision 0022), and so do the feature flags asked for on, each with its
  * FeatureFlagTurnedOn (decision 0069). Under its request id it runs once: a replay
  * answers the same fleet, and a different create under that id is refused.
@@ -81,8 +83,8 @@ export function createCreateFleet(deps: { uow: UnitOfWork<CreateFleetTx>; clock:
       }
 
       await tx.operatorAccounts.lockEmail(email.value);
-      if (await tx.operatorAccounts.findByEmailForUpdate(email.value)) {
-        return refuse('OPERATOR_EMAIL_TAKEN', `An operator already signs in with ${email.value}`);
+      if (ownSignInOf(await tx.operatorAccounts.findAllByEmailForUpdate(email.value))) {
+        return refuse('OPERATOR_EMAIL_TAKEN', `argo of another fleet signs in with ${email.value}`);
       }
 
       const at = deps.clock.now();

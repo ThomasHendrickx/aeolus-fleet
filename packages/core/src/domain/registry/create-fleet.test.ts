@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import { identityUseCases, initialiseFleet, registryUseCases, withInstallationSettings } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
+import { OPERATOR } from '../../testing/fleet.js';
 import { newKey } from '../../testing/keys.js';
 import { unwrap } from '../../testing/result.js';
 import type { ShipCaller } from '../shared/caller.js';
@@ -114,10 +115,26 @@ describe('creating a fleet for the installation', () => {
     });
   });
 
-  it("refuses an email another fleet's operator has, in any case", async () => {
-    unwrap(await createFleet(HEMMA));
+  it('creates a fleet for an email that is already the operator of a fleet it created, and both fleets work', async () => {
+    const first = unwrap(await createFleet(HEMMA));
 
-    await expect(createFleet({ requestId: 'signup-2', name: 'other', operatorEmail: 'LENA@example.com' })).resolves.toMatchObject({
+    const second = unwrap(await createFleet({ requestId: 'signup-2', name: 'northwind', operatorEmail: 'LENA@example.com' }));
+
+    expect(core.state.operatorAccounts.map(({ fleetId, email }) => ({ fleetId, email }))).toEqual([
+      { fleetId: first.fleetId, email: 'lena@example.com' },
+      { fleetId: second.fleetId, email: 'lena@example.com' },
+    ]);
+    for (const { fleetId, operatorShipId } of [first, second]) {
+      const argo: ShipCaller = { fleetId, shipId: operatorShipId, kind: 'operator', scopes: [...SCOPES] };
+      const commissioned = unwrap(await registryUseCases(core).commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
+      expect(core.state.ships.find((ship) => ship.id === commissioned.shipId)).toMatchObject({ fleetId, name: 'scout' });
+    }
+  });
+
+  it("refuses the email argo signs in with on its own, a fleet made before the installation's, in any case, and creates nothing", async () => {
+    await initialiseFleet(core);
+
+    await expect(createFleet({ ...HEMMA, operatorEmail: OPERATOR.email.toUpperCase() })).resolves.toMatchObject({
       isOk: false,
       error: { kind: 'OPERATOR_EMAIL_TAKEN' },
     });
@@ -149,6 +166,15 @@ describe('a create that comes again under its request id', () => {
     await expect(createFleet({ ...HEMMA, name: ' hemma ', operatorEmail: 'lena@example.com' })).resolves.toEqual({ isOk: true, value: first });
   });
 
+  it('answers each of two creates under one email its own fleet when they come again', async () => {
+    const first = unwrap(await createFleet(HEMMA));
+    const second = unwrap(await createFleet({ ...HEMMA, requestId: 'signup-2', name: 'northwind' }));
+
+    await expect(createFleet(HEMMA)).resolves.toEqual({ isOk: true, value: first });
+    await expect(createFleet({ ...HEMMA, requestId: 'signup-2', name: 'northwind' })).resolves.toEqual({ isOk: true, value: second });
+    expect(core.state.fleets).toHaveLength(2);
+  });
+
   it('refuses a different create under a used request id', async () => {
     unwrap(await createFleet(HEMMA));
 
@@ -166,6 +192,14 @@ describe("creating a fleet at the installation's cap", () => {
       isOk: false,
       error: { kind: 'FLEET_LIMIT_REACHED', message: 'The installation is at its cap of 1 fleets, so it creates no new one.' },
     });
+    expect(core.state.fleets).toHaveLength(1);
+  });
+
+  it('refuses a create at the cap under an email the operator of a fleet it created has', async () => {
+    withInstallationSettings(core, { fleetCap: 1 });
+    unwrap(await createFleet(HEMMA));
+
+    await expect(createFleet({ ...HEMMA, requestId: 'signup-2', name: 'northwind' })).resolves.toMatchObject({ isOk: false, error: { kind: 'FLEET_LIMIT_REACHED' } });
     expect(core.state.fleets).toHaveLength(1);
   });
 

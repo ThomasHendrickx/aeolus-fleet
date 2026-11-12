@@ -44,7 +44,8 @@ export interface CredentialRepository {
  * One query, not scoped by fleet: signing in names no fleet (ADR 0007).
  */
 export interface OperatorAccountLookup {
-  byEmail(email: string): Promise<OperatorAccount | undefined>;
+  /** Every account holding this normalised email: the fleets a hosting installation creates may share one. */
+  allByEmail(email: string): Promise<readonly OperatorAccount[]>;
   byFleet(fleetId: FleetId): Promise<OperatorAccount | undefined>;
 }
 
@@ -57,11 +58,10 @@ export interface OperatorAccountRepository {
    */
   lockEmail(email: string): Promise<void>;
   /**
-   * The account with this normalised email, locked until the unit of work
-   * ends. Not scoped by fleet: signing in names no fleet, and the email is
-   * unique across all fleets (ADR 0007).
+   * Every account holding this normalised email, locked until the unit of
+   * work ends. Not scoped by fleet: signing in names no fleet (ADR 0007).
    */
-  findByEmailForUpdate(email: string): Promise<OperatorAccount | undefined>;
+  findAllByEmailForUpdate(email: string): Promise<readonly OperatorAccount[]>;
   /** The fleet's operator account, locked until the unit of work ends. */
   findForFleetForUpdate(fleetId: FleetId): Promise<OperatorAccount | undefined>;
   changePassword(change: { fleetId: FleetId; operatorId: OperatorId; passwordHash: string }): Promise<void>;
