@@ -164,4 +164,16 @@ describe('switching the console between two fleets of one organisation', () => {
     expect(await tokenFleetOf(page)).toBe(fleetB);
     await expect(database.consoleSession.findMany({ where: { fleetId: fleetA, accountId: 'acc-mathilde' }, select: { endReason: true } })).resolves.toEqual([{ endReason: 'signedOut' }]);
   });
+
+  it('signs in again and lands in fleet B when the shared sign-in ended before the switch', async () => {
+    const page = await signedInToA(mathilde());
+    pagasae.endSignIns();
+
+    await page.goto(`/?fleet=${fleetB}`);
+
+    await page.waitForURL(`${web.url}/?fleet=${fleetB}`);
+    await isHydrated(page);
+    await expect(page.locator('[data-testid="app-switcher-fleets"]:visible').getAttribute('aria-label')).resolves.toContain('second fleet');
+    expect(await tokenFleetOf(page)).toBe(fleetB);
+  });
 });
