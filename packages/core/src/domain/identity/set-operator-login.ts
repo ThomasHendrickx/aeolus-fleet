@@ -28,7 +28,7 @@ export type SetOperatorLogin = (
  * Use case: argo, signed in to the console, sets the email and password of
  * its own sign-in (decision 0012, accounts design A1). Only where core trusts
  * no pagasae: a hosted fleet has no own sign-in for argo (decision 0054). The
- * email is the user name, unique across the installation, as at fleet:init.
+ * email is the user name, held by no other operator of the installation.
  * The old email and password stop working; the console session that set
  * them stays, since it is the one argo sign-in.
  *
@@ -79,8 +79,8 @@ export function createSetOperatorLogin(deps: {
       if (account.passwordHash !== (current?.passwordHash ?? null)) {
         return refuse('WRONG_PASSWORD', WRONG_PASSWORD);
       }
-      const holder = await tx.operatorAccounts.findByEmailForUpdate(email.value);
-      if (holder !== undefined && holder.id !== account.id) {
+      const holders = await tx.operatorAccounts.findAllByEmailForUpdate(email.value);
+      if (holders.some((holder) => holder.id !== account.id)) {
         return refuse('OPERATOR_EMAIL_TAKEN', `An operator already signs in with ${email.value}`);
       }
       await tx.operatorAccounts.changeLogin({ fleetId, operatorId: account.id, email: email.value, passwordHash });

@@ -1290,7 +1290,8 @@ enum ConsoleSessionEndReason {
 model Operator {
   id           String   @id
   fleetId      String   @unique @map("fleet_id")
-  email        String?  @unique
+  /// The fleets the installation creates may share one; the email of argo's own sign-in (with a password) is no other operator's.
+  email        String?
   passwordHash String?  @map("password_hash")
   /// How the console looks for this operator; system until they choose.
   theme        Theme    @default(system)
@@ -1298,6 +1299,8 @@ model Operator {
 
   fleet Fleet @relation(fields: [fleetId], references: [id])
 
+  @@unique([email], map: "operators_sign_in_email_key", where: raw("(password_hash IS NOT NULL)"))
+  @@index([email])
   @@map("operators")
 }
 

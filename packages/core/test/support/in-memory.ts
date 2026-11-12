@@ -1364,16 +1364,14 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       // One test runs one unit of work at a time: nothing to wait for.
       lockEmail: () => Promise.resolve(),
       create: (account) => {
-        if (state.operatorAccounts.some((held) => held.email === account.email || held.fleetId === account.fleetId)) {
-          return Promise.reject(new Error('unique violation: the email or the fleet already has an operator account'));
+        const isSignInEmailHeld = account.passwordHash !== null && state.operatorAccounts.some((held) => held.email === account.email && held.passwordHash !== null);
+        if (isSignInEmailHeld || state.operatorAccounts.some((held) => held.fleetId === account.fleetId)) {
+          return Promise.reject(new Error("unique violation: the fleet already has an operator account, or another one signs in with the email"));
         }
         state.operatorAccounts.push({ ...account });
         return Promise.resolve();
       },
-      findByEmailForUpdate: (email) => {
-        const account = state.operatorAccounts.find((held) => held.email === email);
-        return Promise.resolve(account && { ...account });
-      },
+      findAllByEmailForUpdate: (email) => Promise.resolve(state.operatorAccounts.filter((held) => held.email === email).map((held) => ({ ...held }))),
       findForFleetForUpdate: (fleetId) => {
         const account = state.operatorAccounts.find((held) => held.fleetId === fleetId);
         return Promise.resolve(account && { ...account });
@@ -1881,10 +1879,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
   };
 
   const accounts: OperatorAccountLookup = {
-    byEmail: (email) => {
-      const account = state.operatorAccounts.find((held) => held.email === email);
-      return Promise.resolve(account && { ...account });
-    },
+    allByEmail: (email) => Promise.resolve(state.operatorAccounts.filter((held) => held.email === email).map((held) => ({ ...held }))),
     byFleet: (fleetId) => {
       const account = state.operatorAccounts.find((held) => held.fleetId === fleetId);
       return Promise.resolve(account && { ...account });

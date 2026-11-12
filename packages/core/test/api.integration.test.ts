@@ -303,6 +303,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_pruned_exchanges$/),
       expect.stringMatching(/^\d{14}_commission_approvals$/),
       expect.stringMatching(/^\d{14}_crew_request_repositories$/),
+      expect.stringMatching(/^\d{14}_shared_operator_email$/),
     ]);
   });
 });
