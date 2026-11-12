@@ -91,6 +91,16 @@ function reportedOffersOf(machines: readonly Machine[]): HarnessOffer[] {
 /** A workspace as the form picks it: a new worktree of a repository, or a folder used as it is. */
 export type WorkspaceChoice = { kind: 'worktree'; repository: string } | { kind: 'folder'; name: string };
 
+/** The form's pick as settings: its repository as the main one, with no sub-repositories, which the form does not pick yet (#1761). */
+function workspaceOf(choice: WorkspaceChoice): CrewSettings['workspace'] {
+  return choice.kind === 'worktree' ? { kind: 'repositories', main: { repository: choice.repository }, subRepositories: [] } : choice;
+}
+
+/** Settings' workspace as the form picks it: the main repository, or the folder. */
+function choiceOf(workspace: CrewSettings['workspace']): WorkspaceChoice {
+  return workspace.kind === 'repositories' ? { kind: 'worktree', repository: workspace.main.repository } : { kind: 'folder', name: workspace.name };
+}
+
 /** The form's values: always strings, so a field is never uncontrolled; empty means not given. */
 export interface CrewSettingsValues {
   harness: string;
@@ -157,7 +167,7 @@ export function valuesOf(settings: CrewSettings | null | undefined, offered: { o
   const kept = isModelDisabled ? Object.fromEntries(Object.entries(held).filter(([name]) => name !== MODEL_OPTION)) : held;
   return {
     harness: picked,
-    workspace: workspace.kind === 'worktree' ? { kind: 'worktree', repository: workspace.repository } : { kind: 'folder', name: workspace.name },
+    workspace: choiceOf(workspace),
     options: isModelDisabled && enabledDefault !== undefined ? { ...kept, [MODEL_OPTION]: enabledDefault } : kept,
     firstPrompt: firstPrompt ?? '',
     squadron: squadron ?? '',
@@ -173,7 +183,7 @@ export function settingsOf(values: CrewSettingsValues): CrewSettings | undefined
   }
   return {
     harness: values.harness,
-    workspace: values.workspace,
+    workspace: workspaceOf(values.workspace),
     options: values.options,
     ...(values.firstPrompt === '' ? {} : { firstPrompt: values.firstPrompt }),
     ...(values.squadron === '' ? {} : { squadron: values.squadron }),
@@ -212,8 +222,8 @@ export function settingsRows(settings: CrewSettings | null | undefined): Setting
   const { harness, workspace, options, firstPrompt, squadron, mcpServers = [] } = settings;
   return [
     { label: 'Harness', value: harness ?? 'Trierarch default' },
-    workspace.kind === 'worktree'
-      ? { label: 'Workspace', value: workspace.repository, meta: 'New worktree' }
+    workspace.kind === 'repositories'
+      ? { label: 'Workspace', value: workspace.main.repository, meta: 'New worktree' }
       : { label: 'Workspace', value: workspace.name, meta: 'Folder, as it is' },
     ...Object.entries(options).map(([name, value]) => ({ label: name, value: typeof value === 'string' ? value : JSON.stringify(value), isMono: true })),
     { label: 'MCP servers', value: mcpServers.length === 0 ? null : mcpServers.join(', '), isMono: true },

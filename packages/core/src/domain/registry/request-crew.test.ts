@@ -1,4 +1,4 @@
-import { SCOPES, type FleetId, type ShipId } from '@aeolus-fleet/common';
+import { SCOPES, type FleetId, type ShipId, type TrierarchWorkspace } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { crewAboard, hostedFleetWithViewer, initialiseFleet, operatorCaller, registryUseCases } from '../../../test/support/core-fixtures.js';
@@ -17,7 +17,13 @@ let argo: ShipCaller;
 let argoId: ShipId;
 let scoutId: ShipId;
 
-const settings = { harness: 'claude-code', workspace: { kind: 'worktree', repository: 'hemma' }, options: {} };
+const settings = { harness: 'claude-code', workspace: { kind: 'repositories', main: { repository: 'hemma' }, subRepositories: [] }, options: {} };
+
+/** A workspace of a main repository and its sub-repositories, each named `r-000` on, three digits. */
+function withSubRepositories(count: number) {
+  const subRepositories = Array.from({ length: count }, (_, index) => ({ repository: `r-${String(index).padStart(3, '0')}` }));
+  return { ...settings, workspace: { kind: 'repositories', main: { repository: 'hemma' }, subRepositories } };
+}
 
 beforeEach(async () => {
   core = createInMemoryCore('2026-10-06T15:00:00.000Z');
@@ -104,6 +110,18 @@ describe('requesting a crew for a ship', () => {
 
   it('takes a first prompt of exactly 8 KB', async () => {
     await expect(registry.requestCrew(argo, { shipId: scoutId, settings: { ...settings, firstPrompt: 'x'.repeat(8 * 1024) } })).resolves.toMatchObject({ isOk: true });
+  });
+
+  it('takes a main repository and sub-repositories, each with an optional ref, that no trierarch offers: it never checks a name against a machine', async () => {
+    const workspace: TrierarchWorkspace = { kind: 'repositories', main: { repository: 'company', ref: 'main' }, subRepositories: [{ repository: 'skills' }, { repository: 'aeolus-fleet', ref: 'design' }] };
+
+    unwrap(await registry.requestCrew(argo, { shipId: scoutId, settings: { ...settings, workspace } }));
+
+    expect(crewRequestOf(scoutId)?.settings).toEqual({ ...settings, workspace });
+  });
+
+  it('takes sub-repositories with no limit of their own: 500 of them fit in 16 KB', async () => {
+    await expect(registry.requestCrew(argo, { shipId: scoutId, settings: withSubRepositories(500) })).resolves.toMatchObject({ isOk: true });
   });
 });
 
@@ -197,6 +215,32 @@ describe('a crew request refused', () => {
       { shipId: scoutId, settings: { ...settings, mcpServers: ['company-graph', '../servers/graph.json'] } },
       { kind: 'CREW_REQUEST_SETTINGS_INVALID', message: 'settings are not valid crew settings: mcpServers.1: A name is lowercase letters, digits, dots, hyphens and underscores, and never a path' },
     );
+  });
+
+  it('refuses sub-repositories over the 16 KB settings cap, by its size: 800 of them', async () => {
+    await expectRefused({ shipId: scoutId, settings: withSubRepositories(800) }, { kind: 'CREW_REQUEST_SETTINGS_TOO_LARGE' });
+  });
+
+  it('refuses a repository named twice among the sub-repositories, naming the field', async () => {
+    const workspace: TrierarchWorkspace = { kind: 'repositories', main: { repository: 'hemma' }, subRepositories: [{ repository: 'skills' }, { repository: 'skills', ref: 'next' }] };
+
+    await expectRefused(
+      { shipId: scoutId, settings: { ...settings, workspace } },
+      { kind: 'CREW_REQUEST_SETTINGS_INVALID', message: 'settings are not valid crew settings: workspace.subRepositories.1.repository: skills is named twice' },
+    );
+  });
+
+  it('refuses the main repository among the sub-repositories, naming the field', async () => {
+    const workspace = { kind: 'repositories', main: { repository: 'hemma' }, subRepositories: [{ repository: 'hemma', ref: 'next' }] };
+
+    await expectRefused(
+      { shipId: scoutId, settings: { ...settings, workspace } },
+      { kind: 'CREW_REQUEST_SETTINGS_INVALID', message: 'settings are not valid crew settings: workspace.subRepositories.0.repository: hemma is the main repository, never a sub-repository' },
+    );
+  });
+
+  it('refuses a worktree workspace, the shape a main repository and its sub-repositories replaced', async () => {
+    await expectRefused({ shipId: scoutId, settings: { ...settings, workspace: { kind: 'worktree', repository: 'hemma' } } }, { kind: 'CREW_REQUEST_SETTINGS_INVALID' });
   });
 
   it('refuses settings without a workspace (#809)', async () => {

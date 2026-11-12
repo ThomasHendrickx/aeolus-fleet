@@ -137,7 +137,7 @@ describe('the form values', () => {
   });
 
   it('fill from the settings a request holds, for Edit; settings that are none start a new form', () => {
-    const held: CrewSettings = { harness: 'codex', workspace: { kind: 'worktree', repository: 'hemma' }, options: { model: 'gpt-6' }, firstPrompt: 'Go', machineLabels: [LINUX], mcpServers: ['company-graph'] };
+    const held: CrewSettings = { harness: 'codex', workspace: { kind: 'repositories', main: { repository: 'hemma' }, subRepositories: [] }, options: { model: 'gpt-6' }, firstPrompt: 'Go', machineLabels: [LINUX], mcpServers: ['company-graph'] };
 
     expect(valuesOf(held, { offers, enabledModels: NO_RULE })).toEqual({ harness: 'codex', workspace: { kind: 'worktree', repository: 'hemma' }, options: { model: 'gpt-6' }, firstPrompt: 'Go', squadron: '', machineLabels: [LINUX], mcpServers: ['company-graph'] });
     expect(valuesOf(null, { offers, enabledModels: NO_RULE })).toEqual(defaultValues(offers));
@@ -150,7 +150,7 @@ describe('the form values', () => {
 
 describe('settingsRows', () => {
   it('shows a request’s settings as rows: harness, workspace, each option, its MCP servers, the first prompt’s size and the squadron', () => {
-    expect(settingsRows({ harness: 'claude-code', workspace: { kind: 'worktree', repository: 'aeolus-fleet' }, options: { model: 'opus' }, firstPrompt: 'x'.repeat(112) })).toEqual([
+    expect(settingsRows({ harness: 'claude-code', workspace: { kind: 'repositories', main: { repository: 'aeolus-fleet' }, subRepositories: [] }, options: { model: 'opus' }, firstPrompt: 'x'.repeat(112) })).toEqual([
       { label: 'Harness', value: 'claude-code' },
       { label: 'Workspace', value: 'aeolus-fleet', meta: 'New worktree' },
       { label: 'model', value: 'opus', isMono: true },
