@@ -1,12 +1,16 @@
+import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
+import { createInterface } from 'node:readline';
 
 import { getContainerRuntimeClient } from 'testcontainers';
-import { describe, expect, inject, it } from 'vitest';
+import { describe, expect, inject, it, onTestFinished } from 'vitest';
 
 import { POSTGRES_IMAGE } from '../src/testing/container-images.js';
 import { TEST_RUN_LABEL } from '../src/testing/container-sweeper.js';
 import { TestPostgres } from '../src/testing/postgres-container.js';
 import { startRunProcess } from './support/test-run-process.js';
+
+const RUN_PROCESS = new URL('./support/test-run-process.ts', import.meta.url).href;
 
 /** Waits long enough for a Postgres to start on a loaded machine, and for the sweeper to remove it. */
 const CONTAINER_TIMEOUT = 120_000;
@@ -40,6 +44,31 @@ async function existingVolumes(names: readonly string[]): Promise<string[]> {
   return found.flat();
 }
 
+/** Kills a process by its pid, if it still runs. */
+function killIfRunning(pid: number | undefined): void {
+  if (pid === undefined) {
+    return;
+  }
+  try {
+    process.kill(pid, 'SIGKILL');
+  } catch {
+    // It ended already.
+  }
+}
+
+/**
+ * A test's process, as the Vitest worker that runs a test: it starts the
+ * process of a test run of its own and answers that process's pid.
+ */
+async function startTestProcess(run: string): Promise<{ testPid: number | undefined; runPid: number }> {
+  const script = `import { startRunProcess } from ${JSON.stringify(RUN_PROCESS)}; const runProcess = await startRunProcess(process.argv[1]); console.log(runProcess.pid); setInterval(() => {}, 60_000);`;
+  const child = spawn(process.execPath, ['--input-type=module', '--eval', script, run], { stdio: ['ignore', 'pipe', 'inherit'] });
+  for await (const line of createInterface({ input: child.stdout })) {
+    return { testPid: child.pid, runPid: Number(line) };
+  }
+  throw new Error(`The test process of test run ${run} ended before it started the run's process`);
+}
+
 // Rootless Podman often runs no reaper, so a run's own teardown and its sweeper are all that remove its containers (#1581).
 describe('the containers of a test run', () => {
   it(
@@ -52,6 +81,27 @@ describe('the containers of a test run', () => {
       expect(volumes).not.toEqual([]);
 
       runProcess.kill('SIGKILL');
+
+      await expect.poll(() => containersOf(run), { timeout: 60_000, interval: 500 }).toEqual([]);
+      await expect.poll(() => existingVolumes(volumes), { timeout: 30_000, interval: 500 }).toEqual([]);
+    },
+    CONTAINER_TIMEOUT,
+  );
+
+  it(
+    'are removed with their volumes when the test that started the run is killed',
+    async () => {
+      const run = `test-${randomUUID()}`;
+      const { testPid, runPid } = await startTestProcess(run);
+      onTestFinished(() => {
+        killIfRunning(testPid);
+        killIfRunning(runPid);
+      });
+      const postgres = await new TestPostgres(POSTGRES_IMAGE, run).start();
+      const volumes = await volumesOf(postgres.getId());
+      expect(volumes).not.toEqual([]);
+
+      killIfRunning(testPid);
 
       await expect.poll(() => containersOf(run), { timeout: 60_000, interval: 500 }).toEqual([]);
       await expect.poll(() => existingVolumes(volumes), { timeout: 30_000, interval: 500 }).toEqual([]);
