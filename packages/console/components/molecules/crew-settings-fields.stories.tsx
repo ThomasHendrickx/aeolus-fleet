@@ -17,13 +17,16 @@ const OFFERS: HarnessOffer[] = [
   { harness: 'codex', repositories: ['aeolus-fleet'], folders: [], options: [], mcpServers: [] },
 ];
 
-/** aeolus-fleet as the main repository, at a branch or its default, with these sub-repositories. */
-function repositories(main: string, ...subRepositories: readonly (string | { repository: string; ref: string })[]): WorkspaceChoice {
-  return {
-    kind: 'repositories',
-    main: { repository: main, ref: '' },
-    subRepositories: subRepositories.map((each) => (typeof each === 'string' ? { repository: each, ref: '' } : each)),
-  };
+type Repository = string | { repository: string; ref: string };
+
+/** A repository at its default branch, or at the branch given. */
+function choice(repository: Repository) {
+  return typeof repository === 'string' ? { repository, ref: '' } : repository;
+}
+
+/** A main repository with these sub-repositories. */
+function repositories(main: Repository, ...subRepositories: readonly Repository[]): WorkspaceChoice {
+  return { kind: 'repositories', main: choice(main), subRepositories: subRepositories.map(choice) };
 }
 
 /** The fields, holding their own values, as a form does. */
@@ -66,7 +69,7 @@ export const NoSubRepositories: Story = {
 export const OneSubRepository: Story = {
   args: { workspace: repositories('aeolus-fleet', 'skills') },
   play: async ({ canvasElement }) => {
-    const [row] = within(canvasElement).getAllByTestId('crew-settings-sub-repository');
+    const [row] = within(canvasElement).getAllByTestId('crew-settings-sub-repository-row');
     await expect(row).toHaveTextContent('skills');
     await expect(within(row ?? canvasElement).getByRole('textbox', { name: 'Branch of skills' })).toHaveAttribute('placeholder', 'Default branch');
     await expect(within(row ?? canvasElement).getByRole('button', { name: 'Remove skills' })).toBeVisible();
@@ -75,7 +78,7 @@ export const OneSubRepository: Story = {
 
 /** Several sub-repositories, branches on some (board 3). */
 export const SeveralSubRepositories: Story = {
-  args: { workspace: { ...repositories('aeolus-fleet', { repository: 'aeolus-fleet-trierarch', ref: 'release/0.9' }, 'skills', 'hemma'), main: { repository: 'aeolus-fleet', ref: 'design/ship-folder' } } },
+  args: { workspace: repositories({ repository: 'aeolus-fleet', ref: 'design/ship-folder' }, { repository: 'aeolus-fleet-trierarch', ref: 'release/0.9' }, 'skills', 'hemma') },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByTestId('crew-settings-branch')).toHaveValue('design/ship-folder');
@@ -175,7 +178,7 @@ export const FolderPicked: Story = {
 
 /** Saving: every field off and no × (board 11). */
 export const Saving: Story = {
-  args: { workspace: { ...repositories('aeolus-fleet', { repository: 'aeolus-fleet-trierarch', ref: 'release/0.9' }, 'skills', 'hemma'), main: { repository: 'aeolus-fleet', ref: 'design/ship-folder' } }, isDisabled: true },
+  args: { workspace: repositories({ repository: 'aeolus-fleet', ref: 'design/ship-folder' }, { repository: 'aeolus-fleet-trierarch', ref: 'release/0.9' }, 'skills', 'hemma'), isDisabled: true },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByTestId('crew-settings-branch')).toBeDisabled();

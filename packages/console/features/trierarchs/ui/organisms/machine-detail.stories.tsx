@@ -1,8 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { expect, fn, userEvent, within } from 'storybook/test';
 
-import { ALIVE_MACHINE, KEPT_SHIP_ID, MACHINE_LABELS, MACHINE_VALUES, NEW_MACHINE, NOW, SILENT_MACHINE, SPOTS } from '../../../../lib/fixtures/machines.fixtures';
-import { minutesAgo } from '../../../../lib/fixtures/ship-page.fixtures';
+import { ALIVE_MACHINE, KEPT_SHIP_ID, MACHINE_LABELS, MACHINE_VALUES, NEW_MACHINE, NOW, REPOSITORY_SPOTS, SILENT_MACHINE, SPOTS } from '../../../../lib/fixtures/machines.fixtures';
 import { MachineDetail } from './machine-detail';
 
 const meta = {
@@ -51,12 +50,7 @@ export const NotFound: Story = { args: { machine: undefined, state: 'not-found' 
 /** Running here names each ship's main repository and its sub-repositories; a folder reads as before (docs/design/ship-repositories, trierarch board 1). */
 export const RunningHereRepositories: Story = {
   args: {
-    spots: [
-      { ...SPOTS[0], workspace: { kind: 'repositories', main: 'aeolus-fleet', subRepositories: ['aeolus-fleet-trierarch', 'skills', 'hemma'] } },
-      { ...SPOTS[1], workspace: { kind: 'folder', name: 'website' } },
-      { ...SPOTS[2], name: 'triage-bot', workspace: { kind: 'repositories', main: 'aeolus-fleet', subRepositories: ['skills'] } },
-      { ...SPOTS[0], shipId: SPOTS[3].shipId, name: 'docs-writer', startedAt: minutesAgo(35), workspace: { kind: 'repositories', main: 'hemma', subRepositories: [] } },
-    ],
+    spots: REPOSITORY_SPOTS,
   },
   play: async ({ canvasElement }) => {
     await expect(within(canvasElement).getAllByTestId('machine-spot-workspace').map((line) => line.textContent)).toEqual([

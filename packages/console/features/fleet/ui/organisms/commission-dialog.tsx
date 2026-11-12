@@ -7,7 +7,7 @@ import { useId, useState } from 'react';
 
 import { Button, classNames, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, dialogSurface, DialogTitle, Input, Label, ScopePicker, Switch, InlineError } from '@aeolus-fleet/ui';
 import { useConsoleConstants } from '../../../../lib/console-constants';
-import { defaultValues, promptBytes, settingsOf, type CrewSettingsValues, type HarnessOffer } from '../../../../lib/crew-settings-form';
+import { defaultValues, promptBytes, settingsOf, workspaceProblems, type CrewSettingsValues, type HarnessOffer } from '../../../../lib/crew-settings-form';
 import type { MachineLabelsInput } from '../../../../lib/machine-labels';
 import type { SettingsCheck } from '../../../../lib/trierarch-plugin-schemas';
 import { asHandle, checkShipName, typeHint } from '../../../../lib/ship-name';
@@ -85,8 +85,11 @@ function CommissionDialogBody({ types, taken, onTypedChange, isPending, error, s
   const isWaitingForMachine = crewValues.machineLabels.length > 0 && crewRequest?.machineLabels?.matchOf(crewValues.machineLabels).matching.length === 0;
   const crewSettings = settingsOf(crewValues);
   const refusal = crewRequest?.check?.kind === 'refused' ? crewRequest.check : undefined;
+  const workspaceNote = workspaceProblems(crewValues.workspace, crewRequest?.offers.find((offer) => offer.harness === crewValues.harness)).note;
   const isCrewReady =
-    !isCrewRequested || crewRequest === undefined || (crewSettings !== undefined && refusal === undefined && promptBytes(crewValues.firstPrompt) <= firstPromptMaxBytes);
+    !isCrewRequested ||
+    crewRequest === undefined ||
+    (crewSettings !== undefined && refusal === undefined && workspaceNote === undefined && promptBytes(crewValues.firstPrompt) <= firstPromptMaxBytes);
   const check = checkShipName(name, { activeNames: taken.names });
   const isNameProblem = check.kind === 'invalid' || check.kind === 'reserved' || check.kind === 'taken';
   const trimmedType = type.trim();
@@ -257,11 +260,12 @@ function CommissionDialogBody({ types, taken, onTypedChange, isPending, error, s
           <span className="mr-auto text-meta text-muted-foreground" data-testid="commission-crew-note">
             {!isCrewRequested
               ? null
-              : isWaitingForMachine
-                ? 'The request will wait for a machine with these labels.'
-                : crewRequest.check?.kind === 'noRoom'
-                  ? 'The request will wait for room.'
-                  : 'Uncheck Request a crew to get the starting prompt instead.'}
+              : (workspaceNote ??
+                (isWaitingForMachine
+                  ? 'The request will wait for a machine with these labels.'
+                  : crewRequest.check?.kind === 'noRoom'
+                    ? 'The request will wait for room.'
+                    : 'Uncheck Request a crew to get the starting prompt instead.'))}
           </span>
         )}
         <DialogClose render={<Button type="button" disabled={isPending} />}>Cancel</DialogClose>

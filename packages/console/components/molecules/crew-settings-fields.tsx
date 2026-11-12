@@ -1,13 +1,26 @@
-import { Label, InlineError } from '@aeolus-fleet/ui';
+import { Input, Label, InlineError } from '@aeolus-fleet/ui';
 import { useId, type ReactNode } from 'react';
 
-import { byteSize, mainRepository, promptBytes, withHarness, type CrewSettingsValues, type HarnessOffer, type WorkspaceChoice } from '../../lib/crew-settings-form';
+import {
+  addableSubRepositories,
+  byteSize,
+  mainRepository,
+  promptBytes,
+  refusedSubRepository,
+  withHarness,
+  workspaceProblems,
+  type CrewSettingsValues,
+  type HarnessOffer,
+  type RepositoryChoice,
+  type WorkspaceChoice,
+} from '../../lib/crew-settings-form';
 import { harnessWord } from '../../lib/harness';
 import type { MachineLabelsInput } from '../../lib/machine-labels';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../atoms/select';
 import { Textarea } from '../atoms/textarea';
 import { MachineLabelsField } from './machine-labels-field';
 import { McpServersField } from './mcp-servers-field';
+import { SubRepositoriesField } from './sub-repositories-field';
 
 interface CrewSettingsFieldsProps {
   /** The ship the request crews, as the placement hints name it. */
@@ -36,18 +49,23 @@ function workspaceValue(workspace: WorkspaceChoice | undefined): string {
   return workspace.kind === 'repositories' ? `repository:${workspace.main.repository}` : `folder:${workspace.name}`;
 }
 
-function workspaceOf(value: string): WorkspaceChoice | undefined {
+/**
+ * The workspace a select value picks, from the one held: another main
+ * repository keeps the sub-repositories, so a repository named twice is
+ * shown, never dropped silently; a folder has none.
+ */
+function workspaceOf(value: string, held: WorkspaceChoice | undefined): WorkspaceChoice | undefined {
   const [kind, ...rest] = value.split(':');
   const name = rest.join(':');
   if (kind === 'repository') {
-    return mainRepository(name);
+    return held?.kind === 'repositories' ? { ...held, main: { repository: name, ref: held.main.ref } } : mainRepository(name);
   }
   return kind === 'folder' ? { kind: 'folder', name } : undefined;
 }
 
-function Field({ id, label, isOptional, hint, error, children }: { id: string; label: string; isOptional?: boolean; hint?: ReactNode; error?: string; children: ReactNode }) {
+function Field({ id, label, isOptional, hint, error, className, children }: { id: string; label: string; isOptional?: boolean; hint?: ReactNode; error?: string; className?: string; children: ReactNode }) {
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className={`flex min-w-0 flex-col gap-1.5 ${className ?? ''}`}>
       <Label htmlFor={id}>
         {label}
         {isOptional ? <span className="font-normal text-muted-foreground"> optional</span> : null}
@@ -88,20 +106,33 @@ function Pick({ id, items, value, onPick, isDisabled, testId }: { id: string; it
 
 /**
  * A crew request's settings as fields (canvas CrRequestForm; #245, S3): the
- * harness, the workspace, with the fleet's labels its machine labels (#102),
+ * harness, the workspace, for a repository its branch and sub-repositories
+ * (docs/design/ship-repositories), with the fleet's labels its machine labels (#102),
  * its MCP servers (docs/design/crew-mcp-servers),
  * each option the harness offers, a first prompt and, with squadrons, a
  * squadron with its hint (decision 12). Built from what the
  * answering machines offer; a field the trierarch plugin refused shows why.
  */
 export function CrewSettingsFields({ shipName, offers, values, onChange, firstPromptMaxBytes, squadrons, refusal, isDisabled = false, machineLabels }: CrewSettingsFieldsProps) {
-  const ids = { harness: useId(), workspace: useId(), options: useId(), firstPrompt: useId(), squadron: useId() };
+  const ids = { harness: useId(), workspace: useId(), branch: useId(), options: useId(), firstPrompt: useId(), squadron: useId() };
   const offer = offers.find((each) => each.harness === values.harness);
   const errorOf = (field: string) => (refusal?.field === field ? refusal.reason : undefined);
+  const { workspace } = values;
+  const problems = workspaceProblems(workspace, offer);
+  const refusedRow = refusal?.field === 'workspace' ? refusedSubRepository(refusal.reason, workspace) : undefined;
+  const rowErrors = problems.subRepositories.map((problem, index) => problem ?? (index === refusedRow ? refusal?.reason : undefined));
+  const workspaceError = problems.main ?? (refusedRow === undefined ? errorOf('workspace') : undefined);
+  const withSubRepositories = (subRepositories: RepositoryChoice[]) => {
+    if (workspace?.kind === 'repositories') {
+      onChange({ ...values, workspace: { ...workspace, subRepositories } });
+    }
+  };
   const bytes = promptBytes(values.firstPrompt);
   const isPromptTooLong = bytes > firstPromptMaxBytes;
+  // A held main repository no machine offers stays picked, so the form can say so.
+  const heldMain = workspace?.kind === 'repositories' && !(offer?.repositories ?? []).includes(workspace.main.repository) ? [workspace.main.repository] : [];
   const workspaces: Record<string, string> = Object.fromEntries([
-    ...(offer?.repositories ?? []).map((repository): [string, string] => [`repository:${repository}`, `${repository} · main repository`]),
+    ...[...heldMain, ...(offer?.repositories ?? [])].map((repository): [string, string] => [`repository:${repository}`, `${repository} · main repository`]),
     ...(offer?.folders ?? []).map((folder): [string, string] => [`folder:${folder}`, `${folder} · folder, as it is`]),
   ]);
 
@@ -119,18 +150,59 @@ export function CrewSettingsFields({ shipName, offers, values, onChange, firstPr
           }}
         />
       </Field>
-      <Field id={ids.workspace} label="Workspace" hint="A repository gets a new git worktree for this ship; a folder is used as it is, shared by the ships in it." error={errorOf('workspace')}>
-        <Pick
+      <div className="grid grid-cols-1 gap-x-3 gap-y-4 sm:grid-cols-[minmax(0,1fr)_11rem]">
+        <Field
           id={ids.workspace}
-          items={workspaces}
-          value={workspaceValue(values.workspace)}
+          label="Workspace"
+          hint={workspace?.kind === 'folder' ? 'A folder is used as it is, shared by the ships in it, with no sub-repositories.' : undefined}
+          error={workspaceError}
+          className={workspace?.kind === 'repositories' ? undefined : 'sm:col-span-2'}
+        >
+          <Pick
+            id={ids.workspace}
+            items={workspaces}
+            value={workspaceValue(workspace)}
+            isDisabled={isDisabled}
+            testId="crew-settings-workspace"
+            onPick={(picked) => {
+              onChange({ ...values, workspace: workspaceOf(picked, workspace) });
+            }}
+          />
+        </Field>
+        {workspace?.kind === 'repositories' ? (
+          <Field id={ids.branch} label="Branch" isOptional>
+            <Input
+              id={ids.branch}
+              isMono
+              placeholder="Default branch"
+              disabled={isDisabled}
+              data-testid="crew-settings-branch"
+              value={workspace.main.ref}
+              onChange={(event) => {
+                onChange({ ...values, workspace: { ...workspace, main: { ...workspace.main, ref: event.target.value } } });
+              }}
+            />
+          </Field>
+        ) : null}
+      </div>
+      {workspace?.kind === 'repositories' ? (
+        <SubRepositoriesField
+          shipName={shipName}
+          subRepositories={workspace.subRepositories}
+          addable={addableSubRepositories(workspace, offer)}
+          errors={rowErrors}
           isDisabled={isDisabled}
-          testId="crew-settings-workspace"
-          onPick={(picked) => {
-            onChange({ ...values, workspace: workspaceOf(picked) });
+          onAdd={(repository) => {
+            withSubRepositories([...workspace.subRepositories, { repository, ref: '' }]);
+          }}
+          onBranchChange={(changed, ref) => {
+            withSubRepositories(workspace.subRepositories.map((each, index) => (index === changed ? { ...each, ref } : each)));
+          }}
+          onRemove={(removed) => {
+            withSubRepositories(workspace.subRepositories.filter((_, index) => index !== removed));
           }}
         />
-      </Field>
+      ) : null}
       {machineLabels === undefined ? null : (
         <MachineLabelsField
           shipName={shipName}

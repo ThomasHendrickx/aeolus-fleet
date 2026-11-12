@@ -175,23 +175,55 @@ function SessionMeta({ stage, now }: { stage: Extract<CrewRequestStage, { kind: 
   );
 }
 
+const REPOSITORY_ROW_TEST_IDS: Readonly<Record<string, string>> = { 'Main repository': 'crew-request-main-repository', 'Sub-repositories': 'crew-request-sub-repositories' };
+
+/**
+ * Repositories as mono chips, each with its branch after a dot when it has
+ * one, on a full-width row so a long name never wraps inside a grid cell
+ * (docs/design/ship-repositories); none reads as None.
+ */
+function RepositoriesRow({ label, repositories }: { label: string; repositories: NonNullable<SettingsRow['repositories']> }) {
+  return (
+    <div className="col-span-full flex min-w-0 flex-col gap-0.5" data-testid={REPOSITORY_ROW_TEST_IDS[label]}>
+      <dt className="text-caption font-medium text-muted-foreground">{label}</dt>
+      <dd className="flex min-w-0 flex-wrap items-center gap-1.5">
+        {repositories.length === 0 ? <span className="text-body text-muted-foreground">None</span> : null}
+        {repositories.map(({ repository, ref }) => (
+          <span
+            key={repository}
+            data-testid="crew-request-repository"
+            className="inline-flex h-5.5 max-w-full min-w-0 items-center rounded-sm border border-border bg-secondary px-1.5 font-mono text-id whitespace-nowrap text-foreground"
+          >
+            <span className="truncate font-medium">{repository}</span>
+            {ref === undefined ? null : <span className="truncate text-muted-foreground">{` · ${ref}`}</span>}
+          </span>
+        ))}
+      </dd>
+    </div>
+  );
+}
+
 /** A request's settings, as a grid of label and value (canvas CrewRequest, with the plugin). */
 function SettingsGrid({ rows, machineLabels = [] }: { rows: readonly SettingsRow[]; machineLabels?: readonly LabelChipData[] }) {
   return (
     <dl data-testid="crew-request-settings" className="grid grid-cols-[repeat(auto-fill,minmax(8.5rem,1fr))] gap-x-5 gap-y-3 border-t border-border pt-3">
-      {rows.map((row) => (
-        <div key={row.label} className="flex min-w-0 flex-col gap-0.5">
-          <dt className="text-caption font-medium text-muted-foreground">{row.label}</dt>
-          <dd className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 text-body font-medium">
-            {row.value === null ? (
-              <span className="font-normal text-muted-foreground">None</span>
-            ) : (
-              <span className={row.isMono ? 'truncate font-mono text-id' : 'truncate'}>{row.label === 'Harness' ? harnessWord(row.value) : row.value}</span>
-            )}
-            {row.meta === undefined ? null : <span className="text-meta font-normal text-muted-foreground">{row.meta}</span>}
-          </dd>
-        </div>
-      ))}
+      {rows.map((row) =>
+        row.repositories === undefined ? (
+          <div key={row.label} className="flex min-w-0 flex-col gap-0.5">
+            <dt className="text-caption font-medium text-muted-foreground">{row.label}</dt>
+            <dd className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 text-body font-medium">
+              {row.value === null ? (
+                <span className="font-normal text-muted-foreground">None</span>
+              ) : (
+                <span className={row.isMono ? 'truncate font-mono text-id' : 'truncate'}>{row.label === 'Harness' ? harnessWord(row.value) : row.value}</span>
+              )}
+              {row.meta === undefined ? null : <span className="text-meta font-normal text-muted-foreground">{row.meta}</span>}
+            </dd>
+          </div>
+        ) : (
+          <RepositoriesRow key={row.label} label={row.label} repositories={row.repositories} />
+        ),
+      )}
       {machineLabels.length === 0 ? null : (
         <div className="col-span-full flex min-w-0 flex-col gap-0.5" data-testid="crew-request-machine-labels">
           <dt className="text-caption font-medium text-muted-foreground">Machine labels</dt>

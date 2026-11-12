@@ -77,6 +77,14 @@ export const SPOTS: Spot[] = [
   { shipId: shipId('sp04'), name: 'scout-1', status: 'crewing', attempt: 0, startedAt: null },
 ];
 
+/** Ships whose crew requests name a main repository and its sub-repositories, or a folder (docs/design/ship-repositories, trierarch board 1). */
+export const REPOSITORY_SPOTS: Spot[] = [
+  { shipId: shipId('sr01'), name: 'aeolus-fleet', status: 'running', attempt: 0, startedAt: minutesAgo(172), workspace: { kind: 'repositories', main: 'aeolus-fleet', subRepositories: ['aeolus-fleet-trierarch', 'skills', 'hemma'] } },
+  { shipId: shipId('sr02'), name: 'website-editor', status: 'running', attempt: 1, startedAt: minutesAgo(41), workspace: { kind: 'folder', name: 'website' } },
+  { shipId: shipId('sr03'), name: 'triage-bot', status: 'crashed', attempt: 5, startedAt: null, workspace: { kind: 'repositories', main: 'aeolus-fleet', subRepositories: ['skills'] } },
+  { shipId: shipId('sr04'), name: 'docs-writer', status: 'running', attempt: 0, startedAt: minutesAgo(35), workspace: { kind: 'repositories', main: 'hemma', subRepositories: [] } },
+];
+
 /** The fleet as the list reads it: the trierarchs' ships, with where they run, and ships assigned to trierarch-mac. */
 export const FLEET: ListedShip[] = [
   ...MACHINES.map(
