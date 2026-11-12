@@ -1,0 +1,2557 @@
+[
+  {
+    "name": "phone-375-light",
+    "isDark": false,
+    "reducedMotion": false,
+    "tiles": 11,
+    "workingTiles": 6,
+    "bands": [
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.371298",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.371298",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.371298",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.371298",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.371298",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.371298",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      }
+    ],
+    "arrowsAsBridgeMendsThem": 11,
+    "linkTransition": "background-color 0.18s ease-out, color 0.18s ease-out, --harbour-tile-border 0.18s ease-out, --harbour-tile-hover-border 0.18s ease-out, --harbour-tile-hover 0.15s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.15s cubic-bezier(0.4, 0, 0.2, 1), transform 0.15s cubic-bezier(0.4, 0, 0.2, 1)",
+    "overflowX": false,
+    "loopSamples": 253,
+    "tileBoundsStableThroughLoop": true,
+    "peakOpacity": 0.449291,
+    "invisibleFrom2400": true
+  },
+  {
+    "name": "phone-375-light-reduced",
+    "isDark": false,
+    "reducedMotion": true,
+    "tiles": 11,
+    "workingTiles": 6,
+    "bands": [
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      }
+    ],
+    "arrowsAsBridgeMendsThem": 11,
+    "linkTransition": "none ease-out",
+    "overflowX": false
+  },
+  {
+    "name": "phone-375-dark",
+    "isDark": true,
+    "reducedMotion": false,
+    "tiles": 11,
+    "workingTiles": 6,
+    "bands": [
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.375011",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.375011",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.375011",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.375011",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.375011",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.375011",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      }
+    ],
+    "arrowsAsBridgeMendsThem": 11,
+    "linkTransition": "background-color 0.18s ease-out, color 0.18s ease-out, --harbour-tile-border 0.18s ease-out, --harbour-tile-hover-border 0.18s ease-out, --harbour-tile-hover 0.15s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.15s cubic-bezier(0.4, 0, 0.2, 1), transform 0.15s cubic-bezier(0.4, 0, 0.2, 1)",
+    "overflowX": false,
+    "loopSamples": 253,
+    "tileBoundsStableThroughLoop": true,
+    "peakOpacity": 0.449283,
+    "invisibleFrom2400": true
+  },
+  {
+    "name": "phone-375-dark-reduced",
+    "isDark": true,
+    "reducedMotion": true,
+    "tiles": 11,
+    "workingTiles": 6,
+    "bands": [
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      }
+    ],
+    "arrowsAsBridgeMendsThem": 11,
+    "linkTransition": "none ease-out",
+    "overflowX": false
+  },
+  {
+    "name": "phone-390-light",
+    "isDark": false,
+    "reducedMotion": false,
+    "tiles": 11,
+    "workingTiles": 6,
+    "bands": [
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.378734",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.378734",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.378734",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.378734",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.378734",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.378734",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      }
+    ],
+    "arrowsAsBridgeMendsThem": 11,
+    "linkTransition": "background-color 0.18s ease-out, color 0.18s ease-out, --harbour-tile-border 0.18s ease-out, --harbour-tile-hover-border 0.18s ease-out, --harbour-tile-hover 0.15s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.15s cubic-bezier(0.4, 0, 0.2, 1), transform 0.15s cubic-bezier(0.4, 0, 0.2, 1)",
+    "overflowX": false,
+    "loopSamples": 253,
+    "tileBoundsStableThroughLoop": true,
+    "peakOpacity": 0.449286,
+    "invisibleFrom2400": true
+  },
+  {
+    "name": "phone-390-light-reduced",
+    "isDark": false,
+    "reducedMotion": true,
+    "tiles": 11,
+    "workingTiles": 6,
+    "bands": [
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      }
+    ],
+    "arrowsAsBridgeMendsThem": 11,
+    "linkTransition": "none ease-out",
+    "overflowX": false
+  },
+  {
+    "name": "phone-390-dark",
+    "isDark": true,
+    "reducedMotion": false,
+    "tiles": 11,
+    "workingTiles": 6,
+    "bands": [
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.363876",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.363876",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.363876",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.363876",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.363876",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.363876",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      }
+    ],
+    "arrowsAsBridgeMendsThem": 11,
+    "linkTransition": "background-color 0.18s ease-out, color 0.18s ease-out, --harbour-tile-border 0.18s ease-out, --harbour-tile-hover-border 0.18s ease-out, --harbour-tile-hover 0.15s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.15s cubic-bezier(0.4, 0, 0.2, 1), transform 0.15s cubic-bezier(0.4, 0, 0.2, 1)",
+    "overflowX": false,
+    "loopSamples": 253,
+    "tileBoundsStableThroughLoop": true,
+    "peakOpacity": 0.449309,
+    "invisibleFrom2400": true
+  },
+  {
+    "name": "phone-390-dark-reduced",
+    "isDark": true,
+    "reducedMotion": true,
+    "tiles": 11,
+    "workingTiles": 6,
+    "bands": [
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      }
+    ],
+    "arrowsAsBridgeMendsThem": 11,
+    "linkTransition": "none ease-out",
+    "overflowX": false
+  },
+  {
+    "name": "desktop-1440-light",
+    "isDark": false,
+    "reducedMotion": false,
+    "tiles": 11,
+    "workingTiles": 6,
+    "bands": [
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.36387",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.36387",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.36387",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.36387",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.36387",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.36387",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      }
+    ],
+    "arrowsAsBridgeMendsThem": 11,
+    "linkTransition": "background-color 0.18s ease-out, color 0.18s ease-out, --harbour-tile-border 0.18s ease-out, --harbour-tile-hover-border 0.18s ease-out, --harbour-tile-hover 0.15s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.15s cubic-bezier(0.4, 0, 0.2, 1), transform 0.15s cubic-bezier(0.4, 0, 0.2, 1)",
+    "overflowX": false,
+    "loopSamples": 253,
+    "tileBoundsStableThroughLoop": true,
+    "peakOpacity": 0.449311,
+    "invisibleFrom2400": true,
+    "samples": [
+      {
+        "t": 783,
+        "opacity": 0.360157,
+        "offset": -0.347254347826087
+      },
+      {
+        "t": 800,
+        "opacity": 0.356459,
+        "offset": -0.3334210144927536
+      },
+      {
+        "t": 817,
+        "opacity": 0.352739,
+        "offset": -0.31950434782608694
+      },
+      {
+        "t": 833,
+        "opacity": 0.349018,
+        "offset": -0.3055876811594203
+      },
+      {
+        "t": 850,
+        "opacity": 0.345298,
+        "offset": -0.2916710144927536
+      },
+      {
+        "t": 867,
+        "opacity": 0.3416,
+        "offset": -0.2778376811594203
+      },
+      {
+        "t": 883,
+        "opacity": 0.33788,
+        "offset": -0.2639210144927536
+      },
+      {
+        "t": 900,
+        "opacity": 0.33416,
+        "offset": -0.25000434782608694
+      },
+      {
+        "t": 917,
+        "opacity": 0.330462,
+        "offset": -0.23617101449275363
+      },
+      {
+        "t": 933,
+        "opacity": 0.326719,
+        "offset": -0.22217101449275364
+      },
+      {
+        "t": 950,
+        "opacity": 0.323021,
+        "offset": -0.20833768115942028
+      },
+      {
+        "t": 967,
+        "opacity": 0.319323,
+        "offset": -0.19450434782608694
+      },
+      {
+        "t": 983,
+        "opacity": 0.315603,
+        "offset": -0.18058768115942028
+      },
+      {
+        "t": 1000,
+        "opacity": 0.311882,
+        "offset": -0.16667101449275362
+      },
+      {
+        "t": 1017,
+        "opacity": 0.308184,
+        "offset": -0.15283768115942029
+      },
+      {
+        "t": 1033,
+        "opacity": 0.304464,
+        "offset": -0.13892101449275363
+      },
+      {
+        "t": 1050,
+        "opacity": 0.300744,
+        "offset": -0.12500434782608694
+      },
+      {
+        "t": 1067,
+        "opacity": 0.297046,
+        "offset": -0.11117101449275361
+      },
+      {
+        "t": 1083,
+        "opacity": 0.293325,
+        "offset": -0.09725434782608695
+      },
+      {
+        "t": 1100,
+        "opacity": 0.289605,
+        "offset": -0.0833376811594203
+      },
+      {
+        "t": 1117,
+        "opacity": 0.285907,
+        "offset": -0.06950434782608696
+      },
+      {
+        "t": 1133,
+        "opacity": 0.282187,
+        "offset": -0.05558768115942029
+      },
+      {
+        "t": 1150,
+        "opacity": 0.278489,
+        "offset": -0.04175434782608696
+      },
+      {
+        "t": 1167,
+        "opacity": 0.274768,
+        "offset": -0.027837572463768116
+      },
+      {
+        "t": 1183,
+        "opacity": 0.27107,
+        "offset": -0.014004239130434783
+      },
+      {
+        "t": 1200,
+        "opacity": 0.267328,
+        "offset": -0.0000042500724637681165
+      },
+      {
+        "t": 1217,
+        "opacity": 0.26363,
+        "offset": 0.01382909420289855
+      },
+      {
+        "t": 1233,
+        "opacity": 0.25991,
+        "offset": 0.027745760869565216
+      },
+      {
+        "t": 1250,
+        "opacity": 0.256189,
+        "offset": 0.04166231884057971
+      },
+      {
+        "t": 1267,
+        "opacity": 0.252491,
+        "offset": 0.05549565217391304
+      },
+      {
+        "t": 1283,
+        "opacity": 0.248793,
+        "offset": 0.06932898550724637
+      },
+      {
+        "t": 1300,
+        "opacity": 0.245051,
+        "offset": 0.08332898550724638
+      },
+      {
+        "t": 1317,
+        "opacity": 0.241353,
+        "offset": 0.09716231884057971
+      },
+      {
+        "t": 1333,
+        "opacity": 0.237632,
+        "offset": 0.11107898550724639
+      },
+      {
+        "t": 1350,
+        "opacity": 0.233912,
+        "offset": 0.12499565217391305
+      },
+      {
+        "t": 1367,
+        "opacity": 0.230214,
+        "offset": 0.13882898550724637
+      },
+      {
+        "t": 1383,
+        "opacity": 0.226494,
+        "offset": 0.15274565217391306
+      },
+      {
+        "t": 1400,
+        "opacity": 0.222796,
+        "offset": 0.16657898550724637
+      },
+      {
+        "t": 1417,
+        "opacity": 0.219075,
+        "offset": 0.18049565217391306
+      },
+      {
+        "t": 1433,
+        "opacity": 0.215377,
+        "offset": 0.19432898550724637
+      },
+      {
+        "t": 1450,
+        "opacity": 0.211657,
+        "offset": 0.20824565217391305
+      },
+      {
+        "t": 1467,
+        "opacity": 0.207937,
+        "offset": 0.22216231884057971
+      },
+      {
+        "t": 1483,
+        "opacity": 0.204216,
+        "offset": 0.23607898550724635
+      },
+      {
+        "t": 1500,
+        "opacity": 0.200518,
+        "offset": 0.24991231884057974
+      },
+      {
+        "t": 1517,
+        "opacity": 0.196798,
+        "offset": 0.26382898550724637
+      },
+      {
+        "t": 1533,
+        "opacity": 0.193078,
+        "offset": 0.277745652173913
+      },
+      {
+        "t": 1550,
+        "opacity": 0.18938,
+        "offset": 0.2915789855072464
+      },
+      {
+        "t": 1567,
+        "opacity": 0.18566,
+        "offset": 0.30549565217391306
+      },
+      {
+        "t": 1583,
+        "opacity": 0.181962,
+        "offset": 0.31932898550724637
+      },
+      {
+        "t": 1600,
+        "opacity": 0.178241,
+        "offset": 0.33324565217391305
+      },
+      {
+        "t": 1617,
+        "opacity": 0.174521,
+        "offset": 0.3471623188405797
+      },
+      {
+        "t": 1633,
+        "opacity": 0.170823,
+        "offset": 0.36099565217391305
+      },
+      {
+        "t": 1650,
+        "opacity": 0.16708,
+        "offset": 0.3749963768115942
+      },
+      {
+        "t": 1667,
+        "opacity": 0.163382,
+        "offset": 0.3888297101449275
+      },
+      {
+        "t": 1683,
+        "opacity": 0.159662,
+        "offset": 0.4027463768115942
+      },
+      {
+        "t": 1700,
+        "opacity": 0.155942,
+        "offset": 0.41666304347826083
+      },
+      {
+        "t": 1717,
+        "opacity": 0.152244,
+        "offset": 0.4304963768115942
+      },
+      {
+        "t": 1733,
+        "opacity": 0.148523,
+        "offset": 0.4444130434782609
+      },
+      {
+        "t": 1750,
+        "opacity": 0.144825,
+        "offset": 0.4582463768115942
+      },
+      {
+        "t": 1767,
+        "opacity": 0.141105,
+        "offset": 0.4721630434782609
+      },
+      {
+        "t": 1783,
+        "opacity": 0.137407,
+        "offset": 0.4859963768115942
+      },
+      {
+        "t": 1800,
+        "opacity": 0.133687,
+        "offset": 0.4999130434782609
+      },
+      {
+        "t": 1817,
+        "opacity": 0.129966,
+        "offset": 0.5138297101449275
+      },
+      {
+        "t": 1833,
+        "opacity": 0.126268,
+        "offset": 0.5276630434782609
+      },
+      {
+        "t": 1850,
+        "opacity": 0.122548,
+        "offset": 0.5415797101449276
+      },
+      {
+        "t": 1867,
+        "opacity": 0.118828,
+        "offset": 0.5554963768115943
+      },
+      {
+        "t": 1883,
+        "opacity": 0.11513,
+        "offset": 0.5693297101449275
+      },
+      {
+        "t": 1900,
+        "opacity": 0.111387,
+        "offset": 0.5833297101449275
+      },
+      {
+        "t": 1917,
+        "opacity": 0.107689,
+        "offset": 0.5971630434782609
+      },
+      {
+        "t": 1933,
+        "opacity": 0.103991,
+        "offset": 0.6109963768115941
+      },
+      {
+        "t": 1950,
+        "opacity": 0.100249,
+        "offset": 0.6249963768115941
+      },
+      {
+        "t": 1966,
+        "opacity": 0.0965729,
+        "offset": 0.6387463768115943
+      },
+      {
+        "t": 1983,
+        "opacity": 0.0928526,
+        "offset": 0.6526630434782609
+      },
+      {
+        "t": 2000,
+        "opacity": 0.0891323,
+        "offset": 0.6665797101449276
+      },
+      {
+        "t": 2017,
+        "opacity": 0.085412,
+        "offset": 0.6804963768115943
+      },
+      {
+        "t": 2033,
+        "opacity": 0.0816917,
+        "offset": 0.6944130434782608
+      },
+      {
+        "t": 2050,
+        "opacity": 0.0779937,
+        "offset": 0.7082463768115942
+      },
+      {
+        "t": 2067,
+        "opacity": 0.0742734,
+        "offset": 0.7221630434782609
+      },
+      {
+        "t": 2083,
+        "opacity": 0.0705531,
+        "offset": 0.7360797101449275
+      },
+      {
+        "t": 2100,
+        "opacity": 0.0668551,
+        "offset": 0.7499130434782608
+      },
+      {
+        "t": 2117,
+        "opacity": 0.0631348,
+        "offset": 0.7638297101449275
+      },
+      {
+        "t": 2133,
+        "opacity": 0.0594368,
+        "offset": 0.7776630434782609
+      },
+      {
+        "t": 2150,
+        "opacity": 0.0557165,
+        "offset": 0.7915797101449276
+      },
+      {
+        "t": 2166,
+        "opacity": 0.0520185,
+        "offset": 0.8054130434782609
+      },
+      {
+        "t": 2183,
+        "opacity": 0.0482759,
+        "offset": 0.8194130434782608
+      },
+      {
+        "t": 2200,
+        "opacity": 0.0445779,
+        "offset": 0.8332463768115942
+      },
+      {
+        "t": 2217,
+        "opacity": 0.0408576,
+        "offset": 0.8471630434782609
+      },
+      {
+        "t": 2233,
+        "opacity": 0.0371373,
+        "offset": 0.8610797101449275
+      },
+      {
+        "t": 2250,
+        "opacity": 0.0334393,
+        "offset": 0.8749130434782608
+      },
+      {
+        "t": 2267,
+        "opacity": 0.029719,
+        "offset": 0.8888297101449275
+      },
+      {
+        "t": 2283,
+        "opacity": 0.026021,
+        "offset": 0.9026630434782609
+      },
+      {
+        "t": 2300,
+        "opacity": 0.0223007,
+        "offset": 0.9165797101449276
+      },
+      {
+        "t": 2317,
+        "opacity": 0.0185804,
+        "offset": 0.9304963768115943
+      },
+      {
+        "t": 2333,
+        "opacity": 0.0148601,
+        "offset": 0.9444130434782609
+      },
+      {
+        "t": 2350,
+        "opacity": 0.0111398,
+        "offset": 0.9583297101449276
+      },
+      {
+        "t": 2367,
+        "opacity": 0.00744175,
+        "offset": 0.9721630434782609
+      },
+      {
+        "t": 2383,
+        "opacity": 0.00372146,
+        "offset": 0.9860797101449276
+      },
+      {
+        "t": 2400,
+        "opacity": 0.0000234357,
+        "offset": 0.9999130434782608
+      },
+      {
+        "t": 2417,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 2433,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 2450,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 2467,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 2483,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 2500,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 2516,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 2533,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 2550,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 2566,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 2583,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 2600,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 2616,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 2633,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 2650,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 2667,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 2683,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 2700,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 2716,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 2733,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 2750,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 2766,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 2783,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 2800,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 2816,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 2833,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 2850,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 2867,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 2883,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 2900,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 2917,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 2933,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 2950,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 2967,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 2983,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3000,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3017,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3033,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3050,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3067,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3083,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3100,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3117,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3133,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3150,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3166,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3183,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3200,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3216,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3233,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3250,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3266,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3283,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3300,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3317,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3333,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3350,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3367,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3383,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3400,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3417,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3433,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3450,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3466,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3483,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3500,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3516,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3533,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3550,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3566,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3583,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3600,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3617,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3633,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3650,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3666,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3683,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3700,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3716,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3733,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3750,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3766,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3783,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3800,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 17,
+        "opacity": 0.019652,
+        "offset": -0.9861702898550725
+      },
+      {
+        "t": 33,
+        "opacity": 0.0393099,
+        "offset": -0.9723369565217391
+      },
+      {
+        "t": 50,
+        "opacity": 0.0590862,
+        "offset": -0.9584202898550724
+      },
+      {
+        "t": 66,
+        "opacity": 0.0787441,
+        "offset": -0.9445869565217392
+      },
+      {
+        "t": 83,
+        "opacity": 0.0985204,
+        "offset": -0.9306702898550725
+      },
+      {
+        "t": 100,
+        "opacity": 0.118297,
+        "offset": -0.9167536231884058
+      },
+      {
+        "t": 116,
+        "opacity": 0.137955,
+        "offset": -0.9029202898550724
+      },
+      {
+        "t": 133,
+        "opacity": 0.157613,
+        "offset": -0.8890869565217392
+      },
+      {
+        "t": 150,
+        "opacity": 0.177507,
+        "offset": -0.8750869565217392
+      },
+      {
+        "t": 166,
+        "opacity": 0.197165,
+        "offset": -0.8612536231884057
+      },
+      {
+        "t": 183,
+        "opacity": 0.216941,
+        "offset": -0.8473369565217391
+      },
+      {
+        "t": 200,
+        "opacity": 0.236599,
+        "offset": -0.8335036231884058
+      },
+      {
+        "t": 216,
+        "opacity": 0.256376,
+        "offset": -0.8195869565217391
+      },
+      {
+        "t": 233,
+        "opacity": 0.276034,
+        "offset": -0.8057536231884058
+      },
+      {
+        "t": 250,
+        "opacity": 0.295928,
+        "offset": -0.7917536231884058
+      },
+      {
+        "t": 267,
+        "opacity": 0.315705,
+        "offset": -0.7778369565217391
+      },
+      {
+        "t": 283,
+        "opacity": 0.335362,
+        "offset": -0.7640036231884059
+      },
+      {
+        "t": 300,
+        "opacity": 0.355139,
+        "offset": -0.7500869565217392
+      },
+      {
+        "t": 316,
+        "opacity": 0.374797,
+        "offset": -0.7362536231884057
+      },
+      {
+        "t": 333,
+        "opacity": 0.394573,
+        "offset": -0.7223369565217391
+      },
+      {
+        "t": 350,
+        "opacity": 0.414231,
+        "offset": -0.7085036231884058
+      },
+      {
+        "t": 366,
+        "opacity": 0.434007,
+        "offset": -0.6945869565217391
+      },
+      {
+        "t": 383,
+        "opacity": 0.449311,
+        "offset": -0.6807536231884058
+      },
+      {
+        "t": 400,
+        "opacity": 0.44559,
+        "offset": -0.6668369565217391
+      },
+      {
+        "t": 416,
+        "opacity": 0.44187,
+        "offset": -0.6529202898550724
+      },
+      {
+        "t": 433,
+        "opacity": 0.438172,
+        "offset": -0.6390869565217392
+      },
+      {
+        "t": 450,
+        "opacity": 0.434452,
+        "offset": -0.6251702898550725
+      },
+      {
+        "t": 466,
+        "opacity": 0.430731,
+        "offset": -0.6112536231884057
+      },
+      {
+        "t": 483,
+        "opacity": 0.427011,
+        "offset": -0.5973369565217391
+      },
+      {
+        "t": 500,
+        "opacity": 0.423313,
+        "offset": -0.5835036231884058
+      },
+      {
+        "t": 516,
+        "opacity": 0.419593,
+        "offset": -0.5695869565217391
+      },
+      {
+        "t": 533,
+        "opacity": 0.415895,
+        "offset": -0.5557536231884058
+      },
+      {
+        "t": 550,
+        "opacity": 0.412152,
+        "offset": -0.5417536231884058
+      },
+      {
+        "t": 566,
+        "opacity": 0.408454,
+        "offset": -0.5279202898550724
+      },
+      {
+        "t": 583,
+        "opacity": 0.404734,
+        "offset": -0.5140036231884059
+      },
+      {
+        "t": 600,
+        "opacity": 0.401036,
+        "offset": -0.5001702898550725
+      },
+      {
+        "t": 616,
+        "opacity": 0.397315,
+        "offset": -0.48625362318840576
+      },
+      {
+        "t": 633,
+        "opacity": 0.393617,
+        "offset": -0.4724202898550725
+      },
+      {
+        "t": 650,
+        "opacity": 0.389897,
+        "offset": -0.45850362318840576
+      },
+      {
+        "t": 666,
+        "opacity": 0.386177,
+        "offset": -0.44458695652173913
+      },
+      {
+        "t": 683,
+        "opacity": 0.382457,
+        "offset": -0.43067028985507244
+      },
+      {
+        "t": 700,
+        "opacity": 0.378759,
+        "offset": -0.41683695652173913
+      },
+      {
+        "t": 716,
+        "opacity": 0.375038,
+        "offset": -0.4029202898550725
+      },
+      {
+        "t": 733,
+        "opacity": 0.371318,
+        "offset": -0.38900362318840576
+      },
+      {
+        "t": 750,
+        "opacity": 0.367598,
+        "offset": -0.3750869565217391
+      },
+      {
+        "t": 766,
+        "opacity": 0.3639,
+        "offset": -0.36125434782608695
+      },
+      {
+        "t": 783,
+        "opacity": 0.360179,
+        "offset": -0.3473376811594203
+      },
+      {
+        "t": 800,
+        "opacity": 0.356459,
+        "offset": -0.3334210144927536
+      },
+      {
+        "t": 816,
+        "opacity": 0.352761,
+        "offset": -0.31958768115942027
+      },
+      {
+        "t": 833,
+        "opacity": 0.349041,
+        "offset": -0.30567101449275363
+      },
+      {
+        "t": 850,
+        "opacity": 0.345343,
+        "offset": -0.2918376811594203
+      },
+      {
+        "t": 866,
+        "opacity": 0.341645,
+        "offset": -0.27800434782608696
+      },
+      {
+        "t": 883,
+        "opacity": 0.337902,
+        "offset": -0.26400434782608695
+      },
+      {
+        "t": 900,
+        "opacity": 0.334182,
+        "offset": -0.25008768115942026
+      },
+      {
+        "t": 916,
+        "opacity": 0.330484,
+        "offset": -0.23625434782608695
+      },
+      {
+        "t": 933,
+        "opacity": 0.326764,
+        "offset": -0.2223376811594203
+      },
+      {
+        "t": 950,
+        "opacity": 0.323043,
+        "offset": -0.20842101449275363
+      },
+      {
+        "t": 966,
+        "opacity": 0.319345,
+        "offset": -0.1945876811594203
+      },
+      {
+        "t": 983,
+        "opacity": 0.315625,
+        "offset": -0.18067101449275363
+      },
+      {
+        "t": 1000,
+        "opacity": 0.311927,
+        "offset": -0.16683768115942027
+      },
+      {
+        "t": 1016,
+        "opacity": 0.308207,
+        "offset": -0.15292101449275364
+      },
+      {
+        "t": 1033,
+        "opacity": 0.304486,
+        "offset": -0.13900434782608695
+      },
+      {
+        "t": 1050,
+        "opacity": 0.300788,
+        "offset": -0.1251710144927536
+      },
+      {
+        "t": 1066,
+        "opacity": 0.29709,
+        "offset": -0.11133768115942029
+      },
+      {
+        "t": 1083,
+        "opacity": 0.293348,
+        "offset": -0.09733768115942029
+      },
+      {
+        "t": 1100,
+        "opacity": 0.28965,
+        "offset": -0.08350434782608696
+      },
+      {
+        "t": 1116,
+        "opacity": 0.285929,
+        "offset": -0.06958768115942028
+      },
+      {
+        "t": 1133,
+        "opacity": 0.282209,
+        "offset": -0.05567101449275362
+      },
+      {
+        "t": 1150,
+        "opacity": 0.278511,
+        "offset": -0.04183768115942029
+      },
+      {
+        "t": 1166,
+        "opacity": 0.274791,
+        "offset": -0.02792090579710145
+      },
+      {
+        "t": 1183,
+        "opacity": 0.271093,
+        "offset": -0.014087572463768117
+      }
+    ]
+  },
+  {
+    "name": "desktop-1440-light-reduced",
+    "isDark": false,
+    "reducedMotion": true,
+    "tiles": 11,
+    "workingTiles": 6,
+    "bands": [
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      }
+    ],
+    "arrowsAsBridgeMendsThem": 11,
+    "linkTransition": "none ease-out",
+    "overflowX": false
+  },
+  {
+    "name": "desktop-1440-dark",
+    "isDark": true,
+    "reducedMotion": false,
+    "tiles": 11,
+    "workingTiles": 6,
+    "bands": [
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.363868",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.363868",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.363868",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.363868",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.363868",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.363868",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      }
+    ],
+    "arrowsAsBridgeMendsThem": 11,
+    "linkTransition": "background-color 0.18s ease-out, color 0.18s ease-out, --harbour-tile-border 0.18s ease-out, --harbour-tile-hover-border 0.18s ease-out, --harbour-tile-hover 0.15s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.15s cubic-bezier(0.4, 0, 0.2, 1), transform 0.15s cubic-bezier(0.4, 0, 0.2, 1)",
+    "overflowX": false,
+    "loopSamples": 253,
+    "tileBoundsStableThroughLoop": true,
+    "peakOpacity": 0.449293,
+    "invisibleFrom2400": true
+  },
+  {
+    "name": "desktop-1440-dark-reduced",
+    "isDark": true,
+    "reducedMotion": true,
+    "tiles": 11,
+    "workingTiles": 6,
+    "bands": [
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      }
+    ],
+    "arrowsAsBridgeMendsThem": 11,
+    "linkTransition": "none ease-out",
+    "overflowX": false
+  },
+  {
+    "name": "desktop-1920-light",
+    "isDark": false,
+    "reducedMotion": false,
+    "tiles": 11,
+    "workingTiles": 6,
+    "bands": [
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.363861",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.363861",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.363861",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.363861",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.363861",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.363861",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      }
+    ],
+    "arrowsAsBridgeMendsThem": 11,
+    "linkTransition": "background-color 0.18s ease-out, color 0.18s ease-out, --harbour-tile-border 0.18s ease-out, --harbour-tile-hover-border 0.18s ease-out, --harbour-tile-hover 0.15s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.15s cubic-bezier(0.4, 0, 0.2, 1), transform 0.15s cubic-bezier(0.4, 0, 0.2, 1)",
+    "overflowX": false,
+    "loopSamples": 253,
+    "tileBoundsStableThroughLoop": true,
+    "peakOpacity": 0.449294,
+    "invisibleFrom2400": true
+  },
+  {
+    "name": "desktop-1920-light-reduced",
+    "isDark": false,
+    "reducedMotion": true,
+    "tiles": 11,
+    "workingTiles": 6,
+    "bands": [
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      }
+    ],
+    "arrowsAsBridgeMendsThem": 11,
+    "linkTransition": "none ease-out",
+    "overflowX": false
+  },
+  {
+    "name": "desktop-1920-dark",
+    "isDark": true,
+    "reducedMotion": false,
+    "tiles": 11,
+    "workingTiles": 6,
+    "bands": [
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.36387",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.36387",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.36387",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.36387",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.36387",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.36387",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      }
+    ],
+    "arrowsAsBridgeMendsThem": 11,
+    "linkTransition": "background-color 0.18s ease-out, color 0.18s ease-out, --harbour-tile-border 0.18s ease-out, --harbour-tile-hover-border 0.18s ease-out, --harbour-tile-hover 0.15s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.15s cubic-bezier(0.4, 0, 0.2, 1), transform 0.15s cubic-bezier(0.4, 0, 0.2, 1)",
+    "overflowX": false,
+    "loopSamples": 253,
+    "tileBoundsStableThroughLoop": true,
+    "peakOpacity": 0.449304,
+    "invisibleFrom2400": true
+  },
+  {
+    "name": "desktop-1920-dark-reduced",
+    "isDark": true,
+    "reducedMotion": true,
+    "tiles": 11,
+    "workingTiles": 6,
+    "bands": [
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      }
+    ],
+    "arrowsAsBridgeMendsThem": 11,
+    "linkTransition": "none ease-out",
+    "overflowX": false
+  },
+  {
+    "name": "state-changes-motion",
+    "log": [
+      {
+        "t": 129,
+        "word": "Blocked",
+        "state": "blocked",
+        "hasBand": false,
+        "transitions": [
+          "--harbour-tile-hover-border 180 ease-out",
+          "--harbour-tile-border 180 ease-out",
+          "background-color 180 ease-out",
+          "color 180 ease-out"
+        ],
+        "transform": "none",
+        "box": {
+          "x": 852,
+          "y": 458,
+          "width": 278,
+          "height": 112
+        }
+      },
+      {
+        "t": 1782,
+        "word": "Idle",
+        "state": "idle",
+        "hasBand": false,
+        "transitions": [],
+        "transform": "none",
+        "box": {
+          "x": 280,
+          "y": 698,
+          "width": 278,
+          "height": 112
+        }
+      },
+      {
+        "t": 3450,
+        "word": "Working",
+        "state": "working",
+        "hasBand": true,
+        "transitions": [
+          "--harbour-tile-hover-border 180 ease-out",
+          "background-color 180 ease-out",
+          "color 180 ease-out",
+          "--harbour-tile-border 180 ease-out"
+        ],
+        "transform": "none",
+        "box": {
+          "x": 1138,
+          "y": 458,
+          "width": 278,
+          "height": 112
+        }
+      }
+    ]
+  },
+  {
+    "name": "state-changes-reduced",
+    "log": [
+      {
+        "t": 106,
+        "word": "Blocked",
+        "state": "blocked",
+        "hasBand": false,
+        "transitions": [],
+        "transform": "none",
+        "box": {
+          "x": 852,
+          "y": 458,
+          "width": 278,
+          "height": 112
+        }
+      },
+      {
+        "t": 1688,
+        "word": "Idle",
+        "state": "idle",
+        "hasBand": false,
+        "transitions": [],
+        "transform": "none",
+        "box": {
+          "x": 280,
+          "y": 698,
+          "width": 278,
+          "height": 112
+        }
+      },
+      {
+        "t": 3289,
+        "word": "Working",
+        "state": "working",
+        "hasBand": true,
+        "transitions": [],
+        "transform": "none",
+        "box": {
+          "x": 1138,
+          "y": 458,
+          "width": 278,
+          "height": 112
+        }
+      }
+    ]
+  }
+]

@@ -1,0 +1,76 @@
+(node:1797809) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+
+ RUN  v5.0.3 /home/thomas/.aeolus/trierarch/worktrees/aeolus-fleet/build-core-1753-band
+
+ ✓ |ui:stories (chromium)| src/molecules/harbour-tile.stories.tsx > Alert 499ms
+ ✓ |ui:stories (chromium)| src/molecules/harbour-tile.stories.tsx > Awaiting Crew 13ms
+ ✓ |ui:stories (chromium)| src/molecules/harbour-tile.stories.tsx > Blocked 10ms
+ ✓ |ui:stories (chromium)| src/molecules/harbour-tile.stories.tsx > Working 14ms
+ ✓ |ui:stories (chromium)| src/molecules/harbour-tile.stories.tsx > Idle 12ms
+ ✓ |ui:stories (chromium)| src/molecules/harbour-tile.stories.tsx > Light And Dark 25ms
+ ✓ |ui:stories (chromium)| src/molecules/harbour-tile.stories.tsx > Person 11ms
+ ✓ |ui:stories (chromium)| src/molecules/harbour-tile.stories.tsx > Plugin 7ms
+ ✓ |ui:stories (chromium)| src/molecules/harbour-tile.stories.tsx > Long Name And Note 6ms
+ ✓ |ui:stories (chromium)| src/molecules/harbour-tile.stories.tsx > No Activity Yet 103ms
+ ✓ |ui:stories (chromium)| src/molecules/harbour-tile.stories.tsx > Six Days Ago 11ms
+ ✓ |ui:stories (chromium)| src/molecules/harbour-tile.stories.tsx > Older Than A Week 9ms
+ ✓ |ui:stories (chromium)| src/molecules/harbour-tile.stories.tsx > Link 17ms
+ ✓ |ui:stories (chromium)| src/molecules/harbour-tile.stories.tsx > Not A Link 8ms
+ ✓ |ui:stories (chromium)| src/molecules/harbour-tile.stories.tsx > Keyboard Focus 8ms
+ ✓ |ui:stories (chromium)| src/molecules/harbour-tile.stories.tsx > Working Band Loop 23ms
+ ✓ |ui:stories (chromium)| src/molecules/harbour-tile.stories.tsx > State Change Settles Colours 283ms
+ ✓ |ui:stories (chromium)| src/molecules/harbour-tile.stories.tsx > Entering Working Starts Fresh Loop 36ms
+ ✓ |ui:stories (chromium)| src/molecules/harbour-tile.stories.tsx > Reduced Motion 26ms
+ × |ui:stories (chromium)| src/molecules/harbour-tile.stories.tsx > Hover And Press Keep Control Timing 124ms
+   → 
+[34mClick to debug the error directly in Storybook: http://localhost:6006/?path=/story/harbour-harbourtile--hover-and-press-keep-control-timing&addonPanel=storybook/interactions/panel[39m
+
+border-bottom-color: expected { Object (delay, direction, ...) } to match object { duration: 150, …(1) }
+(6 matching properties omitted from actual)
+ ✓ |ui:stories (chromium)| src/molecules/harbour-tile.stories.tsx > Reduced Motion Hover 133ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |ui:stories (chromium)| src/molecules/harbour-tile.stories.tsx > Hover And Press Keep Control Timing
+AssertionError: 
+[34mClick to debug the error directly in Storybook: http://localhost:6006/?path=/story/harbour-harbourtile--hover-and-press-keep-control-timing&addonPanel=storybook/interactions/panel[39m
+
+border-bottom-color: expected { Object (delay, direction, ...) } to match object { duration: 150, …(1) }
+(6 matching properties omitted from actual)
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  Object {[22m
+[32m-   "duration": 1[7m5[27m0,[39m
+[31m+   "duration": 1[7m8[27m0,[39m
+[32m-   "easing": "[7mcubic-bezier(0.4, 0, 0.2, 1)[27m",[39m
+[31m+   "easing": "[7mease-out[27m",[39m
+[2m  }[22m
+
+ ❯ Proxy.<anonymous> ../../node_modules/.cache/storybook/10.6.3/9cbb52427913797b92d17a8e0f0b7393246b0bb97ffa2094e3ae90a92136140a/sb-vitest/vitest/9ee98a6fb8a98ef90537a06236cdc318632d770a/deps/test-ChIkGprg.js?v=98612873:25602:10
+ ❯ Proxy.<anonymous> ../../node_modules/.cache/storybook/10.6.3/9cbb52427913797b92d17a8e0f0b7393246b0bb97ffa2094e3ae90a92136140a/sb-vitest/vitest/9ee98a6fb8a98ef90537a06236cdc318632d770a/deps/test-ChIkGprg.js?v=98612873:25522:101
+ ❯ Proxy.methodWrapper ../../node_modules/.cache/storybook/10.6.3/9cbb52427913797b92d17a8e0f0b7393246b0bb97ffa2094e3ae90a92136140a/sb-vitest/vitest/9ee98a6fb8a98ef90537a06236cdc318632d770a/deps/test-ChIkGprg.js?v=98612873:21125:23
+ ❯ Instrumenter.invoke ../../node_modules/.cache/storybook/10.6.3/9cbb52427913797b92d17a8e0f0b7393246b0bb97ffa2094e3ae90a92136140a/sb-vitest/vitest/9ee98a6fb8a98ef90537a06236cdc318632d770a/deps/test-ChIkGprg.js?v=98612873:2550:20
+ ❯ Instrumenter.intercept ../../node_modules/.cache/storybook/10.6.3/9cbb52427913797b92d17a8e0f0b7393246b0bb97ffa2094e3ae90a92136140a/sb-vitest/vitest/9ee98a6fb8a98ef90537a06236cdc318632d770a/deps/test-ChIkGprg.js?v=98612873:2453:138
+ ❯ Instrumenter.track ../../node_modules/.cache/storybook/10.6.3/9cbb52427913797b92d17a8e0f0b7393246b0bb97ffa2094e3ae90a92136140a/sb-vitest/vitest/9ee98a6fb8a98ef90537a06236cdc318632d770a/deps/test-ChIkGprg.js?v=98612873:2444:83
+ ❯ Proxy.toMatchObject ../../node_modules/.cache/storybook/10.6.3/9cbb52427913797b92d17a8e0f0b7393246b0bb97ffa2094e3ae90a92136140a/sb-vitest/vitest/9ee98a6fb8a98ef90537a06236cdc318632d770a/deps/test-ChIkGprg.js?v=98612873:2422:151
+ ❯ toMatchObject src/molecules/harbour-tile.stories.tsx:212:81
+    210|   await expect(transitions.length).toBeGreaterThan(0);
+    211|   for (const transition of transitions) {
+    212|     await expect(transition.effect?.getTiming(), transition.transition…
+       |                                                                                 ^
+    213|   }
+    214| }
+ ❯ play src/molecules/harbour-tile.stories.tsx:402:11
+ ❯ runStory ../../node_modules/.cache/storybook/10.6.3/9cbb52427913797b92d17a8e0f0b7393246b0bb97ffa2094e3ae90a92136140a/sb-vitest/vitest/9ee98a6fb8a98ef90537a06236cdc318632d770a/deps/csf-OdKQaHAK.js?v=98612873:6839:6
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 20 passed (21)
+   Start at  10:28:39
+   Duration  3.59s (tests 64%, setup 23%, worker 8%, import 5%)
+

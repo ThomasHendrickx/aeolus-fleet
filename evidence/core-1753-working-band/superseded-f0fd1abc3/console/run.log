@@ -1,0 +1,19 @@
+ ✓ |console:e2e| e2e/working-band-evidence.e2e.test.ts > working band on the console fleet overview (evidence) > phone 375 light motion 6234ms
+ ✓ |console:e2e| e2e/working-band-evidence.e2e.test.ts > working band on the console fleet overview (evidence) > phone 375 light reduced 3007ms
+ ✓ |console:e2e| e2e/working-band-evidence.e2e.test.ts > working band on the console fleet overview (evidence) > phone 375 dark motion 5808ms
+ ✓ |console:e2e| e2e/working-band-evidence.e2e.test.ts > working band on the console fleet overview (evidence) > phone 375 dark reduced 1549ms
+ ✓ |console:e2e| e2e/working-band-evidence.e2e.test.ts > working band on the console fleet overview (evidence) > phone 390 light motion 5690ms
+ ✓ |console:e2e| e2e/working-band-evidence.e2e.test.ts > working band on the console fleet overview (evidence) > phone 390 light reduced 1601ms
+ ✓ |console:e2e| e2e/working-band-evidence.e2e.test.ts > working band on the console fleet overview (evidence) > phone 390 dark motion 5833ms
+ ✓ |console:e2e| e2e/working-band-evidence.e2e.test.ts > working band on the console fleet overview (evidence) > phone 390 dark reduced 1559ms
+ ✓ |console:e2e| e2e/working-band-evidence.e2e.test.ts > working band on the console fleet overview (evidence) > desktop 1440 light motion 5767ms
+ ✓ |console:e2e| e2e/working-band-evidence.e2e.test.ts > working band on the console fleet overview (evidence) > desktop 1440 light reduced 1513ms
+ ✓ |console:e2e| e2e/working-band-evidence.e2e.test.ts > working band on the console fleet overview (evidence) > desktop 1440 dark motion 5803ms
+ ✓ |console:e2e| e2e/working-band-evidence.e2e.test.ts > working band on the console fleet overview (evidence) > desktop 1440 dark reduced 1521ms
+ ✓ |console:e2e| e2e/working-band-evidence.e2e.test.ts > working band on the console fleet overview (evidence) > desktop 1920 light motion 5775ms
+ ✓ |console:e2e| e2e/working-band-evidence.e2e.test.ts > working band on the console fleet overview (evidence) > desktop 1920 light reduced 1502ms
+ ✓ |console:e2e| e2e/working-band-evidence.e2e.test.ts > working band on the console fleet overview (evidence) > desktop 1920 dark motion 5796ms
+ ✓ |console:e2e| e2e/working-band-evidence.e2e.test.ts > working band on the console fleet overview (evidence) > desktop 1920 dark reduced 1520ms
+ ✓ |console:e2e| e2e/working-band-evidence.e2e.test.ts > working band on the console fleet overview (evidence) > state changes live on desktop 1440 light motion 10167ms
+ ✓ |console:e2e| e2e/working-band-evidence.e2e.test.ts > working band on the console fleet overview (evidence) > state changes live on desktop 1440 light reduced 9589ms
+      Tests  18 passed (18)

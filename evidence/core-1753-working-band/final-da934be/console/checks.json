@@ -1,0 +1,2561 @@
+[
+  {
+    "name": "phone-375-light",
+    "isDark": false,
+    "reducedMotion": false,
+    "tiles": 11,
+    "workingTiles": 6,
+    "bands": [
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.341605",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.341605",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.341605",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.341605",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.341605",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.341605",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      }
+    ],
+    "arrowsAsBridgeMendsThem": 11,
+    "linkTransition": "background-color 0.18s ease-out, color 0.18s ease-out, border-color 0.18s ease-out, box-shadow 0.15s cubic-bezier(0.4, 0, 0.2, 1), transform 0.15s cubic-bezier(0.4, 0, 0.2, 1)",
+    "overflowX": false,
+    "loopSamples": 253,
+    "tileBoundsStableThroughLoop": true,
+    "peakOpacity": 0.449293,
+    "invisibleFrom2400": true
+  },
+  {
+    "name": "phone-375-light-reduced",
+    "isDark": false,
+    "reducedMotion": true,
+    "tiles": 11,
+    "workingTiles": 6,
+    "bands": [
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      }
+    ],
+    "arrowsAsBridgeMendsThem": 11,
+    "linkTransition": "none ease-out",
+    "overflowX": false
+  },
+  {
+    "name": "phone-375-dark",
+    "isDark": true,
+    "reducedMotion": false,
+    "tiles": 11,
+    "workingTiles": 6,
+    "bands": [
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.375014",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.375014",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.375014",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.375014",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.375014",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.375014",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      }
+    ],
+    "arrowsAsBridgeMendsThem": 11,
+    "linkTransition": "background-color 0.18s ease-out, color 0.18s ease-out, border-color 0.18s ease-out, box-shadow 0.15s cubic-bezier(0.4, 0, 0.2, 1), transform 0.15s cubic-bezier(0.4, 0, 0.2, 1)",
+    "overflowX": false,
+    "loopSamples": 253,
+    "tileBoundsStableThroughLoop": true,
+    "peakOpacity": 0.449286,
+    "invisibleFrom2400": true
+  },
+  {
+    "name": "phone-375-dark-reduced",
+    "isDark": true,
+    "reducedMotion": true,
+    "tiles": 11,
+    "workingTiles": 6,
+    "bands": [
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      }
+    ],
+    "arrowsAsBridgeMendsThem": 11,
+    "linkTransition": "none ease-out",
+    "overflowX": false
+  },
+  {
+    "name": "phone-390-light",
+    "isDark": false,
+    "reducedMotion": false,
+    "tiles": 11,
+    "workingTiles": 6,
+    "bands": [
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.293332",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.293332",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.293332",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.293332",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.293332",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.293332",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      }
+    ],
+    "arrowsAsBridgeMendsThem": 11,
+    "linkTransition": "background-color 0.18s ease-out, color 0.18s ease-out, border-color 0.18s ease-out, box-shadow 0.15s cubic-bezier(0.4, 0, 0.2, 1), transform 0.15s cubic-bezier(0.4, 0, 0.2, 1)",
+    "overflowX": false,
+    "loopSamples": 253,
+    "tileBoundsStableThroughLoop": true,
+    "peakOpacity": 0.449294,
+    "invisibleFrom2400": true
+  },
+  {
+    "name": "phone-390-light-reduced",
+    "isDark": false,
+    "reducedMotion": true,
+    "tiles": 11,
+    "workingTiles": 6,
+    "bands": [
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      }
+    ],
+    "arrowsAsBridgeMendsThem": 11,
+    "linkTransition": "none ease-out",
+    "overflowX": false
+  },
+  {
+    "name": "phone-390-dark",
+    "isDark": true,
+    "reducedMotion": false,
+    "tiles": 11,
+    "workingTiles": 6,
+    "bands": [
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.367562",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.367562",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.367562",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.367562",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.367562",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.367562",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      }
+    ],
+    "arrowsAsBridgeMendsThem": 11,
+    "linkTransition": "background-color 0.18s ease-out, color 0.18s ease-out, border-color 0.18s ease-out, box-shadow 0.15s cubic-bezier(0.4, 0, 0.2, 1), transform 0.15s cubic-bezier(0.4, 0, 0.2, 1)",
+    "overflowX": false,
+    "loopSamples": 253,
+    "tileBoundsStableThroughLoop": true,
+    "peakOpacity": 0.449297,
+    "invisibleFrom2400": true
+  },
+  {
+    "name": "phone-390-dark-reduced",
+    "isDark": true,
+    "reducedMotion": true,
+    "tiles": 11,
+    "workingTiles": 6,
+    "bands": [
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      }
+    ],
+    "arrowsAsBridgeMendsThem": 11,
+    "linkTransition": "none ease-out",
+    "overflowX": false
+  },
+  {
+    "name": "desktop-1440-light",
+    "isDark": false,
+    "reducedMotion": false,
+    "tiles": 11,
+    "workingTiles": 6,
+    "bands": [
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.371291",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.371291",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.371291",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.371291",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.371291",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.371291",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      }
+    ],
+    "arrowsAsBridgeMendsThem": 11,
+    "linkTransition": "background-color 0.18s ease-out, color 0.18s ease-out, border-color 0.18s ease-out, box-shadow 0.15s cubic-bezier(0.4, 0, 0.2, 1), transform 0.15s cubic-bezier(0.4, 0, 0.2, 1)",
+    "overflowX": false,
+    "loopSamples": 253,
+    "tileBoundsStableThroughLoop": true,
+    "peakOpacity": 0.44929,
+    "invisibleFrom2400": true,
+    "samples": [
+      {
+        "t": 750,
+        "opacity": 0.367578,
+        "offset": -0.3750108695652174
+      },
+      {
+        "t": 767,
+        "opacity": 0.36388,
+        "offset": -0.36117934782608696
+      },
+      {
+        "t": 783,
+        "opacity": 0.360159,
+        "offset": -0.3472626811594203
+      },
+      {
+        "t": 800,
+        "opacity": 0.356439,
+        "offset": -0.33334601449275364
+      },
+      {
+        "t": 817,
+        "opacity": 0.352719,
+        "offset": -0.31942934782608695
+      },
+      {
+        "t": 833,
+        "opacity": 0.348998,
+        "offset": -0.3055126811594203
+      },
+      {
+        "t": 850,
+        "opacity": 0.3453,
+        "offset": -0.29167934782608695
+      },
+      {
+        "t": 867,
+        "opacity": 0.341602,
+        "offset": -0.27784601449275365
+      },
+      {
+        "t": 883,
+        "opacity": 0.337882,
+        "offset": -0.26392934782608696
+      },
+      {
+        "t": 900,
+        "opacity": 0.334162,
+        "offset": -0.2500126811594203
+      },
+      {
+        "t": 917,
+        "opacity": 0.330441,
+        "offset": -0.2360960144927536
+      },
+      {
+        "t": 933,
+        "opacity": 0.326743,
+        "offset": -0.22226268115942027
+      },
+      {
+        "t": 950,
+        "opacity": 0.323023,
+        "offset": -0.20834601449275364
+      },
+      {
+        "t": 967,
+        "opacity": 0.319303,
+        "offset": -0.19442934782608695
+      },
+      {
+        "t": 983,
+        "opacity": 0.315605,
+        "offset": -0.18059601449275361
+      },
+      {
+        "t": 1000,
+        "opacity": 0.311885,
+        "offset": -0.16667934782608695
+      },
+      {
+        "t": 1017,
+        "opacity": 0.308187,
+        "offset": -0.15284601449275362
+      },
+      {
+        "t": 1033,
+        "opacity": 0.304466,
+        "offset": -0.13892934782608696
+      },
+      {
+        "t": 1050,
+        "opacity": 0.300746,
+        "offset": -0.1250126811594203
+      },
+      {
+        "t": 1067,
+        "opacity": 0.297026,
+        "offset": -0.11109601449275362
+      },
+      {
+        "t": 1083,
+        "opacity": 0.293328,
+        "offset": -0.09726268115942029
+      },
+      {
+        "t": 1100,
+        "opacity": 0.289607,
+        "offset": -0.08334601449275363
+      },
+      {
+        "t": 1117,
+        "opacity": 0.285887,
+        "offset": -0.06942934782608697
+      },
+      {
+        "t": 1133,
+        "opacity": 0.282189,
+        "offset": -0.05559601449275362
+      },
+      {
+        "t": 1150,
+        "opacity": 0.278491,
+        "offset": -0.04176268115942029
+      },
+      {
+        "t": 1167,
+        "opacity": 0.274771,
+        "offset": -0.027845905797101448
+      },
+      {
+        "t": 1183,
+        "opacity": 0.27105,
+        "offset": -0.013929239130434782
+      },
+      {
+        "t": 1200,
+        "opacity": 0.26733,
+        "offset": -0.000012583442028985509
+      },
+      {
+        "t": 1217,
+        "opacity": 0.263632,
+        "offset": 0.013820760869565218
+      },
+      {
+        "t": 1233,
+        "opacity": 0.259912,
+        "offset": 0.027737427536231884
+      },
+      {
+        "t": 1250,
+        "opacity": 0.256191,
+        "offset": 0.041653985507246374
+      },
+      {
+        "t": 1267,
+        "opacity": 0.252471,
+        "offset": 0.05557065217391304
+      },
+      {
+        "t": 1283,
+        "opacity": 0.248773,
+        "offset": 0.06940398550724637
+      },
+      {
+        "t": 1300,
+        "opacity": 0.245075,
+        "offset": 0.08323731884057972
+      },
+      {
+        "t": 1317,
+        "opacity": 0.241355,
+        "offset": 0.09715398550724637
+      },
+      {
+        "t": 1333,
+        "opacity": 0.237635,
+        "offset": 0.11107065217391304
+      },
+      {
+        "t": 1350,
+        "opacity": 0.233914,
+        "offset": 0.1249873188405797
+      },
+      {
+        "t": 1367,
+        "opacity": 0.230216,
+        "offset": 0.13882065217391304
+      },
+      {
+        "t": 1383,
+        "opacity": 0.226496,
+        "offset": 0.15273731884057973
+      },
+      {
+        "t": 1400,
+        "opacity": 0.222798,
+        "offset": 0.16657065217391304
+      },
+      {
+        "t": 1417,
+        "opacity": 0.219078,
+        "offset": 0.18048731884057972
+      },
+      {
+        "t": 1433,
+        "opacity": 0.215357,
+        "offset": 0.19440398550724639
+      },
+      {
+        "t": 1450,
+        "opacity": 0.211637,
+        "offset": 0.20832065217391305
+      },
+      {
+        "t": 1467,
+        "opacity": 0.207939,
+        "offset": 0.22215398550724638
+      },
+      {
+        "t": 1483,
+        "opacity": 0.204219,
+        "offset": 0.23607065217391304
+      },
+      {
+        "t": 1500,
+        "opacity": 0.200521,
+        "offset": 0.24990398550724638
+      },
+      {
+        "t": 1517,
+        "opacity": 0.196778,
+        "offset": 0.2639039855072464
+      },
+      {
+        "t": 1533,
+        "opacity": 0.19308,
+        "offset": 0.2777373188405797
+      },
+      {
+        "t": 1550,
+        "opacity": 0.189382,
+        "offset": 0.29157065217391304
+      },
+      {
+        "t": 1567,
+        "opacity": 0.185662,
+        "offset": 0.30548731884057967
+      },
+      {
+        "t": 1583,
+        "opacity": 0.181941,
+        "offset": 0.3194039855072464
+      },
+      {
+        "t": 1600,
+        "opacity": 0.178221,
+        "offset": 0.33332065217391305
+      },
+      {
+        "t": 1617,
+        "opacity": 0.174501,
+        "offset": 0.34723731884057973
+      },
+      {
+        "t": 1633,
+        "opacity": 0.170803,
+        "offset": 0.36107065217391304
+      },
+      {
+        "t": 1650,
+        "opacity": 0.167083,
+        "offset": 0.3749891304347826
+      },
+      {
+        "t": 1667,
+        "opacity": 0.163362,
+        "offset": 0.38890579710144924
+      },
+      {
+        "t": 1683,
+        "opacity": 0.159664,
+        "offset": 0.40273913043478266
+      },
+      {
+        "t": 1700,
+        "opacity": 0.155966,
+        "offset": 0.41657246376811596
+      },
+      {
+        "t": 1717,
+        "opacity": 0.152246,
+        "offset": 0.4304891304347826
+      },
+      {
+        "t": 1733,
+        "opacity": 0.148526,
+        "offset": 0.4444057971014493
+      },
+      {
+        "t": 1750,
+        "opacity": 0.144828,
+        "offset": 0.45823913043478265
+      },
+      {
+        "t": 1767,
+        "opacity": 0.141107,
+        "offset": 0.4721557971014493
+      },
+      {
+        "t": 1783,
+        "opacity": 0.137387,
+        "offset": 0.48607246376811597
+      },
+      {
+        "t": 1800,
+        "opacity": 0.133667,
+        "offset": 0.49998913043478266
+      },
+      {
+        "t": 1817,
+        "opacity": 0.129946,
+        "offset": 0.5139057971014492
+      },
+      {
+        "t": 1833,
+        "opacity": 0.126248,
+        "offset": 0.5277391304347826
+      },
+      {
+        "t": 1850,
+        "opacity": 0.122528,
+        "offset": 0.5416557971014493
+      },
+      {
+        "t": 1867,
+        "opacity": 0.11883,
+        "offset": 0.5554891304347827
+      },
+      {
+        "t": 1883,
+        "opacity": 0.115132,
+        "offset": 0.569322463768116
+      },
+      {
+        "t": 1900,
+        "opacity": 0.11139,
+        "offset": 0.583322463768116
+      },
+      {
+        "t": 1917,
+        "opacity": 0.107691,
+        "offset": 0.5971557971014493
+      },
+      {
+        "t": 1933,
+        "opacity": 0.103993,
+        "offset": 0.6109891304347826
+      },
+      {
+        "t": 1950,
+        "opacity": 0.100273,
+        "offset": 0.6249057971014492
+      },
+      {
+        "t": 1967,
+        "opacity": 0.0965529,
+        "offset": 0.6388224637681159
+      },
+      {
+        "t": 1983,
+        "opacity": 0.0928326,
+        "offset": 0.6527391304347826
+      },
+      {
+        "t": 2000,
+        "opacity": 0.0891123,
+        "offset": 0.6666557971014493
+      },
+      {
+        "t": 2017,
+        "opacity": 0.0854143,
+        "offset": 0.6804891304347827
+      },
+      {
+        "t": 2033,
+        "opacity": 0.081694,
+        "offset": 0.6944057971014493
+      },
+      {
+        "t": 2050,
+        "opacity": 0.0779737,
+        "offset": 0.708322463768116
+      },
+      {
+        "t": 2067,
+        "opacity": 0.0742757,
+        "offset": 0.7221557971014493
+      },
+      {
+        "t": 2083,
+        "opacity": 0.0705554,
+        "offset": 0.736072463768116
+      },
+      {
+        "t": 2100,
+        "opacity": 0.0668573,
+        "offset": 0.7499057971014492
+      },
+      {
+        "t": 2117,
+        "opacity": 0.063137,
+        "offset": 0.7638188405797102
+      },
+      {
+        "t": 2133,
+        "opacity": 0.0594167,
+        "offset": 0.7777391304347826
+      },
+      {
+        "t": 2150,
+        "opacity": 0.0557187,
+        "offset": 0.7915688405797102
+      },
+      {
+        "t": 2167,
+        "opacity": 0.0519984,
+        "offset": 0.8054891304347827
+      },
+      {
+        "t": 2183,
+        "opacity": 0.0482781,
+        "offset": 0.8194057971014493
+      },
+      {
+        "t": 2200,
+        "opacity": 0.0445801,
+        "offset": 0.8332391304347826
+      },
+      {
+        "t": 2217,
+        "opacity": 0.0408598,
+        "offset": 0.8471557971014493
+      },
+      {
+        "t": 2233,
+        "opacity": 0.0371395,
+        "offset": 0.861072463768116
+      },
+      {
+        "t": 2250,
+        "opacity": 0.0334415,
+        "offset": 0.8749057971014492
+      },
+      {
+        "t": 2267,
+        "opacity": 0.0297212,
+        "offset": 0.8888188405797102
+      },
+      {
+        "t": 2283,
+        "opacity": 0.0260009,
+        "offset": 0.9027391304347826
+      },
+      {
+        "t": 2300,
+        "opacity": 0.0223029,
+        "offset": 0.9165688405797102
+      },
+      {
+        "t": 2317,
+        "opacity": 0.0185826,
+        "offset": 0.9304891304347827
+      },
+      {
+        "t": 2333,
+        "opacity": 0.0148623,
+        "offset": 0.9444057971014493
+      },
+      {
+        "t": 2350,
+        "opacity": 0.0111643,
+        "offset": 0.9582391304347826
+      },
+      {
+        "t": 2366,
+        "opacity": 0.00746626,
+        "offset": 0.9720724637681158
+      },
+      {
+        "t": 2383,
+        "opacity": 0.00374596,
+        "offset": 0.9859891304347825
+      },
+      {
+        "t": 2400,
+        "opacity": 0.00000338617,
+        "offset": 0.9999855072463767
+      },
+      {
+        "t": 2417,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 2433,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 2450,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 2467,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 2483,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 2500,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 2516,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 2533,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 2550,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 2567,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 2583,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 2600,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 2617,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 2633,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 2650,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 2667,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 2683,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 2700,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 2717,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 2733,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 2750,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 2766,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 2783,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 2800,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 2817,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 2833,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 2850,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 2866,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 2883,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 2900,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 2917,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 2933,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 2950,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 2967,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 2983,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3000,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3017,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3033,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3050,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3067,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3083,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3100,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3116,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3133,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3150,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3166,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3183,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3200,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3216,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3233,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3250,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3267,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3283,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3300,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3316,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3333,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3350,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3366,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3383,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3400,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3417,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3433,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3450,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3466,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3483,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3500,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3517,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3533,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3550,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3566,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3583,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3600,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3616,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3633,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3650,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3666,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3683,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3700,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3717,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3733,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3750,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3766,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3783,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 3800,
+        "opacity": 0,
+        "offset": 1
+      },
+      {
+        "t": 16,
+        "opacity": 0.0195217,
+        "offset": -0.9862608695652175
+      },
+      {
+        "t": 33,
+        "opacity": 0.039298,
+        "offset": -0.9723442028985508
+      },
+      {
+        "t": 50,
+        "opacity": 0.0589559,
+        "offset": -0.9585108695652174
+      },
+      {
+        "t": 66,
+        "opacity": 0.0787322,
+        "offset": -0.9445942028985508
+      },
+      {
+        "t": 83,
+        "opacity": 0.0985086,
+        "offset": -0.9306775362318841
+      },
+      {
+        "t": 100,
+        "opacity": 0.118285,
+        "offset": -0.9167608695652174
+      },
+      {
+        "t": 116,
+        "opacity": 0.137943,
+        "offset": -0.902927536231884
+      },
+      {
+        "t": 133,
+        "opacity": 0.157719,
+        "offset": -0.8890108695652174
+      },
+      {
+        "t": 150,
+        "opacity": 0.177495,
+        "offset": -0.8750942028985508
+      },
+      {
+        "t": 166,
+        "opacity": 0.197153,
+        "offset": -0.8612608695652174
+      },
+      {
+        "t": 183,
+        "opacity": 0.21693,
+        "offset": -0.8473442028985507
+      },
+      {
+        "t": 200,
+        "opacity": 0.236587,
+        "offset": -0.8335108695652174
+      },
+      {
+        "t": 216,
+        "opacity": 0.256364,
+        "offset": -0.8195942028985507
+      },
+      {
+        "t": 233,
+        "opacity": 0.27614,
+        "offset": -0.805677536231884
+      },
+      {
+        "t": 250,
+        "opacity": 0.295916,
+        "offset": -0.7917608695652174
+      },
+      {
+        "t": 267,
+        "opacity": 0.315693,
+        "offset": -0.7778442028985507
+      },
+      {
+        "t": 283,
+        "opacity": 0.335351,
+        "offset": -0.7640108695652174
+      },
+      {
+        "t": 300,
+        "opacity": 0.355127,
+        "offset": -0.7500942028985508
+      },
+      {
+        "t": 316,
+        "opacity": 0.374785,
+        "offset": -0.7362608695652174
+      },
+      {
+        "t": 333,
+        "opacity": 0.394561,
+        "offset": -0.7223442028985507
+      },
+      {
+        "t": 350,
+        "opacity": 0.414219,
+        "offset": -0.7085108695652174
+      },
+      {
+        "t": 366,
+        "opacity": 0.433995,
+        "offset": -0.6945942028985507
+      },
+      {
+        "t": 383,
+        "opacity": 0.44929,
+        "offset": -0.680677536231884
+      },
+      {
+        "t": 400,
+        "opacity": 0.44557,
+        "offset": -0.6667608695652174
+      },
+      {
+        "t": 417,
+        "opacity": 0.44185,
+        "offset": -0.6528442028985507
+      },
+      {
+        "t": 433,
+        "opacity": 0.438152,
+        "offset": -0.6390108695652174
+      },
+      {
+        "t": 450,
+        "opacity": 0.434454,
+        "offset": -0.6251775362318841
+      },
+      {
+        "t": 466,
+        "opacity": 0.430734,
+        "offset": -0.6112608695652174
+      },
+      {
+        "t": 483,
+        "opacity": 0.427013,
+        "offset": -0.5973442028985507
+      },
+      {
+        "t": 500,
+        "opacity": 0.423293,
+        "offset": -0.5834275362318841
+      },
+      {
+        "t": 516,
+        "opacity": 0.419595,
+        "offset": -0.5695942028985507
+      },
+      {
+        "t": 533,
+        "opacity": 0.415897,
+        "offset": -0.5557608695652173
+      },
+      {
+        "t": 550,
+        "opacity": 0.412177,
+        "offset": -0.5418442028985507
+      },
+      {
+        "t": 566,
+        "opacity": 0.408456,
+        "offset": -0.527927536231884
+      },
+      {
+        "t": 583,
+        "opacity": 0.404758,
+        "offset": -0.5140942028985507
+      },
+      {
+        "t": 600,
+        "opacity": 0.401038,
+        "offset": -0.5001775362318841
+      },
+      {
+        "t": 616,
+        "opacity": 0.397318,
+        "offset": -0.4862608695652174
+      },
+      {
+        "t": 633,
+        "opacity": 0.393597,
+        "offset": -0.47234420289855067
+      },
+      {
+        "t": 650,
+        "opacity": 0.389899,
+        "offset": -0.4585108695652174
+      },
+      {
+        "t": 666,
+        "opacity": 0.386179,
+        "offset": -0.4445942028985507
+      },
+      {
+        "t": 683,
+        "opacity": 0.382481,
+        "offset": -0.4307608695652174
+      },
+      {
+        "t": 700,
+        "opacity": 0.378761,
+        "offset": -0.41684420289855073
+      },
+      {
+        "t": 716,
+        "opacity": 0.37504,
+        "offset": -0.40292753623188404
+      },
+      {
+        "t": 733,
+        "opacity": 0.37132,
+        "offset": -0.3890108695652174
+      },
+      {
+        "t": 750,
+        "opacity": 0.367622,
+        "offset": -0.3751775362318841
+      },
+      {
+        "t": 766,
+        "opacity": 0.363902,
+        "offset": -0.3612626811594203
+      },
+      {
+        "t": 783,
+        "opacity": 0.360182,
+        "offset": -0.34734601449275365
+      },
+      {
+        "t": 800,
+        "opacity": 0.356484,
+        "offset": -0.3335126811594203
+      },
+      {
+        "t": 816,
+        "opacity": 0.352763,
+        "offset": -0.3195960144927536
+      },
+      {
+        "t": 833,
+        "opacity": 0.349065,
+        "offset": -0.3057626811594203
+      },
+      {
+        "t": 850,
+        "opacity": 0.345345,
+        "offset": -0.2918460144927536
+      },
+      {
+        "t": 866,
+        "opacity": 0.341625,
+        "offset": -0.27792934782608697
+      },
+      {
+        "t": 883,
+        "opacity": 0.337927,
+        "offset": -0.26409601449275366
+      },
+      {
+        "t": 900,
+        "opacity": 0.334184,
+        "offset": -0.2500960144927536
+      },
+      {
+        "t": 916,
+        "opacity": 0.330486,
+        "offset": -0.23626268115942028
+      },
+      {
+        "t": 933,
+        "opacity": 0.326788,
+        "offset": -0.22242934782608698
+      },
+      {
+        "t": 950,
+        "opacity": 0.323068,
+        "offset": -0.2085126811594203
+      },
+      {
+        "t": 966,
+        "opacity": 0.319347,
+        "offset": -0.19459601449275363
+      },
+      {
+        "t": 983,
+        "opacity": 0.315627,
+        "offset": -0.18067934782608697
+      },
+      {
+        "t": 1000,
+        "opacity": 0.311907,
+        "offset": -0.16676268115942028
+      },
+      {
+        "t": 1016,
+        "opacity": 0.308209,
+        "offset": -0.15292934782608697
+      },
+      {
+        "t": 1033,
+        "opacity": 0.304489,
+        "offset": -0.13901268115942028
+      },
+      {
+        "t": 1050,
+        "opacity": 0.30079,
+        "offset": -0.12517934782608697
+      },
+      {
+        "t": 1066,
+        "opacity": 0.29707,
+        "offset": -0.1112626811594203
+      },
+      {
+        "t": 1083,
+        "opacity": 0.293372,
+        "offset": -0.09742934782608695
+      },
+      {
+        "t": 1100,
+        "opacity": 0.289652,
+        "offset": -0.08351268115942029
+      },
+      {
+        "t": 1116,
+        "opacity": 0.285932,
+        "offset": -0.06959601449275363
+      },
+      {
+        "t": 1133,
+        "opacity": 0.282211,
+        "offset": -0.05567934782608695
+      },
+      {
+        "t": 1150,
+        "opacity": 0.278513,
+        "offset": -0.04184601449275362
+      }
+    ]
+  },
+  {
+    "name": "desktop-1440-light-reduced",
+    "isDark": false,
+    "reducedMotion": true,
+    "tiles": 11,
+    "workingTiles": 6,
+    "bands": [
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      }
+    ],
+    "arrowsAsBridgeMendsThem": 11,
+    "linkTransition": "none ease-out",
+    "overflowX": false
+  },
+  {
+    "name": "desktop-1440-dark",
+    "isDark": true,
+    "reducedMotion": false,
+    "tiles": 11,
+    "workingTiles": 6,
+    "bands": [
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.367584",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.367584",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.367584",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.367584",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.367584",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.367584",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      }
+    ],
+    "arrowsAsBridgeMendsThem": 11,
+    "linkTransition": "background-color 0.18s ease-out, color 0.18s ease-out, border-color 0.18s ease-out, box-shadow 0.15s cubic-bezier(0.4, 0, 0.2, 1), transform 0.15s cubic-bezier(0.4, 0, 0.2, 1)",
+    "overflowX": false,
+    "loopSamples": 253,
+    "tileBoundsStableThroughLoop": true,
+    "peakOpacity": 0.449311,
+    "invisibleFrom2400": true
+  },
+  {
+    "name": "desktop-1440-dark-reduced",
+    "isDark": true,
+    "reducedMotion": true,
+    "tiles": 11,
+    "workingTiles": 6,
+    "bands": [
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      }
+    ],
+    "arrowsAsBridgeMendsThem": 11,
+    "linkTransition": "none ease-out",
+    "overflowX": false
+  },
+  {
+    "name": "desktop-1920-light",
+    "isDark": false,
+    "reducedMotion": false,
+    "tiles": 11,
+    "workingTiles": 6,
+    "bands": [
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.36758",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.36758",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.36758",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.36758",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.36758",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.36758",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      }
+    ],
+    "arrowsAsBridgeMendsThem": 11,
+    "linkTransition": "background-color 0.18s ease-out, color 0.18s ease-out, border-color 0.18s ease-out, box-shadow 0.15s cubic-bezier(0.4, 0, 0.2, 1), transform 0.15s cubic-bezier(0.4, 0, 0.2, 1)",
+    "overflowX": false,
+    "loopSamples": 253,
+    "tileBoundsStableThroughLoop": true,
+    "peakOpacity": 0.449285,
+    "invisibleFrom2400": true
+  },
+  {
+    "name": "desktop-1920-light-reduced",
+    "isDark": false,
+    "reducedMotion": true,
+    "tiles": 11,
+    "workingTiles": 6,
+    "bands": [
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      }
+    ],
+    "arrowsAsBridgeMendsThem": 11,
+    "linkTransition": "none ease-out",
+    "overflowX": false
+  },
+  {
+    "name": "desktop-1920-dark",
+    "isDark": true,
+    "reducedMotion": false,
+    "tiles": 11,
+    "workingTiles": 6,
+    "bands": [
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.371302",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.371302",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.371302",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.371302",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.371302",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      },
+      {
+        "animationName": "live-band",
+        "duration": 3800,
+        "iterations": null,
+        "timingFunction": "linear",
+        "staticOpacity": "0.371302",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0),",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "height": 2
+      }
+    ],
+    "arrowsAsBridgeMendsThem": 11,
+    "linkTransition": "background-color 0.18s ease-out, color 0.18s ease-out, border-color 0.18s ease-out, box-shadow 0.15s cubic-bezier(0.4, 0, 0.2, 1), transform 0.15s cubic-bezier(0.4, 0, 0.2, 1)",
+    "overflowX": false,
+    "loopSamples": 253,
+    "tileBoundsStableThroughLoop": true,
+    "peakOpacity": 0.44928,
+    "invisibleFrom2400": true
+  },
+  {
+    "name": "desktop-1920-dark-reduced",
+    "isDark": true,
+    "reducedMotion": true,
+    "tiles": 11,
+    "workingTiles": 6,
+    "bands": [
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      },
+      {
+        "animationName": "none",
+        "duration": null,
+        "iterations": null,
+        "timingFunction": "ease",
+        "staticOpacity": "0.45",
+        "backgroundImage": "none",
+        "backgroundColor": "rgb(43, 163, 201)",
+        "height": 2
+      }
+    ],
+    "arrowsAsBridgeMendsThem": 11,
+    "linkTransition": "none ease-out",
+    "overflowX": false
+  },
+  {
+    "name": "state-changes-motion",
+    "log": [
+      {
+        "t": 176,
+        "word": "Blocked",
+        "state": "blocked",
+        "hasBand": false,
+        "transitions": [
+          "background-color 180 ease-out",
+          "border-bottom-color 180 ease-out",
+          "border-left-color 180 ease-out",
+          "border-right-color 180 ease-out",
+          "border-top-color 180 ease-out",
+          "color 180 ease-out"
+        ],
+        "transform": "none",
+        "box": {
+          "x": 852,
+          "y": 458,
+          "width": 278,
+          "height": 112
+        }
+      },
+      {
+        "t": 2114,
+        "word": "Idle",
+        "state": "idle",
+        "hasBand": false,
+        "transitions": [],
+        "transform": "none",
+        "box": {
+          "x": 280,
+          "y": 698,
+          "width": 278,
+          "height": 112
+        }
+      },
+      {
+        "t": 4097,
+        "word": "Working",
+        "state": "working",
+        "hasBand": true,
+        "transitions": [
+          "background-color 180 ease-out",
+          "border-bottom-color 180 ease-out",
+          "border-left-color 180 ease-out",
+          "border-right-color 180 ease-out",
+          "border-top-color 180 ease-out",
+          "color 180 ease-out"
+        ],
+        "transform": "none",
+        "box": {
+          "x": 1138,
+          "y": 458,
+          "width": 278,
+          "height": 112
+        }
+      }
+    ]
+  },
+  {
+    "name": "state-changes-reduced",
+    "log": [
+      {
+        "t": 230,
+        "word": "Blocked",
+        "state": "blocked",
+        "hasBand": false,
+        "transitions": [],
+        "transform": "none",
+        "box": {
+          "x": 852,
+          "y": 458,
+          "width": 278,
+          "height": 112
+        }
+      },
+      {
+        "t": 1926,
+        "word": "Idle",
+        "state": "idle",
+        "hasBand": false,
+        "transitions": [],
+        "transform": "none",
+        "box": {
+          "x": 280,
+          "y": 698,
+          "width": 278,
+          "height": 112
+        }
+      },
+      {
+        "t": 3594,
+        "word": "Working",
+        "state": "working",
+        "hasBand": true,
+        "transitions": [],
+        "transform": "none",
+        "box": {
+          "x": 1138,
+          "y": 458,
+          "width": 278,
+          "height": 112
+        }
+      }
+    ]
+  }
+]
