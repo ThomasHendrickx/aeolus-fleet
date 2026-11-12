@@ -1,4 +1,4 @@
-import { crewLineSchema, idSchema } from '@aeolus-fleet/common';
+import { crewLineSchema, idSchema, trierarchWorkspaceSchema } from '@aeolus-fleet/common';
 import { z } from 'zod';
 
 import { MEMBER_HEALTHS, SQUADRON_STATES } from './squadron-states';
@@ -141,7 +141,7 @@ export const memberDraftSchema = z.object({
   template: z.object({ repository: z.string(), name: z.string(), version: z.number() }),
   crew: z.object({
     harness: z.string().optional(),
-    workspace: z.discriminatedUnion('kind', [z.object({ kind: z.literal('worktree'), repository: z.string(), ref: z.string().optional() }), z.object({ kind: z.literal('folder'), name: z.string() })]).optional(),
+    workspace: trierarchWorkspaceSchema.optional(),
     firstPrompt: z.string().optional(),
     options: z.record(z.string(), z.unknown()),
     machineLabels: z.array(z.object({ key: z.string(), value: z.string() })).optional(),

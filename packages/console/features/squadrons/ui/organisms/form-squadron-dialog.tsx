@@ -3,8 +3,8 @@
 import { Info, RotateCw } from 'lucide-react';
 import { useId, useState } from 'react';
 
-import type { HarnessOffer } from '../../../../lib/crew-settings-form';
-import { labelErrorSlot, membersOf, missingOf, readyCount, withWorkspaceForAll, workspaceFromItem, workspaceItemsOf, type MemberDraft, type MemberValues } from '../../../../lib/forming-members';
+import { workspaceFromItem, workspaceItemsOf, type HarnessOffer } from '../../../../lib/crew-settings-form';
+import { labelErrorSlot, membersOf, missingOf, offeredWorkspacesOf, readyCount, withWorkspaceForAll, type MemberDraft, type MemberValues } from '../../../../lib/forming-members';
 import type { LabelContext } from '../../../../lib/labels';
 import type { MachineLabelsInput } from '../../../../lib/machine-labels';
 import type { TemplateVersion } from '../../../../lib/squadrons-schemas';
@@ -62,8 +62,9 @@ function MemberForm({ drafts, crew, isPending, error, onBack, onSubmit }: { draf
   const allId = useId();
   const [members, setMembers] = useState(() => membersOf(drafts, crew.context));
   const [openSlots, setOpenSlots] = useState(() => new Set(membersOf(drafts, crew.context).filter((member) => missingOf(member).length > 0).map((member) => member.slot)));
-  const workspaces = workspaceItemsOf(crew.offers, members);
-  const { ready, total } = readyCount(members);
+  const offered = offeredWorkspacesOf(crew.offers);
+  const workspaces = workspaceItemsOf(offered, undefined);
+  const { ready, total } = readyCount(members, offered.repositories);
   const isReady = ready === total;
   const errorSlot = error === undefined ? undefined : labelErrorSlot(error, { members, context: crew.context });
   const isWorkspaceMissing = members.some((member) => member.workspace === undefined);
@@ -83,7 +84,7 @@ function MemberForm({ drafts, crew, isPending, error, onBack, onSubmit }: { draf
             value={NONE}
             disabled={isPending}
             onValueChange={(picked) => {
-              const workspace = typeof picked === 'string' ? workspaceFromItem(picked) : undefined;
+              const workspace = typeof picked === 'string' ? workspaceFromItem(picked, undefined) : undefined;
               if (workspace !== undefined) {
                 setMembers((current) => withWorkspaceForAll(current, workspace));
               }
@@ -108,7 +109,6 @@ function MemberForm({ drafts, crew, isPending, error, onBack, onSubmit }: { draf
             key={member.slot}
             member={member}
             offers={crew.offers}
-            workspaces={workspaces}
             {...(crew.machineLabels === undefined ? {} : { machineLabels: crew.machineLabels })}
             isOpen={openSlots.has(member.slot) || errorSlot === member.slot}
             onOpenChange={(isOpen) => {

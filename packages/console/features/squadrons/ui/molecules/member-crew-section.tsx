@@ -5,20 +5,19 @@ import { useId, type ReactNode } from 'react';
 
 import { classNames, Input, Label, InlineError } from '@aeolus-fleet/ui';
 import type { HarnessOffer } from '../../../../lib/crew-settings-form';
-import { missingOf, workspaceFromItem, workspaceItemOf, type MemberValues } from '../../../../lib/forming-members';
+import { missingOf, offeredWorkspacesOf, workspaceNoteOf, type MemberValues } from '../../../../lib/forming-members';
 import { harnessWord } from '../../../../lib/harness';
 import type { MachineLabelsInput } from '../../../../lib/machine-labels';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../../components/atoms/select';
 import { Textarea } from '../../../../components/atoms/textarea';
 import { MachineLabelsField } from '../../../../components/molecules/machine-labels-field';
 import { McpServersField } from '../../../../components/molecules/mcp-servers-field';
+import { WorkspaceFields } from '../../../../components/molecules/workspace-fields';
 
 interface MemberCrewSectionProps {
   member: MemberValues;
   /** What the answering machines offer, harness by harness. */
   offers: readonly HarnessOffer[];
-  /** Every workspace a member may pick, as select items. */
-  workspaces: Readonly<Record<string, string>>;
   /** The fleet's labels and machines, for its machine labels; the field waits for them. */
   machineLabels?: MachineLabelsInput;
   isOpen: boolean;
@@ -77,17 +76,21 @@ function optionText(value: unknown): string {
 /**
  * One member's crew settings in the forming form (#343, S4): a header with
  * its slot, template and what it still needs, folding its fields away once
- * it needs nothing; then its workspace (required), harness, options, first
+ * it needs nothing; then its workspace (required) with its branch and
+ * sub-repositories as the crew settings fields show them, harness, options, first
  * prompt, machine labels, MCP servers and the parameters its role left to fill
  * (required). Starts from its files; every change is the form's, nearest wins.
  */
-export function MemberCrewSection({ member, offers, workspaces, machineLabels, isOpen, onOpenChange, isDisabled, error, onChange }: MemberCrewSectionProps) {
-  const ids = { workspace: useId(), harness: useId(), options: useId(), firstPrompt: useId(), parameters: useId() };
+export function MemberCrewSection({ member, offers, machineLabels, isOpen, onOpenChange, isDisabled, error, onChange }: MemberCrewSectionProps) {
+  const ids = { harness: useId(), options: useId(), firstPrompt: useId(), parameters: useId() };
   const missing = missingOf(member);
+  const offered = offeredWorkspacesOf(offers);
+  // A repository no machine offers, or one named twice, keeps the member from forming, as it keeps Save off.
+  const workspaceNote = workspaceNoteOf(member, offered.repositories);
   const offer = offers.find((each) => each.harness === member.harness);
   const harnesses = { [NONE]: 'The trierarch’s default', ...Object.fromEntries(offers.map((each) => [each.harness, harnessWord(each.harness)])), ...(member.harness === NONE || offer ? {} : { [member.harness]: harnessWord(member.harness) }) };
-  const offered = new Set((offer?.options ?? []).map((option) => option.name));
-  const otherOptions = Object.entries(member.options).filter(([name]) => !offered.has(name));
+  const offeredOptions = new Set((offer?.options ?? []).map((option) => option.name));
+  const otherOptions = Object.entries(member.options).filter(([name]) => !offeredOptions.has(name));
   const Chevron = isOpen ? ChevronDown : ChevronRight;
 
   return (
@@ -105,7 +108,7 @@ export function MemberCrewSection({ member, offers, workspaces, machineLabels, i
         <span className="font-mono text-body font-medium">{member.slot}</span>
         <span className="font-mono text-meta text-muted-foreground">{member.template}</span>
         <span className="flex-1" />
-        {missing.length === 0 ? (
+        {missing.length === 0 && workspaceNote === undefined ? (
           <span className="inline-flex items-center gap-1 text-meta text-tone-ok-fg" data-testid="member-crew-ready">
             <CircleCheck aria-hidden />
             Ready
@@ -113,7 +116,7 @@ export function MemberCrewSection({ member, offers, workspaces, machineLabels, i
         ) : (
           <span className="inline-flex items-center gap-1 text-meta text-tone-waiting-fg" data-testid="member-crew-missing">
             <CircleDashed aria-hidden />
-            Needs {missing.join(', ')}
+            {missing.length === 0 ? workspaceNote : `Needs ${missing.join(', ')}`}
           </span>
         )}
       </button>
@@ -124,18 +127,15 @@ export function MemberCrewSection({ member, offers, workspaces, machineLabels, i
       )}
       {isOpen ? (
         <div className="flex flex-col gap-4 border-t border-border px-3.5 py-3.5">
-          <Field id={ids.workspace} label="Workspace" isRequired hint="A repository gets a new git worktree for this ship; a folder is used as it is.">
-            <Pick
-              id={ids.workspace}
-              items={workspaces}
-              value={member.workspace === undefined ? NONE : workspaceItemOf(member.workspace)}
-              isDisabled={isDisabled}
-              testId="member-crew-workspace"
-              onPick={(picked) => {
-                onChange({ ...member, workspace: workspaceFromItem(picked) });
-              }}
-            />
-          </Field>
+          <WorkspaceFields
+            shipName={member.slot}
+            offered={offered}
+            workspace={member.workspace}
+            isDisabled={isDisabled}
+            onChange={(workspace) => {
+              onChange({ ...member, workspace });
+            }}
+          />
           <Field id={ids.harness} label="Harness">
             <Pick
               id={ids.harness}
