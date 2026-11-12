@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { expect, fn, userEvent, within } from 'storybook/test';
 
-import { ALIVE_MACHINE, KEPT_SHIP_ID, MACHINE_LABELS, MACHINE_VALUES, NEW_MACHINE, NOW, SILENT_MACHINE, SPOTS } from '../../../../lib/fixtures/machines.fixtures';
+import { ALIVE_MACHINE, KEPT_SHIP_ID, MACHINE_LABELS, MANY_REPOSITORIES_SPOT, MACHINE_VALUES, NEW_MACHINE, NOW, REPOSITORY_SPOTS, SILENT_MACHINE, SPOTS } from '../../../../lib/fixtures/machines.fixtures';
 import { MachineDetail } from './machine-detail';
 
 const meta = {
@@ -46,3 +46,32 @@ export const NotAnswering: Story = { args: { machine: SILENT_MACHINE, spots: SPO
 export const NotStarted: Story = { args: { machine: NEW_MACHINE, spots: [], location: null, labels: [] } };
 export const Loading: Story = { args: { machine: undefined, state: 'loading' } };
 export const NotFound: Story = { args: { machine: undefined, state: 'not-found' } };
+
+/** Running here names each ship's main repository and its sub-repositories; a folder reads as before (docs/design/ship-repositories, trierarch board 1). */
+export const RunningHereRepositories: Story = {
+  args: {
+    spots: REPOSITORY_SPOTS,
+  },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getAllByTestId('machine-spot-workspace').map((line) => line.textContent)).toEqual([
+      'Workspace: aeolus-fleet · main repository · sub-repositories aeolus-fleet-trierarch, skills, hemma',
+      'Workspace: website · folder, as it is',
+      'Workspace: aeolus-fleet · main repository · sub-repository skills',
+      'Workspace: hemma · main repository',
+    ]);
+  },
+};
+
+/** A long list of sub-repositories at desktop width wraps, so every name stays readable (docs/design/ship-repositories, trierarch boards). */
+export const RunningHereManyRepositories: Story = {
+  args: {
+    spots: [MANY_REPOSITORIES_SPOT],
+  },
+  globals: { viewport: { value: 'desktop' } },
+  play: async ({ canvasElement }) => {
+    await expect(canvasElement.ownerDocument.defaultView?.innerWidth).toBeGreaterThanOrEqual(640);
+    const line = within(canvasElement).getByTestId('machine-spot-workspace');
+    await expect(line).toHaveTextContent('release-notes');
+    await expect(line.scrollWidth).toBeLessThanOrEqual(line.clientWidth);
+  },
+};

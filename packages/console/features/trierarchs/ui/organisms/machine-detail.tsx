@@ -1,7 +1,7 @@
 import type { LocationKind, ShipId } from '@aeolus-fleet/common';
 import { CircleAlert, CircleX, FolderX, LoaderCircle, Ship, ShipWheel, Trash2 } from 'lucide-react';
 import Link from 'next/link';
-import type { ReactNode } from 'react';
+import { Fragment, type ReactNode } from 'react';
 
 import { isClearing, type KeptWorktreeName } from '../../services/kept-worktrees';
 import { restartWords } from '../../../../lib/crew-request';
@@ -34,6 +34,24 @@ interface MachineDetailProps {
 }
 
 /** How a spot's session stands (#332): since when it runs, and its restart attempt, as its trierarch wrote them. */
+/** " · sub-repository a" or " · sub-repositories a, b, c", each name in mono; nothing without any. */
+function SubRepositoriesLine({ names }: { names: readonly string[] }) {
+  if (names.length === 0) {
+    return null;
+  }
+  return (
+    <>
+      {names.length === 1 ? ' · sub-repository ' : ' · sub-repositories '}
+      {names.map((name, index) => (
+        <Fragment key={name}>
+          {index === 0 ? null : ', '}
+          <span className="font-mono text-id">{name}</span>
+        </Fragment>
+      ))}
+    </>
+  );
+}
+
 function SpotSession({ spot, now }: { spot: Spot; now: Date }) {
   const startedAt = spot.status === 'running' ? spot.startedAt : null;
   const restarts = restartWords(spot);
@@ -232,9 +250,18 @@ export function MachineDetail({ machine, state, spots, location, labels, now, sh
                     {spot.name}
                   </Link>
                   {spot.workspace === undefined ? null : (
-                    <span className="truncate text-meta text-muted-foreground" data-testid="machine-spot-workspace">
+                    <span className="text-meta break-words text-muted-foreground" data-testid="machine-spot-workspace">
                       <span className="sr-only">Workspace: </span>
-                      <span className="font-mono text-id">{spot.workspace.name}</span> · {spot.workspace.kind === 'worktree' ? 'new worktree' : 'folder, as it is'}
+                      {spot.workspace.kind === 'repositories' ? (
+                        <>
+                          <span className="font-mono text-id">{spot.workspace.main}</span> · main repository
+                          <SubRepositoriesLine names={spot.workspace.subRepositories} />
+                        </>
+                      ) : (
+                        <>
+                          <span className="font-mono text-id">{spot.workspace.name}</span> · folder, as it is
+                        </>
+                      )}
                     </span>
                   )}
                 </span>

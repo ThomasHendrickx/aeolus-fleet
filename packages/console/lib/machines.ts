@@ -45,8 +45,8 @@ export interface Spot {
   status: CrewStatus;
   attempt: number;
   startedAt: string | null;
-  /** The workspace its crew request's settings name, once read (#332): a repository for a new worktree, or a folder used as it is. */
-  workspace?: { name: string; kind: 'worktree' | 'folder' };
+  /** The workspace its crew request's settings name, once read (#332): a main repository and its sub-repositories, by name, or a folder used as it is. */
+  workspace?: { kind: 'repositories'; main: string; subRepositories: string[] } | { kind: 'folder'; name: string };
 }
 
 /** The order spots show in: running first, then what needs a look, then what is on its way. */
@@ -64,8 +64,8 @@ export function spotsOf(machine: Pick<Machine, 'shipId'>, ships: readonly Listed
 }
 
 /**
- * Spots with the workspace each one's crew request names (#332): a
- * repository, for a new worktree of it, or a folder. Settings come from each
+ * Spots with the workspace each one's crew request names (#332): a main
+ * repository and its sub-repositories, or a folder. Settings come from each
  * ship's page read, parsed on the web app's server, by ship id; a spot whose
  * settings are not read yet, or are no crew settings, has none.
  */
@@ -78,7 +78,10 @@ export function withWorkspaces(spots: readonly Spot[], settingsByShip: ReadonlyM
     const { workspace } = settings;
     return {
       ...spot,
-      workspace: workspace.kind === 'repositories' ? { name: workspace.main.repository, kind: 'worktree' } : { name: workspace.name, kind: 'folder' },
+      workspace:
+        workspace.kind === 'repositories'
+          ? { kind: 'repositories', main: workspace.main.repository, subRepositories: workspace.subRepositories.map(({ repository }) => repository) }
+          : { kind: 'folder', name: workspace.name },
     };
   });
 }

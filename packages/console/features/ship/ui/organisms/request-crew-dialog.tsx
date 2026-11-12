@@ -5,7 +5,7 @@ import { CircleX, Clock, LoaderCircle, RotateCw, ShipWheel } from 'lucide-react'
 import { useState, type ReactNode } from 'react';
 
 import { useConsoleConstants } from '../../../../lib/console-constants';
-import { defaultValues, promptBytes, settingsOf, valuesOf, type CrewSettingsValues, type HarnessOffer } from '../../../../lib/crew-settings-form';
+import { defaultValues, promptBytes, settingsOf, valuesOf, workspaceProblems, type CrewSettingsValues, type HarnessOffer } from '../../../../lib/crew-settings-form';
 import type { MachineLabelsInput } from '../../../../lib/machine-labels';
 import { secondsTime } from '../../../../lib/relative-time';
 import type { SettingsCheck } from '../../../../lib/trierarch-plugin-schemas';
@@ -88,7 +88,9 @@ function RequestCrewForm(props: Omit<RequestCrewDialogProps, 'isOpen' | 'onOpenC
   const refusal = check?.kind === 'refused' ? check : undefined;
   const isPromptTooLong = promptBytes(values.firstPrompt) > firstPromptMaxBytes;
   const isWaitingForMachine = values.machineLabels.length > 0 && machineLabels?.matchOf(values.machineLabels).matching.length === 0;
-  const canSubmit = settings !== undefined && refusal === undefined && !isPromptTooLong && !isPending;
+  // A repository no machine offers, or one named twice, is the plugin's to refuse: the form says so first.
+  const workspaceNote = workspaceProblems(values.workspace, offers.find((offer) => offer.harness === values.harness)).note;
+  const canSubmit = settings !== undefined && refusal === undefined && workspaceNote === undefined && !isPromptTooLong && !isPending;
   const change = (next: CrewSettingsValues) => {
     setValues(next);
     onSettingsChange(settingsOf(next));
@@ -139,11 +141,8 @@ function RequestCrewForm(props: Omit<RequestCrewDialogProps, 'isOpen' | 'onOpenC
         <span className="mr-auto text-meta text-muted-foreground" data-testid="request-crew-note">
           {refusal !== undefined && refusedAt !== undefined
             ? `Refused at ${secondsTime(refusedAt)}. Nothing was requested.`
-            : isWaitingForMachine
-              ? 'The request will wait for a machine with these labels.'
-              : check?.kind === 'noRoom'
-                ? 'The request will wait for room.'
-                : null}
+            : (workspaceNote ??
+              (isWaitingForMachine ? 'The request will wait for a machine with these labels.' : check?.kind === 'noRoom' ? 'The request will wait for room.' : null))}
         </span>
         <DialogClose render={<Button type="button" disabled={isPending} />}>Cancel</DialogClose>
         <Button type="submit" variant="primary" icon={<ShipWheel />} isLoading={isPending} disabled={!canSubmit} data-testid="request-crew-submit">

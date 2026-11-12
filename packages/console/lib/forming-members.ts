@@ -1,4 +1,3 @@
-import type { WorkspaceChoice } from './crew-settings-form';
 import { pickedChips, type LabelContext } from './labels';
 
 /**
@@ -8,6 +7,9 @@ import { pickedChips, type LabelContext } from './labels';
  * the third layer: what it holds goes to forming whole. A workspace and every
  * parameter are required in the form only; the rest is optional.
  */
+
+/** A member's workspace as squadrons' forming takes it: a new worktree of a repository, or a folder used as it is. */
+export type MemberWorkspace = { kind: 'worktree'; repository: string } | { kind: 'folder'; name: string };
 
 /** An option's value, as a crew request holds it: anything JSON. */
 export type OptionValue = unknown;
@@ -19,7 +21,7 @@ export interface MemberDraft {
   template: { repository: string; name: string; version: number };
   crew: {
     harness?: string;
-    workspace?: WorkspaceChoice | { kind: 'worktree'; repository: string; ref?: string };
+    workspace?: MemberWorkspace | { kind: 'worktree'; repository: string; ref?: string };
     firstPrompt?: string;
     options: Record<string, OptionValue>;
     machineLabels?: { key: string; value: string }[];
@@ -36,7 +38,7 @@ export interface MemberValues {
   template: string;
   /** Empty: the trierarch's default harness. */
   harness: string;
-  workspace: WorkspaceChoice | undefined;
+  workspace: MemberWorkspace | undefined;
   firstPrompt: string;
   options: Record<string, OptionValue>;
   /** The machine labels the fleet has, as value ids. */
@@ -48,7 +50,7 @@ export interface MemberValues {
   parameters: { name: string; description: string; value: string }[];
 }
 
-function workspaceOf(workspace: MemberDraft['crew']['workspace']): WorkspaceChoice | undefined {
+function workspaceOf(workspace: MemberDraft['crew']['workspace']): MemberWorkspace | undefined {
   if (workspace === undefined) {
     return undefined;
   }
@@ -91,7 +93,7 @@ export function readyCount(members: readonly MemberValues[]): { ready: number; t
 }
 
 /** Workspace for every member: the members without one get it; the others keep theirs. */
-export function withWorkspaceForAll(members: readonly MemberValues[], workspace: WorkspaceChoice): MemberValues[] {
+export function withWorkspaceForAll(members: readonly MemberValues[], workspace: MemberWorkspace): MemberValues[] {
   return members.map((member) => (member.workspace === undefined ? { ...member, workspace } : member));
 }
 
@@ -111,7 +113,7 @@ export function formMembersOf(
   context: LabelContext | undefined,
 ): Record<
   string,
-  { crew: { harness?: string; workspace?: WorkspaceChoice; firstPrompt?: string; options: Record<string, OptionValue>; machineLabels: { key: string; value: string }[]; mcpServers?: string[] }; parameters: Record<string, string> }
+  { crew: { harness?: string; workspace?: MemberWorkspace; firstPrompt?: string; options: Record<string, OptionValue>; machineLabels: { key: string; value: string }[]; mcpServers?: string[] }; parameters: Record<string, string> }
 > {
   return Object.fromEntries(
     members.map((member) => [
@@ -142,12 +144,12 @@ export function labelErrorSlot(message: string, form: { members: readonly Member
 }
 
 /** A workspace as a select value: its kind and its name. */
-export function workspaceItemOf(workspace: WorkspaceChoice): string {
+export function workspaceItemOf(workspace: MemberWorkspace): string {
   return workspace.kind === 'worktree' ? `worktree:${workspace.repository}` : `folder:${workspace.name}`;
 }
 
 /** The workspace a select value names; undefined for none. */
-export function workspaceFromItem(item: string): WorkspaceChoice | undefined {
+export function workspaceFromItem(item: string): MemberWorkspace | undefined {
   const [kind, ...rest] = item.split(':');
   const name = rest.join(':');
   if (kind === 'worktree') {

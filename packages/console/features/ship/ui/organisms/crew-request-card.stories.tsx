@@ -52,7 +52,8 @@ export const ReadOnly: Story = { args: { ...Running.args, canManage: false } };
 /** With the trierarch plugin on: settings shown, Edit offered, no starting prompt on the card. */
 const ROWS = [
   { label: 'Harness', value: 'claude-code' },
-  { label: 'Workspace', value: 'aeolus-fleet', meta: 'New worktree' },
+  { label: 'Main repository', value: null, repositories: [{ repository: 'aeolus-fleet' }] },
+  { label: 'Sub-repositories', value: null, repositories: [] },
   { label: 'model', value: 'claude-opus-5-5', isMono: true },
   { label: 'effort', value: 'high', isMono: true },
   { label: 'MCP servers', value: 'company-graph', isMono: true },
@@ -142,3 +143,59 @@ export const RunningWithoutUsageLink: Story = {
     await expect(within(canvasElement).queryByTestId('crew-request-usage')).toBeNull();
   },
 };
+
+/** Rows with this main repository and these sub-repositories in place of the ones above (#1761). */
+const withRepositories = (main: { repository: string; ref?: string }, subRepositories: readonly { repository: string; ref?: string }[]) =>
+  ROWS.map((row) => (row.label === 'Main repository' ? { ...row, repositories: [main] } : row.label === 'Sub-repositories' ? { ...row, repositories: subRepositories } : row));
+
+/** Main repository only: a chip, and Sub-repositories None (docs/design/ship-repositories, ship board 1). */
+export const MainRepositoryOnly: Story = {
+  args: { ...RunningWithPlugin.args },
+  play: async ({ canvasElement }) => {
+    const card = within(canvasElement);
+    await expect(card.getByTestId('crew-request-main-repository')).toHaveTextContent('aeolus-fleet');
+    await expect(card.getByTestId('crew-request-sub-repositories')).toHaveTextContent('None');
+  },
+};
+/** One sub-repository (board 2). */
+export const OneSubRepository: Story = { args: { ...RunningWithPlugin.args, settingsRows: withRepositories({ repository: 'aeolus-fleet' }, [{ repository: 'skills' }]) } };
+/** Several sub-repositories, each chip with its branch after a dot when it has one (board 3). */
+export const SeveralSubRepositories: Story = {
+  args: {
+    ...RunningWithPlugin.args,
+    settingsRows: withRepositories({ repository: 'aeolus-fleet', ref: 'design/ship-folder' }, [{ repository: 'aeolus-fleet-trierarch', ref: 'release/0.9' }, { repository: 'skills' }, { repository: 'hemma' }]),
+  },
+  play: async ({ canvasElement }) => {
+    const card = within(canvasElement);
+    await expect(card.getByTestId('crew-request-main-repository')).toHaveTextContent('aeolus-fleet · design/ship-folder');
+    await expect(within(card.getByTestId('crew-request-sub-repositories')).getAllByTestId('crew-request-repository').map((chip) => chip.textContent)).toEqual([
+      'aeolus-fleet-trierarch · release/0.9',
+      'skills',
+      'hemma',
+    ]);
+  },
+};
+/** A repository no machine offers: it waits on Needs crew with the plugin's reason (board 4). */
+export const RepositoryNotOffered: Story = {
+  args: {
+    stage: { kind: 'needsCrew', requestedAt: minutesAgo(25), reason: 'no trierarch offering claude-code has repository aeolus-website' },
+    hasTrierarchs: true,
+    settingsRows: withRepositories({ repository: 'aeolus-fleet' }, [{ repository: 'skills' }, { repository: 'aeolus-website' }]),
+    machineLabels: MACHINE_LABELS.chipsOf([MACHINE_VALUES.macos]),
+    onEdit: () => undefined,
+  },
+};
+/** A folder workspace keeps its Workspace row (board 5). */
+export const FolderWorkspace: Story = {
+  args: {
+    ...RunningWithPlugin.args,
+    settingsRows: ROWS.flatMap((row) => (row.label === 'Main repository' ? [{ label: 'Workspace', value: 'notes', meta: 'Folder, as it is' }] : row.label === 'Sub-repositories' ? [] : [row])),
+  },
+  play: async ({ canvasElement }) => {
+    const card = within(canvasElement);
+    await expect(card.getByTestId('crew-request-settings')).toHaveTextContent('Workspace');
+    await expect(card.queryByTestId('crew-request-main-repository')).toBeNull();
+  },
+};
+/** A viewer sees the same rows without Edit (board 7). */
+export const SubRepositoriesReadOnly: Story = { args: { ...SeveralSubRepositories.args, canManage: false } };
