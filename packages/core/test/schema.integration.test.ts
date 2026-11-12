@@ -1032,16 +1032,23 @@ describe('the operator ship', () => {
 });
 
 describe('operator accounts', () => {
-  function account(fleetId: FleetId, email = `${newId('operator')}@example.com`) {
+  function account(fleetId: FleetId, email = `${newId('operator')}@example.com`, passwordHash: string | null = 'hash') {
     return database.operator.create({
-      data: { id: newId('operator'), fleetId, email, passwordHash: 'hash', createdAt: now },
+      data: { id: newId('operator'), fleetId, email, passwordHash, createdAt: now },
     });
   }
 
-  it('hold an email unique across all fleets', async () => {
+  it('hold the email of an own sign-in unique across all fleets', async () => {
     await account(await createFleet(), 'thomas@example.com');
 
     await expect(account(await createFleet(), 'thomas@example.com')).rejects.toThrow(/Unique constraint/);
+    await expect(account(await createFleet(), 'thomas@example.com', null)).resolves.toMatchObject({ email: 'thomas@example.com' });
+  });
+
+  it('share an email between operators without a password', async () => {
+    await account(await createFleet(), 'ines@example.com', null);
+
+    await expect(account(await createFleet(), 'ines@example.com', null)).resolves.toMatchObject({ email: 'ines@example.com' });
   });
 
   it('are one per fleet', async () => {

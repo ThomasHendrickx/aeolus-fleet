@@ -12,6 +12,7 @@ import type { AppRouter } from '../src/index.js';
 import { createUseCases, type UseCases } from '../src/wiring.js';
 import { FLEET_URL } from './support/core-fixtures.js';
 import { createMigratedDatabase } from '../src/testing/database.js';
+import { OPERATOR } from '../src/testing/fleet.js';
 import { newKey } from '../src/testing/keys.js';
 import { createTestClock } from './support/postgres-core.js';
 import { unwrap } from '../src/testing/result.js';
@@ -171,12 +172,30 @@ describe('the installation procedures on a hosting server', () => {
     await expect(database.operator.findFirst({ where: { fleetId: created.fleetId } })).resolves.toMatchObject({ email: 'lena@example.com', passwordHash: null });
   });
 
-  it('answer a create replayed under its request id with the same fleet, and refuse a taken email', async () => {
+  it('answer a create replayed under its request id with the same fleet, and refuse its request id for another request', async () => {
     const request = { requestId: newKey(), name: 'replayed', operatorEmail: 'replay@example.com' };
     const first = await installation().create.mutate(request);
 
     await expect(installation().create.mutate(request)).resolves.toEqual(first);
-    await expect(codeOf(installation().create.mutate({ ...request, requestId: newKey() }))).resolves.toBe('CONFLICT');
+    await expect(codeOf(installation().create.mutate({ ...request, name: 'another' }))).resolves.toBe('CONFLICT');
+  });
+
+  it('create a second fleet under the operator email of a fleet it created, and both fleets work on Postgres', async () => {
+    const first = await installation().create.mutate({ requestId: newKey(), name: 'acme', operatorEmail: 'ines@example.com' });
+
+    const second = await installation().create.mutate({ requestId: newKey(), name: 'acme labs', operatorEmail: 'Ines@Example.com' });
+
+    for (const created of [first, second]) {
+      const commissioned = unwrap(await core.commissionShip(argoOf(created), { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
+      await expect(database.ship.findFirst({ where: { fleetId: created.fleetId, id: commissioned.shipId } })).resolves.toMatchObject({ name: 'scout' });
+      await expect(installation().get.query({ fleetId: created.fleetId })).resolves.toMatchObject({ operatorEmail: 'ines@example.com' });
+    }
+  });
+
+  it("refuse the email argo of a fleet made before signs in with on its own, which still signs in", async () => {
+    await expect(codeOf(installation().create.mutate({ requestId: newKey(), name: 'taken', operatorEmail: OPERATOR.email }))).resolves.toBe('CONFLICT');
+
+    await expect(core.signIn({ email: OPERATOR.email, password: OPERATOR.password })).resolves.toMatchObject({ isOk: true, value: { caller: { fleetId: homeFleet } } });
   });
 
   it('describe a fleet: its operator, measures, messages today and per UTC day, and the limits that apply', async () => {
