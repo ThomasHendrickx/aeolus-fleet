@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 
 import { isTimeToRenew } from './lib/account-renewal-schedule';
 import { argoConfirmPathFor } from './lib/argo-sign-in';
-import { renewAccountToken, type Renewal } from './lib/account-sign-in';
+import { fleetSwitchPathOf, renewAccountToken, type Renewal } from './lib/account-sign-in';
 import { ACCOUNT_TOKEN_COOKIE, sessionOf, signInUrlFor } from './lib/console-gate';
 import { consoleOriginOf } from './lib/console-origin';
 import { cookieValueOf, pagasaeFrom, SHARED_SIGN_IN_COOKIE } from './lib/pagasae';
@@ -10,18 +10,24 @@ import { serverInternalUrlFrom } from './lib/server-url';
 import { NO_RIGHTS_PATH, NOTHING_TO_MANAGE_PATH, signInEndedPathOf } from './lib/sign-in-paths';
 
 /**
- * Signs in before the console renders: a console page asked for without a
- * live session redirects on the server, to the hosting service's sign-in or
- * the console's own (saying so when the operator signed in somewhere else),
- * so nothing of the console shows first. When the server
+ * Signs in before the console renders: a page asking for another fleet than
+ * the one in view enters it first, with the same sign-in (header design, H9);
+ * a console page asked for without a live session redirects on the server,
+ * to the hosting service's sign-in or the console's own (saying so when the
+ * operator signed in somewhere else), so nothing of the console shows first.
+ * When the server
  * does not answer the check, the page renders and the console decides in the
  * browser, as before.
  */
 export async function proxy(request: NextRequest): Promise<NextResponse> {
-  const renewal = await renewalOnLoad(request);
   const returnTo = `${request.nextUrl.pathname}${request.nextUrl.search}`;
   // On the console's public address: behind a proxy, request.url holds the bind address.
   const pageUrl = new URL(returnTo, consoleOriginOf(request, process.env)).toString();
+  const fleetSwitch = pagasaeFrom(process.env) === undefined ? undefined : fleetSwitchPathOf(request.nextUrl, request.headers.get('cookie'));
+  if (fleetSwitch !== undefined) {
+    return NextResponse.redirect(new URL(fleetSwitch, pageUrl));
+  }
+  const renewal = await renewalOnLoad(request);
   if (renewal?.kind === 'ended') {
     return NextResponse.redirect(new URL(signInEndedPathOf(returnTo), pageUrl));
   }
