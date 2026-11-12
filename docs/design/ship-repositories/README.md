@@ -6,11 +6,127 @@ Every image is the console's own parts (`CrewSettingsFields` in `RequestCrewDial
 
 ## Boards
 
-| Screen | Before | After |
-| --- | --- | --- |
-| Crew settings fields (the request crew dialog; the commission dialog and each squadron member use the same fields) | [375 light](mockups/settings-before-375-light.png), [375 dark](mockups/settings-before-375-dark.png), [1440 light](mockups/settings-before-1440-light.png), [1440 dark](mockups/settings-before-1440-dark.png), [1920 light](mockups/settings-before-1920-light.png), [1920 dark](mockups/settings-before-1920-dark.png) | [375 light](mockups/settings-after-375-light.png), [375 dark](mockups/settings-after-375-dark.png), [1440 light](mockups/settings-after-1440-light.png), [1440 dark](mockups/settings-after-1440-dark.png), [1920 light](mockups/settings-after-1920-light.png), [1920 dark](mockups/settings-after-1920-dark.png) |
-| Ship page (the crew request card) | [375 light](mockups/ship-before-375-light.png), [375 dark](mockups/ship-before-375-dark.png), [1440 light](mockups/ship-before-1440-light.png), [1440 dark](mockups/ship-before-1440-dark.png), [1920 light](mockups/ship-before-1920-light.png), [1920 dark](mockups/ship-before-1920-dark.png) | [375 light](mockups/ship-after-375-light.png), [375 dark](mockups/ship-after-375-dark.png), [1440 light](mockups/ship-after-1440-light.png), [1440 dark](mockups/ship-after-1440-dark.png), [1920 light](mockups/ship-after-1920-light.png), [1920 dark](mockups/ship-after-1920-dark.png) |
-| Trierarch page (Running here) | [375 light](mockups/trierarch-before-375-light.png), [375 dark](mockups/trierarch-before-375-dark.png), [1440 light](mockups/trierarch-before-1440-light.png), [1440 dark](mockups/trierarch-before-1440-dark.png), [1920 light](mockups/trierarch-before-1920-light.png), [1920 dark](mockups/trierarch-before-1920-dark.png) | [375 light](mockups/trierarch-after-375-light.png), [375 dark](mockups/trierarch-after-375-dark.png), [1440 light](mockups/trierarch-after-1440-light.png), [1440 dark](mockups/trierarch-after-1440-dark.png), [1920 light](mockups/trierarch-after-1920-light.png), [1920 dark](mockups/trierarch-after-1920-dark.png) |
+Before on the left, after on the right; each board holds every state of the screen.
+
+### Crew settings fields
+
+The request crew dialog; the commission dialog and each squadron member use the same fields.
+
+#### 375 wide, light
+
+| Before | After |
+| --- | --- |
+| ![Crew settings fields before, 375 light](mockups/settings-before-375-light.png) | ![Crew settings fields after, 375 light](mockups/settings-after-375-light.png) |
+
+#### 375 wide, dark
+
+| Before | After |
+| --- | --- |
+| ![Crew settings fields before, 375 dark](mockups/settings-before-375-dark.png) | ![Crew settings fields after, 375 dark](mockups/settings-after-375-dark.png) |
+
+#### 1440 wide, light
+
+| Before | After |
+| --- | --- |
+| ![Crew settings fields before, 1440 light](mockups/settings-before-1440-light.png) | ![Crew settings fields after, 1440 light](mockups/settings-after-1440-light.png) |
+
+#### 1440 wide, dark
+
+| Before | After |
+| --- | --- |
+| ![Crew settings fields before, 1440 dark](mockups/settings-before-1440-dark.png) | ![Crew settings fields after, 1440 dark](mockups/settings-after-1440-dark.png) |
+
+#### 1920 wide, light
+
+| Before | After |
+| --- | --- |
+| ![Crew settings fields before, 1920 light](mockups/settings-before-1920-light.png) | ![Crew settings fields after, 1920 light](mockups/settings-after-1920-light.png) |
+
+#### 1920 wide, dark
+
+| Before | After |
+| --- | --- |
+| ![Crew settings fields before, 1920 dark](mockups/settings-before-1920-dark.png) | ![Crew settings fields after, 1920 dark](mockups/settings-after-1920-dark.png) |
+
+### Ship page
+
+The crew request card.
+
+#### 375 wide, light
+
+| Before | After |
+| --- | --- |
+| ![Ship page before, 375 light](mockups/ship-before-375-light.png) | ![Ship page after, 375 light](mockups/ship-after-375-light.png) |
+
+#### 375 wide, dark
+
+| Before | After |
+| --- | --- |
+| ![Ship page before, 375 dark](mockups/ship-before-375-dark.png) | ![Ship page after, 375 dark](mockups/ship-after-375-dark.png) |
+
+#### 1440 wide, light
+
+| Before | After |
+| --- | --- |
+| ![Ship page before, 1440 light](mockups/ship-before-1440-light.png) | ![Ship page after, 1440 light](mockups/ship-after-1440-light.png) |
+
+#### 1440 wide, dark
+
+| Before | After |
+| --- | --- |
+| ![Ship page before, 1440 dark](mockups/ship-before-1440-dark.png) | ![Ship page after, 1440 dark](mockups/ship-after-1440-dark.png) |
+
+#### 1920 wide, light
+
+| Before | After |
+| --- | --- |
+| ![Ship page before, 1920 light](mockups/ship-before-1920-light.png) | ![Ship page after, 1920 light](mockups/ship-after-1920-light.png) |
+
+#### 1920 wide, dark
+
+| Before | After |
+| --- | --- |
+| ![Ship page before, 1920 dark](mockups/ship-before-1920-dark.png) | ![Ship page after, 1920 dark](mockups/ship-after-1920-dark.png) |
+
+### Trierarch page
+
+Running here.
+
+#### 375 wide, light
+
+| Before | After |
+| --- | --- |
+| ![Trierarch page before, 375 light](mockups/trierarch-before-375-light.png) | ![Trierarch page after, 375 light](mockups/trierarch-after-375-light.png) |
+
+#### 375 wide, dark
+
+| Before | After |
+| --- | --- |
+| ![Trierarch page before, 375 dark](mockups/trierarch-before-375-dark.png) | ![Trierarch page after, 375 dark](mockups/trierarch-after-375-dark.png) |
+
+#### 1440 wide, light
+
+| Before | After |
+| --- | --- |
+| ![Trierarch page before, 1440 light](mockups/trierarch-before-1440-light.png) | ![Trierarch page after, 1440 light](mockups/trierarch-after-1440-light.png) |
+
+#### 1440 wide, dark
+
+| Before | After |
+| --- | --- |
+| ![Trierarch page before, 1440 dark](mockups/trierarch-before-1440-dark.png) | ![Trierarch page after, 1440 dark](mockups/trierarch-after-1440-dark.png) |
+
+#### 1920 wide, light
+
+| Before | After |
+| --- | --- |
+| ![Trierarch page before, 1920 light](mockups/trierarch-before-1920-light.png) | ![Trierarch page after, 1920 light](mockups/trierarch-after-1920-light.png) |
+
+#### 1920 wide, dark
+
+| Before | After |
+| --- | --- |
+| ![Trierarch page before, 1920 dark](mockups/trierarch-before-1920-dark.png) | ![Trierarch page after, 1920 dark](mockups/trierarch-after-1920-dark.png) |
 
 The dialog is the same size at 1440 and 1920, so those boards show it cropped; on phone it fills the screen. On the phone page boards the bottom navigation sits where the viewport ended, as it is fixed to the screen.
 
