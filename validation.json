@@ -1,0 +1,38 @@
+{
+  "head": "da934be76a0674dac86cd45e936b52e8b88c3d2a",
+  "design": "e9ba721977c34e815d3eb2d2c7c8d25693628188",
+  "build": "npm run build passed",
+  "namedChromiumStoriesPassed": [
+    "Alert",
+    "Awaiting Crew",
+    "Blocked",
+    "Working",
+    "Idle",
+    "Light And Dark",
+    "Person",
+    "Plugin",
+    "Long Name And Note",
+    "No Activity Yet",
+    "Six Days Ago",
+    "Older Than A Week",
+    "Link",
+    "Not A Link",
+    "Keyboard Focus",
+    "Working Band Loop",
+    "State Change Settles Colours",
+    "Entering Working Starts Fresh Loop",
+    "Reduced Motion"
+  ],
+  "unmodifiedScreens": 80,
+  "matchedScreens": 80,
+  "pairs": 80,
+  "captureScenarioTestsPassed": [
+    "working across 16 views",
+    "alert across 16 views",
+    "blocked across 16 views",
+    "idle across 16 views",
+    "awaitingCrew across 16 views"
+  ],
+  "horizontalOverflowScreens": 0,
+  "incorrectBandCountScreens": 0
+}
