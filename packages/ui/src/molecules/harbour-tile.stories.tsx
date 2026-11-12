@@ -198,6 +198,68 @@ function colourOf(className: string, property: 'backgroundColor' | 'borderTopCol
   return colour;
 }
 
+/** A state's colours settle: 180 ms ease-out (docs/design/working-band). */
+const SETTLING = { duration: 180, easing: 'ease-out' } as const;
+
+/** A link's hover and press keep their control timing: --duration-fast on Tailwind's default curve. */
+const CONTROL = { duration: 150, easing: 'cubic-bezier(0.4, 0, 0.2, 1)' } as const;
+
+/** Every transition the tile runs now has this timing, and there is at least one. */
+async function expectTransitionsOf(tile: Element, timing: { duration: number; easing: string }): Promise<void> {
+  const transitions = colourTransitionsOf(tile);
+  await expect(transitions.length).toBeGreaterThan(0);
+  for (const transition of transitions) {
+    await expect(transition.effect?.getTiming(), transition.transitionProperty).toMatchObject(timing);
+  }
+}
+
+/** The tile's background and border as drawn with every running transition paused at this moment. */
+function frameAt(tile: HTMLElement, milliseconds: number): { background: string; border: string } {
+  const transitions = colourTransitionsOf(tile);
+  for (const transition of transitions) {
+    transition.pause();
+    transition.currentTime = milliseconds;
+  }
+  const style = getComputedStyle(tile);
+  const frame = { background: style.backgroundColor, border: style.borderTopColor };
+  for (const transition of transitions) {
+    transition.play();
+  }
+  return frame;
+}
+
+/** Until the tile runs no transition. */
+async function settled(tile: Element): Promise<void> {
+  await waitFor(() => expect(colourTransitionsOf(tile)).toEqual([]));
+}
+
+/** The browser's own pointer, not synthetic events, so :hover and :active apply: Playwright's in the stories' test run. */
+async function realPointer() {
+  const { userEvent: pointer, cdp } = await import('vitest/browser');
+  /** The element's centre in the top page, through the test run's frames. */
+  const centreOf = (element: Element) => {
+    const box = element.getBoundingClientRect();
+    let x = box.left + box.width / 2;
+    let y = box.top + box.height / 2;
+    for (let frame: Window = window; frame.frameElement !== null; frame = frame.parent) {
+      const offset = frame.frameElement.getBoundingClientRect();
+      x += offset.left;
+      y += offset.top;
+    }
+    return { x, y };
+  };
+  const mouse = async (type: 'mousePressed' | 'mouseReleased', element: Element) => {
+    await cdp().send('Input.dispatchMouseEvent', { type, button: 'left', clickCount: 1, ...centreOf(element) });
+  };
+  return {
+    hover: (element: Element) => pointer.hover(element),
+    unhover: (element: Element) => pointer.unhover(element),
+    press: (element: Element) => mouse('mousePressed', element),
+    release: (element: Element) => mouse('mouseReleased', element),
+    keyboard: (keys: string) => pointer.keyboard(keys),
+  };
+}
+
 /** Reduced motion as the OS asks for it, through Chromium's own emulation in the stories' test run. */
 async function emulateReducedMotion(value: 'reduce' | 'no-preference'): Promise<void> {
   // Imported when called: vitest/browser exists only in the test run, so the story using it is hidden from Storybook's own sidebar.
@@ -242,6 +304,7 @@ export const StateChangeSettlesColours: Story = {
     const tile = canvas.getByTestId('harbour-tile');
     const bounds = boundsOf(tile);
     const workingBackground = getComputedStyle(tile).backgroundColor;
+    const workingBorder = getComputedStyle(tile).borderTopColor;
 
     await userEvent.click(canvas.getByTestId('harbour-tile-story-idle'));
 
@@ -249,22 +312,14 @@ export const StateChangeSettlesColours: Story = {
     await expect(within(tile).queryByTestId('harbour-tile-live')).toBeNull();
     await expect(boundsOf(tile)).toEqual(bounds);
     await expect(getComputedStyle(tile).transform).toBe('none');
-    const transitions = colourTransitionsOf(tile);
-    await expect(transitions.map((transition) => transition.transitionProperty)).toEqual(expect.arrayContaining(['background-color', 'color', 'border-top-color']));
-    for (const transition of transitions) {
-      await expect(transition.effect?.getTiming(), transition.transitionProperty).toMatchObject({ duration: 180, easing: 'ease-out' });
-    }
+    await expectTransitionsOf(tile, SETTLING);
     await expect(colourTransitionsOf(within(tile).getByTestId('ship-state')).map((transition) => transition.effect?.getTiming().duration)).toEqual([180]);
 
-    const background = transitions.find((transition) => transition.transitionProperty === 'background-color');
-    background?.pause();
-    if (background !== undefined) {
-      background.currentTime = 90;
-    }
-    const halfway = getComputedStyle(tile).backgroundColor;
-    await expect(halfway).not.toBe(workingBackground);
-    await expect(halfway).not.toBe(colourOf('bg-card', 'backgroundColor'));
-    background?.play();
+    const halfway = frameAt(tile, 90);
+    await expect(halfway.background).not.toBe(workingBackground);
+    await expect(halfway.background).not.toBe(colourOf('bg-card', 'backgroundColor'));
+    await expect(halfway.border).not.toBe(workingBorder);
+    await expect(halfway.border).not.toBe(colourOf('border-border', 'borderTopColor'));
 
     await userEvent.click(canvas.getByTestId('harbour-tile-story-alert'));
     await userEvent.click(canvas.getByTestId('harbour-tile-story-blocked'));
@@ -322,6 +377,82 @@ export const ReducedMotion: Story = {
       await expect(tile.getAnimations({ subtree: true })).toEqual([]);
       await expect(getComputedStyle(tile).backgroundColor).toBe(colourOf('bg-tone-blocked-bg', 'backgroundColor'));
       await expect(boundsOf(tile)).toEqual(bounds);
+    } finally {
+      await emulateReducedMotion('no-preference');
+    }
+  },
+};
+
+/**
+ * A link tile's hover and press keep their own timing while its state colours
+ * settle: pointer in and out and press and release run 150 ms on the standard
+ * curve, a state change under the pointer settles in 180 ms (#1755).
+ */
+export const HoverAndPressKeepControlTiming: Story = {
+  tags: ['!dev'],
+  render: () => <ChangingTile href="#ship" />,
+  play: async ({ canvasElement }) => {
+    const pointer = await realPointer();
+    const canvas = within(canvasElement);
+    const tile = canvas.getByTestId('harbour-tile');
+    const restingBorder = getComputedStyle(tile).borderTopColor;
+
+    await pointer.hover(tile);
+
+    await expectTransitionsOf(tile, CONTROL);
+    await expect(frameAt(tile, 75).border).not.toBe(restingBorder);
+    await settled(tile);
+    const hoverBorder = getComputedStyle(tile).borderTopColor;
+    await expect(hoverBorder).toBe(colourOf('border-tone-active-fg', 'borderTopColor'));
+
+    await pointer.press(tile);
+
+    await expect(tile.matches(':active')).toBe(true);
+    await expectTransitionsOf(tile, CONTROL);
+    await settled(tile);
+    await expect(getComputedStyle(tile).borderTopColor).toBe(hoverBorder);
+
+    await pointer.release(tile);
+
+    await expectTransitionsOf(tile, CONTROL);
+    await settled(tile);
+
+    canvas.getByTestId('harbour-tile-story-blocked').focus();
+    await pointer.keyboard('{Enter}');
+
+    await expect(tile.matches(':hover')).toBe(true);
+    await expect(within(tile).getByTestId('ship-state')).toHaveTextContent('Blocked');
+    await expectTransitionsOf(tile, SETTLING);
+    await expect(frameAt(tile, 90).border).not.toBe(hoverBorder);
+    await settled(tile);
+    await expect(getComputedStyle(tile).borderTopColor).toBe(colourOf('border-tone-blocked-fg', 'borderTopColor'));
+
+    await pointer.unhover(tile);
+
+    await expectTransitionsOf(tile, CONTROL);
+    await settled(tile);
+    await expect(getComputedStyle(tile).borderTopColor).toBe(colourOf('border-tone-blocked-border', 'borderTopColor'));
+  },
+};
+
+/** Reduced motion: hover and press change the border at once, as a state change does. */
+export const ReducedMotionHover: Story = {
+  tags: ['!dev'],
+  render: () => <ChangingTile href="#ship" />,
+  play: async ({ canvasElement }) => {
+    await emulateReducedMotion('reduce');
+    try {
+      const pointer = await realPointer();
+      const tile = within(canvasElement).getByTestId('harbour-tile');
+
+      await pointer.hover(tile);
+
+      await expect(tile.getAnimations()).toEqual([]);
+      await expect(getComputedStyle(tile).borderTopColor).toBe(colourOf('border-tone-active-fg', 'borderTopColor'));
+
+      await pointer.unhover(tile);
+
+      await expect(tile.getAnimations()).toEqual([]);
     } finally {
       await emulateReducedMotion('no-preference');
     }
