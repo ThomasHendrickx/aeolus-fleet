@@ -1,7 +1,8 @@
 import { createIdGenerator, type ListedLabel, type ListedShip } from '@aeolus-fleet/common';
 import { describe, expect, it } from 'vitest';
 
-import { formMembersOf, labelErrorSlot, membersOf, missingOf, readyCount, withWorkspaceForAll, workspaceFromItem, workspaceItemsOf, type MemberDraft } from './forming-members';
+import { mainRepository } from './crew-settings-form';
+import { formMembersOf, labelErrorSlot, membersOf, missingOf, offeredWorkspacesOf, readyCount, withWorkspaceForAll, workspaceNoteOf, type MemberDraft } from './forming-members';
 import { countedIn } from './fixtures/labels.fixtures';
 import { labelContextOf } from './labels';
 
@@ -21,7 +22,7 @@ function aDraft(overrides: Partial<MemberDraft> = {}): MemberDraft {
     slot: 'implementer-1',
     role: 'implementer',
     template: { repository: REPO, name: 'implementer', version: 1 },
-    crew: { harness: 'claude-code', workspace: { kind: 'worktree', repository: 'tidewater' }, options: { effort: 'high', model: 'claude-opus-5-5' }, machineLabels: [{ key: 'os', value: 'linux' }] },
+    crew: { harness: 'claude-code', workspace: { kind: 'repositories', main: { repository: 'tidewater' }, subRepositories: [] }, options: { effort: 'high', model: 'claude-opus-5-5' }, machineLabels: [{ key: 'os', value: 'linux' }] },
     parameters: [],
     ...overrides,
   };
@@ -36,13 +37,29 @@ describe('membersOf (#343)', () => {
       role: 'implementer',
       template: 'implementer@1',
       harness: 'claude-code',
-      workspace: { kind: 'worktree', repository: 'tidewater' },
+      workspace: { kind: 'repositories', main: { repository: 'tidewater', ref: '' }, subRepositories: [] },
       firstPrompt: '',
       options: { effort: 'high', model: 'claude-opus-5-5' },
       machineLabels: [LINUX],
       unknownLabels: [],
       mcpServers: [],
       parameters: [],
+    });
+  });
+
+  it('starts each member from the main repository and sub-repositories its files name, each at its branch (#1769)', () => {
+    const [member] = membersOf(
+      [aDraft({ crew: { options: {}, workspace: { kind: 'repositories', main: { repository: 'tidewater', ref: 'next' }, subRepositories: [{ repository: 'skills' }, { repository: 'tidewater-docs', ref: 'v3' }] } } })],
+      CONTEXT,
+    );
+
+    expect(member?.workspace).toEqual({
+      kind: 'repositories',
+      main: { repository: 'tidewater', ref: 'next' },
+      subRepositories: [
+        { repository: 'skills', ref: '' },
+        { repository: 'tidewater-docs', ref: 'v3' },
+      ],
     });
   });
 
@@ -75,7 +92,23 @@ describe('missingOf and readyCount', () => {
   it('counts the members that need nothing more', () => {
     const members = membersOf([aDraft(), aDraft({ slot: 'implementer-2', crew: { options: {} } })], CONTEXT);
 
-    expect(readyCount(members)).toEqual({ ready: 1, total: 2 });
+    expect(readyCount(members, ['tidewater'])).toEqual({ ready: 1, total: 2 });
+  });
+
+  it('counts a member naming a repository no machine offers, or one twice, as not ready, and says why (#1769)', () => {
+    const members = membersOf(
+      [
+        aDraft({ slot: 'implementer-1', crew: { options: {}, workspace: { kind: 'repositories', main: { repository: 'tidewater' }, subRepositories: [{ repository: 'harbour' }] } } }),
+        aDraft({ slot: 'implementer-2', crew: { options: {}, workspace: { kind: 'repositories', main: { repository: 'tidewater' }, subRepositories: [{ repository: 'tidewater' }] } } }),
+        aDraft({ slot: 'implementer-3', crew: { options: {}, workspace: { kind: 'repositories', main: { repository: 'tidewater' }, subRepositories: [{ repository: 'skills' }] } } }),
+      ],
+      CONTEXT,
+    );
+
+    const notes = members.map((member) => workspaceNoteOf(member, ['tidewater', 'skills']));
+
+    expect(readyCount(members, ['tidewater', 'skills'])).toEqual({ ready: 1, total: 3 });
+    expect(notes).toEqual(['No machine offers harbour.', 'A repository is named twice.', undefined]);
   });
 });
 
@@ -83,9 +116,9 @@ describe('withWorkspaceForAll', () => {
   it('gives the workspace to every member without one, and leaves the others theirs', () => {
     const members = membersOf([aDraft(), aDraft({ slot: 'implementer-2', crew: { options: {} } })], CONTEXT);
 
-    expect(withWorkspaceForAll(members, { kind: 'folder', name: 'notes' }).map((member) => member.workspace)).toEqual([
-      { kind: 'worktree', repository: 'tidewater' },
-      { kind: 'folder', name: 'notes' },
+    expect(withWorkspaceForAll(members, mainRepository('harbour')).map((member) => member.workspace)).toEqual([
+      { kind: 'repositories', main: { repository: 'tidewater', ref: '' }, subRepositories: [] },
+      { kind: 'repositories', main: { repository: 'harbour', ref: '' }, subRepositories: [] },
     ]);
   });
 });
@@ -101,7 +134,7 @@ describe('formMembersOf', () => {
       'implementer-1': {
         crew: {
           harness: 'claude-code',
-          workspace: { kind: 'worktree', repository: 'tidewater' },
+          workspace: { kind: 'repositories', main: { repository: 'tidewater' }, subRepositories: [] },
           firstPrompt: 'Go.',
           options: { effort: 'high', model: 'claude-opus-5-5' },
           machineLabels: [
@@ -111,6 +144,21 @@ describe('formMembersOf', () => {
         },
         parameters: { area: 'tides' },
       },
+    });
+  });
+
+  it("gives forming each member's main repository and sub-repositories, a branch only where one is given (#1769)", () => {
+    const [member] = membersOf([aDraft()], CONTEXT);
+    if (member === undefined) {
+      throw new Error('no member');
+    }
+
+    const workspace = { kind: 'repositories' as const, main: { repository: 'tidewater', ref: ' next ' }, subRepositories: [{ repository: 'skills', ref: '' }, { repository: 'tidewater-docs', ref: 'v3' }] };
+
+    expect(formMembersOf([{ ...member, workspace }], CONTEXT)['implementer-1']?.crew.workspace).toEqual({
+      kind: 'repositories',
+      main: { repository: 'tidewater', ref: 'next' },
+      subRepositories: [{ repository: 'skills' }, { repository: 'tidewater-docs', ref: 'v3' }],
     });
   });
 
@@ -142,18 +190,11 @@ describe('labelErrorSlot', () => {
   });
 });
 
-describe('workspaceItemsOf', () => {
-  it("offers every machine's repositories and folders, and a file's workspace no machine offers yet", () => {
-    const members = membersOf([aDraft({ crew: { workspace: { kind: 'worktree', repository: 'harbour' }, options: {} } })], CONTEXT);
-
-    expect(workspaceItemsOf([{ repositories: ['tidewater'], folders: ['notes'] }, { repositories: ['tidewater'], folders: [] }], members)).toEqual({
-      'worktree:tidewater': 'tidewater · new worktree',
-      'folder:notes': 'notes · folder, as it is',
-      'worktree:harbour': 'harbour · new worktree, no machine offers it yet',
+describe('offeredWorkspacesOf (#1769)', () => {
+  it('offers a member every repository and folder an answering machine offers, for any harness', () => {
+    expect(offeredWorkspacesOf([{ repositories: ['tidewater', 'skills'], folders: ['notes'] }, { repositories: ['tidewater', 'harbour'], folders: ['website'] }])).toEqual({
+      repositories: ['tidewater', 'skills', 'harbour'],
+      folders: ['notes', 'website'],
     });
-  });
-
-  it('reads a workspace back from its item', () => {
-    expect([workspaceFromItem('worktree:tidewater'), workspaceFromItem('folder:notes'), workspaceFromItem('')]).toEqual([{ kind: 'worktree', repository: 'tidewater' }, { kind: 'folder', name: 'notes' }, undefined]);
   });
 });

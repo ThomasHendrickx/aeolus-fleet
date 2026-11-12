@@ -108,12 +108,12 @@ function choiceOfRepository({ repository, ref }: WorkspaceRepository): Repositor
 }
 
 /** The form's pick as settings: a branch only where one is given. */
-function workspaceOf(choice: WorkspaceChoice): CrewSettings['workspace'] {
+export function workspaceSettingsOf(choice: WorkspaceChoice): CrewSettings['workspace'] {
   return choice.kind === 'repositories' ? { kind: 'repositories', main: repositoryOf(choice.main), subRepositories: choice.subRepositories.map(repositoryOf) } : choice;
 }
 
 /** Settings' workspace as the form picks it. */
-function choiceOf(workspace: CrewSettings['workspace']): WorkspaceChoice {
+export function workspaceChoiceOf(workspace: CrewSettings['workspace']): WorkspaceChoice {
   return workspace.kind === 'repositories'
     ? { kind: 'repositories', main: choiceOfRepository(workspace.main), subRepositories: workspace.subRepositories.map(choiceOfRepository) }
     : { kind: 'folder', name: workspace.name };
@@ -124,8 +124,47 @@ export function mainRepository(repository: string): WorkspaceChoice {
   return { kind: 'repositories', main: { repository, ref: '' }, subRepositories: [] };
 }
 
+/** The repositories and folders a workspace may be picked from. */
+export type OfferedWorkspaces = Pick<HarnessOffer, 'repositories' | 'folders'>;
+
+/** A workspace as a select value: its kind and its name. */
+export function workspaceItemOf(workspace: WorkspaceChoice | undefined): string {
+  if (workspace === undefined) {
+    return '';
+  }
+  return workspace.kind === 'repositories' ? `repository:${workspace.main.repository}` : `folder:${workspace.name}`;
+}
+
+/**
+ * The workspace a select value picks, from the one held: another main
+ * repository keeps the sub-repositories, so a repository named twice is
+ * shown, never dropped silently; a folder has none.
+ */
+export function workspaceFromItem(item: string, held: WorkspaceChoice | undefined): WorkspaceChoice | undefined {
+  const [kind, ...rest] = item.split(':');
+  const name = rest.join(':');
+  if (kind === 'repository') {
+    return held?.kind === 'repositories' ? { ...held, main: { repository: name, ref: held.main.ref } } : mainRepository(name);
+  }
+  return kind === 'folder' ? { kind: 'folder', name } : undefined;
+}
+
+/**
+ * What Workspace offers, as select items: each repository as the main
+ * repository and each folder as it is. A held one no machine offers stays
+ * picked, first, so the form can say so.
+ */
+export function workspaceItemsOf(offered: OfferedWorkspaces, held: WorkspaceChoice | undefined): Record<string, string> {
+  const heldRepositories = held?.kind === 'repositories' && !offered.repositories.includes(held.main.repository) ? [held.main.repository] : [];
+  const heldFolders = held?.kind === 'folder' && !offered.folders.includes(held.name) ? [held.name] : [];
+  return Object.fromEntries([
+    ...[...heldRepositories, ...offered.repositories].map((repository): [string, string] => [`repository:${repository}`, `${repository} · main repository`]),
+    ...[...heldFolders, ...offered.folders].map((folder): [string, string] => [`folder:${folder}`, `${folder} · folder, as it is`]),
+  ]);
+}
+
 /** What Add sub-repository offers: the harness's repositories, less the main repository and those added. */
-export function addableSubRepositories(workspace: WorkspaceChoice | undefined, offer: HarnessOffer | undefined): string[] {
+export function addableSubRepositories(workspace: WorkspaceChoice | undefined, offer: Pick<HarnessOffer, 'repositories'> | undefined): string[] {
   if (workspace?.kind !== 'repositories') {
     return [];
   }
@@ -150,7 +189,7 @@ function notOffered(repository: string, next: string): string {
   return `No machine offers ${repository}. ${next}, or join a machine that has it.`;
 }
 
-export function workspaceProblems(workspace: WorkspaceChoice | undefined, offer: HarnessOffer | undefined): WorkspaceProblems {
+export function workspaceProblems(workspace: WorkspaceChoice | undefined, offer: Pick<HarnessOffer, 'repositories'> | undefined): WorkspaceProblems {
   if (workspace?.kind !== 'repositories') {
     return { subRepositories: [] };
   }
@@ -259,7 +298,7 @@ export function valuesOf(settings: CrewSettings | null | undefined, offered: { o
   const kept = isModelDisabled ? Object.fromEntries(Object.entries(held).filter(([name]) => name !== MODEL_OPTION)) : held;
   return {
     harness: picked,
-    workspace: choiceOf(workspace),
+    workspace: workspaceChoiceOf(workspace),
     options: isModelDisabled && enabledDefault !== undefined ? { ...kept, [MODEL_OPTION]: enabledDefault } : kept,
     firstPrompt: firstPrompt ?? '',
     squadron: squadron ?? '',
@@ -275,7 +314,7 @@ export function settingsOf(values: CrewSettingsValues): CrewSettings | undefined
   }
   return {
     harness: values.harness,
-    workspace: workspaceOf(values.workspace),
+    workspace: workspaceSettingsOf(values.workspace),
     options: values.options,
     ...(values.firstPrompt === '' ? {} : { firstPrompt: values.firstPrompt }),
     ...(values.squadron === '' ? {} : { squadron: values.squadron }),

@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
-import { userEvent, within } from 'storybook/test';
+import { expect, userEvent, within } from 'storybook/test';
 
 import type { MemberDraft } from '../../../../lib/forming-members';
 import { blueprintChoices } from '../../../../lib/squadrons-view';
@@ -33,14 +33,14 @@ const DRAFTS: MemberDraft[] = [
     slot: 'planner-1',
     role: 'planner',
     template: { repository: 'github.com/tidewater-labs/squadron-templates', name: 'planner', version: 4 },
-    crew: { harness: 'claude-code', workspace: { kind: 'worktree', repository: 'aeolus-fleet' }, options: { model: 'claude-opus-5-5' }, mcpServers: ['company-graph'] },
+    crew: { harness: 'claude-code', workspace: { kind: 'repositories', main: { repository: 'aeolus-fleet' }, subRepositories: [] }, options: { model: 'claude-opus-5-5' }, mcpServers: ['company-graph'] },
     parameters: [{ name: 'area', description: 'The part the features touch, such as the tide tables', value: null }],
   },
   {
     slot: 'implementer-1',
     role: 'implementer',
     template: { repository: 'github.com/tidewater-labs/squadron-templates', name: 'implementer', version: 2 },
-    crew: { harness: 'claude-code', workspace: { kind: 'worktree', repository: 'aeolus-fleet' }, options: { model: 'claude-opus-5-5', effort: 'high' }, machineLabels: [{ key: 'os', value: 'macos' }] },
+    crew: { harness: 'claude-code', workspace: { kind: 'repositories', main: { repository: 'aeolus-fleet' }, subRepositories: [] }, options: { model: 'claude-opus-5-5', effort: 'high' }, machineLabels: [{ key: 'os', value: 'macos' }] },
     parameters: [],
   },
   {
@@ -68,7 +68,7 @@ export const MembersAllReady: Story = {
       ...CREW,
       members: DRAFTS.map((draft) => ({
         ...draft,
-        crew: { ...draft.crew, workspace: { kind: 'worktree' as const, repository: 'aeolus-fleet' }, machineLabels: [{ key: 'os', value: 'macos' }] },
+        crew: { ...draft.crew, workspace: { kind: 'repositories' as const, main: { repository: 'aeolus-fleet' }, subRepositories: [] }, machineLabels: [{ key: 'os', value: 'macos' }] },
         parameters: draft.parameters.map((parameter) => ({ ...parameter, value: 'tide tables' })),
       })),
     },
@@ -86,11 +86,50 @@ export const MembersLabelRefused: Story = {
   args: {
     crew: {
       ...CREW,
-      members: DRAFTS.map((draft) => ({ ...draft, crew: { ...draft.crew, workspace: { kind: 'worktree' as const, repository: 'aeolus-fleet' } }, parameters: draft.parameters.map((parameter) => ({ ...parameter, value: 'tide tables' })) })),
+      members: DRAFTS.map((draft) => ({ ...draft, crew: { ...draft.crew, workspace: { kind: 'repositories' as const, main: { repository: 'aeolus-fleet' }, subRepositories: [] } }, parameters: draft.parameters.map((parameter) => ({ ...parameter, value: 'tide tables' })) })),
     },
     error: 'The fleet has no machine label site=home, so nothing was formed',
   },
   play: toMembers,
+};
+/** A member's files name a main repository at a branch and a sub-repository: the same fields as the crew settings, every member ready (#1769). */
+export const MembersSubRepositories: Story = {
+  args: {
+    crew: {
+      ...CREW,
+      members: DRAFTS.map((draft) => ({
+        ...draft,
+        crew: { ...draft.crew, workspace: { kind: 'repositories' as const, main: { repository: 'aeolus-fleet', ...(draft.slot === 'implementer-1' ? { ref: 'next' } : {}) }, subRepositories: draft.slot === 'implementer-1' ? [{ repository: 'hemma' }] : [] }, machineLabels: [{ key: 'os', value: 'macos' }] },
+        parameters: draft.parameters.map((parameter) => ({ ...parameter, value: 'tide tables' })),
+      })),
+    },
+  },
+  play: async (context) => {
+    await toMembers(context);
+    const body = within(context.canvasElement.ownerDocument.body);
+    await expect(await body.findByTestId('form-squadron-ready')).toHaveTextContent('3 of 3 members ready');
+    await expect(body.getByTestId('form-squadron-submit')).toBeEnabled();
+  },
+};
+/** A member's files name a sub-repository no machine offers: its header says so, it is not ready, and Form squadron stays off (#1769). */
+export const MembersNotOffered: Story = {
+  args: {
+    crew: {
+      ...CREW,
+      members: DRAFTS.map((draft) => ({
+        ...draft,
+        crew: { ...draft.crew, workspace: { kind: 'repositories' as const, main: { repository: 'aeolus-fleet' }, subRepositories: draft.slot === 'implementer-1' ? [{ repository: 'skills', ref: 'v3' }] : [] }, machineLabels: [{ key: 'os', value: 'macos' }] },
+        parameters: draft.parameters.map((parameter) => ({ ...parameter, value: 'tide tables' })),
+      })),
+    },
+  },
+  play: async (context) => {
+    await toMembers(context);
+    const body = within(context.canvasElement.ownerDocument.body);
+    await expect(await body.findByTestId('form-squadron-ready')).toHaveTextContent('2 of 3 members ready');
+    await expect(body.getByTestId('member-crew-missing')).toHaveTextContent('No machine offers skills.');
+    await expect(body.getByTestId('form-squadron-submit')).toBeDisabled();
+  },
 };
 /** Phone: full screen, the footer at the bottom. */
 export const MembersPhone: Story = { args: { crew: CREW }, play: toMembers, globals: { viewport: { value: 'mobile1' } } };

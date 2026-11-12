@@ -1,3 +1,6 @@
+import type { CrewSettings } from '@aeolus-fleet/common';
+
+import { workspaceChoiceOf, workspaceProblems, workspaceSettingsOf, type OfferedWorkspaces, type WorkspaceChoice } from './crew-settings-form';
 import { pickedChips, type LabelContext } from './labels';
 
 /**
@@ -8,8 +11,8 @@ import { pickedChips, type LabelContext } from './labels';
  * parameter are required in the form only; the rest is optional.
  */
 
-/** A member's workspace as squadrons' forming takes it: a new worktree of a repository, or a folder used as it is. */
-export type MemberWorkspace = { kind: 'worktree'; repository: string } | { kind: 'folder'; name: string };
+/** A member's workspace as squadrons' forming takes it (squadrons#46): a main repository and its sub-repositories, or a folder used as it is. */
+type MemberWorkspace = CrewSettings['workspace'];
 
 /** An option's value, as a crew request holds it: anything JSON. */
 export type OptionValue = unknown;
@@ -21,7 +24,7 @@ export interface MemberDraft {
   template: { repository: string; name: string; version: number };
   crew: {
     harness?: string;
-    workspace?: MemberWorkspace | { kind: 'worktree'; repository: string; ref?: string };
+    workspace?: MemberWorkspace;
     firstPrompt?: string;
     options: Record<string, OptionValue>;
     machineLabels?: { key: string; value: string }[];
@@ -38,7 +41,7 @@ export interface MemberValues {
   template: string;
   /** Empty: the trierarch's default harness. */
   harness: string;
-  workspace: MemberWorkspace | undefined;
+  workspace: WorkspaceChoice | undefined;
   firstPrompt: string;
   options: Record<string, OptionValue>;
   /** The machine labels the fleet has, as value ids. */
@@ -48,13 +51,6 @@ export interface MemberValues {
   /** The MCP servers the session starts with, by name. */
   mcpServers: string[];
   parameters: { name: string; description: string; value: string }[];
-}
-
-function workspaceOf(workspace: MemberDraft['crew']['workspace']): MemberWorkspace | undefined {
-  if (workspace === undefined) {
-    return undefined;
-  }
-  return workspace.kind === 'worktree' ? { kind: 'worktree', repository: workspace.repository } : { kind: 'folder', name: workspace.name };
 }
 
 /** The value id of `key=value` in the fleet; undefined when the fleet has no such label value. */
@@ -71,7 +67,7 @@ export function membersOf(drafts: readonly MemberDraft[], context: LabelContext 
       role: draft.role,
       template: `${draft.template.name}@${String(draft.template.version)}`,
       harness: draft.crew.harness ?? '',
-      workspace: workspaceOf(draft.crew.workspace),
+      workspace: draft.crew.workspace === undefined ? undefined : workspaceChoiceOf(draft.crew.workspace),
       firstPrompt: draft.crew.firstPrompt ?? '',
       options: { ...draft.crew.options },
       machineLabels: labels.flatMap((label) => valueIdOf(label, context) ?? []),
@@ -87,13 +83,22 @@ export function missingOf(member: MemberValues): string[] {
   return [...(member.workspace === undefined ? ['workspace'] : []), ...member.parameters.filter((parameter) => parameter.value.trim() === '').map((parameter) => parameter.name)];
 }
 
-/** "n of m members ready": the members that need nothing more, of all of them. */
-export function readyCount(members: readonly MemberValues[]): { ready: number; total: number } {
-  return { ready: members.filter((member) => missingOf(member).length === 0).length, total: members.length };
+/**
+ * Why a member's workspace cannot be formed, as the crew settings footer says
+ * it (docs/design/ship-repositories): a repository no machine offers, or one
+ * named twice; undefined when there is nothing.
+ */
+export function workspaceNoteOf(member: MemberValues, repositories: readonly string[]): string | undefined {
+  return workspaceProblems(member.workspace, { repositories: [...repositories] }).note;
+}
+
+/** "n of m members ready": the members that need nothing more and whose workspace has no problem, of all of them. */
+export function readyCount(members: readonly MemberValues[], repositories: readonly string[]): { ready: number; total: number } {
+  return { ready: members.filter((member) => missingOf(member).length === 0 && workspaceNoteOf(member, repositories) === undefined).length, total: members.length };
 }
 
 /** Workspace for every member: the members without one get it; the others keep theirs. */
-export function withWorkspaceForAll(members: readonly MemberValues[], workspace: MemberWorkspace): MemberValues[] {
+export function withWorkspaceForAll(members: readonly MemberValues[], workspace: WorkspaceChoice): MemberValues[] {
   return members.map((member) => (member.workspace === undefined ? { ...member, workspace } : member));
 }
 
@@ -121,7 +126,7 @@ export function formMembersOf(
       {
         crew: {
           ...(member.harness === '' ? {} : { harness: member.harness }),
-          ...(member.workspace === undefined ? {} : { workspace: member.workspace }),
+          ...(member.workspace === undefined ? {} : { workspace: workspaceSettingsOf(member.workspace) }),
           ...(member.firstPrompt.trim() === '' ? {} : { firstPrompt: member.firstPrompt }),
           options: member.options,
           machineLabels: labelNamesOf(member, context),
@@ -143,40 +148,7 @@ export function labelErrorSlot(message: string, form: { members: readonly Member
   return members.find((member) => labelNamesOf(member, context).some((label) => `${label.key}=${label.value}` === named))?.slot;
 }
 
-/** A workspace as a select value: its kind and its name. */
-export function workspaceItemOf(workspace: MemberWorkspace): string {
-  return workspace.kind === 'worktree' ? `worktree:${workspace.repository}` : `folder:${workspace.name}`;
-}
-
-/** The workspace a select value names; undefined for none. */
-export function workspaceFromItem(item: string): MemberWorkspace | undefined {
-  const [kind, ...rest] = item.split(':');
-  const name = rest.join(':');
-  if (kind === 'worktree') {
-    return { kind: 'worktree', repository: name };
-  }
-  return kind === 'folder' ? { kind: 'folder', name } : undefined;
-}
-
-/**
- * The workspaces a member may pick, as select items: every repository and
- * folder an answering machine offers, for any harness, and any a file names
- * that none offers yet, so the file's stays.
- */
-export function workspaceItemsOf(offers: readonly { repositories: readonly string[]; folders: readonly string[] }[], members: readonly MemberValues[]): Record<string, string> {
-  const items = new Map<string, string>();
-  for (const offer of offers) {
-    for (const repository of offer.repositories) {
-      items.set(workspaceItemOf({ kind: 'worktree', repository }), `${repository} · new worktree`);
-    }
-    for (const folder of offer.folders) {
-      items.set(workspaceItemOf({ kind: 'folder', name: folder }), `${folder} · folder, as it is`);
-    }
-  }
-  for (const { workspace } of members) {
-    if (workspace !== undefined && !items.has(workspaceItemOf(workspace))) {
-      items.set(workspaceItemOf(workspace), workspace.kind === 'worktree' ? `${workspace.repository} · new worktree, no machine offers it yet` : `${workspace.name} · folder, no machine offers it yet`);
-    }
-  }
-  return Object.fromEntries(items);
+/** What a member's workspace may be picked from: every repository and folder an answering machine offers, for any harness. */
+export function offeredWorkspacesOf(offers: readonly OfferedWorkspaces[]): OfferedWorkspaces {
+  return { repositories: [...new Set(offers.flatMap((offer) => offer.repositories))], folders: [...new Set(offers.flatMap((offer) => offer.folders))] };
 }
