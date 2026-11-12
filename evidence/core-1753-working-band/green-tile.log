@@ -1,0 +1,20 @@
+ ✓ |ui:stories (chromium)| src/molecules/harbour-tile.stories.tsx > Alert 294ms
+ ✓ |ui:stories (chromium)| src/molecules/harbour-tile.stories.tsx > Awaiting Crew 15ms
+ ✓ |ui:stories (chromium)| src/molecules/harbour-tile.stories.tsx > Blocked 12ms
+ ✓ |ui:stories (chromium)| src/molecules/harbour-tile.stories.tsx > Working 12ms
+ ✓ |ui:stories (chromium)| src/molecules/harbour-tile.stories.tsx > Idle 12ms
+ ✓ |ui:stories (chromium)| src/molecules/harbour-tile.stories.tsx > Light And Dark 29ms
+ ✓ |ui:stories (chromium)| src/molecules/harbour-tile.stories.tsx > Person 8ms
+ ✓ |ui:stories (chromium)| src/molecules/harbour-tile.stories.tsx > Plugin 6ms
+ ✓ |ui:stories (chromium)| src/molecules/harbour-tile.stories.tsx > Long Name And Note 6ms
+ ✓ |ui:stories (chromium)| src/molecules/harbour-tile.stories.tsx > No Activity Yet 10ms
+ ✓ |ui:stories (chromium)| src/molecules/harbour-tile.stories.tsx > Six Days Ago 5ms
+ ✓ |ui:stories (chromium)| src/molecules/harbour-tile.stories.tsx > Older Than A Week 6ms
+ ✓ |ui:stories (chromium)| src/molecules/harbour-tile.stories.tsx > Link 9ms
+ ✓ |ui:stories (chromium)| src/molecules/harbour-tile.stories.tsx > Not A Link 6ms
+ ✓ |ui:stories (chromium)| src/molecules/harbour-tile.stories.tsx > Keyboard Focus 9ms
+ ✓ |ui:stories (chromium)| src/molecules/harbour-tile.stories.tsx > Working Band Loop 20ms
+ ✓ |ui:stories (chromium)| src/molecules/harbour-tile.stories.tsx > State Change Settles Colours 276ms
+ ✓ |ui:stories (chromium)| src/molecules/harbour-tile.stories.tsx > Entering Working Starts Fresh Loop 24ms
+ ✓ |ui:stories (chromium)| src/molecules/harbour-tile.stories.tsx > Reduced Motion 29ms
+      Tests  19 passed (19)

@@ -1,0 +1,120 @@
+(node:1039994) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+
+ RUN  v5.0.3 /home/thomas/.aeolus/trierarch/worktrees/aeolus-fleet/build-core-1753-band
+
+ ❯ |ui:stories (chromium)| src/molecules/harbour-tile.stories.tsx (19 tests | 3 failed) 512ms
+   × Working Band Loop 12ms
+   × State Change Settles Colours 24ms
+   × Reduced Motion 26ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |ui:stories (chromium)| src/molecules/harbour-tile.stories.tsx > Working Band Loop
+AssertionError: 
+[34mClick to debug the error directly in Storybook: http://localhost:6006/?path=/story/harbour-harbourtile--working-band-loop&addonPanel=storybook/interactions/panel[39m
+
+expected { delay: +0, …(12) } to match object { Object (duration, iterations) }
+(11 matching properties omitted from actual)
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  Object {[22m
+[32m-   "duration": [7m38[27m00,[39m
+[31m+   "duration": [7m24[27m00,[39m
+[2m    "iterations": Infinity,[22m
+[2m  }[22m
+
+ ❯ Proxy.<anonymous> ../../node_modules/.cache/storybook/10.6.3/9cbb52427913797b92d17a8e0f0b7393246b0bb97ffa2094e3ae90a92136140a/sb-vitest/vitest/9ee98a6fb8a98ef90537a06236cdc318632d770a/deps/test-ChIkGprg.js?v=98612873:25602:10
+ ❯ Proxy.<anonymous> ../../node_modules/.cache/storybook/10.6.3/9cbb52427913797b92d17a8e0f0b7393246b0bb97ffa2094e3ae90a92136140a/sb-vitest/vitest/9ee98a6fb8a98ef90537a06236cdc318632d770a/deps/test-ChIkGprg.js?v=98612873:25522:101
+ ❯ Proxy.methodWrapper ../../node_modules/.cache/storybook/10.6.3/9cbb52427913797b92d17a8e0f0b7393246b0bb97ffa2094e3ae90a92136140a/sb-vitest/vitest/9ee98a6fb8a98ef90537a06236cdc318632d770a/deps/test-ChIkGprg.js?v=98612873:21125:23
+ ❯ Instrumenter.invoke ../../node_modules/.cache/storybook/10.6.3/9cbb52427913797b92d17a8e0f0b7393246b0bb97ffa2094e3ae90a92136140a/sb-vitest/vitest/9ee98a6fb8a98ef90537a06236cdc318632d770a/deps/test-ChIkGprg.js?v=98612873:2550:20
+ ❯ Instrumenter.intercept ../../node_modules/.cache/storybook/10.6.3/9cbb52427913797b92d17a8e0f0b7393246b0bb97ffa2094e3ae90a92136140a/sb-vitest/vitest/9ee98a6fb8a98ef90537a06236cdc318632d770a/deps/test-ChIkGprg.js?v=98612873:2453:138
+ ❯ Instrumenter.track ../../node_modules/.cache/storybook/10.6.3/9cbb52427913797b92d17a8e0f0b7393246b0bb97ffa2094e3ae90a92136140a/sb-vitest/vitest/9ee98a6fb8a98ef90537a06236cdc318632d770a/deps/test-ChIkGprg.js?v=98612873:2444:83
+ ❯ Proxy.toMatchObject ../../node_modules/.cache/storybook/10.6.3/9cbb52427913797b92d17a8e0f0b7393246b0bb97ffa2094e3ae90a92136140a/sb-vitest/vitest/9ee98a6fb8a98ef90537a06236cdc318632d770a/deps/test-ChIkGprg.js?v=98612873:2422:151
+ ❯ toMatchObject src/molecules/harbour-tile.stories.tsx:213:58
+    211|     const band = within(canvasElement).getByTestId('harbour-tile-live'…
+    212|     const [animation] = band.getAnimations();
+    213|     await expect(animation?.effect?.getComputedTiming()).toMatchObject…
+       |                                                          ^
+    214|     await expect(getComputedStyle(band).animationTimingFunction).toBe(…
+    215|
+ ❯ runStory ../../node_modules/.cache/storybook/10.6.3/9cbb52427913797b92d17a8e0f0b7393246b0bb97ffa2094e3ae90a92136140a/sb-vitest/vitest/9ee98a6fb8a98ef90537a06236cdc318632d770a/deps/csf-OdKQaHAK.js?v=98612873:6839:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  |ui:stories (chromium)| src/molecules/harbour-tile.stories.tsx > State Change Settles Colours
+AssertionError: 
+[34mClick to debug the error directly in Storybook: http://localhost:6006/?path=/story/harbour-harbourtile--state-change-settles-colours&addonPanel=storybook/interactions/panel[39m
+
+expected [ 'border-bottom-color', …(3) ] to deeply equal ArrayContaining{…}
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- Array[7mContaining [[27m[39m
+[32m-   "background-color",[39m
+[32m- [7m  "[27mcolor",[39m
+[31m+ Array[7m [[27m[39m
+[31m+   "border-bottom-color",[39m
+[31m+   "border-left-color",[39m
+[31m+ [7m  "border-right-[27mcolor",[39m
+[2m    "border-top-color",[22m
+[2m  ][22m
+
+ ❯ Instrumenter.invoke ../../node_modules/.cache/storybook/10.6.3/9cbb52427913797b92d17a8e0f0b7393246b0bb97ffa2094e3ae90a92136140a/sb-vitest/vitest/9ee98a6fb8a98ef90537a06236cdc318632d770a/deps/test-ChIkGprg.js?v=98612873:2550:20
+ ❯ Instrumenter.intercept ../../node_modules/.cache/storybook/10.6.3/9cbb52427913797b92d17a8e0f0b7393246b0bb97ffa2094e3ae90a92136140a/sb-vitest/vitest/9ee98a6fb8a98ef90537a06236cdc318632d770a/deps/test-ChIkGprg.js?v=98612873:2453:138
+ ❯ Instrumenter.track ../../node_modules/.cache/storybook/10.6.3/9cbb52427913797b92d17a8e0f0b7393246b0bb97ffa2094e3ae90a92136140a/sb-vitest/vitest/9ee98a6fb8a98ef90537a06236cdc318632d770a/deps/test-ChIkGprg.js?v=98612873:2444:83
+ ❯ Proxy.toEqual ../../node_modules/.cache/storybook/10.6.3/9cbb52427913797b92d17a8e0f0b7393246b0bb97ffa2094e3ae90a92136140a/sb-vitest/vitest/9ee98a6fb8a98ef90537a06236cdc318632d770a/deps/test-ChIkGprg.js?v=98612873:2422:151
+ ❯ toEqual src/molecules/harbour-tile.stories.tsx:253:82
+    251|     await expect(getComputedStyle(tile).transform).toBe('none');
+    252|     const transitions = colourTransitionsOf(tile);
+    253|     await expect(transitions.map((transition) => transition.transition…
+       |                                                                                  ^
+    254|     for (const transition of transitions) {
+    255|       await expect(transition.effect?.getTiming(), transition.transiti…
+ ❯ runStory ../../node_modules/.cache/storybook/10.6.3/9cbb52427913797b92d17a8e0f0b7393246b0bb97ffa2094e3ae90a92136140a/sb-vitest/vitest/9ee98a6fb8a98ef90537a06236cdc318632d770a/deps/csf-OdKQaHAK.js?v=98612873:6839:6
+ ❯ ../../node_modules/.cache/storybook/10.6.3/9cbb52427913797b92d17a8e0f0b7393246b0bb97ffa2094e3ae90a92136140a/sb-vitest/vitest/9ee98a6fb8a98ef90537a06236cdc318632d770a/deps/plugins.D2ut1V9b-DDzazuHB.js?v=98612873:5211:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  |ui:stories (chromium)| src/molecules/harbour-tile.stories.tsx > Reduced Motion
+AssertionError: 
+[34mClick to debug the error directly in Storybook: http://localhost:6006/?path=/story/harbour-harbourtile--reduced-motion&addonPanel=storybook/interactions/panel[39m
+
+expected { Object (opacity, image, ...) } to deeply equal { Object (opacity, image, ...) }
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  Object {[22m
+[2m    "colour": "rgb(43, 163, 201)",[22m
+[2m    "image": "none",[22m
+[32m-   "opacity": "0.[7m4[27m5",[39m
+[31m+   "opacity": "0.[7m3[27m5",[39m
+[2m    "transform": "none",[22m
+[2m  }[22m
+
+ ❯ Instrumenter.invoke ../../node_modules/.cache/storybook/10.6.3/9cbb52427913797b92d17a8e0f0b7393246b0bb97ffa2094e3ae90a92136140a/sb-vitest/vitest/9ee98a6fb8a98ef90537a06236cdc318632d770a/deps/test-ChIkGprg.js?v=98612873:2550:20
+ ❯ Instrumenter.intercept ../../node_modules/.cache/storybook/10.6.3/9cbb52427913797b92d17a8e0f0b7393246b0bb97ffa2094e3ae90a92136140a/sb-vitest/vitest/9ee98a6fb8a98ef90537a06236cdc318632d770a/deps/test-ChIkGprg.js?v=98612873:2453:138
+ ❯ Instrumenter.track ../../node_modules/.cache/storybook/10.6.3/9cbb52427913797b92d17a8e0f0b7393246b0bb97ffa2094e3ae90a92136140a/sb-vitest/vitest/9ee98a6fb8a98ef90537a06236cdc318632d770a/deps/test-ChIkGprg.js?v=98612873:2444:83
+ ❯ Proxy.toEqual ../../node_modules/.cache/storybook/10.6.3/9cbb52427913797b92d17a8e0f0b7393246b0bb97ffa2094e3ae90a92136140a/sb-vitest/vitest/9ee98a6fb8a98ef90537a06236cdc318632d770a/deps/test-ChIkGprg.js?v=98612873:2422:151
+ ❯ toEqual src/molecules/harbour-tile.stories.tsx:311:141
+    309|       await expect(band.getAnimations()).toEqual([]);
+    310|       const foot = getComputedStyle(band);
+    311|       await expect({ opacity: foot.opacity, image: foot.backgroundImag…
+       |                                                                                                                                             ^
+    312|         opacity: '0.45',
+    313|         image: 'none',
+ ❯ runStory ../../node_modules/.cache/storybook/10.6.3/9cbb52427913797b92d17a8e0f0b7393246b0bb97ffa2094e3ae90a92136140a/sb-vitest/vitest/9ee98a6fb8a98ef90537a06236cdc318632d770a/deps/csf-OdKQaHAK.js?v=98612873:6839:6
+ ❯ ../../node_modules/.cache/storybook/10.6.3/9cbb52427913797b92d17a8e0f0b7393246b0bb97ffa2094e3ae90a92136140a/sb-vitest/vitest/9ee98a6fb8a98ef90537a06236cdc318632d770a/deps/plugins.D2ut1V9b-DDzazuHB.js?v=98612873:5211:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 16 passed (19)
+   Start at  09:47:42
+   Duration  2.28s (tests 45%, setup 38%, worker 9%, import 8%)
+
