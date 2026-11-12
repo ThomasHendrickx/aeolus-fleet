@@ -13,30 +13,22 @@ import { HARBOUR_GROUP_LOOK, type HarbourGroupKind } from './harbour-state.js';
 /** A ship as its tile shows it: `fleet.harbour`'s tile, its group saying its kind. */
 export type HarbourTileShip = Pick<HarbourOutput['items'][number], 'id' | 'name' | 'state' | 'note' | 'lastActivityAt'>;
 
-/**
- * The border: the state's border colour, mixed toward its hover colour by
- * the hover amount, in the colour space a transition between the two tokens
- * used: sRGB for the hex tones, Oklab for Idle's oklch.
- */
-const BORDER_HEX = 'border-[color-mix(in_srgb,var(--harbour-tile-border),var(--harbour-tile-hover-border)_calc(var(--harbour-tile-hover)*100%))]';
-const BORDER_OKLCH = 'border-[color-mix(in_oklab,var(--harbour-tile-border),var(--harbour-tile-hover-border)_calc(var(--harbour-tile-hover)*100%))]';
-
 /** A tile is filled in its state's tone (docs/design/state-colours); Idle stays plain, so colour marks only what is going on. */
 const TILE_TONES: Record<HarbourState, string> = {
-  alert: `${BORDER_HEX} [--harbour-tile-border:var(--tone-attention-border)] bg-tone-attention-bg text-tone-attention-fg`,
-  awaitingCrew: `${BORDER_HEX} [--harbour-tile-border:var(--tone-waiting-border)] bg-tone-waiting-bg text-tone-waiting-fg`,
-  blocked: `${BORDER_HEX} [--harbour-tile-border:var(--tone-blocked-border)] bg-tone-blocked-bg text-tone-blocked-fg`,
-  working: `${BORDER_HEX} [--harbour-tile-border:var(--tone-active-border)] bg-tone-active-bg text-tone-active-fg`,
-  idle: `${BORDER_OKLCH} [--harbour-tile-border:var(--border)] bg-card text-muted-foreground`,
+  alert: 'border-tone-attention-border bg-tone-attention-bg text-tone-attention-fg',
+  awaitingCrew: 'border-tone-waiting-border bg-tone-waiting-bg text-tone-waiting-fg',
+  blocked: 'border-tone-blocked-border bg-tone-blocked-bg text-tone-blocked-fg',
+  working: 'border-tone-active-border bg-tone-active-bg text-tone-active-fg',
+  idle: 'border-border bg-card text-muted-foreground',
 };
 
 /** On a link, hover and press give the border the state's colour. */
 const LINK_TONES: Record<HarbourState, string> = {
-  alert: '[--harbour-tile-hover-border:var(--tone-attention-fg)]',
-  awaitingCrew: '[--harbour-tile-hover-border:var(--tone-waiting-fg)]',
-  blocked: '[--harbour-tile-hover-border:var(--tone-blocked-fg)]',
-  working: '[--harbour-tile-hover-border:var(--tone-active-fg)]',
-  idle: '[--harbour-tile-hover-border:var(--muted-foreground)]',
+  alert: 'hover:border-tone-attention-fg active:border-tone-attention-fg',
+  awaitingCrew: 'hover:border-tone-waiting-fg active:border-tone-waiting-fg',
+  blocked: 'hover:border-tone-blocked-fg active:border-tone-blocked-fg',
+  working: 'hover:border-tone-active-fg active:border-tone-active-fg',
+  idle: 'hover:border-muted-foreground active:border-muted-foreground',
 };
 
 const TILE = 'relative grid h-full min-h-28 min-w-0 grid-rows-[auto_1fr_auto] gap-1 overflow-hidden rounded-md border px-3 py-2.5 no-underline motion-reduce:transition-none';
@@ -48,16 +40,15 @@ const TILE = 'relative grid h-full min-h-28 min-w-0 grid-rows-[auto_1fr_auto] ga
 const SETTLE = 'transition-colors duration-180 ease-[ease-out] motion-reduce:transition-none';
 
 /** A tile that is not a link settles its background, text and border. */
-const PLAIN = '[transition-property:background-color,color,--harbour-tile-border] duration-180 ease-[ease-out]';
+const PLAIN = 'transition-[background-color,color,border-color] duration-180 ease-[ease-out]';
 
 /**
- * A link lifts a little on hover with a soft shadow and its border takes the
- * state's colour, on the control timing; pressed, it sits down again. Its
- * state colours settle as a plain tile's do, under the pointer too. Reduced
- * motion: nothing moves.
+ * A link lifts a little on hover with a soft shadow; pressed, it sits down
+ * again. Its colours settle as a plain tile's do, its border on hover too.
+ * Reduced motion: nothing moves.
  */
 const LINK =
-  'group cursor-pointer [transition:background-color_180ms_ease-out,color_180ms_ease-out,--harbour-tile-border_180ms_ease-out,--harbour-tile-hover-border_180ms_ease-out,--harbour-tile-hover_var(--duration-fast)_var(--default-transition-timing-function),box-shadow_var(--duration-fast)_var(--default-transition-timing-function),transform_var(--duration-fast)_var(--default-transition-timing-function)] outline-none hover:-translate-y-px hover:shadow-[0_2px_8px_-2px_color-mix(in_oklch,var(--foreground)_18%,transparent)] hover:[--harbour-tile-hover:1] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring active:translate-y-0 active:shadow-none active:[--harbour-tile-hover:1] motion-reduce:hover:translate-y-0';
+  'group cursor-pointer [transition:background-color_180ms_ease-out,color_180ms_ease-out,border-color_180ms_ease-out,box-shadow_var(--duration-fast)_var(--default-transition-timing-function),transform_var(--duration-fast)_var(--default-transition-timing-function)] outline-none hover:-translate-y-px hover:shadow-[0_2px_8px_-2px_color-mix(in_oklch,var(--foreground)_18%,transparent)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring active:translate-y-0 active:shadow-none motion-reduce:hover:translate-y-0';
 
 export interface HarbourTileProps {
   ship: HarbourTileShip;

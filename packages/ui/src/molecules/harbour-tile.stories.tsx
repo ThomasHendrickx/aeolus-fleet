@@ -188,30 +188,14 @@ function colourTransitionsOf(element: Element): CSSTransition[] {
   return element.getAnimations().filter((animation): animation is CSSTransition => animation instanceof CSSTransition);
 }
 
-/** A colour as a canvas draws it, so two spellings of one colour compare equal: rgb() and a mix's color(srgb). */
-function pixelOf(colour: string): string {
-  const context = document.createElement('canvas').getContext('2d');
-  if (context === null) {
-    throw new Error('no canvas');
-  }
-  context.fillStyle = colour;
-  context.fillRect(0, 0, 1, 1);
-  return context.getImageData(0, 0, 1, 1).data.join(',');
-}
-
-/** A colour as the browser resolves a class to it and draws it, to compare a settled tile against. */
+/** A colour as the browser resolves a class to it, to compare a settled tile against. */
 function colourOf(className: string, property: 'backgroundColor' | 'borderTopColor'): string {
   const probe = document.createElement('div');
   probe.className = className;
   document.body.append(probe);
   const colour = getComputedStyle(probe)[property];
   probe.remove();
-  return pixelOf(colour);
-}
-
-/** The tile's border as drawn. */
-function borderOf(tile: Element): string {
-  return pixelOf(getComputedStyle(tile).borderTopColor);
+  return colour;
 }
 
 /** A state's colours settle: 180 ms ease-out (docs/design/working-band). */
@@ -237,7 +221,7 @@ function frameAt(tile: HTMLElement, milliseconds: number): { background: string;
     transition.currentTime = milliseconds;
   }
   const style = getComputedStyle(tile);
-  const frame = { background: pixelOf(style.backgroundColor), border: pixelOf(style.borderTopColor) };
+  const frame = { background: style.backgroundColor, border: style.borderTopColor };
   for (const transition of transitions) {
     transition.play();
   }
@@ -257,12 +241,10 @@ async function realPointer() {
     const box = element.getBoundingClientRect();
     let x = box.left + box.width / 2;
     let y = box.top + box.height / 2;
-    // Each frame of the test run may be scaled to fit its parent.
     for (let frame: Window = window; frame.frameElement !== null; frame = frame.parent) {
       const offset = frame.frameElement.getBoundingClientRect();
-      const scale = offset.width / frame.innerWidth;
-      x = offset.left + x * scale;
-      y = offset.top + y * scale;
+      x += offset.left;
+      y += offset.top;
     }
     return { x, y };
   };
@@ -321,8 +303,8 @@ export const StateChangeSettlesColours: Story = {
     const canvas = within(canvasElement);
     const tile = canvas.getByTestId('harbour-tile');
     const bounds = boundsOf(tile);
-    const workingBackground = pixelOf(getComputedStyle(tile).backgroundColor);
-    const workingBorder = borderOf(tile);
+    const workingBackground = getComputedStyle(tile).backgroundColor;
+    const workingBorder = getComputedStyle(tile).borderTopColor;
 
     await userEvent.click(canvas.getByTestId('harbour-tile-story-idle'));
 
@@ -344,8 +326,8 @@ export const StateChangeSettlesColours: Story = {
 
     await expect(within(tile).getByTestId('ship-state')).toHaveTextContent('Blocked');
     await waitFor(() => expect(colourTransitionsOf(tile)).toEqual([]));
-    await expect(pixelOf(getComputedStyle(tile).backgroundColor)).toBe(colourOf('bg-tone-blocked-bg', 'backgroundColor'));
-    await expect(borderOf(tile)).toBe(colourOf('border-tone-blocked-border', 'borderTopColor'));
+    await expect(getComputedStyle(tile).backgroundColor).toBe(colourOf('bg-tone-blocked-bg', 'backgroundColor'));
+    await expect(getComputedStyle(tile).borderTopColor).toBe(colourOf('border-tone-blocked-border', 'borderTopColor'));
     await expect(boundsOf(tile)).toEqual(bounds);
   },
 };
@@ -381,7 +363,7 @@ export const ReducedMotion: Story = {
 
       await expect(band.getAnimations()).toEqual([]);
       const foot = getComputedStyle(band);
-      await expect({ opacity: foot.opacity, image: foot.backgroundImage, colour: pixelOf(foot.backgroundColor), transform: foot.transform }).toEqual({
+      await expect({ opacity: foot.opacity, image: foot.backgroundImage, colour: foot.backgroundColor, transform: foot.transform }).toEqual({
         opacity: '0.45',
         image: 'none',
         colour: colourOf('bg-live-band', 'backgroundColor'),
@@ -393,7 +375,7 @@ export const ReducedMotion: Story = {
       await expect(within(tile).getByTestId('ship-state')).toHaveTextContent('Blocked');
       await expect(within(tile).queryByTestId('harbour-tile-live')).toBeNull();
       await expect(tile.getAnimations({ subtree: true })).toEqual([]);
-      await expect(pixelOf(getComputedStyle(tile).backgroundColor)).toBe(colourOf('bg-tone-blocked-bg', 'backgroundColor'));
+      await expect(getComputedStyle(tile).backgroundColor).toBe(colourOf('bg-tone-blocked-bg', 'backgroundColor'));
       await expect(boundsOf(tile)).toEqual(bounds);
     } finally {
       await emulateReducedMotion('no-preference');
@@ -413,26 +395,22 @@ export const HoverAndPressKeepControlTiming: Story = {
     const pointer = await realPointer();
     const canvas = within(canvasElement);
     const tile = canvas.getByTestId('harbour-tile');
-    const restingBorder = borderOf(tile);
+    const restingBorder = getComputedStyle(tile).borderTopColor;
 
     await pointer.hover(tile);
 
     await expectTransitionsOf(tile, CONTROL);
     await expect(frameAt(tile, 75).border).not.toBe(restingBorder);
     await settled(tile);
-    const hoverBorder = borderOf(tile);
+    const hoverBorder = getComputedStyle(tile).borderTopColor;
     await expect(hoverBorder).toBe(colourOf('border-tone-active-fg', 'borderTopColor'));
 
-    // The release clicks the link: keep the test run's page where it is.
-    tile.addEventListener('click', (event) => {
-      event.preventDefault();
-    });
     await pointer.press(tile);
 
     await expect(tile.matches(':active')).toBe(true);
     await expectTransitionsOf(tile, CONTROL);
     await settled(tile);
-    await expect(borderOf(tile)).toBe(hoverBorder);
+    await expect(getComputedStyle(tile).borderTopColor).toBe(hoverBorder);
 
     await pointer.release(tile);
 
@@ -447,13 +425,13 @@ export const HoverAndPressKeepControlTiming: Story = {
     await expectTransitionsOf(tile, SETTLING);
     await expect(frameAt(tile, 90).border).not.toBe(hoverBorder);
     await settled(tile);
-    await expect(borderOf(tile)).toBe(colourOf('border-tone-blocked-fg', 'borderTopColor'));
+    await expect(getComputedStyle(tile).borderTopColor).toBe(colourOf('border-tone-blocked-fg', 'borderTopColor'));
 
     await pointer.unhover(tile);
 
     await expectTransitionsOf(tile, CONTROL);
     await settled(tile);
-    await expect(borderOf(tile)).toBe(colourOf('border-tone-blocked-border', 'borderTopColor'));
+    await expect(getComputedStyle(tile).borderTopColor).toBe(colourOf('border-tone-blocked-border', 'borderTopColor'));
   },
 };
 
@@ -470,7 +448,7 @@ export const ReducedMotionHover: Story = {
       await pointer.hover(tile);
 
       await expect(tile.getAnimations()).toEqual([]);
-      await expect(borderOf(tile)).toBe(colourOf('border-tone-active-fg', 'borderTopColor'));
+      await expect(getComputedStyle(tile).borderTopColor).toBe(colourOf('border-tone-active-fg', 'borderTopColor'));
 
       await pointer.unhover(tile);
 
