@@ -71,7 +71,12 @@ function json(response: ServerResponse, answer: { status: number; body: unknown 
   response.end(JSON.stringify(answer.body));
 }
 
-export async function startFakePagasae(options: { argoTickets?: ArgoTickets } = {}): Promise<FakePagasae> {
+/** The console's address in the apps list: the header's switcher links there. */
+export const FAKE_CONSOLE_URL = 'https://console.acme.example';
+
+/** The apps list names Account at accountUrl when given, as pagasae always does; by default it names none. */
+export async function startFakePagasae(options: { argoTickets?: ArgoTickets; accountUrl?: string } = {}): Promise<FakePagasae> {
+  const { accountUrl } = options;
   let account: FakeAccount | undefined;
   let asked = 0;
   let tokenSeconds = 600;
@@ -172,8 +177,11 @@ export async function startFakePagasae(options: { argoTickets?: ArgoTickets } = 
           status: 200,
           body: {
             account: { id: holder.id, email: holder.email },
-            apps: [],
-            fleets: holder.fleets.map(({ id, name, scopes, isArgoAllowed }) => ({ id, name, argo: isArgoAllowed === true, apps: scopes.includes('fleet:read') ? [{ app: 'console', url: 'https://console.acme.example' }] : [] })),
+            apps: accountUrl === undefined ? [] : [{ app: 'account', url: accountUrl }],
+            // As pagasae lists them: each fleet where the account holds any scope.
+            fleets: holder.fleets
+              .filter(({ scopes }) => scopes.length > 0)
+              .map(({ id, name, scopes, isArgoAllowed }) => ({ id, name, argo: isArgoAllowed === true, apps: scopes.includes('fleet:read') ? [{ app: 'console', url: FAKE_CONSOLE_URL }] : [] })),
           },
         });
         return;

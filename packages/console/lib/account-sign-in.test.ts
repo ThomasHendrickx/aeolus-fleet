@@ -1,7 +1,7 @@
 import { createServer } from 'node:http';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { signOutAccount, startSignIn } from './account-sign-in';
+import { enterFleet, signOutAccount, startSignIn } from './account-sign-in';
 import { signOutOfArgo } from './argo-sign-in';
 
 /** Where the web app's server listens behind the proxy: what request.url holds there. */
@@ -78,5 +78,61 @@ describe("the console's addresses behind a proxy", () => {
 
     const authorize = new URL(started.headers.get('location') ?? '');
     expect(authorize.searchParams.get('redirect_uri')).toBe('http://localhost:3000/sign-in/done');
+  });
+});
+
+/** One server standing for pagasae and for core: the account holds rights in fleet_a and fleet_b, core takes the token, and signing out of argo answers as given. */
+async function aPagasaeAndCore(signOutStatus: number): Promise<{ url: string }> {
+  const bodyOf: Record<string, unknown> = {
+    '/api/apps': { fleets: ['fleet_a', 'fleet_b'].map((id) => ({ id, name: id, argo: true, apps: [{ app: 'console' }] })) },
+    '/oauth/token': { access_token: 'account-token', expires_in: 600 },
+  };
+  const server = createServer((request, response) => {
+    const json = (status: number, cookie?: string): void => {
+      response.writeHead(status, { 'content-type': 'application/json', ...(cookie === undefined ? {} : { 'set-cookie': cookie }) }).end(JSON.stringify(bodyOf[request.url ?? ''] ?? {}));
+    };
+    request.resume();
+    if (request.url === '/trpc/console.presentAccountToken') {
+      json(200, 'aeolus_account_token=account-token; Path=/');
+    } else if (request.url === '/trpc/console.signOut') {
+      json(signOutStatus, signOutStatus === 200 ? 'aeolus_session=; Max-Age=0; Path=/' : undefined);
+    } else {
+      json(request.url !== undefined && request.url in bodyOf ? 200 : 404);
+    }
+  });
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+  stopAll.push(() => server.close());
+  const address = server.address();
+  if (address === null || typeof address === 'string') {
+    throw new Error('the stub listens on no port');
+  }
+  return { url: `http://127.0.0.1:${String(address.port)}` };
+}
+
+/** A switch from fleet_a to fleet_b by an account signed in as argo of fleet_a. */
+function aSwitchAsArgo(stub: { url: string }): Promise<Response> {
+  return enterFleet(
+    new Request(`${BIND_ADDRESS}/sign-in/enter?fleet=fleet_b&returnTo=%2F`, {
+      headers: { cookie: 'aeolus_account_session=shared; aeolus_console_fleet=fleet_a; aeolus_session=ses_x' },
+    }),
+    { pagasae: { ...PAGASAE, url: stub.url }, environment: { AEOLUS_CONSOLE_URL: CONSOLE_URL, AEOLUS_SERVER_INTERNAL_URL: stub.url }, returnTo: '/' },
+  );
+}
+
+describe('switching to another fleet while signed in as argo', () => {
+  it('ends argo\'s sign-in and opens the other fleet when core signs out', async () => {
+    const answer = await aSwitchAsArgo(await aPagasaeAndCore(200));
+
+    expect(answer.headers.get('location')).toBe('/');
+    const cookies = answer.headers.getSetCookie();
+    expect(cookies).toContain('aeolus_session=; Max-Age=0; Path=/');
+    expect(cookies.some((cookie) => cookie.startsWith('aeolus_console_fleet=fleet_b;'))).toBe(true);
+  });
+
+  it('does not switch when core fails the sign-out: argo stays signed in to the first fleet and the console says so', async () => {
+    const answer = await aSwitchAsArgo(await aPagasaeAndCore(500));
+
+    expect(answer.headers.get('location')).toBe('/sign-in/switch-failed');
+    expect(answer.headers.getSetCookie()).toEqual([]);
   });
 });
