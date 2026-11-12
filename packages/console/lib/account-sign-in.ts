@@ -4,7 +4,7 @@ import { SESSION_COOKIE, sessionOf } from './console-gate';
 import { returnPathOf } from './return-path';
 import { consoleOriginOf } from './console-origin';
 import { serverInternalUrlFrom } from './server-url';
-import { NO_RIGHTS_PATH, UNREACHABLE_PATH } from './sign-in-paths';
+import { NO_RIGHTS_PATH, SWITCH_FAILED_PATH, UNREACHABLE_PATH } from './sign-in-paths';
 
 /**
  * An account's sign-in to the console, on the web app's server (accounts
@@ -152,9 +152,10 @@ async function presentToCore(token: string, environment: Environment): Promise<s
  * fleet ends argo's sign-in as Sign out of argo does: argo is of the fleet
  * left, and the account goes on as itself in the other. Core clears it, as
  * it set it. A live argo session in the same fleet, or core not answering,
- * keeps it.
+ * keeps it; a switch then has no cookies to give and says 'failed', as Sign
+ * out of argo does, so the switch does not happen.
  */
-async function argoSessionCleared(request: Request, { environment, isFleetSwitch }: { environment: Environment; isFleetSwitch: boolean }): Promise<string[]> {
+async function argoSessionCleared(request: Request, { environment, isFleetSwitch }: { environment: Environment; isFleetSwitch: boolean }): Promise<string[] | 'failed'> {
   const session = cookieValueOf(request.headers.get('cookie'), SESSION_COOKIE);
   if (session === undefined) {
     return [];
@@ -174,9 +175,12 @@ async function argoSessionCleared(request: Request, { environment, isFleetSwitch
       cache: 'no-store',
       signal: AbortSignal.timeout(PRESENT_TIMEOUT_MS),
     });
+    if (!answer.ok) {
+      return isFleetSwitch ? 'failed' : [];
+    }
     return answer.headers.getSetCookie();
   } catch {
-    return [];
+    return isFleetSwitch ? 'failed' : [];
   }
 }
 
@@ -234,11 +238,15 @@ export async function enterFleet(request: Request, deps: SignInDeps & { returnTo
       return redirectTo(UNREACHABLE_PATH);
     case 'token': {
       const tokenCookie = await presentToCore(exchanged.token, environment);
-      return tokenCookie === undefined
-        ? redirectTo('/sign-in/failed')
+      if (tokenCookie === undefined) {
+        return redirectTo('/sign-in/failed');
+      }
+      const argoCleared = await argoSessionCleared(request, { environment, isFleetSwitch: inView !== undefined && fleetId !== inView });
+      return argoCleared === 'failed'
+        ? redirectTo(SWITCH_FAILED_PATH)
         : redirectTo(returnTo, [
             tokenCookie,
-            ...(await argoSessionCleared(request, { environment, isFleetSwitch: inView !== undefined && fleetId !== inView })),
+            ...argoCleared,
             consoleCookie(FLEET_COOKIE, {
               value: fleetId,
               maxAgeSeconds: FLEET_COOKIE_LIFE_SECONDS,
