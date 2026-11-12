@@ -78,7 +78,7 @@ export function withWorkspaces(spots: readonly Spot[], settingsByShip: ReadonlyM
     const { workspace } = settings;
     return {
       ...spot,
-      workspace: workspace.kind === 'worktree' ? { name: workspace.repository, kind: 'worktree' } : { name: workspace.name, kind: 'folder' },
+      workspace: workspace.kind === 'repositories' ? { name: workspace.main.repository, kind: 'worktree' } : { name: workspace.name, kind: 'folder' },
     };
   });
 }

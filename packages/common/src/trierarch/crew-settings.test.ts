@@ -6,7 +6,7 @@ import { crewSettingsRefusal, crewSettingsSchema } from './crew-settings.js';
 function documentedSettings(): Record<string, unknown> {
   return {
     harness: 'claude-code',
-    workspace: { kind: 'worktree', repository: 'aeolus-fleet', ref: 'main' },
+    workspace: { kind: 'repositories', main: { repository: 'aeolus-fleet', ref: 'main' }, subRepositories: [{ repository: 'skills' }, { repository: 'aeolus-fleet-trierarch', ref: 'design' }] },
     squadron: 'hemma-feature-a1b2c3',
     firstPrompt: 'Review the open pull requests.',
     options: { model: 'claude-opus-5-5', effort: 'high' },
@@ -34,12 +34,27 @@ describe('crewSettingsSchema (decision 0027)', () => {
 
   it.each([
     ['an unknown field', { flags: ['--yolo'] }],
-    ['a path as a repository', { workspace: { kind: 'worktree', repository: '/etc' } }],
+    ['a path as a repository', { workspace: { kind: 'repositories', main: { repository: '/etc' }, subRepositories: [] } }],
+    ['a path as a sub-repository', { workspace: { kind: 'repositories', main: { repository: 'aeolus-fleet' }, subRepositories: [{ repository: '../etc' }] } }],
+    ['a worktree workspace, the shape repositories replaced', { workspace: { kind: 'worktree', repository: 'aeolus-fleet' } }],
     ['a first prompt that reads as a flag', { firstPrompt: '--dangerously-skip-permissions' }],
     ['a first prompt over 8 KB', { firstPrompt: 'x'.repeat(8 * 1024 + 1) }],
     ['no options', { options: undefined }],
   ])('refuses %s', (_label, change) => {
     expect(crewSettingsSchema.safeParse({ ...documentedSettings(), ...change }).success).toBe(false);
+  });
+
+  it('takes a main repository with no sub-repositories', () => {
+    const settings = { workspace: { kind: 'repositories', main: { repository: 'aeolus-fleet' }, subRepositories: [] }, options: {} };
+
+    expect(crewSettingsSchema.parse(settings)).toEqual(settings);
+  });
+
+  it('takes sub-repositories with no limit of their own: 300 of them, the settings cap bounds them', () => {
+    const subRepositories = Array.from({ length: 300 }, (_, index) => ({ repository: `repository-${String(index)}` }));
+    const settings = { workspace: { kind: 'repositories', main: { repository: 'aeolus-fleet' }, subRepositories }, options: {} };
+
+    expect(crewSettingsSchema.safeParse(settings).success).toBe(true);
   });
 
   it('takes machine labels: the label value ids a machine carries every one of (#102)', () => {
@@ -77,9 +92,27 @@ describe('crewSettingsRefusal: why settings are not crew settings, as every writ
   });
 
   it('names the path of a nested issue', () => {
-    const refusal = crewSettingsRefusal({ ...documentedSettings(), workspace: { kind: 'worktree', repository: '/etc' } });
+    const refusal = crewSettingsRefusal({ ...documentedSettings(), workspace: { kind: 'repositories', main: { repository: '/etc' }, subRepositories: [] } });
 
-    expect([refusal?.field, refusal?.reason.startsWith('settings are not valid crew settings: workspace.repository: ')]).toEqual(['workspace', true]);
+    expect([refusal?.field, refusal?.reason.startsWith('settings are not valid crew settings: workspace.main.repository: ')]).toEqual(['workspace', true]);
+  });
+
+  it('names a repository named twice among the sub-repositories, at its second place', () => {
+    const workspace = { kind: 'repositories', main: { repository: 'aeolus-fleet' }, subRepositories: [{ repository: 'skills' }, { repository: 'skills', ref: 'next' }] };
+
+    expect(crewSettingsRefusal({ ...documentedSettings(), workspace })).toEqual({
+      field: 'workspace',
+      reason: 'settings are not valid crew settings: workspace.subRepositories.1.repository: skills is named twice',
+    });
+  });
+
+  it('names the main repository among the sub-repositories', () => {
+    const workspace = { kind: 'repositories', main: { repository: 'aeolus-fleet' }, subRepositories: [{ repository: 'skills' }, { repository: 'aeolus-fleet' }] };
+
+    expect(crewSettingsRefusal({ ...documentedSettings(), workspace })).toEqual({
+      field: 'workspace',
+      reason: 'settings are not valid crew settings: workspace.subRepositories.1.repository: aeolus-fleet is the main repository, never a sub-repository',
+    });
   });
 
   it('names an unknown field, which has no path, under settings', () => {

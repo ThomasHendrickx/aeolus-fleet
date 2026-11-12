@@ -4,10 +4,10 @@ import { parseCrewSettings } from './crew-settings-read';
 
 describe("a crew request's settings, parsed on the web app's server", () => {
   it('are crew settings, in the order given', async () => {
-    const worktree = { harness: 'claude-code', workspace: { kind: 'worktree', repository: 'aeolus-fleet' }, options: {} };
+    const repositories = { harness: 'claude-code', workspace: { kind: 'repositories', main: { repository: 'aeolus-fleet' }, subRepositories: [] }, options: {} };
     const folder = { workspace: { kind: 'folder', name: 'notes' }, options: {} };
 
-    await expect(parseCrewSettings([worktree, folder])).resolves.toEqual([worktree, folder]);
+    await expect(parseCrewSettings([repositories, folder])).resolves.toEqual([repositories, folder]);
   });
 
   it('are null when they are no crew settings, as a request made without the trierarch plugin holds', async () => {

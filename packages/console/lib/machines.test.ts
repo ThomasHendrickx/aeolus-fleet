@@ -69,7 +69,7 @@ describe('withWorkspaces', () => {
     const builder = spot('builder');
     const writer = spot('docs-writer');
     const settings = new Map<string, CrewSettings | null>([
-      [builder.shipId, { harness: 'claude-code', workspace: { kind: 'worktree', repository: 'aeolus-fleet' }, options: {} }],
+      [builder.shipId, { harness: 'claude-code', workspace: { kind: 'repositories', main: { repository: 'aeolus-fleet' }, subRepositories: [] }, options: {} }],
       [writer.shipId, { harness: 'claude-code', workspace: { kind: 'folder', name: 'notes' }, options: {} }],
     ]);
 
