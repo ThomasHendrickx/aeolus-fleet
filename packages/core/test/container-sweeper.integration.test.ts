@@ -76,6 +76,9 @@ describe('the containers of a test run', () => {
     async () => {
       const run = `test-${randomUUID()}`;
       const runProcess = await startRunProcess(run);
+      onTestFinished(() => {
+        killIfRunning(runProcess.pid);
+      });
       const postgres = await new TestPostgres(POSTGRES_IMAGE, run).start();
       const volumes = await volumesOf(postgres.getId());
       expect(volumes).not.toEqual([]);
@@ -113,6 +116,10 @@ describe('the containers of a test run', () => {
     'leave no Postgres volume behind when a teardown stops them',
     async () => {
       const run = `test-${randomUUID()}`;
+      const runProcess = await startRunProcess(run);
+      onTestFinished(() => {
+        killIfRunning(runProcess.pid);
+      });
       const postgres = await new TestPostgres(POSTGRES_IMAGE, run).start();
       const volumes = await volumesOf(postgres.getId());
       expect(volumes).not.toEqual([]);
