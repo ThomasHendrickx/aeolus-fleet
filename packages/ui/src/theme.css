@@ -117,15 +117,27 @@
     }
   }
 
-  /* A working ship's Harbour tile: a band of light runs along its foot (docs/design/fleet-overview). */
-  --animate-live-band: live-band 2.4s linear infinite;
+  /*
+   * A working ship's Harbour tile: a soft band of light sweeps along its foot
+   * for 2.4 s, then rests unseen for 1.4 s (docs/design/working-band).
+   */
+  --animate-live-band: live-band 3.8s linear infinite;
 
   @keyframes live-band {
-    from {
-      background-position: -60% 0;
+    0% {
+      transform: translateX(-100%);
+      opacity: 0;
     }
-    to {
-      background-position: 160% 0;
+    10% {
+      opacity: 0.45;
+    }
+    63.1579% {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+    100% {
+      transform: translateX(100%);
+      opacity: 0;
     }
   }
 }
