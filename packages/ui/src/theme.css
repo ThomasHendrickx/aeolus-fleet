@@ -142,6 +142,30 @@
   }
 }
 
+/*
+ * A Harbour tile's border mixes its state's border and its hover colour by a
+ * hover amount, so a link's hover and press keep their own timing while a
+ * state change settles (docs/design/working-band). Registered, so each
+ * transitions on its own.
+ */
+@property --harbour-tile-border {
+  syntax: '<color>';
+  inherits: false;
+  initial-value: transparent;
+}
+
+@property --harbour-tile-hover-border {
+  syntax: '<color>';
+  inherits: false;
+  initial-value: transparent;
+}
+
+@property --harbour-tile-hover {
+  syntax: '<number>';
+  inherits: false;
+  initial-value: 0;
+}
+
 @layer base {
   * {
     @apply border-border;
