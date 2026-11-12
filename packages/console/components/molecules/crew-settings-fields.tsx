@@ -1,7 +1,7 @@
 import { Label, InlineError } from '@aeolus-fleet/ui';
 import { useId, type ReactNode } from 'react';
 
-import { byteSize, promptBytes, withHarness, type CrewSettingsValues, type HarnessOffer, type WorkspaceChoice } from '../../lib/crew-settings-form';
+import { byteSize, mainRepository, promptBytes, withHarness, type CrewSettingsValues, type HarnessOffer, type WorkspaceChoice } from '../../lib/crew-settings-form';
 import { harnessWord } from '../../lib/harness';
 import type { MachineLabelsInput } from '../../lib/machine-labels';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../atoms/select';
@@ -33,14 +33,14 @@ function workspaceValue(workspace: WorkspaceChoice | undefined): string {
   if (workspace === undefined) {
     return NONE;
   }
-  return workspace.kind === 'worktree' ? `worktree:${workspace.repository}` : `folder:${workspace.name}`;
+  return workspace.kind === 'repositories' ? `repository:${workspace.main.repository}` : `folder:${workspace.name}`;
 }
 
 function workspaceOf(value: string): WorkspaceChoice | undefined {
   const [kind, ...rest] = value.split(':');
   const name = rest.join(':');
-  if (kind === 'worktree') {
-    return { kind: 'worktree', repository: name };
+  if (kind === 'repository') {
+    return mainRepository(name);
   }
   return kind === 'folder' ? { kind: 'folder', name } : undefined;
 }
@@ -101,7 +101,7 @@ export function CrewSettingsFields({ shipName, offers, values, onChange, firstPr
   const bytes = promptBytes(values.firstPrompt);
   const isPromptTooLong = bytes > firstPromptMaxBytes;
   const workspaces: Record<string, string> = Object.fromEntries([
-    ...(offer?.repositories ?? []).map((repository): [string, string] => [`worktree:${repository}`, `${repository} · new worktree`]),
+    ...(offer?.repositories ?? []).map((repository): [string, string] => [`repository:${repository}`, `${repository} · main repository`]),
     ...(offer?.folders ?? []).map((folder): [string, string] => [`folder:${folder}`, `${folder} · folder, as it is`]),
   ]);
 

@@ -234,7 +234,15 @@ export function MachineDetail({ machine, state, spots, location, labels, now, sh
                   {spot.workspace === undefined ? null : (
                     <span className="truncate text-meta text-muted-foreground" data-testid="machine-spot-workspace">
                       <span className="sr-only">Workspace: </span>
-                      <span className="font-mono text-id">{spot.workspace.name}</span> · {spot.workspace.kind === 'worktree' ? 'new worktree' : 'folder, as it is'}
+                      {spot.workspace.kind === 'repositories' ? (
+                        <>
+                          <span className="font-mono text-id">{spot.workspace.main}</span> · main repository
+                        </>
+                      ) : (
+                        <>
+                          <span className="font-mono text-id">{spot.workspace.name}</span> · folder, as it is
+                        </>
+                      )}
                     </span>
                   )}
                 </span>

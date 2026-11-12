@@ -88,17 +88,101 @@ function reportedOffersOf(machines: readonly Machine[]): HarnessOffer[] {
   return offers;
 }
 
-/** A workspace as the form picks it: a new worktree of a repository, or a folder used as it is. */
-export type WorkspaceChoice = { kind: 'worktree'; repository: string } | { kind: 'folder'; name: string };
-
-/** The form's pick as settings: its repository as the main one, with no sub-repositories, which the form does not pick yet (#1761). */
-function workspaceOf(choice: WorkspaceChoice): CrewSettings['workspace'] {
-  return choice.kind === 'worktree' ? { kind: 'repositories', main: { repository: choice.repository }, subRepositories: [] } : choice;
+/** A repository as the form picks it, at a branch: empty for its default branch. */
+export interface RepositoryChoice {
+  repository: string;
+  ref: string;
 }
 
-/** Settings' workspace as the form picks it: the main repository, or the folder. */
+/** A workspace as the form picks it: a main repository and its sub-repositories, or a folder used as it is. */
+export type WorkspaceChoice = { kind: 'repositories'; main: RepositoryChoice; subRepositories: RepositoryChoice[] } | { kind: 'folder'; name: string };
+
+type WorkspaceRepository = Extract<CrewSettings['workspace'], { kind: 'repositories' }>['main'];
+
+function repositoryOf({ repository, ref }: RepositoryChoice): WorkspaceRepository {
+  return ref.trim() === '' ? { repository } : { repository, ref: ref.trim() };
+}
+
+function choiceOfRepository({ repository, ref }: WorkspaceRepository): RepositoryChoice {
+  return { repository, ref: ref ?? '' };
+}
+
+/** The form's pick as settings: a branch only where one is given. */
+function workspaceOf(choice: WorkspaceChoice): CrewSettings['workspace'] {
+  return choice.kind === 'repositories' ? { kind: 'repositories', main: repositoryOf(choice.main), subRepositories: choice.subRepositories.map(repositoryOf) } : choice;
+}
+
+/** Settings' workspace as the form picks it. */
 function choiceOf(workspace: CrewSettings['workspace']): WorkspaceChoice {
-  return workspace.kind === 'repositories' ? { kind: 'worktree', repository: workspace.main.repository } : { kind: 'folder', name: workspace.name };
+  return workspace.kind === 'repositories'
+    ? { kind: 'repositories', main: choiceOfRepository(workspace.main), subRepositories: workspace.subRepositories.map(choiceOfRepository) }
+    : { kind: 'folder', name: workspace.name };
+}
+
+/** A repository as the main one, at its default branch, with no sub-repositories. */
+export function mainRepository(repository: string): WorkspaceChoice {
+  return { kind: 'repositories', main: { repository, ref: '' }, subRepositories: [] };
+}
+
+/** What Add sub-repository offers: the harness's repositories, less the main repository and those added. */
+export function addableSubRepositories(workspace: WorkspaceChoice | undefined, offer: HarnessOffer | undefined): string[] {
+  if (workspace?.kind !== 'repositories') {
+    return [];
+  }
+  const named = [workspace.main.repository, ...workspace.subRepositories.map(({ repository }) => repository)];
+  return (offer?.repositories ?? []).filter((repository) => !named.includes(repository));
+}
+
+/**
+ * What keeps the workspace from being saved (docs/design/ship-repositories):
+ * the error under Workspace, under each sub-repository's row by its place,
+ * and the footer's note, which turns Save off. A repository no machine offers
+ * comes only from held settings; a repository named twice is shown, never
+ * fixed.
+ */
+export interface WorkspaceProblems {
+  main?: string;
+  subRepositories: (string | undefined)[];
+  note?: string;
+}
+
+function notOffered(repository: string, next: string): string {
+  return `No machine offers ${repository}. ${next}, or join a machine that has it.`;
+}
+
+export function workspaceProblems(workspace: WorkspaceChoice | undefined, offer: HarnessOffer | undefined): WorkspaceProblems {
+  if (workspace?.kind !== 'repositories') {
+    return { subRepositories: [] };
+  }
+  const offered = offer?.repositories ?? [];
+  const isMainOffered = offered.includes(workspace.main.repository);
+  const subRepositories = workspace.subRepositories.map(({ repository }, index) => {
+    const isNamedBefore = repository === workspace.main.repository || workspace.subRepositories.slice(0, index).some((earlier) => earlier.repository === repository);
+    if (isNamedBefore) {
+      return repository === workspace.main.repository ? `${repository} is the main repository. Remove it here.` : `${repository} is named twice. Remove it here.`;
+    }
+    return offered.includes(repository) ? undefined : notOffered(repository, 'Remove it');
+  });
+  const named = [workspace.main.repository, ...workspace.subRepositories.map(({ repository }) => repository)];
+  const isNamedTwice = new Set(named).size < named.length;
+  const missing = [...new Set(named)].filter((repository) => !offered.includes(repository));
+  const note = missing.length > 0 ? `No machine offers ${missing.join(', ')}.` : isNamedTwice ? 'A repository is named twice.' : undefined;
+  return {
+    ...(isMainOffered ? {} : { main: notOffered(workspace.main.repository, 'Pick another workspace') }),
+    subRepositories,
+    ...(note === undefined ? {} : { note }),
+  };
+}
+
+/** The place of the sub-repository the trierarch plugin's reason names, as a word of it; undefined when it names none, and the reason goes under Workspace. */
+export function refusedSubRepository(reason: string, workspace: WorkspaceChoice | undefined): number | undefined {
+  if (workspace?.kind !== 'repositories') {
+    return undefined;
+  }
+  // A name may hold dots, so only punctuation that ends a word is left off.
+  const words = reason.split(/\s+/).map((word) => word.replace(/[,.:;]+$/, ''));
+  const index = workspace.subRepositories.findIndex(({ repository }) => words.includes(repository));
+  return index === -1 ? undefined : index;
 }
 
 /** The form's values: always strings, so a field is never uncontrolled; empty means not given. */
@@ -125,7 +209,7 @@ function defaultOptions(offer: HarnessOffer | undefined): Record<string, string>
 function firstWorkspace(offer: HarnessOffer | undefined): WorkspaceChoice | undefined {
   const [repository] = offer?.repositories ?? [];
   if (repository !== undefined) {
-    return { kind: 'worktree', repository };
+    return mainRepository(repository);
   }
   const [folder] = offer?.folders ?? [];
   return folder === undefined ? undefined : { kind: 'folder', name: folder };
@@ -143,7 +227,7 @@ export function withHarness(values: CrewSettingsValues, pick: { harness: string;
   const offer = offers.find((each) => each.harness === harness);
   const workspace = values.workspace;
   const isOffered =
-    workspace !== undefined && (workspace.kind === 'worktree' ? (offer?.repositories.includes(workspace.repository) ?? false) : (offer?.folders.includes(workspace.name) ?? false));
+    workspace !== undefined && (workspace.kind === 'repositories' ? (offer?.repositories.includes(workspace.main.repository) ?? false) : (offer?.folders.includes(workspace.name) ?? false));
   return { ...values, harness, workspace: isOffered ? workspace : firstWorkspace(offer), options: defaultOptions(offer) };
 }
 
@@ -212,6 +296,8 @@ export interface SettingsRow {
   meta?: string;
   /** Ids, option values and flags read in mono. */
   isMono?: boolean;
+  /** Set for repositories, read as chips, each with its branch, on a row of their own; none reads as None. */
+  repositories?: readonly WorkspaceRepository[];
 }
 
 /** A request's settings as rows for its card; undefined when they are no crew settings (a request made without the plugin). */
@@ -222,9 +308,12 @@ export function settingsRows(settings: CrewSettings | null | undefined): Setting
   const { harness, workspace, options, firstPrompt, squadron, mcpServers = [] } = settings;
   return [
     { label: 'Harness', value: harness ?? 'Trierarch default' },
-    workspace.kind === 'repositories'
-      ? { label: 'Workspace', value: workspace.main.repository, meta: 'New worktree' }
-      : { label: 'Workspace', value: workspace.name, meta: 'Folder, as it is' },
+    ...(workspace.kind === 'repositories'
+      ? [
+          { label: 'Main repository', value: null, repositories: [workspace.main] },
+          { label: 'Sub-repositories', value: null, repositories: workspace.subRepositories },
+        ]
+      : [{ label: 'Workspace', value: workspace.name, meta: 'Folder, as it is' }]),
     ...Object.entries(options).map(([name, value]) => ({ label: name, value: typeof value === 'string' ? value : JSON.stringify(value), isMono: true })),
     { label: 'MCP servers', value: mcpServers.length === 0 ? null : mcpServers.join(', '), isMono: true },
     { label: 'First prompt', value: firstPrompt === undefined ? null : byteSize(promptBytes(firstPrompt)) },
