@@ -19,7 +19,7 @@ class CreatedTestPostgres extends TestPostgres {
 // On rootless Podman every health check run is a systemd unit of its own (#554).
 describe('the Postgres test container', () => {
   it('is created with no health check, so the container runtime runs nothing beside it while the tests run', async () => {
-    const container = new CreatedTestPostgres(POSTGRES_IMAGE);
+    const container = new CreatedTestPostgres(POSTGRES_IMAGE, 'test-run');
 
     await expect(container.createdHealthCheck()).resolves.toBeUndefined();
   });
@@ -27,7 +27,7 @@ describe('the Postgres test container', () => {
   // A commit that waits for the disk waits for every other test's writes too: under a loaded run, Prisma Migrate
   // over every migration took 9 to 23 s instead of 2 (#499). Without fsync only a crash of the host loses commits.
   it('is created to flush nothing to disk, so a commit never waits for the other tests\' writes', () => {
-    const container = new CreatedTestPostgres(POSTGRES_IMAGE);
+    const container = new CreatedTestPostgres(POSTGRES_IMAGE, 'test-run');
 
     expect(container.createdCommand()).toEqual(['postgres', '-c', 'fsync=off']);
   });

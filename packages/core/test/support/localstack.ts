@@ -1,17 +1,21 @@
 import { GenericContainer, Wait, type StartedTestContainer } from 'testcontainers';
+import { inject } from 'vitest';
 
 import { LOCALSTACK_IMAGE } from '../../src/testing/container-images.js';
+import { TEST_RUN_LABEL } from '../../src/testing/container-sweeper.js';
 
 const KMS_PORT = 4566;
 
 /**
  * LocalStack with its KMS alone, waited for by its log. Its image checks its
  * health every 10 s, and on rootless Podman each run is a systemd unit of its
- * own (#554), so the container is created with no health check.
+ * own (#554), so the container is created with no health check. It carries
+ * the label of the test run, so the run's sweeper removes it.
  */
 class TestLocalStack extends GenericContainer {
   constructor() {
     super(LOCALSTACK_IMAGE);
+    this.withLabels({ [TEST_RUN_LABEL]: inject('testRun') });
     this.withEnvironment({ SERVICES: 'kms' });
     this.withExposedPorts(KMS_PORT);
     this.withWaitStrategy(Wait.forLogMessage(/^Ready\.$/m));
