@@ -1,4 +1,4 @@
-import { SCOPES, type FleetId, type ShipId } from '@aeolus-fleet/common';
+import { SCOPES, type FleetId, type ShipId, type TrierarchWorkspace } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { crewAboard, hostedFleetWithViewer, initialiseFleet, operatorCaller, registryUseCases } from '../../../test/support/core-fixtures.js';
@@ -113,7 +113,7 @@ describe('requesting a crew for a ship', () => {
   });
 
   it('takes a main repository and sub-repositories, each with an optional ref, that no trierarch offers: it never checks a name against a machine', async () => {
-    const workspace = { kind: 'repositories', main: { repository: 'company', ref: 'main' }, subRepositories: [{ repository: 'skills' }, { repository: 'aeolus-fleet', ref: 'design' }] };
+    const workspace: TrierarchWorkspace = { kind: 'repositories', main: { repository: 'company', ref: 'main' }, subRepositories: [{ repository: 'skills' }, { repository: 'aeolus-fleet', ref: 'design' }] };
 
     unwrap(await registry.requestCrew(argo, { shipId: scoutId, settings: { ...settings, workspace } }));
 
@@ -222,7 +222,7 @@ describe('a crew request refused', () => {
   });
 
   it('refuses a repository named twice among the sub-repositories, naming the field', async () => {
-    const workspace = { kind: 'repositories', main: { repository: 'hemma' }, subRepositories: [{ repository: 'skills' }, { repository: 'skills', ref: 'next' }] };
+    const workspace: TrierarchWorkspace = { kind: 'repositories', main: { repository: 'hemma' }, subRepositories: [{ repository: 'skills' }, { repository: 'skills', ref: 'next' }] };
 
     await expectRefused(
       { shipId: scoutId, settings: { ...settings, workspace } },

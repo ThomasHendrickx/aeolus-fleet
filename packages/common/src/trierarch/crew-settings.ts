@@ -11,11 +11,30 @@ const utf8 = new TextEncoder();
 /** The longest first prompt, in UTF-8 bytes: 8 KB, given on the first start only. */
 export const FIRST_PROMPT_MAX_BYTES = 8192;
 
-/** A new git worktree of a configured repository, or a configured folder used as it is: named, never a path. */
-export const trierarchWorkspaceSchema = z.discriminatedUnion('kind', [
-  z.strictObject({ kind: z.literal('worktree'), repository: trierarchNameSchema, ref: z.string().min(1).optional() }),
-  z.strictObject({ kind: z.literal('folder'), name: trierarchNameSchema }),
-]);
+/** A configured or trusted repository, by name, at an optional ref: origin's default branch without one. */
+const workspaceRepositorySchema = z.strictObject({ repository: trierarchNameSchema, ref: z.string().min(1).optional() });
+
+/**
+ * A main repository and its sub-repositories, each named once (decision
+ * 0029). Their number has no limit of its own: the settings cap bounds it.
+ */
+const repositoriesWorkspaceSchema = z
+  .strictObject({ kind: z.literal('repositories'), main: workspaceRepositorySchema, subRepositories: z.array(workspaceRepositorySchema) })
+  .superRefine(({ main, subRepositories }, context) => {
+    const named = new Set<string>();
+    subRepositories.forEach(({ repository }, index) => {
+      const path = ['subRepositories', index, 'repository'];
+      if (repository === main.repository) {
+        context.addIssue({ code: 'custom', path, message: `${repository} is the main repository, never a sub-repository` });
+      } else if (named.has(repository)) {
+        context.addIssue({ code: 'custom', path, message: `${repository} is named twice` });
+      }
+      named.add(repository);
+    });
+  });
+
+/** The repositories a ship folder holds, or a configured folder used as it is: named, never a path. */
+export const trierarchWorkspaceSchema = z.discriminatedUnion('kind', [repositoriesWorkspaceSchema, z.strictObject({ kind: z.literal('folder'), name: trierarchNameSchema })]);
 export type TrierarchWorkspace = z.infer<typeof trierarchWorkspaceSchema>;
 
 /**
