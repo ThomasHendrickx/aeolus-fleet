@@ -19,7 +19,7 @@ Keep a fleet with many working ships calm, warm and readable. Motion confirms ac
 1. Confirm the shared translation of the approved option: colour-only settling on state changes, no state-induced tile or group movement, with .45 static solid band under reduced motion. Recommendation: approve; it keeps a static foot and follows the approved proposed opacity.
 2. Confirm the app FleetPanel wrapper's `aeolus-rise` is removed on mount, refresh and state changes as the approved review shows, while unrelated page motion remains governed by its own approved page. Recommendation: approve this adoption boundary.
 
-The 180 ms settling value agrees across sources. Implementation stays gated on design approval.
+The 180 ms settling value agrees across sources. Approved as written at e9ba721 (Thomas, option 1 on question 967e8b26, answer msg_01m77ehz99gpezc585j17xjd6j); built in [#1755](https://github.com/ThomasHendrickx/aeolus-fleet/pull/1755). The preview's shell, controls, type, grid and content are simulated, not a console redesign: consumers keep their own shell and controls.
 
 ## Shared source and adoption boundary
 
@@ -29,15 +29,15 @@ Core owns this cross-repo design. Production source remains `packages/ui/src/the
 | --- | --- | --- |
 | Band, timing, opacity, reduced motion | shared UI | Working only; all consumers agree |
 | State priority and data | common/core | No new interpretation in an app |
-| Stable id and ordering during updates | consumer feeding Harbour | Same keyed tile keeps its position |
+| Stable id and ordering during updates | consumer feeding Harbour | Same keyed tile; the consumer's state order may re-place it at once (Thomas, question 729eccd7-be46-4abf-bcfa-c957d0541d40, answer msg_01m77hnbmnzthx5sn6xesnhd97) |
 | Navigation, filters, retry, forbidden | each app | Existing behavior and keyboard focus preserved |
 | State words, icons, tones | shared ShipState and tokens | No animated label delay |
 
 ## Concrete motion
 
-Approved first option: 3.8 s linear infinite loop. Band alone translates from -100% to +100%; opacity 0 at start, .45 at 10%, 0 at 63.1579%, then stays invisible through 100%. Sweep is 2.4 s; pause 1.4 s (the percentage is rounded in the reference). Preserve the 2 px foot and shared Sea colour. Preserve the gradient rather than turning the whole tile into a shimmer. Do not animate tile transform, size, order or counts on a state update.
+Approved first option: 3.8 s linear infinite loop. Band alone translates from -100% to +100%; opacity 0 at start, .45 at 10%, 0 at 63.1579%, then stays invisible through 100%. Sweep is 2.4 s; pause 1.4 s (the percentage is rounded in the reference). Preserve the 2 px foot and shared Sea colour. Preserve the gradient rather than turning the whole tile into a shimmer. Do not animate tile transform, size, order or counts on a state update: the band and colour settling add no movement, animation or layout effect of their own, while the consumer's normal state order still places the tile.
 
-Approved: background and text colour settle over 180 ms ease-out. Proposed integration detail: border colour also settles over 180 ms, while new icon, state word and report are immediate. Remove the band immediately when Working ends so it never implies work after the fact. On entering Working begin a fresh loop. Rapid changes cancel the old colour interpolation and settle toward the latest state. Normal link hover/focus controls retain their existing contract; state changes never invoke hover movement.
+Approved: background and text colour settle over 180 ms ease-out. Border colour also settles over 180 ms ease-out, hover and press included (they were 150 ms on the standard curve); shadow, lift, focus, click and DOM stay as they are (Thomas, question 811ba909-fd84-4ee0-a5a3-3443a95bb441, answer msg_01m77m5jy1wvk6czrnnd0f3dn8). New icon, state word and report are immediate. Remove the band immediately when Working ends so it never implies work after the fact. On entering Working begin a fresh loop. Rapid changes cancel the old colour interpolation and settle toward the latest state. Link hover and focus otherwise retain their existing contract; state changes never invoke hover movement.
 
 Reduced motion: zero translation, zero fades or interpolation; final colours and labels immediately, Working gets a static .45 solid Sea foot, following the proposed review CSS opacity when animation is disabled (the baseline is .35). Other states have no band. No motion is required to read a state.
 
