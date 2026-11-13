@@ -851,11 +851,12 @@ describe("state-changing console calls come from the console's origin", () => {
   const ELSEWHERE = 'https://elsewhere.fleet.example.com';
   const refusal = "A console call that changes state must come from the console's origin";
 
-  function commission(headers: Record<string, string>) {
+  /** Commissions the stowaway; argo commissions a person ship from the console naming no owner (decision 0045). */
+  function commission(headers: Record<string, string>, kind: 'agent' | 'person' = 'agent') {
     return server.inject({
       method: 'POST',
       url: '/trpc/fleet.commission',
-      payload: { name: 'stowaway', type: 'reviewer', idempotencyKey: 'commission-stowaway' },
+      payload: { name: 'stowaway', type: 'reviewer', kind, idempotencyKey: 'commission-stowaway' },
       headers,
     });
   }
@@ -909,7 +910,7 @@ describe("state-changing console calls come from the console's origin", () => {
     start();
     const cookie = cookieOf(await signIn(OPERATOR));
 
-    const response = await commission({ cookie, origin: FLEET_ORIGIN });
+    const response = await commission({ cookie, origin: FLEET_ORIGIN }, 'person');
 
     expect(response.statusCode).toBe(200);
     expect(stowaways()).toHaveLength(1);

@@ -106,7 +106,8 @@ describe('a sign-in ticket', () => {
     const cookie = 'cookie' in redeemed ? redeemed.cookie : '';
     const asArgo = createTRPCClient<AppRouter>({ links: [httpLink({ url: `${hostingAddress}/trpc`, headers: { cookie, origin: new URL(FLEET_URL).origin } })] });
 
-    const { shipId } = await asArgo.fleet.commission.mutate({ name: 'lenas-scout', type: 'reviewer', idempotencyKey: newKey() });
+    const { shipId: lena } = await asArgo.fleet.commission.mutate({ name: 'lena', type: 'person', kind: 'person', idempotencyKey: newKey() });
+    const { shipId } = await asArgo.fleet.commission.mutate({ name: 'lenas-scout', type: 'reviewer', owner: lena, idempotencyKey: newKey() });
     await asArgo.fleet.rename.mutate({ shipId, name: 'lenas-lookout' });
     await asArgo.ship.send.mutate({ selector: { kind: 'ship', name: 'lenas-lookout' }, payload: 'hello', idempotencyKey: newKey() });
     await asArgo.fleet.retire.mutate({ shipId });
