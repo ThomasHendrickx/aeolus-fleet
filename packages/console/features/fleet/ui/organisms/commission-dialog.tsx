@@ -1,8 +1,8 @@
 'use client';
 
-import type { CrewSettings } from '@aeolus-fleet/common';
+import type { CrewSettings, ShipId } from '@aeolus-fleet/common';
 import { isShipHandle } from '@aeolus-fleet/common/rules';
-import { CircleCheck, CircleX, Tag } from 'lucide-react';
+import { CircleCheck, CircleX, Tag, UserRound } from 'lucide-react';
 import { useId, useState } from 'react';
 
 import { Button, classNames, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, dialogSurface, DialogTitle, Input, Label, ScopePicker, Switch, InlineError } from '@aeolus-fleet/ui';
@@ -59,14 +59,20 @@ interface CommissionDialogProps {
     check?: SettingsCheck;
     onSettingsChange: (settings: CrewSettings | undefined) => void;
   };
+  /**
+   * Signed in as argo: the person ships that may own the new ship, undefined
+   * while they are read, and the one argo named last, preselected. Signed in as
+   * an account there is no Owner field: its person ship owns the ship (decision 0045).
+   */
+  owner?: { choices: readonly { id: ShipId; name: string }[] | undefined; lastPicked?: ShipId };
   /** What commissioning may grant, as the fleet describes it (decision 0046); undefined while it is read. */
   scopeGroups?: readonly OfferedScopes[];
   /** The ship, and the crew request to write once it is commissioned: none when Request a crew is off. */
-  onSubmit: (ship: { name: string; type: string; note?: string; scopes?: string[] }, request: { settings: CrewSettings | Record<string, never> } | undefined) => void;
+  onSubmit: (ship: { name: string; type: string; note?: string; scopes?: string[]; owner?: ShipId }, request: { settings: CrewSettings | Record<string, never> } | undefined) => void;
 }
 
 /** The open dialog's fields: they start empty each time it opens. */
-function CommissionDialogBody({ types, taken, onTypedChange, isPending, error, shipLimit, accountUrl, crewRequest, scopeGroups, onSubmit }: Omit<CommissionDialogProps, 'isOpen' | 'onOpenChange'>) {
+function CommissionDialogBody({ types, taken, onTypedChange, isPending, error, shipLimit, accountUrl, crewRequest, owner, scopeGroups, onSubmit }: Omit<CommissionDialogProps, 'isOpen' | 'onOpenChange'>) {
   const constants = useConsoleConstants();
   const { shipHandleMaxLength, firstPromptMaxBytes } = constants;
   const nameId = useId();
@@ -74,10 +80,15 @@ function CommissionDialogBody({ types, taken, onTypedChange, isPending, error, s
   const typeId = useId();
   const typeHintId = useId();
   const noteId = useId();
+  const ownerId = useId();
+  const ownerHintId = useId();
   const crewId = useId();
   const [name, setName] = useState('');
   const [type, setType] = useState('');
   const [note, setNote] = useState('');
+  // Undefined until the operator picks: the last pick, read after the dialog opens, shows until then.
+  const [pickedOwner, setPickedOwner] = useState<ShipId | null | undefined>(undefined);
+  const ownerShipId = pickedOwner === undefined ? owner?.lastPicked : (pickedOwner ?? undefined);
   const [grantedScopes, setGrantedScopes] = useState<readonly string[]>([]);
   // On by default while the trierarch plugin is connected, off otherwise (#245: Thomas's decision).
   const [isCrewRequested, setIsCrewRequested] = useState(crewRequest !== undefined);
@@ -95,7 +106,8 @@ function CommissionDialogBody({ types, taken, onTypedChange, isPending, error, s
   const trimmedType = type.trim();
   const isTypeValid = isShipHandle(trimmedType);
   const isTypeProblem = trimmedType !== '' && !isTypeValid;
-  const canCommission = check.kind === 'available' && isTypeValid && shipLimit === undefined && isCrewReady;
+  const isOwnerReady = owner === undefined || ownerShipId !== undefined;
+  const canCommission = check.kind === 'available' && isTypeValid && shipLimit === undefined && isCrewReady && isOwnerReady;
   const hasCrewSettings = crewRequest !== undefined && isCrewRequested;
 
   return (
@@ -111,6 +123,7 @@ function CommissionDialogBody({ types, taken, onTypedChange, isPending, error, s
             type: trimmedType,
             ...(note.trim() === '' ? {} : { note }),
             ...(grantedScopes.length === 0 ? {} : { scopes: [...grantedScopes] }),
+            ...(owner === undefined || ownerShipId === undefined ? {} : { owner: ownerShipId }),
           };
           // Without the trierarch plugin a request holds no settings: the ship waits on Needs crew, crewed by hand.
           onSubmit(ship, !isCrewRequested ? undefined : crewRequest === undefined ? { settings: {} } : crewSettings === undefined ? undefined : { settings: crewSettings });
@@ -189,6 +202,30 @@ function CommissionDialogBody({ types, taken, onTypedChange, isPending, error, s
             : typeHint(type, taken.typeShipCounts.get(trimmedType))}
         </p>
       </div>
+      {owner === undefined ? null : (
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor={ownerId}>Owner</Label>
+          <Combobox
+            id={ownerId}
+            options={(owner.choices ?? []).map((choice) => ({ value: choice.id, label: choice.name }))}
+            value={ownerShipId ?? null}
+            onValueChange={(value) => {
+              setPickedOwner(owner.choices?.find((choice) => choice.id === value)?.id ?? null);
+            }}
+            groupLabel="Person ships"
+            emptyText={(query) => `No person ship is named ${query}.`}
+            leadingIcon={<UserRound />}
+            placeholder={owner.choices === undefined ? 'Reading the person ships' : owner.choices.length === 0 ? 'No person ship yet' : 'Pick a person ship'}
+            aria-describedby={ownerHintId}
+            data-testid="commission-owner"
+          />
+          <p id={ownerHintId} className="text-meta text-muted-foreground">
+            {owner.choices?.length === 0
+              ? 'A ship needs a person to answer for it. Commission that person\'s ship first.'
+              : `The person who answers for ${name === '' ? 'the ship' : name}: its questions, gates and trouble go to their ship.`}
+          </p>
+        </div>
+      )}
       <div className="flex flex-col gap-1.5">
         <Label htmlFor={noteId}>Note (optional)</Label>
         <Textarea
@@ -283,8 +320,10 @@ function CommissionDialogBody({ types, taken, onTypedChange, isPending, error, s
  * that says available or why not), the type with suggestions from the fleet
  * and what it means, and the optional note the blueprint keeps, and Request a
  * crew (#245): without the trierarch plugin it puts the ship on Needs crew;
- * with it, the crew request's settings, checked by the plugin. The button
- * stays disabled until the name is free and the type a handle. Desktop: a
+ * with it, the crew request's settings, checked by the plugin. Signed in as
+ * argo, the Owner, a person ship, the last pick preselected
+ * (docs/design/ship-owners). The button
+ * stays disabled until the name is free, the type a handle and, for argo, an owner picked. Desktop: a
  * dialog; phone: full screen. On success the page hands over to the
  * StartingPromptDialog.
  */
