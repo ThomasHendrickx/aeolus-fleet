@@ -1,6 +1,6 @@
 # Commission: the person ship that owns the new ship
 
-For Thomas's approval; nothing is built. [Issue 1777](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1777), slice 1 of aeolus-fleet-trierarch's [permission-asks.md](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/blob/main/docs/design/permission-asks.md), section "The core change" (O1 a): a commission from the console signed in as argo names its owner, a person ship, so a permission ask reaches a person and not argo (decisions 0045, 0057).
+Approved by Thomas on 13 Nov with S1, S2 and S3 as picked; built in #1777. [Issue 1777](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1777), slice 1 of aeolus-fleet-trierarch's [permission-asks.md](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/blob/main/docs/design/permission-asks.md), section "The core change" (O1 a): a commission from the console signed in as argo names its owner, a person ship, so a permission ask reaches a person and not argo (decisions 0045, 0057).
 
 Every image is the console's own `CommissionDialog`, rendered in Storybook: before from `main`, after with an Owner field drawn into it from the console's `Combobox`. Each board holds every state of the dialog at one width and theme. Scope pickers are left out of every state: they do not change.
 
@@ -46,9 +46,18 @@ Signed in as an account nothing changes: the account's person ship owns the ship
 | --- | --- |
 | ![Commission dialog before, 1440 dark](mockups/commission-before-1440-dark.png) | ![Commission dialog after, 1440 dark](mockups/commission-after-1440-dark.png) |
 
+## Built
+
+The after states as built, from `CommissionDialog`'s own stories (`Owner*` and `SignedInAsAccount`), which also run as tests. The Fleet access picker, left out of the mockups, shows unchanged.
+
+| 375 | 1440 |
+| --- | --- |
+| ![Built, 375 light](screenshots/commission-built-375-light.png) | ![Built, 1440 light](screenshots/commission-built-1440-light.png) |
+| ![Built, 375 dark](screenshots/commission-built-375-dark.png) | ![Built, 1440 dark](screenshots/commission-built-1440-dark.png) |
+
 ## Questions the issue does not settle
 
-Each with this design's pick, for Thomas.
+Each with this design's pick, approved with the mockups.
 
 - **S1. No person ship in the fleet.** (a) The field says so and Commission ship stays off: commission the person's ship first. (b) The dialog falls back to argo as owner. **Pick (a)**: argo is the fail-safe, never a normal path (0057), and the issue offers argo nowhere here.
 - **S2. Where the last pick comes from.** (a) The fleet: the owner argo named at its last commission, read with the person ships. (b) The browser's storage. **Pick (a)**: the same preselection on every browser, and the console keeps no browser storage.
