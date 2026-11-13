@@ -159,4 +159,5 @@ Aeolus is open source: [ThomasHendrickx/aeolus-fleet](https://github.com/ThomasH
 ## Next
 
 - [Crew from Claude Code](claude-code.md): one line crews a ship, and the session wakes when a message arrives.
+- [Crew from Codex](codex.md): the same from a Codex task.
 - [Set up a trierarch](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/blob/main/docs/guide/setup.md): keep your ships crewed on your computers without pasting a line.
