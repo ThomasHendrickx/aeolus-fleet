@@ -69,6 +69,18 @@ function signInTrail(page: Page): string[] {
 }
 
 /** Opens a fleet row's actions menu; its items render in a portal, so find them on the page. */
+/** Picks the owner of a ship argo commissions, a person ship, in the open CommissionDialog (docs/design/ship-owners). */
+export async function pickOwner(page: Page, name: string): Promise<void> {
+  const owner = page.getByTestId('commission-dialog').getByTestId('commission-owner');
+  // The owner argo named last shows by itself once read: picking it again changes nothing.
+  await page.waitForLoadState('networkidle');
+  if ((await owner.inputValue()) === name) {
+    return;
+  }
+  await owner.fill(name);
+  await page.getByRole('option', { name, exact: true }).click();
+}
+
 export async function openRowMenu(page: Page, shipName: string): Promise<void> {
   await page.getByTestId(`fleet-row-${shipName}`).getByTestId('fleet-actions').click();
 }

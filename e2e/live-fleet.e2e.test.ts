@@ -10,7 +10,7 @@ import { FLEET_URL, OPERATOR, operatorCaller, secretIn, secretOf, shipIdIn } fro
 import { createMigratedDatabase } from '../packages/core/src/testing/database.js';
 import { createTestClock } from '../packages/core/test/support/postgres-core.js';
 import { unwrap } from '../packages/core/src/testing/result.js';
-import { signIn, openRowMenu } from './support/console.js';
+import { signIn, openRowMenu, pickOwner } from './support/console.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 import { newKey } from '../packages/core/src/testing/keys.js';
 import { withOperatorLogin } from '../packages/core/test/support/operator-login.js';
@@ -37,6 +37,8 @@ beforeAll(async () => {
   database = createPrismaClient(databaseUrl);
   useCases = createUseCases({ prisma: database, clock });
   argo = operatorCaller(unwrap(await withOperatorLogin(database, useCases.initialiseFleet({ name: 'home fleet' }))));
+  // The person ship that owns what argo commissions in the console (decision 0045).
+  unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'charlotte', type: 'person', kind: 'person' }));
 
   const webUrl = await reserveWebUrl();
   server = createApp({ databaseUrl, publicUrl: FLEET_URL, consoleOrigin: webUrl, clock, logger: false });
@@ -95,6 +97,7 @@ async function commissionInConsole(page: Page, ship: { name: string; type: strin
   const dialog = page.getByTestId('commission-dialog');
   await dialog.getByTestId('commission-name').fill(ship.name);
   await dialog.getByTestId('commission-type').fill(ship.type);
+  await pickOwner(page, 'charlotte');
   await dialog.getByTestId('commission-submit').click();
   const block = page.getByTestId('starting-prompt-dialog');
   const prompt = (await block.getByTestId('starting-prompt-text').textContent()) ?? '';
