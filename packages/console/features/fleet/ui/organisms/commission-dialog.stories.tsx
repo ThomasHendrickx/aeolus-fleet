@@ -1,6 +1,6 @@
-import { CORE_SCOPE_DESCRIPTIONS } from '@aeolus-fleet/common';
+import { CORE_SCOPE_DESCRIPTIONS, idSchema } from '@aeolus-fleet/common';
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
-import { expect, screen, userEvent, waitFor, within } from 'storybook/test';
+import { expect, fn, screen, userEvent, waitFor, within } from 'storybook/test';
 
 import { CommissionDialog } from './commission-dialog';
 import { MACHINE_LABELS, OFFERS } from '../../../../lib/fixtures/machines.fixtures';
@@ -99,5 +99,76 @@ export const WithMachineLabelNoMachineCarries: Story = {
     await waitFor(async () => {
       await expect(screen.getByTestId('commission-crew-note')).toHaveTextContent('The request will wait for a machine with these labels.');
     });
+  },
+};
+
+/** The fleet's person ships, as argo picks an owner from them (docs/design/ship-owners). */
+const CHARLOTTE = idSchema('ship').parse('shp_01j9k2t4qzr3a9w6m2v5n7ch01');
+const PERSON_SHIPS = [
+  { id: idSchema('ship').parse('shp_01j9k2t4qzr3a9w6m2v5n7bk01'), name: 'burak' },
+  { id: CHARLOTTE, name: 'charlotte' },
+  { id: idSchema('ship').parse('shp_01j9k2t4qzr3a9w6m2v5n7th01'), name: 'thomas' },
+];
+
+/** Types a free name and a type, as the boards show them. */
+async function typeNameAndType() {
+  await userEvent.type(await screen.findByTestId('commission-name'), 'reviewer-03');
+  const type = screen.getByTestId('commission-type');
+  await userEvent.type(type.querySelector('input') ?? type, 'reviewer');
+  await userEvent.keyboard('{Escape}');
+}
+
+/** Signed in as argo, nothing picked yet: Commission ship stays off until an owner is picked. */
+export const OwnerNothingPicked: Story = {
+  args: { owner: { choices: PERSON_SHIPS } },
+  play: async () => {
+    await typeNameAndType();
+    await expect(screen.getByTestId('commission-submit')).toBeDisabled();
+    await expect(screen.getByText('The person who answers for reviewer-03: its questions, gates and trouble go to their ship.')).toBeVisible();
+  },
+};
+/** Signed in as argo, the owner argo named last preselected: Commission ship commissions it with that owner. */
+export const OwnerLastPicked: Story = {
+  args: { owner: { choices: PERSON_SHIPS, lastPicked: CHARLOTTE }, onSubmit: fn() },
+  play: async ({ args }) => {
+    await typeNameAndType();
+    const owner = screen.getByTestId('commission-owner');
+    await expect(owner.querySelector('input') ?? owner).toHaveValue('charlotte');
+    await userEvent.click(screen.getByTestId('commission-submit'));
+    await expect(args.onSubmit).toHaveBeenCalledWith({ name: 'reviewer-03', type: 'reviewer', owner: CHARLOTTE }, undefined);
+  },
+};
+/** Picking an owner: person ships only, argo is not offered. */
+export const OwnerPicking: Story = {
+  args: { owner: { choices: PERSON_SHIPS } },
+  play: async () => {
+    await typeNameAndType();
+    const owner = screen.getByTestId('commission-owner');
+    await userEvent.type(owner.querySelector('input') ?? owner, 'r');
+    const listed = await screen.findAllByRole('option');
+    await expect(listed.map((option) => option.textContent)).toEqual(['burak', 'charlotte']);
+    await expect(screen.queryByRole('option', { name: 'argo' })).toBeNull();
+  },
+};
+/** No person ship in the fleet (S1): the field says so, and Commission ship stays off. */
+export const OwnerNoPersonShip: Story = {
+  args: { owner: { choices: [] } },
+  play: async () => {
+    await typeNameAndType();
+    await expect(screen.getByText("A ship needs a person to answer for it. Commission that person's ship first.")).toBeVisible();
+    await expect(screen.getByTestId('commission-submit')).toBeDisabled();
+  },
+};
+/** Refused by the fleet: the reason names the field, the input kept. */
+export const OwnerRefused: Story = {
+  args: { owner: { choices: PERSON_SHIPS, lastPicked: CHARLOTTE }, error: 'owner: name the person ship that owns the new ship' },
+  play: typeNameAndType,
+};
+/** Signed in as an account: no Owner field, as before; the account's person ship owns the ship. */
+export const SignedInAsAccount: Story = {
+  play: async () => {
+    await typeNameAndType();
+    await expect(screen.queryByTestId('commission-owner')).toBeNull();
+    await expect(screen.getByTestId('commission-submit')).toBeEnabled();
   },
 };
