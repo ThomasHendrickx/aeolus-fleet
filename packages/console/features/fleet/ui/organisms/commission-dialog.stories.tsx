@@ -164,6 +164,27 @@ export const OwnerRefused: Story = {
   args: { owner: { choices: PERSON_SHIPS, lastPicked: CHARLOTTE }, error: 'owner: name the person ship that owns the new ship' },
   play: typeNameAndType,
 };
+/** The person ships could not be read: the field says what failed, keeps the input and offers Try again. */
+export const OwnerReadFailed: Story = {
+  args: { owner: { choices: undefined, failure: { message: 'Network request failed', onRetry: fn() } } },
+  play: async ({ args }) => {
+    await typeNameAndType();
+    await expect(screen.getByText('Couldn’t read the person ships')).toBeVisible();
+    await expect(screen.getByTestId('commission-name')).toHaveValue('reviewer-03');
+    await expect(screen.getByTestId('commission-submit')).toBeDisabled();
+    await userEvent.click(screen.getByRole('button', { name: /try again/i }));
+    await expect(args.owner?.failure?.onRetry).toHaveBeenCalled();
+  },
+};
+/** The owner argo named last could not be read: no preselection, and the field says so with Try again. */
+export const OwnerLastNamedReadFailed: Story = {
+  args: { owner: { choices: PERSON_SHIPS, failure: { message: 'Network request failed', onRetry: fn() } } },
+  play: async () => {
+    await typeNameAndType();
+    await expect(screen.getByText('Couldn’t read the person ships')).toBeVisible();
+    await expect(screen.getByRole('button', { name: /try again/i })).toBeVisible();
+  },
+};
 /** Signed in as an account: no Owner field, as before; the account's person ship owns the ship. */
 export const SignedInAsAccount: Story = {
   play: async () => {

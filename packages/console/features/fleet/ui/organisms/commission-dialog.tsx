@@ -64,7 +64,14 @@ interface CommissionDialogProps {
    * while they are read, and the one argo named last, preselected. Signed in as
    * an account there is no Owner field: its person ship owns the ship (decision 0045).
    */
-  owner?: { choices: readonly { id: ShipId; name: string }[] | undefined; lastPicked?: ShipId };
+  owner?: {
+    choices: readonly { id: ShipId; name: string }[] | undefined;
+    lastPicked?: ShipId;
+    /** Each change of the text typed in the field, so the person ships that match are read. */
+    onQueryChange?: (query: string) => void;
+    /** A read of the person ships failed: why, and how to read again. */
+    failure?: { message: string; onRetry: () => void };
+  };
   /** What commissioning may grant, as the fleet describes it (decision 0046); undefined while it is read. */
   scopeGroups?: readonly OfferedScopes[];
   /** The ship, and the crew request to write once it is commissioned: none when Request a crew is off. */
@@ -87,8 +94,10 @@ function CommissionDialogBody({ types, taken, onTypedChange, isPending, error, s
   const [type, setType] = useState('');
   const [note, setNote] = useState('');
   // Undefined until the operator picks: the last pick, read after the dialog opens, shows until then.
-  const [pickedOwner, setPickedOwner] = useState<ShipId | null | undefined>(undefined);
-  const ownerShipId = pickedOwner === undefined ? owner?.lastPicked : (pickedOwner ?? undefined);
+  const [pickedOwner, setPickedOwner] = useState<{ id: ShipId; name: string } | null | undefined>(undefined);
+  const ownerShipId = pickedOwner === undefined ? owner?.lastPicked : (pickedOwner?.id ?? undefined);
+  // What argo picked stays offered when a later search no longer finds it.
+  const ownerChoices = owner?.choices === undefined && pickedOwner == null ? undefined : [...(owner?.choices ?? []), ...(pickedOwner == null || owner?.choices?.some((choice) => choice.id === pickedOwner.id) === true ? [] : [pickedOwner])];
   const [grantedScopes, setGrantedScopes] = useState<readonly string[]>([]);
   // On by default while the trierarch plugin is connected, off otherwise (#245: Thomas's decision).
   const [isCrewRequested, setIsCrewRequested] = useState(crewRequest !== undefined);
@@ -207,23 +216,34 @@ function CommissionDialogBody({ types, taken, onTypedChange, isPending, error, s
           <Label htmlFor={ownerId}>Owner</Label>
           <Combobox
             id={ownerId}
-            options={(owner.choices ?? []).map((choice) => ({ value: choice.id, label: choice.name }))}
+            options={(ownerChoices ?? []).map((choice) => ({ value: choice.id, label: choice.name }))}
             value={ownerShipId ?? null}
             onValueChange={(value) => {
-              setPickedOwner(owner.choices?.find((choice) => choice.id === value)?.id ?? null);
+              setPickedOwner(ownerChoices?.find((choice) => choice.id === value) ?? null);
             }}
+            {...(owner.onQueryChange === undefined ? {} : { onQueryChange: owner.onQueryChange })}
             groupLabel="Person ships"
             emptyText={(query) => `No person ship is named ${query}.`}
             leadingIcon={<UserRound />}
-            placeholder={owner.choices === undefined ? 'Reading the person ships' : owner.choices.length === 0 ? 'No person ship yet' : 'Pick a person ship'}
+            placeholder={owner.failure !== undefined && owner.choices === undefined ? 'Person ships not read' : owner.choices === undefined ? 'Reading the person ships' : owner.choices.length === 0 ? 'No person ship yet' : 'Pick a person ship'}
             aria-describedby={ownerHintId}
             data-testid="commission-owner"
           />
-          <p id={ownerHintId} className="text-meta text-muted-foreground">
-            {owner.choices?.length === 0
-              ? 'A ship needs a person to answer for it. Commission that person\'s ship first.'
-              : `The person who answers for ${name === '' ? 'the ship' : name}: its questions, gates and trouble go to their ship.`}
-          </p>
+          {owner.failure === undefined ? (
+            <p id={ownerHintId} className="text-meta text-muted-foreground">
+              {owner.choices?.length === 0
+                ? 'A ship needs a person to answer for it. Commission that person\'s ship first.'
+                : `The person who answers for ${name === '' ? 'the ship' : name}: its questions, gates and trouble go to their ship.`}
+            </p>
+          ) : (
+            <div id={ownerHintId}>
+              <InlineError
+                title="Couldn’t read the person ships"
+                description={`${owner.failure.message}. Nothing you typed is lost; try again to pick an owner.`}
+                onRetry={owner.failure.onRetry}
+              />
+            </div>
+          )}
         </div>
       )}
       <div className="flex flex-col gap-1.5">
