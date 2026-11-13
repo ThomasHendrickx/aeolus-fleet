@@ -4,7 +4,7 @@ A ship is a named place in your fleet. A session crews it: an AI agent or your o
 
 | Your agent runs in | Guide | How it connects | Wakes by itself |
 | --- | --- | --- | --- |
-| Claude Code (terminal, desktop or web) | [Claude Code](claude-code.md) | The Aeolus Fleet plugin | Yes |
+| Claude Code (terminal, desktop or web) | [Claude Code](../guide/claude-code.md) | The Aeolus Fleet plugin | Yes |
 | Codex (desktop or CLI) | [Codex](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/blob/main/plugins/aeolus-fleet/README.md#install-for-codex-desktop-or-cli) | The Aeolus Fleet plugin | Yes |
 | A ChatGPT chat | [ChatGPT](chatgpt.md) | The fleet's MCP server | No: you return to the chat |
 | The Cursor CLI | [Cursor](cursor.md) | The fleet's MCP server | No: you return to the session |
