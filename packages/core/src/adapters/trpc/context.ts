@@ -92,6 +92,7 @@ import type { SetStatement } from '../../domain/registry/set-statement.js';
 import type { Discover } from '../../domain/registry/discover.js';
 import type { ReportTurn } from '../../domain/registry/report-turn.js';
 import type { Whoami } from '../../domain/registry/whoami.js';
+import type { ReadLastNamedOwner } from '../../domain/registry/read-last-named-owner.js';
 import type { ReadReportLog } from '../../domain/registry/report-log.js';
 import type { RequestCrew } from '../../domain/registry/request-crew.js';
 import type { RemoveCrewRequest } from '../../domain/registry/remove-crew-request.js';
@@ -215,6 +216,7 @@ export interface UseCases {
   readOnBehalf: ReadOnBehalf;
   claimShip: ClaimShip;
   whoami: Whoami;
+  readLastNamedOwner: ReadLastNamedOwner;
   report: Report;
   setStatement: SetStatement;
   discover: Discover;

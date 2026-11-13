@@ -160,7 +160,8 @@ describe('what a viewer session may do', () => {
 describe('what a viewer session reads', () => {
   it("reads argo's inbox, as the operator sees it", async () => {
     const operator = await operating();
-    const { shipId } = unwrap(await registryUseCases(core).commissionShip(operator.caller, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
+    const owner = unwrap(await registryUseCases(core).commissionShip(operator.caller, { idempotencyKey: newKey(), name: 'charlotte', type: 'person', kind: 'person' })).shipId;
+    const { shipId } = unwrap(await registryUseCases(core).commissionShip(operator.caller, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer', owner }));
     const scout = crewAboard(core, { fleetId, shipId });
     unwrap(await messagingUseCases(core).sendMessage(scout, { ...modelOf(scout), selector: { kind: 'ship', shipId: argoId }, payload: 'Run 71 passed', idempotencyKey: newKey() }));
     const viewer = await viewing();

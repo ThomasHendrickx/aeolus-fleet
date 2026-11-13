@@ -20,6 +20,7 @@ import { useSquadrons } from '../../../lib/squadrons-api';
 import { useCrewSettingsCheck, useEnabledModels, useMachines, useTrierarchPluginConnection } from '../../../lib/trierarch-plugin';
 import { useShipTypes, useTypeShipCount } from '../../../lib/ship-types';
 import { grantableScopes } from '../services/grantable-scopes';
+import { useCommissionOwner } from '../hooks/commission-owner';
 
 // Dialogs load when first opened, not with the page.
 const CommissionDialog = lazyDialog(() => import('../ui/organisms/commission-dialog').then((module) => module.CommissionDialog), (props) => props.isOpen);
@@ -58,6 +59,7 @@ export function CommissionShip({ isOpen, onOpenChange }: { isOpen: boolean; onOp
   const [typed, setTyped] = useState({ name: '', type: '' });
   const isNameTaken = useIsShipNameTaken(typed.name);
   const typeShipCount = useTypeShipCount(typed.type);
+  const owner = useCommissionOwner(isOpen);
 
   const issued = commission.data?.prompt == null ? getStartingPrompt.data : commission.data;
   const promptState: StartingPromptDialogState = issued ? 'shown' : getStartingPrompt.isError ? 'error' : 'issuing';
@@ -118,6 +120,7 @@ export function CommissionShip({ isOpen, onOpenChange }: { isOpen: boolean; onOp
         error={commission.error?.message}
         shipLimit={shipLimitReached(limits.data)}
         accountUrl={accountUrl}
+        {...(owner === undefined ? {} : { owner })}
         scopeGroups={scopes.data === undefined ? undefined : grantableScopes(scopes.data, fleetScopes)}
         {...(hasTrierarchs
           ? {

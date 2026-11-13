@@ -1,4 +1,4 @@
-import { createIdGenerator, type FleetId, type ShipId } from '@aeolus-fleet/common';
+import { SCOPES, accountIdSchema, createIdGenerator, type FleetId, type ShipId } from '@aeolus-fleet/common';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { cryptoRandomTokens, sha256Hasher } from '../src/adapters/crypto/secrets.js';
@@ -278,5 +278,64 @@ describe('the owner read on Postgres', () => {
     await expect(core.useCases.getShip(argo, { shipId: scoutId })).resolves.toMatchObject({ isOk: true, value: { owner: { id: thomasId, name: 'thomas' } } });
     await expect(core.useCases.getShip(argo, { shipId: thomasId })).resolves.toMatchObject({ isOk: true, value: { owner: { id: thomasId, name: 'thomas' } } });
     await expect(core.useCases.whoami(argo)).resolves.toMatchObject({ isOk: true, value: { ownerShipId: null, ownerName: null } });
+  });
+});
+
+describe('a ship argo commissions from the console, on Postgres (#1777)', () => {
+  let charlotteId: ShipId;
+  let burakId: ShipId;
+  let argoInConsole: ShipCaller;
+
+  beforeEach(async () => {
+    ({ shipId: charlotteId } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'charlotte', type: 'person', kind: 'person', scopes: ['fleet:commission'] })));
+    ({ shipId: burakId } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'burak', type: 'person', kind: 'person' })));
+    argoInConsole = { ...argo, consoleSessionId: newId('consoleSession') };
+  });
+
+  it('stores the person ship argo names as its owner, with OwnerSet saying it was named', async () => {
+    const { shipId } = unwrap(await core.useCases.commissionShip(argoInConsole, { idempotencyKey: newKey(), name: 'reviewer-03', type: 'reviewer', owner: charlotteId }));
+
+    await expect(ownerOf(shipId)).resolves.toBe(charlotteId);
+    await expect(ownerEventsAbout(shipId)).resolves.toEqual([['OwnerSet', { ownerShipId: charlotteId, how: 'named' }]]);
+  });
+
+  it('answers the owner argo named at its last commission, and none before it named one', async () => {
+    await expect(core.useCases.readLastNamedOwner(argoInConsole)).resolves.toBeNull();
+    unwrap(await core.useCases.commissionShip(argoInConsole, { idempotencyKey: newKey(), name: 'reviewer-01', type: 'reviewer', owner: charlotteId }));
+    unwrap(await core.useCases.commissionShip(argoInConsole, { idempotencyKey: newKey(), name: 'reviewer-02', type: 'reviewer', owner: burakId }));
+
+    const owner = await core.useCases.readLastNamedOwner(argoInConsole);
+
+    expect(owner).toEqual({ id: burakId, name: 'burak' });
+  });
+
+  it('names the owner in whoami and the ship read, for argo, an account, a person-owned orchestrator and an argo-owned one as commissioner', async () => {
+    const { shipId: named } = unwrap(await core.useCases.commissionShip(argoInConsole, { idempotencyKey: newKey(), name: 'reviewer-03', type: 'reviewer', owner: charlotteId }));
+    const account = { kind: 'account' as const, accountId: accountIdSchema.parse('acc_1777'), fleetId, scopes: [...SCOPES], groupValues: [], personShipId: burakId, throughShipId: null };
+    const { shipId: accounts } = unwrap(await core.useCases.commissionShip(account, { idempotencyKey: newKey(), name: 'helper', type: 'helper' }));
+    const { shipId: personOrchestratorId } = unwrap(await core.useCases.commissionShip(argoInConsole, { idempotencyKey: newKey(), name: 'orchestrator-1', type: 'orchestrator', owner: charlotteId, scopes: ['fleet:commission'] }));
+    const personOrchestrator: ShipCaller = { shipId: personOrchestratorId, fleetId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'fleet:commission'] };
+    const { shipId: fromPersonOrchestrator } = unwrap(await core.useCases.commissionShip(personOrchestrator, { idempotencyKey: newKey(), name: 'build-1', type: 'implementer' }));
+    const { shipId: argoOrchestratorId } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'orchestrator-2', type: 'orchestrator', scopes: ['fleet:commission'] }));
+    const argoOrchestrator: ShipCaller = { shipId: argoOrchestratorId, fleetId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'fleet:commission'] };
+    const { shipId: fromArgoOrchestrator } = unwrap(await core.useCases.commissionShip(argoOrchestrator, { idempotencyKey: newKey(), name: 'build-2', type: 'implementer' }));
+
+    const owners = await Promise.all(
+      [named, accounts, fromPersonOrchestrator, fromArgoOrchestrator].map(async (shipId) => {
+        const whoami = unwrap(await core.useCases.whoami({ shipId, fleetId, kind: 'agent', scopes: ['messages:send', 'messages:receive'] }));
+        const ship = unwrap(await core.useCases.getShip(argo, { shipId }));
+        return { whoami: whoami.ownerName, ship: 'owner' in ship ? ship.owner?.name : undefined };
+      }),
+    );
+
+    expect(owners).toEqual([
+      { whoami: 'charlotte', ship: 'charlotte' },
+      { whoami: 'burak', ship: 'burak' },
+      { whoami: 'charlotte', ship: 'charlotte' },
+      { whoami: 'argo', ship: 'argo' },
+    ]);
+    await expect(ownerEventsAbout(accounts)).resolves.toEqual([['OwnerSet', { ownerShipId: burakId, how: 'accountPersonShip' }]]);
+    await expect(ownerEventsAbout(fromPersonOrchestrator)).resolves.toEqual([['OwnerSet', { ownerShipId: charlotteId, how: 'inherited' }]]);
+    await expect(ownerEventsAbout(fromArgoOrchestrator)).resolves.toEqual([['OwnerSet', { ownerShipId: argoId, how: 'inherited' }]]);
   });
 });

@@ -24,6 +24,7 @@ import {
   shipCursorOf,
   commissionShipInputSchema,
   commissionShipOutputSchema,
+  lastNamedOwnerOutputSchema,
   dismissDeliveryInputSchema,
   dismissDeliveryOutputSchema,
   fleetEventsInputSchema,
@@ -182,6 +183,7 @@ import { describedAcknowledged, describedHealth, describedPerHour, describedStuc
 import { presentStartingPrompt } from './starting-prompt-text.js';
 import { schedulesPageOf } from './schedule-output.js';
 import { actorAllScopesProcedure, actorAnyScopeProcedure, actorProcedure, actorScopedProcedure, anyScopeProcedure, callerStillHolding, okOrThrow, ownPersonShipOrAnyScopeProcedure, router, scopedCrewCallerProcedure, scopedProcedure } from './trpc.js';
+import { isShipCaller } from '../../domain/shared/caller.js';
 
 /** A crew request as the API answers it: its times in ISO 8601, and when its session started as `startedAt`. */
 function crewRequestOutputOf<T extends { requestedAt: Date; sessionStartedAt: Date | null; givenBack: ShipFacts['crewRequestGivenBack'] }>(request: T | null) {
@@ -1254,6 +1256,11 @@ export const fleetRouter = router({
       );
       return { items: ships.map((ship) => ({ ...ship, lastActivityAt: ship.lastActivityAt?.toISOString() ?? null })), nextCursor: nextCursor && shipCursorOf(nextCursor), counts };
     }),
+
+  /** The person ship the caller named as owner at its last commission: the console preselects it when argo commissions (decision 0045). */
+  lastNamedOwner: actorScopedProcedure('fleet:commission')
+    .output(lastNamedOwnerOutputSchema)
+    .query(async ({ ctx }) => ({ owner: isShipCaller(ctx.caller) ? await ctx.useCases.readLastNamedOwner(ctx.caller) : null })),
 
   /** The types of the ships in read reach, each once, sorted: active ones unless status asks for retired. */
   shipTypes: actorScopedProcedure('fleet:read')

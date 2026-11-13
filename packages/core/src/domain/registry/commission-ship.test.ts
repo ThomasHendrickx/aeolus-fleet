@@ -1220,3 +1220,55 @@ describe("commissioning at the fleet's ship limit", () => {
     await expect(commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' })).resolves.toMatchObject({ isOk: true });
   });
 });
+
+describe('a ship argo commissions from the console, owned by the person ship it names (decision 0045, #1777)', () => {
+  let charlotte: ShipId;
+  let argoInConsole: ShipCaller;
+
+  beforeEach(async () => {
+    charlotte = unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'charlotte', type: 'person', kind: 'person' })).shipId;
+    argoInConsole = { ...argo, consoleSessionId: core.ids('consoleSession') };
+    core.state.events.length = 0;
+  });
+
+  function ownerSetOf(shipId: ShipId) {
+    return core.state.events.filter((event) => event.type === 'OwnerSet' && event.shipId === shipId).map((event) => event.details);
+  }
+
+  it('is owned by the person ship argo names, with OwnerSet saying it was named', async () => {
+    const commission = { idempotencyKey: newKey(), name: 'reviewer-03', type: 'reviewer', owner: charlotte };
+
+    const { shipId } = unwrap(await commissionShip(argoInConsole, commission));
+
+    expect(shipsNamed('reviewer-03')[0]?.owner).toBe(charlotte);
+    expect(ownerSetOf(shipId)).toEqual([{ ownerShipId: charlotte, how: 'named' }]);
+  });
+
+  it('refuses a commission that names no owner, naming the field, and stores nothing', async () => {
+    const commission = { idempotencyKey: newKey(), name: 'reviewer-03', type: 'reviewer' };
+
+    const refused = await commissionShip(argoInConsole, commission);
+
+    expect(refused).toEqual({ isOk: false, error: { kind: 'INVALID_OWNER', message: 'owner: name the person ship that owns the new ship' } });
+    expect(shipsNamed('reviewer-03')).toEqual([]);
+  });
+
+  it('refuses argo as the owner it names, and stores nothing', async () => {
+    const commission = { idempotencyKey: newKey(), name: 'reviewer-03', type: 'reviewer', owner: argoId };
+
+    const refused = await commissionShip(argoInConsole, commission);
+
+    expect(refused).toEqual({ isOk: false, error: { kind: 'INVALID_OWNER', message: 'owner: name a person ship; argo owns no ship commissioned from the console' } });
+    expect(shipsNamed('reviewer-03')).toEqual([]);
+  });
+
+  it('refuses an owner that is no active person ship, and stores nothing', async () => {
+    const scout = unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' })).shipId;
+    const commission = { idempotencyKey: newKey(), name: 'reviewer-03', type: 'reviewer', owner: scout };
+
+    const refused = await commissionShip(argoInConsole, commission);
+
+    expect(refused).toEqual({ isOk: false, error: { kind: 'INVALID_OWNER', message: 'owner: name a person ship; argo owns no ship commissioned from the console' } });
+    expect(shipsNamed('reviewer-03')).toEqual([]);
+  });
+});

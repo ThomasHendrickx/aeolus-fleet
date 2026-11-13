@@ -12,7 +12,7 @@ import { createApp } from '../src/app.js';
 import type { AppRouter } from '../src/index.js';
 import { appRouter } from '../src/adapters/trpc/router.js';
 import { createUseCases } from '../src/wiring.js';
-import { FLEET_MCP_URL, FLEET_URL, OPERATOR, secretIn, SESSION_MODEL } from './support/core-fixtures.js';
+import { FLEET_MCP_URL, FLEET_URL, OPERATOR, operatorCaller, secretIn, SESSION_MODEL } from './support/core-fixtures.js';
 import { createMigratedDatabase } from '../src/testing/database.js';
 import { unwrap } from '../src/testing/result.js';
 import { createTestClock } from './support/postgres-core.js';
@@ -37,13 +37,16 @@ let server: FastifyInstance;
 let address: string;
 let fleetId: FleetId;
 let argoId: ShipId;
+/** The person ship that owns what argo commissions through the console (decision 0045). */
+let ownerId: ShipId;
 
 beforeAll(async () => {
   databaseUrl = await createMigratedDatabase();
   database = createPrismaClient(databaseUrl);
-  ({ fleetId, operatorShipId: argoId } = unwrap(
-    await withOperatorLogin(database, createUseCases({ prisma: database, clock }).initialiseFleet({ name: 'home fleet' })),
-  ));
+  const useCases = createUseCases({ prisma: database, clock });
+  const fleet = unwrap(await withOperatorLogin(database, useCases.initialiseFleet({ name: 'home fleet' })));
+  ({ fleetId, operatorShipId: argoId } = fleet);
+  ({ shipId: ownerId } = unwrap(await useCases.commissionShip(operatorCaller(fleet), { idempotencyKey: newKey(), name: 'charlotte', type: 'person', kind: 'person' })));
 
   server = createApp({
     databaseUrl,
@@ -304,6 +307,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_commission_approvals$/),
       expect.stringMatching(/^\d{14}_crew_request_repositories$/),
       expect.stringMatching(/^\d{14}_shared_operator_email$/),
+      expect.stringMatching(/^\d{14}_events_owner_set_index$/),
     ]);
   });
 });
@@ -458,7 +462,7 @@ describe('the fleet procedures at the API', () => {
 
   it('commission a ship as argo: listed as awaiting crew, its prompt unclaimed', async () => {
     const asArgo = await signedInArgo();
-    const { shipId, prompt } = await asArgo.fleet.commission.mutate({ idempotencyKey: newKey(), ...scout, note: 'reviews pull requests' });
+    const { shipId, prompt } = await asArgo.fleet.commission.mutate({ idempotencyKey: newKey(), owner: ownerId, ...scout, note: 'reviews pull requests' });
 
     expect(prompt).toContain(`Fleet MCP URL: ${FLEET_MCP_URL}`);
     expect(prompt).toContain(`Ship id: ${shipId}`);
@@ -482,14 +486,14 @@ describe('the fleet procedures at the API', () => {
       model: null,
       awaitingCrewSince: clock.now().toISOString(),
       retiredAt: null,
-      ownerShipId: argoId,
+      ownerShipId: ownerId,
       openAlertCount: 0,
     });
   });
 
   it('give a new starting prompt: the previous secret stops working, the new one registers', async () => {
     const asArgo = await signedInArgo();
-    const { shipId, prompt: first } = await asArgo.fleet.commission.mutate({ idempotencyKey: newKey(), name: 'lookout', type: 'reviewer' });
+    const { shipId, prompt: first } = await asArgo.fleet.commission.mutate({ idempotencyKey: newKey(), owner: ownerId, name: 'lookout', type: 'reviewer' });
     clock.advance(60_000);
 
     const { prompt } = await asArgo.fleet.getStartingPrompt.mutate({ shipId });
@@ -508,9 +512,9 @@ describe('the fleet procedures at the API', () => {
 
   it('refuse a commission with a name an active ship holds', async () => {
     const asArgo = await signedInArgo();
-    await asArgo.fleet.commission.mutate({ idempotencyKey: newKey(), name: 'mooring', type: 'reviewer' });
+    await asArgo.fleet.commission.mutate({ idempotencyKey: newKey(), owner: ownerId, name: 'mooring', type: 'reviewer' });
 
-    await expect(codeOf(asArgo.fleet.commission.mutate({ idempotencyKey: newKey(), name: 'mooring', type: 'lookout' }))).resolves.toBe(
+    await expect(codeOf(asArgo.fleet.commission.mutate({ idempotencyKey: newKey(), owner: ownerId, name: 'mooring', type: 'lookout' }))).resolves.toBe(
       'CONFLICT',
     );
   });
@@ -525,7 +529,7 @@ describe('the fleet procedures at the API', () => {
     },
   ])('refuse a commission with $label', async ({ input, code }) => {
     const asArgo = await signedInArgo();
-    await expect(codeOf(asArgo.fleet.commission.mutate({ idempotencyKey: newKey(), ...input }))).resolves.toBe(code);
+    await expect(codeOf(asArgo.fleet.commission.mutate({ idempotencyKey: newKey(), owner: ownerId, ...input }))).resolves.toBe(code);
   });
 
   it('refuse a starting prompt for a ship that does not exist', async () => {
@@ -546,7 +550,7 @@ describe('the fleet procedures at the API', () => {
   it('never carry a secret or its hash in a list response', async () => {
     clock.advance(SIGN_IN_RATE_LIMIT.windowMs);
     const cookie = sessionCookieOf(await signIn());
-    const { prompt } = await client({ cookie, origin: CONSOLE }).fleet.commission.mutate({ idempotencyKey: newKey(),
+    const { prompt } = await client({ cookie, origin: CONSOLE }).fleet.commission.mutate({ idempotencyKey: newKey(), owner: ownerId,
       name: 'harbour',
       type: 'reviewer',
     });
@@ -589,7 +593,7 @@ describe('the fleet procedures at the API', () => {
         ],
       });
 
-      const { shipId, prompt } = await asArgoThere.fleet.commission.mutate({ idempotencyKey: newKey(), name: 'logbook', type: 'reviewer' });
+      const { shipId, prompt } = await asArgoThere.fleet.commission.mutate({ idempotencyKey: newKey(), owner: ownerId, name: 'logbook', type: 'reviewer' });
       const again = await asArgoThere.fleet.getStartingPrompt.mutate({ shipId });
       await asArgoThere.fleet.list.query();
       const asShipThere = (headers: Record<string, string>) =>
@@ -612,7 +616,7 @@ describe('the fleet procedures at the API', () => {
         asShipThere({}).ship.register.mutate({ shipId, secret: secretIn(again.prompt), location: { kind: 'DEVICE' }, harness: 'claude-code' }),
       ).rejects.toThrow('logbook is crewed');
       // A refused commission logs its error path too.
-      await expect(asArgoThere.fleet.commission.mutate({ idempotencyKey: newKey(), name: 'logbook', type: 'reviewer' })).rejects.toThrow(
+      await expect(asArgoThere.fleet.commission.mutate({ idempotencyKey: newKey(), owner: ownerId, name: 'logbook', type: 'reviewer' })).rejects.toThrow(
         'An active ship is already named logbook',
       );
 
@@ -633,7 +637,7 @@ describe('the fleet procedures at the API', () => {
 describe('the ship procedures at the API', () => {
   /** A ship commissioned by argo: its id and the secret from its starting prompt. */
   async function commissioned(name: string): Promise<{ shipId: ShipId; secret: string }> {
-    const { shipId, prompt } = await (await signedInArgo()).fleet.commission.mutate({ idempotencyKey: newKey(), name, type: 'reviewer' });
+    const { shipId, prompt } = await (await signedInArgo()).fleet.commission.mutate({ idempotencyKey: newKey(), owner: ownerId, name, type: 'reviewer' });
     return { shipId, secret: secretIn(prompt) };
   }
 
@@ -652,8 +656,8 @@ describe('the ship procedures at the API', () => {
       fleetId,
       name: 'navigator',
       type: 'reviewer',
-      ownerShipId: argoId,
-      ownerName: 'argo',
+      ownerShipId: ownerId,
+      ownerName: 'charlotte',
     });
   });
 
@@ -773,7 +777,7 @@ describe('statements and discovery at the API (decision 0047)', () => {
 
   /** A ship argo commissioned with a note, claimed through register: its id and crew token. */
   async function crewed(name: string): Promise<{ shipId: ShipId; crewToken: string; crew: TRPCClient<AppRouter> }> {
-    const { shipId, prompt } = await (await signedInArgo()).fleet.commission.mutate({ idempotencyKey: newKey(), name, type: 'reviewer', note: `The ${name} of the fleet` });
+    const { shipId, prompt } = await (await signedInArgo()).fleet.commission.mutate({ idempotencyKey: newKey(), owner: ownerId, name, type: 'reviewer', note: `The ${name} of the fleet` });
     const { crewToken } = await client().ship.register.mutate({ shipId, secret: secretIn(prompt), location: { kind: 'DEVICE' }, harness: 'claude-code' });
     return { shipId, crewToken, crew: client({ authorization: `Bearer ${crewToken}` }) };
   }
@@ -846,7 +850,7 @@ describe('statements and discovery at the API (decision 0047)', () => {
 describe('ship.send at the API', () => {
   /** A ship commissioned by argo and claimed through register: its id and crew token. */
   async function crewedByRegister(name: string): Promise<{ shipId: ShipId; crewToken: string }> {
-    const { shipId, prompt } = await (await signedInArgo()).fleet.commission.mutate({ idempotencyKey: newKey(), name, type: 'courier' });
+    const { shipId, prompt } = await (await signedInArgo()).fleet.commission.mutate({ idempotencyKey: newKey(), owner: ownerId, name, type: 'courier' });
     const { crewToken } = await client().ship.register.mutate({
       shipId,
       secret: secretIn(prompt),
@@ -1034,7 +1038,7 @@ describe('ship.send at the API', () => {
 describe('ship.receive and ship.ack at the API', () => {
   /** A ship commissioned by argo and claimed through register: its id and a client calling with its crew token. */
   async function crewed(name: string): Promise<{ shipId: ShipId; asShip: TRPCClient<AppRouter> }> {
-    const { shipId, prompt } = await (await signedInArgo()).fleet.commission.mutate({ idempotencyKey: newKey(), name, type: 'lookout' });
+    const { shipId, prompt } = await (await signedInArgo()).fleet.commission.mutate({ idempotencyKey: newKey(), owner: ownerId, name, type: 'lookout' });
     const { crewToken } = await client().ship.register.mutate({
       shipId,
       secret: secretIn(prompt),
@@ -1191,7 +1195,7 @@ describe('fleet.release and ship.deregister at the API', () => {
   async function crewed(
     name: string,
   ): Promise<{ shipId: ShipId; secret: string; crewToken: string; asShip: TRPCClient<AppRouter> }> {
-    const { shipId, prompt } = await (await signedInArgo()).fleet.commission.mutate({ idempotencyKey: newKey(), name, type: 'rower' });
+    const { shipId, prompt } = await (await signedInArgo()).fleet.commission.mutate({ idempotencyKey: newKey(), owner: ownerId, name, type: 'rower' });
     const secret = secretIn(prompt);
     const { crewToken } = await client().ship.register.mutate({ shipId, secret, location: { kind: 'CLOUD' }, harness: 'claude-code' });
     return { shipId, secret, crewToken, asShip: client({ authorization: `Bearer ${crewToken}` }) };
@@ -1297,7 +1301,7 @@ describe('fleet.release and ship.deregister at the API', () => {
 
   it('refuse to release argo, a ship awaiting crew, and a ship that does not exist', async () => {
     const asArgo = await signedInArgo();
-    const { shipId: awaiting } = await asArgo.fleet.commission.mutate({ idempotencyKey: newKey(), name: 'punt', type: 'rower' });
+    const { shipId: awaiting } = await asArgo.fleet.commission.mutate({ idempotencyKey: newKey(), owner: ownerId, name: 'punt', type: 'rower' });
     const unknown = newId('ship');
 
     await expect(refusalOf(asArgo.fleet.release.mutate({ shipId: argoId }))).resolves.toEqual({
@@ -1320,13 +1324,13 @@ describe('text input holding U+0000 at the API', () => {
     const asArgo = await signedInArgo();
 
     await expect(
-      refusalOf(asArgo.fleet.commission.mutate({ idempotencyKey: newKey(), name: 'nul-note', type: 'reviewer', note: 'reviews\u0000' })),
+      refusalOf(asArgo.fleet.commission.mutate({ idempotencyKey: newKey(), owner: ownerId, name: 'nul-note', type: 'reviewer', note: 'reviews\u0000' })),
     ).resolves.toEqual({ code: 'BAD_REQUEST', message: 'The input field note cannot hold the character U+0000 (NUL)' });
     await expect(database.ship.count({ where: { name: 'nul-note' } })).resolves.toBe(0);
   });
 
   it('refuses a location description holding U+0000 with BAD_REQUEST, and opens no lease', async () => {
-    const { shipId, prompt } = await (await signedInArgo()).fleet.commission.mutate({ idempotencyKey: newKey(), name: 'nul-lookout', type: 'reviewer' });
+    const { shipId, prompt } = await (await signedInArgo()).fleet.commission.mutate({ idempotencyKey: newKey(), owner: ownerId, name: 'nul-lookout', type: 'reviewer' });
 
     await expect(
       refusalOf(
@@ -1471,7 +1475,7 @@ describe('/health', () => {
 describe('the ship page reads at the API', () => {
   it('serve a ship, its timeline and messages, and one message with its delivery history, to argo', async () => {
     const asArgo = await signedInArgo();
-    const { shipId, prompt } = await asArgo.fleet.commission.mutate({ idempotencyKey: newKey(), name: `pager-${newId('ship').slice(-6)}`, type: 'reviewer' });
+    const { shipId, prompt } = await asArgo.fleet.commission.mutate({ idempotencyKey: newKey(), owner: ownerId, name: `pager-${newId('ship').slice(-6)}`, type: 'reviewer' });
     const { crewToken } = await client().ship.register.mutate({ shipId, secret: secretIn(prompt), location: { kind: 'DEVICE' }, harness: 'claude-code' });
     const { messageId } = await client({ authorization: `Bearer ${crewToken}` }).ship.send.mutate({
       selector: { kind: 'ship', name: 'argo' },
@@ -1501,7 +1505,7 @@ describe('the ship page reads at the API', () => {
 
   it("serve a ship with its crew's statement (decision 0047)", async () => {
     const asArgo = await signedInArgo();
-    const { shipId, prompt } = await asArgo.fleet.commission.mutate({ idempotencyKey: newKey(), name: `stater-${newId('ship').slice(-6)}`, type: 'reviewer' });
+    const { shipId, prompt } = await asArgo.fleet.commission.mutate({ idempotencyKey: newKey(), owner: ownerId, name: `stater-${newId('ship').slice(-6)}`, type: 'reviewer' });
     const { crewToken } = await client().ship.register.mutate({ shipId, secret: secretIn(prompt), location: { kind: 'DEVICE' }, harness: 'claude-code' });
     await client({ authorization: `Bearer ${crewToken}` }).ship.setStatement.mutate({ summary: 'Reviews pull requests.', capabilities: [{ name: 'review_pr' }] });
 
@@ -1534,7 +1538,7 @@ describe('the ship page reads at the API', () => {
 describe('retire and re-crew at the API', () => {
   it('retire a ship for fleet:manage, answering how many deliveries it abandoned; the ship reads retired', async () => {
     const asArgo = await signedInArgo();
-    const { shipId } = await asArgo.fleet.commission.mutate({ idempotencyKey: newKey(), name: `retiree-${newId('ship').slice(-6)}`, type: 'reviewer' });
+    const { shipId } = await asArgo.fleet.commission.mutate({ idempotencyKey: newKey(), owner: ownerId, name: `retiree-${newId('ship').slice(-6)}`, type: 'reviewer' });
 
     await expect(asArgo.fleet.retire.mutate({ shipId })).resolves.toEqual({ abandonedDeliveries: 0 });
     await expect(asArgo.fleet.ship.query({ shipId })).resolves.toMatchObject({ status: 'retired', openDeliveries: 0 });
@@ -1544,7 +1548,7 @@ describe('retire and re-crew at the API', () => {
 
   it('re-crew a crewed ship for fleet:manage, answering a new starting prompt and crew line', async () => {
     const asArgo = await signedInArgo();
-    const { shipId, prompt } = await asArgo.fleet.commission.mutate({ idempotencyKey: newKey(), name: `recrew-${newId('ship').slice(-6)}`, type: 'reviewer' });
+    const { shipId, prompt } = await asArgo.fleet.commission.mutate({ idempotencyKey: newKey(), owner: ownerId, name: `recrew-${newId('ship').slice(-6)}`, type: 'reviewer' });
     const { crewToken } = await client().ship.register.mutate({ shipId, secret: secretIn(prompt), location: { kind: 'DEVICE' }, harness: 'claude-code' });
 
     const issued = await asArgo.fleet.recrew.mutate({ shipId });
@@ -1643,7 +1647,7 @@ describe('the fleet health at the API', () => {
   it('answer the stuck places, the trend and the acknowledged for fleet:read', async () => {
     const asArgo = await signedInArgo();
     const type = `mapper-${newId('ship').slice(-6)}`;
-    const mapper = await asArgo.fleet.commission.mutate({ idempotencyKey: newKey(), name: type, type });
+    const mapper = await asArgo.fleet.commission.mutate({ idempotencyKey: newKey(), owner: ownerId, name: type, type });
     await asArgo.ship.send.mutate({ selector: { kind: 'type', type }, payload: 'Map the harbour.', idempotencyKey: newKey() });
     const sentAt = clock.now().toISOString();
     await asArgo.fleet.retire.mutate({ shipId: mapper.shipId });
@@ -1773,7 +1777,7 @@ describe("argo's inbox at the API", () => {
 describe('rename at the API', () => {
   it('rename a ship for fleet:manage; the ship reads its new name', async () => {
     const asArgo = await signedInArgo();
-    const { shipId } = await asArgo.fleet.commission.mutate({ idempotencyKey: newKey(), name: `old-${newId('ship').slice(-6)}`, type: 'reviewer' });
+    const { shipId } = await asArgo.fleet.commission.mutate({ idempotencyKey: newKey(), owner: ownerId, name: `old-${newId('ship').slice(-6)}`, type: 'reviewer' });
     const name = `new-${newId('ship').slice(-6)}`;
 
     await expect(asArgo.fleet.rename.mutate({ shipId, name })).resolves.toEqual({});
@@ -1782,9 +1786,9 @@ describe('rename at the API', () => {
 
   it('refuse argo, a taken name, and a ship without fleet:manage', async () => {
     const asArgo = await signedInArgo();
-    const { shipId } = await asArgo.fleet.commission.mutate({ idempotencyKey: newKey(), name: `one-${newId('ship').slice(-6)}`, type: 'reviewer' });
+    const { shipId } = await asArgo.fleet.commission.mutate({ idempotencyKey: newKey(), owner: ownerId, name: `one-${newId('ship').slice(-6)}`, type: 'reviewer' });
     const taken = `two-${newId('ship').slice(-6)}`;
-    await asArgo.fleet.commission.mutate({ idempotencyKey: newKey(), name: taken, type: 'reviewer' });
+    await asArgo.fleet.commission.mutate({ idempotencyKey: newKey(), owner: ownerId, name: taken, type: 'reviewer' });
     const reader = client({ authorization: `Bearer ${await crewedShip(['fleet:read'])}` });
 
     await expect(codeOf(asArgo.fleet.rename.mutate({ shipId: argoId, name: 'helm' }))).resolves.toBe('FORBIDDEN');
@@ -1796,7 +1800,7 @@ describe('rename at the API', () => {
 describe('checking manage reach at the API (design gateway-scopes 4.2)', () => {
   it('answer a ship with no scope OK for a ship it manages, and NOT_FOUND for one that does not exist', async () => {
     const asArgo = await signedInArgo();
-    const { shipId } = await asArgo.fleet.commission.mutate({ idempotencyKey: newKey(), name: `managed-${newId('ship').slice(-6)}`, type: 'reviewer' });
+    const { shipId } = await asArgo.fleet.commission.mutate({ idempotencyKey: newKey(), owner: ownerId, name: `managed-${newId('ship').slice(-6)}`, type: 'reviewer' });
     const unscoped = client({ authorization: `Bearer ${await crewedShip([])}` });
 
     await expect(unscoped.fleet.checkManage.query({ shipId })).resolves.toEqual({});
@@ -1807,7 +1811,7 @@ describe('checking manage reach at the API (design gateway-scopes 4.2)', () => {
 describe('owners at the API (decision 0045)', () => {
   it("let argo make a person's ship the owner of a ship", async () => {
     const asArgo = await signedInArgo();
-    const { shipId } = await asArgo.fleet.commission.mutate({ idempotencyKey: newKey(), name: `owned-${newId('ship').slice(-6)}`, type: 'reviewer' });
+    const { shipId } = await asArgo.fleet.commission.mutate({ idempotencyKey: newKey(), owner: ownerId, name: `owned-${newId('ship').slice(-6)}`, type: 'reviewer' });
     const { shipId: ownerShipId } = await asArgo.fleet.commission.mutate({ idempotencyKey: newKey(), name: `person-${newId('ship').slice(-6)}`, type: 'person', kind: 'person' });
 
     await expect(asArgo.fleet.setOwner.mutate({ shipId, ownerShipId })).resolves.toEqual({});
@@ -1815,8 +1819,8 @@ describe('owners at the API (decision 0045)', () => {
 
   it('refuse any ship but argo, argo itself and an agent ship as the owner', async () => {
     const asArgo = await signedInArgo();
-    const { shipId } = await asArgo.fleet.commission.mutate({ idempotencyKey: newKey(), name: `owned-${newId('ship').slice(-6)}`, type: 'reviewer' });
-    const { shipId: agentShipId } = await asArgo.fleet.commission.mutate({ idempotencyKey: newKey(), name: `agent-${newId('ship').slice(-6)}`, type: 'reviewer' });
+    const { shipId } = await asArgo.fleet.commission.mutate({ idempotencyKey: newKey(), owner: ownerId, name: `owned-${newId('ship').slice(-6)}`, type: 'reviewer' });
+    const { shipId: agentShipId } = await asArgo.fleet.commission.mutate({ idempotencyKey: newKey(), owner: ownerId, name: `agent-${newId('ship').slice(-6)}`, type: 'reviewer' });
     const manager = client({ authorization: `Bearer ${await crewedShip(['fleet:read', 'fleet:manage'])}` });
 
     await expect(codeOf(manager.fleet.setOwner.mutate({ shipId, ownerShipId: argoId }))).resolves.toBe('FORBIDDEN');
@@ -1925,7 +1929,7 @@ describe('system.version', () => {
 describe('fleet.ping and ship.pong at the API', () => {
   /** A ship commissioned by argo and claimed through register: its id and a client calling with its crew token. */
   async function crewed(name: string): Promise<{ shipId: ShipId; asShip: TRPCClient<AppRouter> }> {
-    const { shipId, prompt } = await (await signedInArgo()).fleet.commission.mutate({ idempotencyKey: newKey(), name, type: 'rower' });
+    const { shipId, prompt } = await (await signedInArgo()).fleet.commission.mutate({ idempotencyKey: newKey(), owner: ownerId, name, type: 'rower' });
     const { crewToken } = await client().ship.register.mutate({
       shipId,
       secret: secretIn(prompt),
@@ -2010,7 +2014,7 @@ describe('fleet.ping and ship.pong at the API', () => {
 describe('ship names and types with a colon at the API', () => {
   it('commission, send by name and by type over REST, and rename a ship whose name and type hold a colon', async () => {
     const asArgo = await signedInArgo();
-    const { shipId, prompt } = await asArgo.fleet.commission.mutate({ idempotencyKey: newKey(), name: 'hemma-a1b2:planner', type: 'hemma:planner' });
+    const { shipId, prompt } = await asArgo.fleet.commission.mutate({ idempotencyKey: newKey(), owner: ownerId, name: 'hemma-a1b2:planner', type: 'hemma:planner' });
     const { crewToken } = await client().ship.register.mutate({ shipId, secret: secretIn(prompt), location: { kind: 'CLOUD' }, harness: 'claude-code' });
     await asArgo.ship.send.mutate({
       selector: { kind: 'ship', name: 'hemma-a1b2:planner' },
@@ -2046,7 +2050,7 @@ describe('ships with fleet scopes at the API', () => {
     name: string,
     fleetScopes: ('fleet:read' | 'fleet:commission' | 'fleet:manage')[],
   ): Promise<{ shipId: ShipId; asShip: TRPCClient<AppRouter> }> {
-    const { shipId, prompt } = await (await signedInArgo()).fleet.commission.mutate({ idempotencyKey: newKey(), name, type: 'squadron', scopes: fleetScopes });
+    const { shipId, prompt } = await (await signedInArgo()).fleet.commission.mutate({ idempotencyKey: newKey(), owner: ownerId, name, type: 'squadron', scopes: fleetScopes });
     const { crewToken } = await client().ship.register.mutate({ shipId, secret: secretIn(prompt), location: { kind: 'SERVER' }, harness: 'claude-code' });
     return { shipId, asShip: client({ authorization: `Bearer ${crewToken}` }) };
   }
@@ -2083,7 +2087,7 @@ describe('ships with fleet scopes at the API', () => {
 
 describe('fleet.follow at the API', () => {
   async function crewedReader(name: string): Promise<TRPCClient<AppRouter>> {
-    const { shipId, prompt } = await (await signedInArgo()).fleet.commission.mutate({ idempotencyKey: newKey(), name, type: 'squadron', scopes: ['fleet:read'] });
+    const { shipId, prompt } = await (await signedInArgo()).fleet.commission.mutate({ idempotencyKey: newKey(), owner: ownerId, name, type: 'squadron', scopes: ['fleet:read'] });
     const { crewToken } = await client().ship.register.mutate({ shipId, secret: secretIn(prompt), location: { kind: 'SERVER' }, harness: 'claude-code' });
     return client({ authorization: `Bearer ${crewToken}` });
   }
@@ -2096,7 +2100,7 @@ describe('fleet.follow at the API', () => {
 
     const following = reader.fleet.follow.query({ afterSeq: lastSeq, waitSeconds: 20 });
     await new Promise((resolve) => setTimeout(resolve, 300));
-    const { shipId } = await asArgo.fleet.commission.mutate({ idempotencyKey: newKey(), name: 'follow-new', type: 'squadron' });
+    const { shipId } = await asArgo.fleet.commission.mutate({ idempotencyKey: newKey(), owner: ownerId, name: 'follow-new', type: 'squadron' });
 
     const { events } = await following;
     expect(events[0]).toMatchObject({ type: 'ShipCommissioned', shipId });

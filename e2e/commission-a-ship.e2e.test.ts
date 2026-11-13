@@ -13,7 +13,8 @@ import { FLEET_URL, OPERATOR, operatorCaller, secretIn, shipIdIn } from '../pack
 import { createMigratedDatabase } from '../packages/core/src/testing/database.js';
 import { createTestClock } from '../packages/core/test/support/postgres-core.js';
 import { unwrap } from '../packages/core/src/testing/result.js';
-import { signIn, openRowMenu } from './support/console.js';
+import { newKey } from '../packages/core/src/testing/keys.js';
+import { signIn, openRowMenu, pickOwner } from './support/console.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 import { withOperatorLogin } from '../packages/core/test/support/operator-login.js';
 
@@ -37,6 +38,8 @@ beforeAll(async () => {
   database = createPrismaClient(databaseUrl);
   useCases = createUseCases({ prisma: database, clock });
   argo = operatorCaller(unwrap(await withOperatorLogin(database, useCases.initialiseFleet({ name: 'home fleet' }))));
+  // The person ship that owns what argo commissions in the console (decision 0045).
+  unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'charlotte', type: 'person', kind: 'person' }));
 
   const webUrl = await reserveWebUrl();
   server = createApp({ databaseUrl, publicUrl: FLEET_URL, consoleOrigin: webUrl, clock, logger: false });
@@ -74,6 +77,7 @@ async function fillCommission(page: Page, ship: { name: string; type: string; no
   await dialog.getByTestId('commission-name').fill(ship.name);
   await dialog.getByTestId('commission-type').fill(ship.type);
   await dialog.getByTestId('commission-note').fill(ship.note ?? '');
+  await pickOwner(page, 'charlotte');
 }
 
 /** Picks one of the fleet scopes in the CommissionDialog's scope picker, found by its code; with a description, the option shows it. */
@@ -139,6 +143,18 @@ async function isValid(shipSecret: string): Promise<boolean> {
 }
 
 describe('commissioning a ship in the console', () => {
+  it('commissions a ship owned by the person ship picked, preselected at the next commission (#1777)', async () => {
+    const page = await signedInPage();
+
+    await commission(page, { name: 'warden', type: 'reviewer' });
+    await promptBlock(page, 'warden').getByRole('button', { name: 'Done' }).click();
+    await page.getByTestId('fleet-commission').click();
+
+    const charlotte = await database.ship.findFirstOrThrow({ where: { name: 'charlotte' } });
+    await expect(database.ship.findFirstOrThrow({ where: { name: 'warden' } })).resolves.toMatchObject({ ownerShipId: charlotte.id });
+    await expect.poll(() => page.getByTestId('commission-dialog').getByTestId('commission-owner').inputValue()).toBe('charlotte');
+  });
+
   it('lists the new ship as awaiting crew and shows its first starting prompt once', async () => {
     const page = await signedInPage();
 
