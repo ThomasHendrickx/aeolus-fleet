@@ -2,7 +2,7 @@ import { SOURCE_URL } from '../../lib/source';
 
 /** Where installing the Aeolus Fleet plugin is described, per harness its crew lines paste into (#1235). */
 const INSTALL_URLS = {
-  claudeCode: `${SOURCE_URL}/blob/main/docs/guides/claude-code.md#1-install-the-plugin-once-per-machine`,
+  claudeCode: `${SOURCE_URL}/blob/main/docs/guide/claude-code.md#install-the-plugin`,
   codex: 'https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/blob/main/plugins/aeolus-fleet/README.md#install-for-codex-desktop-or-cli',
   copilot: 'https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/blob/main/plugins/aeolus-fleet/README.md#install-for-the-github-copilot-cli',
 } as const;

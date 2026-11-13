@@ -53,7 +53,7 @@ export const Shown: Story = {
     await expect(await screen.findByTestId('starting-prompt-crew-line-copilot')).toHaveTextContent(`/aeolus-fleet:crew https://fleet.example.com ${SHIP_ID} ${SECRET}`);
     await expect(await screen.findByTestId('plugin-install-claude-code')).toHaveAttribute(
       'href',
-      'https://github.com/ThomasHendrickx/aeolus-fleet/blob/main/docs/guides/claude-code.md#1-install-the-plugin-once-per-machine',
+      'https://github.com/ThomasHendrickx/aeolus-fleet/blob/main/docs/guide/claude-code.md#install-the-plugin',
     );
     await expect(screen.getByTestId('plugin-install-codex')).toHaveAttribute(
       'href',
