@@ -211,7 +211,7 @@ async function commissioningActorOf(tx: CommissionShipTx, ref: { caller: Caller;
   const { caller } = ref;
   if (isShipCaller(caller)) {
     const ship = await (ref.isApproval ? findShipWithOwnerHeld : findWithOwnerHeld)(tx, { fleetId: caller.fleetId, shipId: caller.shipId });
-    return ship && { kind: 'ship', ship };
+    return ship && { kind: 'ship', ship, isConsoleSignIn: caller.consoleSessionId !== undefined };
   }
   if (caller.kind === 'account') {
     const personShip = caller.personShipId === null ? undefined : await tx.ships.findForShare(caller.fleetId, caller.personShipId);
@@ -232,7 +232,8 @@ async function commissioningActorOf(tx: CommissionShipTx, ref: { caller: Caller;
  * name is locked after the name. It carries the label values given, each of
  * a label the caller defined or one it carries (decision 0053). Its owner is the caller's owner, the caller
  * when it is a person ship, or an account's person ship, commissioned first
- * when the account has none (decisions 0052, 0057); a caller
+ * when the account has none (decisions 0052, 0057); argo signed in to the
+ * console names an agent ship's owner, an active person ship; a caller
  * holding fleet:on-behalf may name the ship that asked it instead, whose owner
  * it gets, or for an app ship the owner argo picked (decision 0045). The
  * caller's idempotency key, its own apart from every other actor's, makes

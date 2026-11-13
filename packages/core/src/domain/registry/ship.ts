@@ -72,7 +72,8 @@ export function isSameCommissioner(commissioner: Commissioner, other: Commission
  * installation with its scopes.
  */
 export type CommissioningActor =
-  | { kind: 'ship'; ship: Ship }
+  /** A ship, and whether it acts through a console sign-in rather than with a crew token. */
+  | { kind: 'ship'; ship: Ship; isConsoleSignIn: boolean }
   | { kind: 'account'; scopes: readonly ScopeName[]; personShip: Ship | undefined }
   | { kind: 'installation'; scopes: readonly ScopeName[] };
 
@@ -188,7 +189,8 @@ export type CommissionRefusal = CommissionApprovalRefusal | DomainError<
  * then plugin scopes in name order, each once; the scopes every ship has are
  * always its to name. A person ship owns itself; a person ship's commission
  * is owned by it, an account's by its person ship, which it must have; any
- * other by the commissioner's owner, argo by default; a commissioner holding
+ * other by the commissioner's owner, argo by default; argo signed in to the
+ * console names an agent ship's owner, an active person ship; a commissioner holding
  * fleet:on-behalf, a plugin's ship, may name instead the ship that asked it,
  * whose owner it gets (decision 0045); the scopes are then checked against
  * that ship, never a retired one, beside the commissioner's own namespace,
@@ -293,7 +295,12 @@ export function commissionShip(
     }
   }
 
-  if (input.owner !== undefined) {
+  if (isArgoInConsole(input.commissioner, kind)) {
+    const named = checkOwnerArgoNamed(input);
+    if (!named.isOk) {
+      return named;
+    }
+  } else if (input.owner !== undefined) {
     const named = checkNamedOwner({ kind, isOnBehalf, askingShip, namedOwner: input.namedOwner });
     if (!named.isOk) {
       return named;
@@ -433,6 +440,27 @@ function checkNamedOwner(named: {
   const { namedOwner } = named;
   if (namedOwner?.retiredAt !== null || (namedOwner.kind !== 'person' && namedOwner.kind !== 'operator')) {
     return refuse('INVALID_OWNER', "An owner is an active person's ship or argo");
+  }
+  return ok(undefined);
+}
+
+/**
+ * Whether argo, signed in to the console, commissions an agent ship: it names
+ * the person ship that owns it, so ordinary work never falls to argo
+ * (decisions 0045, 0057).
+ */
+function isArgoInConsole(commissioner: CommissioningActor, kind: CommissionedShipKind): boolean {
+  return commissioner.kind === 'ship' && commissioner.isConsoleSignIn && commissioner.ship.kind === 'operator' && kind === 'agent';
+}
+
+/** The owner argo names from the console: an active person ship, never argo itself. */
+function checkOwnerArgoNamed(named: { owner?: ShipId; namedOwner?: Ship }): Result<undefined, DomainError<'INVALID_OWNER'>> {
+  if (named.owner === undefined) {
+    return refuse('INVALID_OWNER', 'owner: name the person ship that owns the new ship');
+  }
+  const { namedOwner } = named;
+  if (namedOwner?.kind !== 'person' || namedOwner.retiredAt !== null) {
+    return refuse('INVALID_OWNER', 'owner: name a person ship; argo owns no ship commissioned from the console');
   }
   return ok(undefined);
 }
