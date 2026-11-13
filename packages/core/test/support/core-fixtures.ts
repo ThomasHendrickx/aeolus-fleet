@@ -107,6 +107,7 @@ import { createGetShip } from '../../src/domain/registry/get-ship.js';
 import { createReadOpenAlerts } from '../../src/domain/registry/read-open-alerts.js';
 import { createReadListedShip } from '../../src/domain/registry/read-listed-ship.js';
 import { createCountShips } from '../../src/domain/registry/count-ships.js';
+import { createReadLastNamedOwner } from '../../src/domain/registry/read-last-named-owner.js';
 import { createReadHarbour } from '../../src/domain/registry/read-harbour.js';
 import { createListShipTypes } from '../../src/domain/registry/list-ship-types.js';
 import { createReadOnBehalf } from '../../src/domain/registry/read-on-behalf.js';
@@ -352,6 +353,7 @@ export function registryUseCases(core: InMemoryCore) {
     listShipTypes: createListShipTypes({ listing: core.listing, readReach: readReachOf(core) }),
     readOnBehalf: createReadOnBehalf({ ships: core.ships }),
     whoami: createWhoami({ ships: core.ships }),
+    readLastNamedOwner: createReadLastNamedOwner({ ships: core.ships }),
     report: createReport({ uow: core.uow, clock: core.clock, ids: core.ids }),
     setStatement: createSetStatement({ uow: core.uow, clock: core.clock, ids: core.ids }),
     discover: createDiscover({ uow: core.uow }),

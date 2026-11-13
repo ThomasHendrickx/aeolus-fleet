@@ -45,7 +45,10 @@ export const commissionShipInputSchema = z.object({
   /** The ship that asked a plugin's ship for this one, whose owner it gets; naming one needs fleet:on-behalf (decision 0045). */
   ownerOf: idSchema('ship').optional(),
   approval: commissionApprovalUseSchema.optional(),
-  /** The owner argo picked for an app ship the gateway commissions, a person's ship or argo; naming one needs fleet:on-behalf (decision 0045). */
+  /**
+   * The owner argo picked for an app ship the gateway commissions, a person's ship or argo; naming one needs fleet:on-behalf.
+   * argo signed in to the console names it for every agent ship it commissions, an active person ship (decision 0045).
+   */
   owner: idSchema('ship').optional(),
   note: z
     .string()
@@ -101,6 +104,11 @@ export const commissionShipOutputSchema = z.object({
 });
 
 export type CommissionShipOutput = z.infer<typeof commissionShipOutputSchema>;
+
+/** Output of `fleet.lastNamedOwner`: the person ship the caller named as owner at its last commission, by id and name, or null (decision 0045). */
+export const lastNamedOwnerOutputSchema = z.object({ owner: z.object({ id: idSchema('ship'), name: z.string() }).nullable() });
+
+export type LastNamedOwnerOutput = z.infer<typeof lastNamedOwnerOutputSchema>;
 
 /** Input of `fleet.release`: the crewed ship whose session loses it. */
 export const releaseShipInputSchema = z.object({ shipId: idSchema('ship') });

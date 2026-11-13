@@ -81,6 +81,8 @@ export interface InstallationRequestRepository {
 export interface ShipRepository {
   create(ship: Ship): Promise<void>;
   findOperatorShip(fleetId: FleetId): Promise<Ship | undefined>;
+  /** The ship named as owner at the last commission by this commissioner that named one, as its OwnerSet says (decision 0045). */
+  findLastNamedOwner(fleetId: FleetId, commissionerId: ShipId): Promise<Ship | undefined>;
   /** The fleet's viewer ship, when it has one (decision 0022). */
   findViewerShip(fleetId: FleetId): Promise<Ship | undefined>;
   /**

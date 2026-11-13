@@ -743,6 +743,12 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       findOperatorShip: (fleetId) =>
         Promise.resolve(state.ships.find((found) => found.fleetId === fleetId && found.kind === 'operator')),
       findViewerShip: (fleetId) => Promise.resolve(state.ships.find((found) => found.fleetId === fleetId && found.kind === 'viewer')),
+      findLastNamedOwner: (fleetId, commissionerId) => {
+        const named = state.events.findLast(
+          (event) => event.fleetId === fleetId && event.type === 'OwnerSet' && event.actor.kind === 'ship' && event.actor.shipId === commissionerId && event.details.how === 'named',
+        );
+        return Promise.resolve(state.ships.find((found) => found.fleetId === fleetId && found.id === named?.details.ownerShipId));
+      },
       lockName: () => Promise.resolve(),
       // One test runs one unit of work at a time: nothing to wait for.
       lockShipCount: () => Promise.resolve(),

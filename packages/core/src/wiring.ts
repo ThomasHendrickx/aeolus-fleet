@@ -183,6 +183,7 @@ import { createDeleteLabel, type DeleteLabel } from './domain/registry/delete-la
 import { createFindLabelValue, type FindLabelValue } from './domain/registry/find-label-value.js';
 import { createReadReportLog, type ReadReportLog } from './domain/registry/report-log.js';
 import { createWhoami, type Whoami } from './domain/registry/whoami.js';
+import { createReadLastNamedOwner, type ReadLastNamedOwner } from './domain/registry/read-last-named-owner.js';
 import type { Clock } from './domain/shared/clock.js';
 import { createPing, type Ping } from './domain/shared/ping.js';
 import { createReadFleetEvents, type ReadFleetEvents } from './domain/shared/read-fleet-events.js';
@@ -252,6 +253,7 @@ export interface UseCases {
   readOnBehalf: ReadOnBehalf;
   claimShip: ClaimShip;
   whoami: Whoami;
+  readLastNamedOwner: ReadLastNamedOwner;
   report: Report;
   setStatement: SetStatement;
   discover: Discover;
@@ -523,6 +525,7 @@ export function createUseCases(options: {
     readOnBehalf: createReadOnBehalf({ ships: createPrismaShipRepository(prisma) }),
     claimShip: createClaimShip({ uow, clock, ids, secrets }),
     whoami: createWhoami({ ships: createPrismaShipRepository(prisma) }),
+    readLastNamedOwner: createReadLastNamedOwner({ ships: createPrismaShipRepository(prisma) }),
     report: createReport({ uow, clock, ids }),
     setStatement: createSetStatement({ uow, clock, ids }),
     discover: createDiscover({ uow }),

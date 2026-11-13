@@ -320,6 +320,18 @@ export function createPrismaShipRepository(db: Db): ShipRepository {
       const row = await db.ship.findFirst({ where: { fleetId, kind: 'viewer' } });
       return row ? toShip(row) : undefined;
     },
+    findLastNamedOwner: async (fleetId, commissionerId) => {
+      // Newest first through the commissioner's OwnerSet events alone (events_owner_set_idx).
+      const [row] = await db.$queryRaw<unknown[]>`
+        SELECT e.details ->> 'ownerShipId' AS "ownerShipId" FROM events e
+        WHERE e.fleet_id = ${fleetId} AND e.actor_ship_id = ${commissionerId} AND e.type = 'OwnerSet' AND e.details ->> 'how' = 'named'
+        ORDER BY e.seq DESC LIMIT 1`;
+      if (row === undefined) {
+        return undefined;
+      }
+      const owner = await db.ship.findFirst({ where: { fleetId, id: z.object({ ownerShipId: idSchema('ship') }).parse(row).ownerShipId } });
+      return owner ? toShip(owner) : undefined;
+    },
     lockName: async (fleetId, name) => {
       // A transaction-level advisory lock on the fleet and the name, released at
       // commit or rollback. Read committed: once the holder commits, the next
