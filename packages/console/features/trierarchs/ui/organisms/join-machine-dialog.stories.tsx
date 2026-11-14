@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
+import { useState } from 'react';
 import { expect, fn, screen, userEvent } from 'storybook/test';
 
 import { JOINED } from '../../../../lib/fixtures/machines.fixtures';
@@ -78,6 +79,7 @@ export const AfterFieldAdded: Story = {
     await filled();
     await userEvent.click(screen.getByTestId('join-machine-add-field'));
     await expect(screen.getByTestId('join-machine-repository-4')).toHaveValue('');
+    await expect(screen.getByTestId('join-machine-repository-4')).toHaveAttribute('placeholder', '~/code/web or git@github.com:acme/docs.git');
     await userEvent.click(screen.getByTestId('join-machine-submit'));
     await expect(args.onSubmit).toHaveBeenCalledWith({ name: 'trierarch-new', harnesses: ['claude-code', 'codex'], unattended: ['claude-code'], repositories: { kind: 'list', entries: ['~/code/web', '~/code/api', 'git@github.com:acme/docs.git'] } });
   },
@@ -86,6 +88,10 @@ export const AfterUnattendedTicked: Story = {
   play: async () => {
     // Given Claude Code is off, when its without-asking is ticked, then its harness is ticked too.
     await named();
+    await userEvent.click(screen.getByTestId('join-machine-codex-unattended'));
+    await expect(screen.getByTestId('join-machine-codex')).toBeChecked();
+    await userEvent.click(screen.getByTestId('join-machine-codex'));
+    await expect(screen.getByTestId('join-machine-codex-unattended')).not.toBeChecked();
     await userEvent.click(screen.getByTestId('join-machine-claude-code-unattended'));
     await expect(screen.getByTestId('join-machine-claude-code')).toBeChecked();
   },
@@ -130,5 +136,25 @@ export const AfterInvalidList: Story = {
     await expect(screen.getByTestId('join-machine-repository-2')).toHaveAttribute('aria-invalid', 'true');
     await expect(screen.getByTestId('join-machine-repository-1')).not.toHaveAttribute('aria-invalid', 'true');
     await expect(screen.getByTestId('join-machine-submit')).toBeDisabled();
+  },
+};
+
+/** A press shows the mutation pending immediately, with the filled form kept and all edits off. */
+export const PressShowsPending: Story = {
+  render: function Render(args) {
+    const [isPending, setIsPending] = useState(false);
+    return <JoinMachineDialog {...args} isPending={isPending} onSubmit={() => { setIsPending(true); }} />;
+  },
+  play: async () => {
+    // Given a filled form, when Join machine is pressed, then it shows Joining before any answer.
+    await filled();
+    await userEvent.click(screen.getByTestId('join-machine-submit'));
+    await expect(screen.getByTestId('join-machine-submit')).toHaveTextContent('Joining');
+    await expect(screen.getByTestId('join-machine-submit')).toHaveAttribute('aria-busy', 'true');
+    await expect(screen.getByTestId('join-machine-name')).toBeDisabled();
+    await expect(screen.getByTestId('join-machine-claude-code')).toHaveAttribute('data-disabled');
+    await expect(screen.getByTestId('join-machine-repository-1')).toBeDisabled();
+    await expect(screen.getByTestId('join-machine-repository-1')).toHaveValue('~/code/web');
+    await expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();
   },
 };
