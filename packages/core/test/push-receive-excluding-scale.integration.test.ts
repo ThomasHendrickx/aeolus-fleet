@@ -2,6 +2,8 @@ import { idSchema, PUSH_RECEIVE_EXCLUDING_MAX, type DeliveryId, type FleetId } f
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/client.js';
+import { Prisma } from '../src/adapters/prisma/generated/client.js';
+import { claimableStatement } from '../src/adapters/prisma/messaging.js';
 import type { Crew } from '../src/domain/shared/caller.js';
 import { createMigratedDatabase } from '../src/testing/database.js';
 import { newKey } from '../src/testing/keys.js';
@@ -12,16 +14,15 @@ import { withOperatorLogin } from './support/operator-login.js';
 
 // A push receive that excludes as many delivery ids as it may, from a crew
 // that holds them all, on a fleet with 3,000 ships and a long history: it
-// stays inside the read budget of the performance skill (p95 under 100 ms).
+// reads through the indexes of what is open, never every delivery, and the
+// excluded ids do not widen the scan. The plan is asserted, not a time, which
+// would flake under load.
 
 const SHIPS = 3_000;
 const HISTORY = 200_000;
 /** Pending after the held ones: enough for every run to take 10 new. */
 const PENDING = 250;
 const RUNS = 20;
-const P95_BUDGET_MS = 100;
-/** The 95th percentile of RUNS sorted times. */
-const P95_INDEX = Math.ceil(RUNS * 0.95) - 1;
 
 let prisma: PrismaClient;
 let useCases: UseCases;
@@ -85,20 +86,35 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
+async function planOf(statement: Prisma.Sql): Promise<string> {
+  const rows = await prisma.$queryRaw<{ 'QUERY PLAN': string }[]>(Prisma.sql`EXPLAIN ${statement}`);
+  return rows.map((row) => row['QUERY PLAN']).join('\n');
+}
+
+/** The scans of a plan, each with its table or index, without costs or conditions. */
+function scansOf(plan: string): string[] {
+  return plan.split('\n').flatMap((line) => /(?:Seq|Index|Index Only|Bitmap Heap|Bitmap Index) Scan (?:using )?\S+(?: on \S+)?/.exec(line)?.slice(0, 1) ?? []);
+}
+
 describe(`a push receive excluding ${String(PUSH_RECEIVE_EXCLUDING_MAX)} held deliveries on a fleet of ${String(SHIPS)} ships`, () => {
-  it('answers inside the read budget, p95 under 100 ms, with none it excluded', async () => {
-    // The first push receive of a lease also marks it pushed, once: not a read the budget is about.
+  it('answers none it excluded', async () => {
+    // The first push receive of a lease also marks it pushed, once.
     unwrap(await useCases.pushReceiveDeliveries(scout, { max: 10, excluding: held }));
-    const times: number[] = [];
     const answered: DeliveryId[] = [];
     for (let run = 0; run < RUNS; run += 1) {
-      const startedAt = performance.now();
       const { deliveries } = unwrap(await useCases.pushReceiveDeliveries(scout, { max: 10, excluding: held }));
-      times.push(performance.now() - startedAt);
       answered.push(...deliveries.map((delivery) => delivery.deliveryId));
     }
 
     expect(answered.filter((deliveryId) => held.includes(deliveryId))).toEqual([]);
-    expect(times.sort((first, second) => first - second)[P95_INDEX]).toBeLessThan(P95_BUDGET_MS);
+  });
+
+  it('finds the claimable deliveries along the indexes of what is open, not every delivery, whatever it excludes', async () => {
+    const query = { fleetId, shipId: scout.shipId, type: 'reviewer', leaseId: scout.leaseId, limit: 10 };
+    const plan = await planOf(claimableStatement({ ...query, excluding: held }));
+
+    expect(plan).toContain('deliveries_open_fleet_id_state_created_at_idx');
+    expect(plan).not.toMatch(/Seq Scan on deliveries/);
+    expect(scansOf(plan)).toEqual(scansOf(await planOf(claimableStatement({ ...query, excluding: [] }))));
   });
 });
