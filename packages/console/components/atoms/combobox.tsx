@@ -110,7 +110,8 @@ export function Combobox({
   const shownApart = isListedWhole ? apartOptions : apartOptions.filter((option) => matches(option, query));
   /** The chosen option while its label shows in the field: its detail and trailing node show beside it. */
   const shownInField = selected?.label === query ? selected : undefined;
-  const hasBesideLabel = shownInField !== undefined && (shownInField.detail !== undefined || shownInField.trailing !== undefined);
+  // A picker shows only the label in the field: its list marks the chosen one.
+  const hasBesideLabel = !hasListButton && shownInField !== undefined && (shownInField.detail !== undefined || shownInField.trailing !== undefined);
   const chosen = isFreeText ? options.find((option) => option.label === query) : selected;
 
   return (
@@ -170,7 +171,7 @@ export function Combobox({
             inputVariants({ isMono: true }),
             leadingIcon ? 'pl-9' : undefined,
             hasBesideLabel ? 'pr-44 max-sm:pr-28' : undefined,
-            hasListButton && !hasBesideLabel ? 'pr-9' : undefined,
+            hasListButton ? 'pr-9' : undefined,
           )}
         />
         {hasListButton ? (
