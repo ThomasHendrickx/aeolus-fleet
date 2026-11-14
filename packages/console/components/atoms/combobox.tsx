@@ -1,7 +1,7 @@
 'use client';
 
 import { Combobox as ComboboxPrimitive } from '@base-ui/react/combobox';
-import { Check } from 'lucide-react';
+import { Check, ChevronsUpDown } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 
 import { classNames, inputVariants } from '@aeolus-fleet/ui';
@@ -28,6 +28,14 @@ interface ComboboxProps {
   toQuery?: (typed: string) => string;
   /** A label over the suggestions: "Ships". */
   groupLabel?: string;
+  /** Options kept apart, after a separator below the others: argo as an owner, the fallback. */
+  apartOptions?: readonly ComboboxOption[];
+  /**
+   * A picker: a chevron button opens the list with nothing typed, and while
+   * the chosen option's label shows in the field the list holds every option,
+   * so another can be picked without clearing the field first.
+   */
+  hasListButton?: boolean;
   /** Each change of the typed text, so the owner can ask the server for the options that match. */
   onQueryChange?: (query: string) => void;
   /** What the popup says when nothing matches the typed text. */
@@ -45,6 +53,24 @@ interface ComboboxProps {
 
 function matches(option: ComboboxOption, query: string): boolean {
   return option.label.toLowerCase().includes(query.trim().toLowerCase());
+}
+
+/** One row of the list: the label in mono, its detail, its trailing node, and a check when chosen. */
+function ComboboxItem({ option }: { option: ComboboxOption }) {
+  return (
+    <ComboboxPrimitive.Item
+      value={option}
+      data-slot="combobox-item"
+      className="relative flex min-h-8.5 items-center gap-2.5 rounded-sm pr-8 pl-2.5 text-body text-foreground outline-none select-none data-disabled:pointer-events-none data-disabled:opacity-45 data-highlighted:bg-accent"
+    >
+      <span className="font-mono text-id font-medium">{option.label}</span>
+      {option.detail ? <span className="truncate text-meta text-muted-foreground">{option.detail}</span> : null}
+      {option.trailing ? <span className="ml-auto flex items-center">{option.trailing}</span> : null}
+      <ComboboxPrimitive.ItemIndicator className="absolute right-2.5 flex items-center">
+        <Check aria-hidden className="size-(--size-icon)" />
+      </ComboboxPrimitive.ItemIndicator>
+    </ComboboxPrimitive.Item>
+  );
 }
 
 /**
@@ -65,6 +91,8 @@ export function Combobox({
   toQuery,
   onQueryChange,
   groupLabel,
+  apartOptions = [],
+  hasListButton = false,
   emptyText,
   leadingIcon,
   placeholder,
@@ -74,24 +102,27 @@ export function Combobox({
   'aria-label': label,
   'data-testid': testId,
 }: ComboboxProps) {
-  const selected = options.find((option) => option.value === value);
+  const selected = [...options, ...apartOptions].find((option) => option.value === value);
   const [query, setQuery] = useState(selected?.label ?? (isFreeText ? (value ?? '') : ''));
   const [isOpen, setIsOpen] = useState(false);
-  const shown = options.filter((option) => matches(option, query));
+  const isListedWhole = hasListButton && selected?.label === query;
+  const shown = isListedWhole ? options : options.filter((option) => matches(option, query));
+  const shownApart = isListedWhole ? apartOptions : apartOptions.filter((option) => matches(option, query));
   /** The chosen option while its label shows in the field: its detail and trailing node show beside it. */
   const shownInField = selected?.label === query ? selected : undefined;
-  const hasBesideLabel = shownInField !== undefined && (shownInField.detail !== undefined || shownInField.trailing !== undefined);
+  // A picker shows only the label in the field: its list marks the chosen one.
+  const hasBesideLabel = !hasListButton && shownInField !== undefined && (shownInField.detail !== undefined || shownInField.trailing !== undefined);
   const chosen = isFreeText ? options.find((option) => option.label === query) : selected;
 
   return (
     <ComboboxPrimitive.Root<ComboboxOption>
-      items={shown}
+      items={[...shown, ...shownApart]}
       filter={null}
       value={chosen ?? null}
       itemToStringLabel={(option) => option.label}
       isItemEqualToValue={(option, other) => option.value === other.value}
       inputValue={query}
-      open={isOpen && query.trim() !== ''}
+      open={isOpen && (hasListButton || query.trim() !== '')}
       onOpenChange={setIsOpen}
       onInputValueChange={(text, details) => {
         // With free text the typed text is the value: only typing or a chosen
@@ -107,7 +138,8 @@ export function Combobox({
         }
         if (isFreeText) {
           onValueChange(typed === '' ? null : typed);
-        } else if (selected !== undefined && typed !== selected.label) {
+        } else if (details.reason !== 'item-press' && selected !== undefined && typed !== selected.label) {
+          // A pressed item sets the value itself: its label differs from the one chosen before.
           onValueChange(null);
         }
       }}
@@ -139,8 +171,17 @@ export function Combobox({
             inputVariants({ isMono: true }),
             leadingIcon ? 'pl-9' : undefined,
             hasBesideLabel ? 'pr-44 max-sm:pr-28' : undefined,
+            hasListButton ? 'pr-9' : undefined,
           )}
         />
+        {hasListButton ? (
+          <ComboboxPrimitive.Trigger
+            aria-label="Show the choices"
+            className="absolute inset-y-0 right-0 flex w-9 items-center justify-center rounded-r-md text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <ChevronsUpDown aria-hidden />
+          </ComboboxPrimitive.Trigger>
+        ) : null}
         {hasBesideLabel ? (
           <span className="pointer-events-none absolute inset-y-0 right-2.5 flex items-center gap-2">
             {shownInField.detail ? (
@@ -166,20 +207,16 @@ export function Combobox({
                 <div className="px-2.5 pt-1.5 pb-1 text-caption text-muted-foreground">{groupLabel}</div>
               ) : null}
               {shown.map((option) => (
-                <ComboboxPrimitive.Item
-                  key={option.value}
-                  value={option}
-                  data-slot="combobox-item"
-                  className="relative flex min-h-8.5 items-center gap-2.5 rounded-sm pr-8 pl-2.5 text-body text-foreground outline-none select-none data-disabled:pointer-events-none data-disabled:opacity-45 data-highlighted:bg-accent"
-                >
-                  <span className="font-mono text-id font-medium">{option.label}</span>
-                  {option.detail ? <span className="truncate text-meta text-muted-foreground">{option.detail}</span> : null}
-                  {option.trailing ? <span className="ml-auto flex items-center">{option.trailing}</span> : null}
-                  <ComboboxPrimitive.ItemIndicator className="absolute right-2.5 flex items-center">
-                    <Check aria-hidden className="size-(--size-icon)" />
-                  </ComboboxPrimitive.ItemIndicator>
-                </ComboboxPrimitive.Item>
+                <ComboboxItem key={option.value} option={option} />
               ))}
+              {shownApart.length > 0 ? (
+                <>
+                  {shown.length > 0 ? <ComboboxPrimitive.Separator data-slot="combobox-separator" className="-mx-1 my-1 h-px bg-border" /> : null}
+                  {shownApart.map((option) => (
+                    <ComboboxItem key={option.value} option={option} />
+                  ))}
+                </>
+              ) : null}
             </ComboboxPrimitive.List>
           </ComboboxPrimitive.Popup>
         </ComboboxPrimitive.Positioner>

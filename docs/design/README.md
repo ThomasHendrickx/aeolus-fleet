@@ -48,7 +48,7 @@ Feature designs, one folder each; the status of each is at its top:
 | [scheduled-messages](scheduled-messages/scheduled-messages.md) | A ship's own message, sent by core at its time |
 | [self-hosting-operations](self-hosting-operations.md) | Self-hosting: one way to run the parts, their Postgres privileges, backups, what a restored fleet does, sealed fleets and the gateway |
 | [selector](selector/selector.md) | One message to a set of ships |
-| [ship-owners](ship-owners/README.md) | Mockups: the commission dialog signed in as argo names the person ship that owns the new ship |
+| [ship-owners](ship-owners/README.md) | Mockups: the commission dialog signed in as argo names the person ship that owns the new ship; the Owner control on the ship page |
 | [ship-repositories](ship-repositories/README.md) | Mockups: the crew settings name a main repository and sub-repositories, shown on the ship and trierarch pages |
 | [working-band](working-band/README.md) | Shared UI working band: approved motion reference, integration proposal and simulated comparison evidence |
 | [state-colours](state-colours/state-colours.md) | One meaning per colour for a ship's state, in every app |

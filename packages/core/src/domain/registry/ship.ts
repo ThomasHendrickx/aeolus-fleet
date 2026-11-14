@@ -358,12 +358,12 @@ export function commissionShip(
 /** Why a ship's owner changed: argo set it, or its owner's ship retired and it fell to argo. */
 export type OwnerChangedWhy = 'set' | 'ownerRetired';
 
-export type ChangeOwnerRefusal = DomainError<'SHIP_HAS_NO_OWNER' | 'SHIP_ALREADY_RETIRED' | 'INVALID_OWNER'>;
+export type ChangeOwnerRefusal = DomainError<'SHIP_HAS_NO_OWNER' | 'SHIP_OWNS_ITSELF' | 'SHIP_ALREADY_RETIRED' | 'INVALID_OWNER'>;
 
 /**
  * The ship with its new owner and OwnerChanged (decision 0045). The owner is
- * an active person's ship or argo; argo and the viewer have none, and a
- * retired ship keeps the owner it had. The same owner again changes nothing
+ * an active person's ship or argo; argo and the viewer have none, a person's
+ * ship owns itself (decision 0052), and a retired ship keeps the owner it had. The same owner again changes nothing
  * and writes no event.
  */
 export function changeOwner(
@@ -373,6 +373,9 @@ export function changeOwner(
   const { owner } = change;
   if (isConsoleShip(ship)) {
     return refuse('SHIP_HAS_NO_OWNER', `${ship.name} is the console's own ship: it has no owner`);
+  }
+  if (ship.kind === 'person') {
+    return refuse('SHIP_OWNS_ITSELF', `${ship.name} is a person's ship: it owns itself`);
   }
   if (ship.retiredAt !== null) {
     return refuse('SHIP_ALREADY_RETIRED', `${ship.name} is retired: it keeps the owner it had`);

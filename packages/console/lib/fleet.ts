@@ -118,6 +118,13 @@ export function useRenameShip() {
   return useMutation(trpc.fleet.rename.mutationOptions({ onSuccess: refresh }));
 }
 
+/** Gives a ship a new owner, an active person's ship or argo (decision 0045); the ship page and its timeline read it again. */
+export function useSetOwner() {
+  const trpc = useTRPC();
+  const refresh = useRefreshFleetSnapshot();
+  return useMutation(trpc.fleet.setOwner.mutationOptions({ onSuccess: refresh }));
+}
+
 /**
  * Writes a ship's crew request, replacing any it holds, with a new settings
  * version: Request crew, and Restart, which writes the same settings again.
