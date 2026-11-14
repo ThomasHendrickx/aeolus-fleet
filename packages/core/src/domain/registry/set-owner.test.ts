@@ -125,6 +125,17 @@ describe("setting a ship's owner (decisions 0045, 0053)", () => {
     });
   });
 
+  it("refuses a person's ship, which owns itself, changing nothing and writing no event", async () => {
+    const { shipId: charlotteId } = unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name: 'charlotte', type: 'person', kind: 'person' }));
+    core.state.events.length = 0;
+
+    const refused = await registry.setOwner(argo, { shipId: thomasId, ownerShipId: charlotteId });
+
+    expect(refused).toEqual({ isOk: false, error: { kind: 'SHIP_OWNS_ITSELF', message: "thomas is a person's ship: it owns itself" } });
+    expect(ownerOf(thomasId)).toBe(thomasId);
+    expect(core.state.events).toEqual([]);
+  });
+
   it('refuses a retired ship', async () => {
     unwrap(await registry.retireShip(argo, { shipId: scoutId }));
 

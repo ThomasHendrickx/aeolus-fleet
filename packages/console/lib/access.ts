@@ -31,12 +31,14 @@ export interface Access {
   canDefineScopes: boolean;
   /** fleet:keys: Turn on sealing, Change company key and the recovery key (decision 0068, N5). */
   canChangeKeys: boolean;
+  /** fleet:owner: Change owner on a ship's page (decision 0045). */
+  canChangeOwner: boolean;
   /** A viewer session: the read-only console's own copy (the sidebar foot, the account menu). */
   isViewer: boolean;
 }
 
 /** Until the session is known nothing is offered, so a viewer never sees a write flash by. */
-export const NO_ACCESS: Access = { canManage: false, canResend: false, canSend: false, canReceive: false, canDefineLabels: false, canAssignLabels: false, canEditNetwork: false, canDefineScopes: false, canChangeKeys: false, isViewer: false };
+export const NO_ACCESS: Access = { canManage: false, canResend: false, canSend: false, canReceive: false, canDefineLabels: false, canAssignLabels: false, canEditNetwork: false, canDefineScopes: false, canChangeKeys: false, canChangeOwner: false, isViewer: false };
 
 export function accessOf(session: Pick<ConsoleSessionOutput, 'kind' | 'scopes'> | undefined): Access {
   if (session === undefined) {
@@ -55,6 +57,7 @@ export function accessOf(session: Pick<ConsoleSessionOutput, 'kind' | 'scopes'> 
     canEditNetwork: holds('fleet:network'),
     canDefineScopes: holds('scopes:define'),
     canChangeKeys: holds('fleet:keys'),
+    canChangeOwner: holds('fleet:owner'),
     isViewer: session.kind === 'viewer',
   };
 }

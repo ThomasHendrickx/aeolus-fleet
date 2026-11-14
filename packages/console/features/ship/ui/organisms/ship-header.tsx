@@ -39,6 +39,8 @@ interface ShipHeaderProps {
   backHref?: string;
   /** The ship's labels, read-only or with yours to change, once the fleet's labels are read (#102); no Labels row until then. */
   labels?: ReactNode;
+  /** Who owns it, with Change owner when the session may (docs/design/ship-owners); no Owner row for argo and the viewer, which no ship owns. */
+  owner?: ReactNode;
   /** The ship one of the console's plugins runs as: it shows a plugin chip (#368). */
   isPluginShip?: boolean;
   /** Its side of the way (#756): the part that serves it, its turn and its oldest delivery waiting; no Delivery row without it. */
@@ -73,12 +75,14 @@ function MetaStrip({
   now,
   viewerFleetId,
   labels,
+  owner,
   way,
 }: {
   ship: ShipDetail;
   now: Date;
   viewerFleetId: FleetId | undefined;
   labels: ReactNode;
+  owner: ReactNode;
   way: ReactNode;
 }) {
   const isOperator = ship.kind === 'operator';
@@ -148,6 +152,12 @@ function MetaStrip({
           </dd>
         </div>
       )}
+      {owner === undefined ? null : (
+        <div className="col-span-4 flex min-w-0 items-center gap-4 bg-card px-3.5 py-2.5 max-sm:col-span-2 max-sm:flex-col max-sm:items-start max-sm:gap-1.5" data-testid="ship-owner">
+          <dt className="shrink-0 text-meta text-muted-foreground">Owner</dt>
+          <dd className="min-w-0 flex-1 text-body text-foreground">{owner}</dd>
+        </div>
+      )}
       {isOperator ? null : (
         <div className="col-span-4 flex min-w-0 items-start gap-4 bg-card px-3.5 py-2.5 max-sm:col-span-2 max-sm:flex-col max-sm:gap-1.5">
           <dt className="shrink-0 text-meta text-muted-foreground">Statement</dt>
@@ -208,10 +218,10 @@ function GatewayMark({ reader }: { reader: GatewayReader }) {
  * The top of the ship page (docs/design/png/ShipHeader.png): name, status,
  * type or the operator chip, the actions its state allows, and a meta strip
  * of where it runs, since when it is crewed, when it was commissioned and its
- * id, with its side of the way (#756), its statement (decision 0047) and its labels at its foot (#102), then its crew's report details, folded, when it has any. Its crew
+ * id, with its side of the way (#756), its owner (decision 0045), its statement (decision 0047) and its labels at its foot (#102), then its crew's report details, folded, when it has any. Its crew
  * request card, when given, sits above the meta strip, and its open alerts below that (decision 0071). argo says it is the operator's ship; a retired ship is read-only. In a sealed fleet a ship the gateway reads says so, naming the gateway's ship.
  */
-export function ShipHeader({ ship, shipId, state, actions, crewRequest, now, viewerFleetId, backHref = '/', labels, isPluginShip = false, way, gatewayReader }: ShipHeaderProps) {
+export function ShipHeader({ ship, shipId, state, actions, crewRequest, now, viewerFleetId, backHref = '/', labels, owner, isPluginShip = false, way, gatewayReader }: ShipHeaderProps) {
   if (state === 'loading' || (state === 'ready' && ship === undefined)) {
     return (
       <div aria-busy data-testid="ship-header" className="flex flex-col gap-4">
@@ -330,7 +340,7 @@ export function ShipHeader({ ship, shipId, state, actions, crewRequest, now, vie
       {ship.openAlerts.map((alert) => (
         <ShipOpenAlert key={alert.id} alert={alert} now={now} />
       ))}
-      <MetaStrip ship={ship} now={now} viewerFleetId={viewerFleetId} labels={labels} way={way} />
+      <MetaStrip ship={ship} now={now} viewerFleetId={viewerFleetId} labels={labels} owner={owner} way={way} />
       {(ship.kind === 'agent' || ship.kind === 'plugin') && ship.report?.details && ship.report.detailsBytes !== null ? (
         <ReportDetails details={ship.report.details} bytes={ship.report.detailsBytes} version={ship.report.detailsVersion} testId="ship-report-details" />
       ) : null}

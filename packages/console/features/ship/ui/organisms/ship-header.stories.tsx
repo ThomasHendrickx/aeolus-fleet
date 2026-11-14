@@ -13,6 +13,7 @@ import { ShipLabelsEdit } from './ship-labels-edit';
 import { ARGO_SHIP, AWAITING_SHIP, CREWED_SHIP, minutesAgo, NOW, PULL_WAY, RETIRED_SHIP, UNKNOWN_SHIP_ID, WATCHER_BUSY_WAY } from '../../../../lib/fixtures/ship-page.fixtures';
 import { shipWayView } from '../../services/ship-way';
 import { ShipWayLines } from '../molecules/ship-way-lines';
+import { ShipOwner } from '../molecules/ship-owner';
 import { VIEWER_FLEET_ID } from '../../../../lib/fixtures/report.fixtures';
 
 const meta = {
@@ -345,3 +346,52 @@ export const ReportedDark: Story = { ...Reported, globals: { theme: 'dark' } };
 export const ReportedWorkingDark: Story = { ...ReportedWorking, globals: { theme: 'dark' } };
 export const ReportedIdleDark: Story = { ...ReportedIdle, globals: { theme: 'dark' } };
 export const AwaitingCrewDark: Story = { ...AwaitingCrew, globals: { theme: 'dark' } };
+
+const CHARLOTTE = { id: idSchema('ship').parse('shp_01j8xk4tqzr3a9w6m2v5n7c4rm'), name: 'charlotte' };
+
+/** The Owner row (docs/design/ship-owners, state 2): the owner's ship, linked, and Change owner beside it while the session holds fleet:owner. */
+export const WithOwner: Story = {
+  args: {
+    ship: { ...CREWED_SHIP, ownerShipId: CHARLOTTE.id },
+    owner: <ShipOwner owner={{ kind: 'ship', id: CHARLOTTE.id, name: CHARLOTTE.name, isYou: false }} onChange={fn()} />,
+    labels: <ShipLabels chips={LABEL_CHIPS} />,
+  },
+  play: async ({ canvasElement }) => {
+    const row = within(canvasElement).getByTestId('ship-owner');
+    await expect(within(row).getByRole('link', { name: 'charlotte' })).toHaveAttribute('href', `/ships/${CHARLOTTE.id}`);
+    await expect(within(row).getByRole('button', { name: 'Change owner' })).toBeVisible();
+  },
+};
+/** On phone a ship argo owns reads "argo (you)", the row stacked under its title. */
+export const WithOwnerArgoPhone: Story = {
+  args: {
+    owner: <ShipOwner owner={{ kind: 'ship', id: CREWED_SHIP.ownerShipId ?? CREWED_SHIP.id, name: 'argo', isYou: true }} onChange={fn()} />,
+    labels: <ShipLabels chips={LABEL_CHIPS} />,
+  },
+  globals: { viewport: { value: 'mobile1' } },
+};
+/** A retired ship keeps the owner it had: shown, no Change owner (state 7). */
+export const RetiredWithOwner: Story = {
+  args: { ship: { ...RETIRED_SHIP, ownerShipId: CHARLOTTE.id }, owner: <ShipOwner owner={{ kind: 'ship', id: CHARLOTTE.id, name: CHARLOTTE.name, isYou: false }} /> },
+  play: async ({ canvasElement }) => {
+    const row = within(canvasElement).getByTestId('ship-owner');
+    await expect(within(row).getByRole('link', { name: 'charlotte' })).toBeVisible();
+    await expect(within(row).queryByRole('button', { name: 'Change owner' })).toBeNull();
+  },
+};
+/** A person ship owns itself: "Owns itself", no Change owner (state 7, Q2). */
+export const PersonOwnsItself: Story = {
+  args: { ship: { ...CREWED_SHIP, id: CHARLOTTE.id, name: CHARLOTTE.name, type: 'person', kind: 'person', ownerShipId: CHARLOTTE.id }, owner: <ShipOwner owner={{ kind: 'itself' }} /> },
+  play: async ({ canvasElement }) => {
+    const row = within(canvasElement).getByTestId('ship-owner');
+    await expect(row).toHaveTextContent('OwnerOwns itself');
+    await expect(within(row).queryByRole('button')).toBeNull();
+  },
+};
+/** argo's own page has no Owner row: no ship owns it. */
+export const ArgoHasNoOwnerRow: Story = {
+  args: { ship: ARGO_SHIP, actions: undefined },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).queryByTestId('ship-owner')).toBeNull();
+  },
+};
