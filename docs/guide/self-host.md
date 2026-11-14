@@ -230,7 +230,7 @@ The software is the same. What changes is who runs it, and what the hosting serv
 
 | | Hosted fleet | Your own fleet |
 | --- | --- | --- |
-| **Who runs it** | The hosting service runs the server, the console and every plugin. | You run each part, and keep Postgres and its backups. |
+| **Who runs it** | The hosting service runs the server, the console and every plugin. | You run each part, and keep Postgres and its backups, as [Run the server](run-the-server.md#5-back-up-and-restore) shows. |
 | **Signing in** | You sign in with your [account](words.md#account) through the hosting service. | You sign in as argo, with the link `fleet:init` or `aeolus-core sign-in` prints, then with the email and password you set. |
 | **Fleets per [installation](words.md#installation)** | Many fleets share the hosted installation, each kept apart. | One fleet. `fleet:init` refuses a second. |
 | **[Limits](words.md#limits)** | Your plan may limit ships and messages per day; the console says when you reach one. | None: Aeolus sets no limit of its own. |
@@ -238,7 +238,7 @@ The software is the same. What changes is who runs it, and what the hosting serv
 | **Usage analytics** | The hosted console may send usage analytics. | None. Telemetry is off until you set the standard `OTEL_*` settings, and then goes only to your own collector. |
 | **Upgrades** | Done for you. | You install the newer packages and restart. `aeolus-core start` migrates first. Read the [release notes](https://github.com/ThomasHendrickx/aeolus-fleet/releases) before you upgrade: before 1.0, a minor release may change things. |
 
-A [sealed fleet](words.md#sealed-fleet) needs an AWS KMS region on your server (`KMS_REGION`); without it, no fleet can be sealed. Using your fleet from a chat, Slack or the app needs the [gateway](words.md#gateway), which runs beside the server with its own database. It is optional, and is not covered here.
+A [sealed fleet](words.md#sealed-fleet) needs an AWS KMS region on your server (`KMS_REGION`); without it, no fleet can be sealed. Using your fleet from a chat, Slack or the app needs the [gateway](words.md#gateway), which runs beside the server with its own database. It is optional, and installing it is not covered here; once it runs, [Run the server](run-the-server.md) keeps it running, upgrades it and backs it up with the other parts.
 
 ## If something does not work
 
