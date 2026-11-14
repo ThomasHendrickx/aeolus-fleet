@@ -3,6 +3,7 @@ import { inject } from 'vitest';
 
 import { LOCALSTACK_IMAGE } from '../../src/testing/container-images.js';
 import { TEST_RUN_LABEL } from '../../src/testing/container-sweeper.js';
+import { stopContainer } from '../../src/testing/stop-container.js';
 
 const KMS_PORT = 4566;
 
@@ -37,7 +38,7 @@ export async function startLocalStack(): Promise<StartedLocalStack> {
   return {
     kmsEndpoint: `http://${container.getHost()}:${String(container.getMappedPort(KMS_PORT))}`,
     stop: async () => {
-      await container.stop();
+      await stopContainer({ name: 'LocalStack', stop: () => container.stop() });
     },
   };
 }

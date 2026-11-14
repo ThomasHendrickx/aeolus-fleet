@@ -6,6 +6,7 @@ import { POSTGRES_IMAGE, REAPER_IMAGE } from './container-images.js';
 import { startContainerSweeper } from './container-sweeper.js';
 import { TestPostgres } from './postgres-container.js';
 import { createMigratedTemplate } from './migrated-template.js';
+import { stopContainer } from './stop-container.js';
 
 declare module 'vitest' {
   export interface ProvidedContext {
@@ -35,6 +36,6 @@ export async function setup(project: TestProject): Promise<() => Promise<void>> 
   project.provide('postgresUrl', container.getConnectionUri());
 
   return async () => {
-    await container.stop();
+    await stopContainer({ name: 'Postgres', stop: () => container.stop() });
   };
 }
