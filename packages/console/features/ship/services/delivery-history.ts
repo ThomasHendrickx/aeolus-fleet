@@ -117,6 +117,8 @@ function leaseEndParts(reason: LeaseEndReason, entry: DeliveryHistoryEntry): Sen
       return [text('the operator password was reset')];
     case 'accountCutOff':
       return [text('the account signed in as argo was cut off')];
+    case 'restored':
+      return [text('the fleet was restored from a backup')];
   }
 }
 
