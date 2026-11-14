@@ -91,9 +91,16 @@ async function planOf(statement: Prisma.Sql): Promise<string> {
   return rows.map((row) => row['QUERY PLAN']).join('\n');
 }
 
-/** The scans of a plan, each with its table or index, without costs or conditions. */
+/** The scans of a plan, each with its table or index and its index conditions, without costs. A filter is left out: excluded ids may only show up there. */
 function scansOf(plan: string): string[] {
-  return plan.split('\n').flatMap((line) => /(?:Seq|Index|Index Only|Bitmap Heap|Bitmap Index) Scan (?:using )?\S+(?: on \S+)?/.exec(line)?.slice(0, 1) ?? []);
+  const scans: string[] = [];
+  for (const line of plan.split('\n')) {
+    const scan = /(?:Seq|Index|Index Only|Bitmap Heap|Bitmap Index) Scan (?:using |on )?\S+(?: on \S+)?/.exec(line)?.[0];
+    const condition = /Index Cond: (.*)$/.exec(line)?.[1];
+    if (scan !== undefined) scans.push(scan);
+    else if (condition !== undefined) scans.push(`  Index Cond: ${condition}`);
+  }
+  return scans;
 }
 
 describe(`a push receive excluding ${String(PUSH_RECEIVE_EXCLUDING_MAX)} held deliveries on a fleet of ${String(SHIPS)} ships`, () => {

@@ -13,8 +13,9 @@ import { withOperatorLogin } from './support/operator-login.js';
 // The exchange read, the list of exchanges and seen up to here on a fleet of
 // 3,000 ships and a long history, a quarter of it the person ship's with its
 // 3,000 others (docs/design/exchange-read, section 1, outcome 5): each answers
-// right at that size. How fast is not asserted here: a time flakes under load,
-// and exchange-plan.integration.test.ts asserts the plan of the same reads.
+// right at that size. Reads are not timed here: a time flakes under load,
+// and exchange-plan.integration.test.ts asserts their plans. Only the first
+// seen up to, a write, is held to 500 ms.
 
 const SHIPS = 3_000;
 const HISTORY = 200_000;
@@ -22,6 +23,8 @@ const HISTORY = 200_000;
 const THOMAS_EVERY = 4;
 /** The busiest other ship: one of thomas's messages in this many is with it. */
 const BUSIEST_EVERY = 10;
+/** The first, state-changing seen up to: the write path has no plan test. */
+const WRITE_BUDGET_MS = 500;
 
 let prisma: PrismaClient;
 let useCases: UseCases;
@@ -109,8 +112,11 @@ describe(`the exchanges of a person ship on a fleet of ${String(SHIPS)} ships an
     const upTo = idSchema('message').parse(newest?.id);
     const shipId: ShipId = busiest;
 
+    const startedAt = performance.now();
     const seen = unwrap(await useCases.acknowledgeUpTo(thomas, { otherShipId: shipId, messageId: upTo }));
+    const took = performance.now() - startedAt;
 
     expect(seen).toEqual({ acknowledged: 50 });
+    expect(took).toBeLessThan(WRITE_BUDGET_MS);
   });
 });
