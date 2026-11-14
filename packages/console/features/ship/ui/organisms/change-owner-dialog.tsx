@@ -23,6 +23,9 @@ interface ChangeOwnerDialogProps {
   argo: (OwnerChoice & { isYou: boolean }) | undefined;
   /** What was typed in the field: the person ships whose names hold it are read. */
   onQueryChange?: (query: string) => void;
+  hasMorePersonShips?: boolean;
+  isLoadingMorePersonShips?: boolean;
+  onLoadMorePersonShips?: () => void;
   /** The person ships could not be read: why, and how to read them again. */
   readFailure?: { message: string; onRetry: () => void };
   isOpen: boolean;
@@ -36,14 +39,15 @@ interface ChangeOwnerDialogProps {
 const CURRENT = <span className="text-meta text-muted-foreground">Current</span>;
 
 /** The open dialog's field: it starts at the current owner each time it opens. */
-function ChangeOwnerDialogBody({ shipName, currentOwner, personShips, argo, onQueryChange, readFailure, isPending, error, onSubmit }: Omit<ChangeOwnerDialogProps, 'isOpen' | 'onOpenChange'>) {
+function ChangeOwnerDialogBody({ shipName, currentOwner, personShips, argo, onQueryChange, hasMorePersonShips, isLoadingMorePersonShips, onLoadMorePersonShips, readFailure, isPending, error, onSubmit }: Omit<ChangeOwnerDialogProps, 'isOpen' | 'onOpenChange'>) {
   const ownerId = useId();
   const hintId = useId();
-  const [picked, setPicked] = useState<ShipId | null>(currentOwner.id);
-  const canChange = picked !== null && picked !== currentOwner.id;
+  const [picked, setPicked] = useState<OwnerChoice | null>(currentOwner);
+  const canChange = picked !== null && picked.id !== currentOwner.id;
   // The current owner is offered even where the search did not find it, so the field opens with it.
   const isCurrentListed = currentOwner.id === argo?.id || personShips?.some((ship) => ship.id === currentOwner.id) === true;
-  const people = isCurrentListed ? (personShips ?? []) : [currentOwner, ...(personShips ?? [])];
+  const currentPeople = isCurrentListed ? (personShips ?? []) : [currentOwner, ...(personShips ?? [])];
+  const people = picked !== null && picked.id !== argo?.id && !currentPeople.some((ship) => ship.id === picked.id) ? [picked, ...currentPeople] : currentPeople;
   const choices: readonly OwnerChoice[] = argo === undefined ? people : [...people, argo];
   const options: ComboboxOption[] = people.map((ship) => ({ value: ship.id, label: ship.name, ...(ship.id === currentOwner.id ? { trailing: CURRENT } : {}) }));
   const apartOptions: ComboboxOption[] =
@@ -53,7 +57,7 @@ function ChangeOwnerDialogBody({ shipName, currentOwner, personShips, argo, onQu
           {
             value: argo.id,
             label: argo.isYou ? `${argo.name} (you)` : argo.name,
-            trailing: argo.id === currentOwner.id ? CURRENT : <span className="text-meta text-muted-foreground">No person answers</span>,
+            trailing: <span className="text-meta text-muted-foreground">No person answers</span>,
           },
         ];
 
@@ -64,7 +68,7 @@ function ChangeOwnerDialogBody({ shipName, currentOwner, personShips, argo, onQu
       onSubmit={(event) => {
         event.preventDefault();
         if (canChange) {
-          onSubmit(picked);
+          onSubmit(picked.id);
         }
       }}
     >
@@ -79,11 +83,16 @@ function ChangeOwnerDialogBody({ shipName, currentOwner, personShips, argo, onQu
           options={options}
           apartOptions={apartOptions}
           hasListButton
-          value={picked}
+          value={picked?.id ?? null}
           onValueChange={(value) => {
-            setPicked(choices.find((choice) => choice.id === value)?.id ?? null);
+            setPicked(choices.find((choice) => choice.id === value) ?? null);
           }}
           {...(onQueryChange === undefined ? {} : { onQueryChange })}
+          listAction={hasMorePersonShips ? (
+            <Button type="button" variant="ghost" disabled={isLoadingMorePersonShips} onClick={onLoadMorePersonShips}>
+              {isLoadingMorePersonShips ? 'Loading person ships' : 'Load more person ships'}
+            </Button>
+          ) : undefined}
           emptyText={(query) => `No person ship is named ${query}.`}
           leadingIcon={<UserRound />}
           placeholder={personShips === undefined ? 'Reading the person ships' : 'Pick an owner'}

@@ -1,13 +1,14 @@
 'use client';
 
 import type { ShipDetail } from '@aeolus-fleet/common';
-import { isInReadReach, RECORD_PAGE_SIZE_DEFAULT } from '@aeolus-fleet/common/rules';
-import { keepPreviousData, skipToken, useQuery } from '@tanstack/react-query';
+import { isInReadReach } from '@aeolus-fleet/common/rules';
+import { skipToken, useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import { useAccess } from '../../../lib/access';
 import { useSetOwner } from '../../../lib/fleet';
 import { useTRPC } from '../../../lib/trpc';
+import { CONSOLE_PAGE_SIZE, nextCursorOf } from '../../../lib/paged-list';
 import type { OwnerChoice } from '../ui/organisms/change-owner-dialog';
 import type { ShipOwnerView } from '../ui/molecules/ship-owner';
 
@@ -21,6 +22,9 @@ export interface ShipOwnerControl {
     personShips: readonly OwnerChoice[] | undefined;
     argo: (OwnerChoice & { isYou: boolean }) | undefined;
     onQueryChange: (query: string) => void;
+    hasMore: boolean;
+    isLoadingMore: boolean;
+    loadMore: () => void;
     readFailure?: { message: string; onRetry: () => void };
   };
   change: ReturnType<typeof useSetOwner>;
@@ -45,10 +49,10 @@ export function useShipOwner(ship: ShipDetail, isDialogOpen: boolean): ShipOwner
   const canChange = access.canChangeOwner && ship.status !== 'retired' && ship.kind !== 'person' && ownerShipId !== null;
   const isReading = isDialogOpen && canChange;
   const nameQuery = query.trim();
-  const personShips = useQuery(
-    trpc.fleet.list.queryOptions(
-      { shipKind: ['person'], limit: RECORD_PAGE_SIZE_DEFAULT, ...(nameQuery === '' ? {} : { nameQuery }) },
-      { enabled: isReading, placeholderData: keepPreviousData },
+  const personShips = useInfiniteQuery(
+    trpc.fleet.list.infiniteQueryOptions(
+      { shipKind: ['person'], status: ['awaitingCrew', 'crewed'], limit: CONSOLE_PAGE_SIZE, ...(nameQuery === '' ? {} : { nameQuery }) },
+      { enabled: isReading, getNextPageParam: nextCursorOf },
     ),
   );
   // argo is read with Change owner offered, so the dialog opens with it in the list.
@@ -66,9 +70,12 @@ export function useShipOwner(ship: ShipDetail, isDialogOpen: boolean): ShipOwner
           : { kind: 'ship', id: ownerShipId, name: owner.data?.name, isYou: isArgoSession && owner.data !== undefined && isInReadReach(owner.data) && owner.data.kind === 'operator' },
     canChange,
     choices: {
-      personShips: personShips.data?.items.filter((each) => each.status !== 'retired').map((each) => ({ id: each.id, name: each.name })),
+      personShips: personShips.data?.pages.flatMap((page) => page.items.map((each) => ({ id: each.id, name: each.name }))),
       argo: argoShip === undefined ? undefined : { id: argoShip.id, name: argoShip.name, isYou: isArgoSession },
       onQueryChange: setQuery,
+      hasMore: personShips.hasNextPage,
+      isLoadingMore: personShips.isFetchingNextPage,
+      loadMore: () => { void personShips.fetchNextPage(); },
       ...(failed === undefined
         ? {}
         : {

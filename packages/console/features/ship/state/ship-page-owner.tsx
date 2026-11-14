@@ -26,6 +26,7 @@ export function ShipPageOwner({ ship }: { ship: ShipDetail }) {
   }
   const open = () => {
     change.reset();
+    choices.onQueryChange('');
     setIsOpen(true);
   };
 
@@ -39,6 +40,9 @@ export function ShipPageOwner({ ship }: { ship: ShipDetail }) {
           personShips={choices.personShips}
           argo={choices.argo}
           onQueryChange={choices.onQueryChange}
+          hasMorePersonShips={choices.hasMore}
+          isLoadingMorePersonShips={choices.isLoadingMore}
+          onLoadMorePersonShips={choices.loadMore}
           {...(choices.readFailure === undefined ? {} : { readFailure: choices.readFailure })}
           isOpen={isOpen}
           onOpenChange={setIsOpen}

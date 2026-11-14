@@ -145,7 +145,9 @@ export const CurrentArgo: Story = {
   args: { currentOwner: ARGO },
   play: async () => {
     const list = await openTheList();
-    await expect(within(list).getByRole('option', { name: /argo \(you\).*No person answers/ })).toBeVisible();
+    await waitFor(async () => {
+      await expect(within(list).getByRole('option', { name: /argo \(you\).*No person answers/ })).toBeVisible();
+    });
   },
 };
 

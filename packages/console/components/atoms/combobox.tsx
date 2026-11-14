@@ -38,6 +38,8 @@ interface ComboboxProps {
   hasListButton?: boolean;
   /** Each change of the typed text, so the owner can ask the server for the options that match. */
   onQueryChange?: (query: string) => void;
+  /** An action after the options, such as loading another page. */
+  listAction?: ReactNode;
   /** What the popup says when nothing matches the typed text. */
   emptyText?: (query: string) => ReactNode;
   /** A decorative icon inside the field, before the text. */
@@ -94,6 +96,7 @@ export function Combobox({
   apartOptions = [],
   hasListButton = false,
   emptyText,
+  listAction,
   leadingIcon,
   placeholder,
   id,
@@ -123,7 +126,12 @@ export function Combobox({
       isItemEqualToValue={(option, other) => option.value === other.value}
       inputValue={query}
       open={isOpen && (hasListButton || query.trim() !== '')}
-      onOpenChange={setIsOpen}
+      onOpenChange={(isNowOpen) => {
+        setIsOpen(isNowOpen);
+        if (isNowOpen && hasListButton && selected?.label === query) {
+          onQueryChange?.('');
+        }
+      }}
       onInputValueChange={(text, details) => {
         // With free text the typed text is the value: only typing or a chosen
         // suggestion changes it. Base UI would otherwise reset it to the
@@ -218,6 +226,7 @@ export function Combobox({
                 </>
               ) : null}
             </ComboboxPrimitive.List>
+            {listAction}
           </ComboboxPrimitive.Popup>
         </ComboboxPrimitive.Positioner>
       </ComboboxPrimitive.Portal>
