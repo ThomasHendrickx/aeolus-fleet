@@ -50,7 +50,7 @@ function repositoryError(value: string, isFolder = false): string | undefined {
   if (value === '' || /^(?:\/|~(?:\/|$))/.test(value) || (!isFolder && /^(?:(?:https?|ssh|git):\/\/[^\s/]+\/.+|[^\s@]+@[^\s:]+:.+)$/.test(value))) {
     return undefined;
   }
-  return `${value} is no path from / or ~${isFolder ? '.' : ', and no git URL.'}`;
+  return isFolder ? `${value} is not a full path: start it with / or ~.` : `${value} is no path from / or ~, and no git URL.`;
 }
 
 /** The name the operator gives the machine: no prefill; the trierarch's ship goes by it (#245, h). */
