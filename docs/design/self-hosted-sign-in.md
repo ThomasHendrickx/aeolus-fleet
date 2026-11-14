@@ -169,9 +169,72 @@ flowchart TD
 
 ## 7. Open questions
 
-1. **How is the first account established securely?** Separate sign-in is approved, but neither a server-side setup command nor a one-use setup link has been selected. What proves installation control, where is setup performed, and how does a retry recover the same account and fleet binding after partial failure?
-2. **What credential does Maya use?** Choose the initial sign-in method and its reset mechanism. Email/password, passkey or an external identity provider impose different setup and recovery needs; no email delivery dependency has been approved.
-3. **What exact rights does the first person receive?** Is Maya initially a fleet manager, or which scopes and reach are granted to commission, crew and message her first agent? Which component exposes changes? The approved one-person population does not itself grant every scope or argo permission.
-4. **Who removes access, and what completes revocation?** Choose the supported administration surface, the gateway notification/reconciliation contract and its failure bound, and how failed gateway notifications are retried. Owned ships follow 0055, including release of owned trierarchs, with no new blanket release policy. Core's cut-off is installation-wide and does not revoke a gateway-held person crew. This matters even with one person, who can lock herself out.
-5. **How does trusted recovery repair the separate part?** Choose the server-side credential/account recovery operation, its authority and the identity state and signing material to back up. Preserve account id and person mapping. Argo already restores fleet control but has no existing credential-reset contract for the separate part.
-6. **What deployment topology is supported first?** Choose the separate part's repository/release and setup entry, its public origin, client registration and the console/gateway cookie-domain arrangement. The existing shared-cookie flow needs compatible HTTPS addresses; arbitrary unrelated origins cannot be assumed to work. This determines the actual setup burden without reopening the separate-part decision.
+These are proposals for Thomas to choose, not settled decisions. Each pick aims at the first person and one fleet; none requires account-management pages or changes the approved separate sign-in boundary.
+
+### 1. How should the first person prove control of the installation?
+
+**Context.** The existing fleet and argo already exist. Core's `aeolus-core sign-in` issues an argo link, not a person's identity. The separate part needs a stable account id and fleet binding before it can issue account tokens. A public visitor must not become the first person merely by arriving first. Person provisioning must reuse `person-<account id>` after a partial failure (section 5).
+
+**Options.**
+
+1. **A setup command on the server.** Trusted server access authorises creation of the named account and binding to the existing fleet. Persist its account id before provisioning; retries resume that record and the existing person commission key. Costs: one command to build and document, and server access for setup; no setup page or emailed link.
+2. **A one-use browser setup link issued on the server.** The command creates a short-lived link bound to the pending account and fleet; the browser finishes setup, and retries reuse that record. Costs: a setup page, token storage, expiry and replay handling, plus private handling of the link.
+
+**Pick: option 1.** Thomas already operates the server. A command proves control with the fewest moving parts and can resume the same identity without a public registration flow.
+
+### 2. What should the first person use to sign in?
+
+**Context.** Console and gateway need the separate part's browser sign-in and fleet-token contracts, not a raw identity-provider token. No email delivery service is approved. The credential belongs to the separate part; core keeps neither it nor the person's email. Recovery must preserve the account id (question 5).
+
+**Options.**
+
+1. **A local password, reset through server access.** The setup command sets it through private input; the separate part stores a password hash and serves sign-in. Costs: password hashing, failed-attempt controls and a server reset operation; no mail server or outside identity service.
+2. **A passkey, enrolled through a one-use setup link.** Normal sign-in uses the browser's passkey support. Costs: passkey registration and verification, a stable HTTPS relying-party address, and a server-authorised way to enrol a replacement after losing the device.
+3. **An existing external identity provider.** Bind its verified issuer and subject to the stable local account. Costs: provider configuration, a login adapter and availability dependency; trusted recovery must repair that binding without creating another account.
+
+**Pick: option 1.** It supplies repeatable sign-in without email or another service. For one person, a private server reset is enough; passkeys can follow when their benefit justifies their setup and recovery work.
+
+### 3. Which rights should the first person receive?
+
+**Context.** A named account does not automatically receive fleet rights or argo permission. Decisions 0052 and 0057 separate account management rights from the person ship's messaging scopes. Commission checks what the account may grant, plus reach and limits. The first journey needs ownership, commission, crewing and Bridge replies, with working reach between the person and agent.
+
+**Options.**
+
+1. **Make the first person the fleet manager.** The setup command explicitly grants every scope the fleet offers, as the existing fleet-manager rule requires, and configures reach for the journey. Keep argo permission false; give the person ship only its existing messaging scopes. Costs: broad authority over this fleet and reconciliation when its offered scopes change; no custom rights editor.
+2. **Grant a fixed set for the first journey.** Enumerate the account scopes needed to commission, obtain starting prompts, release and message the intended agent, the scopes it may grant that agent, and the corresponding reach. Costs: less authority, but a maintained grant definition and server-command changes whenever Thomas needs another capability.
+
+**Pick: option 1.** Thomas is the only person operating this fleet. An explicit fleet-manager grant avoids designing and maintaining a restricted role for himself. It still needs reach configured and does not make ordinary work argo's work.
+
+### 4. How should access removal finish across core and gateway?
+
+**Context.** Core's installation cut-off refuses older account tokens across the installation, not just one fleet. It does not invalidate the gateway's person crew. Decision 0055 also requires shared sign-ins and account-linked argo access to end, and release of the person ship and its owned trierarchs, whose releases end the leases they crewed. Other owned agents stay. An unreachable service needs durable retry work. The gateway's `SharedSignIn` port has no incoming account-disable operation today.
+
+**Options.**
+
+1. **A server command with an authenticated gateway invalidation call.** The command disables the account, stops token issuance, revokes shared sign-ins and argo permission, and records cleanup work durably before calling core and a new gateway operation. The gateway immediately rejects that account's human access when notified and clears its cached authorisation. Retry unconfirmed work until acknowledged; report removal as pending while any target is unreachable. Require gateway access to expire no later than the current account token, including the existing 30-second allowance, without successful renewal, even if notification is lost. Costs: one command, the gateway operation, expiry enforcement and a durable retry record; no administration page or event bus.
+2. **A browser administration page using the same removal contract.** Apply the same notifications, expiry bound, releases and durable retries through a protected account page. Costs: all of option 1 plus an administration UI, its authorisation and a recovery route when the only person disables herself.
+
+**Pick: option 1.** A server command is sufficient for one person. Notification gives prompt removal when services answer; token expiry also bounds human gateway access when they do not. A retained person crew never authorises browser access by itself, and incomplete cleanup stays visible as pending.
+
+### 5. How should server access restore the same person's sign-in?
+
+**Context.** The existing independent argo link restores fleet control even when the issuer is down, but cannot reset credentials in the separate part. Replacing the account would strand its person ship and ownership. Signing keys, durable identity state and a usable restore procedure matter as much as the credential.
+
+**Options.**
+
+1. **A recovery command plus a documented backup and restore.** Trusted server access resets the chosen credential or binding on the existing account, explicitly re-enables it or restores rights when requested, and revokes old shared sign-ins. Back up account ids, the local organisation value, fleet rights, person mappings, provisioning and cleanup retry records, deployment configuration and signing material in protected storage. Restore these with the fleet's backup and reconcile the existing person commission key. Costs: a command and a restore procedure; Thomas must keep and test the backups. Publish replacement signing keys before use and retain old public keys through their last valid token, as section 5 requires.
+2. **A one-use recovery link issued on the server, with the same backups.** Bind the link to the existing account and finish credential replacement in the browser. Costs: the same durable recovery and backup work, plus a recovery page and link expiry/replay handling; server access is still necessary.
+
+**Pick: option 1.** It uses the authority Thomas already needs for argo recovery and avoids another browser flow. Neither option can recover a lost account id or signing state from an argo sign-in alone.
+
+### 6. What should the first supported deployment look like?
+
+**Context.** The separate sign-in part is already approved. Console's account sign-in code and gateway's `SharedSignIn` port assume a shared browser cookie, registered callbacks and server-to-server token exchange. Unrelated public domains do not satisfy that assumption. Repository, release and setup choices should keep the part separate without building a deployment platform.
+
+**Options.**
+
+1. **A small separate repository and service, configured by hand.** Release a runnable image for the sign-in part. Extend the self-host setup guide with its setup command, durable storage and explicit console/gateway client registrations. Support HTTPS sibling addresses under one private-to-this-installation parent domain, with a shared Secure, HttpOnly cookie scoped to that parent and exact registered callbacks. Keep server-only client credentials and the installation token off the browser. Costs: one more service and image version, DNS/TLS and a shared domain containing only trusted apps; Thomas supplies configuration rather than an installer.
+2. **The same separate service and shared-domain topology, with generated setup.** Add a command that writes the service configuration, client registrations and deployment files for all parts. Costs: less manual configuration later, but a generator and coordinated version/configuration handling to build and maintain now.
+3. **Separate service with unrelated public domains.** Replace the shared-cookie assumption with a cross-origin sign-in design while preserving PKCE and browser binding. Costs: changes to both apps' sign-in adapters and a new browser trust and sign-out contract, beyond deploying the existing flow.
+
+**Pick: option 1.** One service, explicit configuration and compatible HTTPS addresses are enough for Thomas's first journey. Keep unrelated domains and a setup generator outside the first supported deployment.
