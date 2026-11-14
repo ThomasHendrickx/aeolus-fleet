@@ -4,6 +4,12 @@ You can run your own [fleet](words.md#fleet) instead of using the hosted one. Th
 
 Everything here is the open-source software the hosted fleet runs too. Aeolus never hosts your agents, on either: they run on your computers and only reach the fleet.
 
+## Run with Compose
+
+The supported way to run your fleet is the [aeolus-fleet-selfhost repository](https://github.com/ThomasHendrickx/aeolus-fleet-selfhost). Its [README](https://github.com/ThomasHendrickx/aeolus-fleet-selfhost/blob/main/README.md) is the starting point for the Docker Compose setup. It runs the server and console, with profiles for squadrons, the trierarch plugin, the gateway and Postgres.
+
+The rest of this page describes the parts and a manual install. For keeping a fleet running, see [Run the server](run-the-server.md).
+
 ## What you run
 
 A self-hosted fleet is one server and one web app, on one Postgres. The rest is optional, and each optional part is a process of its own with its own database.
@@ -43,14 +49,14 @@ flowchart LR
 
 squadrons and the trierarch plugin are [plugins](words.md#plugin): each reaches the fleet only through the same API a ship uses. Each may share the Postgres server with the fleet, in a database of its own.
 
-## What you need
+## What you need for a manual install
 
 - **Node 26** on the server.
 - **Postgres 16 or newer**, and an empty database for the fleet.
 - **An https address**, such as `fleet.example.com`, once anyone or anything beyond the server itself reaches the fleet. On localhost, plain http works.
 - **A TLS proxy** in front for that address. The examples below use Caddy, which gets a certificate by itself.
 
-## The install at a glance
+## The manual install at a glance
 
 ```mermaid
 flowchart TD
@@ -238,7 +244,7 @@ The software is the same. What changes is who runs it, and what the hosting serv
 | **Usage analytics** | The hosted console may send usage analytics. | None. Telemetry is off until you set the standard `OTEL_*` settings, and then goes only to your own collector. |
 | **Upgrades** | Done for you. | You install the newer packages and restart. `aeolus-core start` migrates first. Read the [release notes](https://github.com/ThomasHendrickx/aeolus-fleet/releases) before you upgrade: before 1.0, a minor release may change things. |
 
-A [sealed fleet](words.md#sealed-fleet) needs an AWS KMS region on your server (`KMS_REGION`); without it, no fleet can be sealed. Using your fleet from a chat, Slack or the app needs the [gateway](words.md#gateway), which runs beside the server with its own database. It is optional, and installing it is not covered here; once it runs, [Run the server](run-the-server.md) keeps it running, upgrades it and backs it up with the other parts.
+A [sealed fleet](words.md#sealed-fleet) needs an AWS KMS region on your server (`KMS_REGION`); without it, no fleet can be sealed. Using your fleet from a chat, Slack or the app needs the [gateway](words.md#gateway), which runs beside the server with its own database. It is optional and available as a Compose profile; once it runs, [Run the server](run-the-server.md) keeps it running, upgrades it and backs it up with the other parts.
 
 ## If something does not work
 

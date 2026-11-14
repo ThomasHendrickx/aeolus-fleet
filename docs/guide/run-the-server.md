@@ -2,8 +2,6 @@
 
 Your own [fleet](words.md#fleet) is running: you followed [Self-host](self-host.md), signed in as the [operator](words.md#operator) and joined a first [computer](words.md#computer). This page is about keeping it running. It says how to run each part as a service that stays up, how to give each part its database, how to see that it is healthy, how to upgrade to a new release, how to back up and restore, how to reset the operator's password, and what to check when something misbehaves.
 
-Where Aeolus documents nothing yet, the page says so rather than guess. That gap is listed at the end.
-
 ## What keeps running
 
 Each part is a long-running process of its own. Each stops cleanly on `SIGINT` or `SIGTERM`, and each [plugin](words.md#plugin) has a database of its own.
@@ -23,7 +21,9 @@ The fleet server needs a long-running host: it holds WebSockets, wake streams, r
 
 ## 1. Run each part as a service
 
-Run the server, the console and each plugin you use under a service manager of your choice, so it starts with the machine and starts again when it stops. Whatever you use, it has to:
+The supported [Compose setup](https://github.com/ThomasHendrickx/aeolus-fleet-selfhost) runs the server and console, with profiles for the plugins and Postgres. Its [README](https://github.com/ThomasHendrickx/aeolus-fleet-selfhost/blob/main/README.md) is the starting point.
+
+For a manual install, run the server, the console and each plugin you use under a service manager of your choice, so it starts with the machine and starts again when it stops. Whatever you use, it has to:
 
 - **Pass the part its settings** from the environment: `DATABASE_URL`, `PUBLIC_URL` and the rest, as [Self-host](self-host.md) sets them. A part reads them only at startup, and refuses to start when one is missing or wrong, so a changed setting needs a restart.
 - **Run the start command** from the folder where you installed the packages, such as `npx aeolus-core start`.
@@ -40,7 +40,7 @@ Run the server, the console and each plugin you use under a service manager of y
 
 For squadrons and the trierarch plugin, stop the old process before you start the new one: an upgrade that starts the new one first and stops the old one after does not work for them.
 
-Aeolus ships no service files for the server, the console or the plugins, and documents none yet. The trierarch is the exception: its setup line installs its own service on each computer.
+The trierarch runs on each computer: its setup line installs its own service.
 
 ## 2. Create the databases and users
 
@@ -126,6 +126,10 @@ A new version of the server, squadrons, the trierarch plugin or the gateway may 
 The server's migrations hold a Postgres lock while they run, so two server processes starting at once never migrate at once: the second waits, then finds nothing left to do.
 
 No command undoes a migration. To go back to an older version once a newer one has migrated, restore the backup you took before the upgrade, as section 5 shows. That is why the backup comes first.
+
+### Upgrades with Compose
+
+In the [Compose repository](https://github.com/ThomasHendrickx/aeolus-fleet-selfhost), bump the version pin in `.env.example`, use the updated pin in your `.env`, and rebuild the affected image. Follow the order and backup steps above, then check each part after it starts.
 
 ### The fleet server and the console
 
@@ -318,12 +322,6 @@ It prints a link that signs you in as argo, once, within 15 minutes, and ends an
 | You forgot argo's password | `npx aeolus-core operator:reset-password` on the server, as section 6 shows. |
 
 For what a [ship](words.md#ship) or a message shows in the console, see [Troubleshooting](troubleshooting.md).
-
-## Not covered yet
-
-Aeolus does not document this yet, so this page leaves it out rather than guess:
-
-- Service files, or another ready setup, for running the server, the console and the plugins as services.
 
 ## The code
 
