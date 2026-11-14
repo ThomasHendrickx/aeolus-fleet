@@ -18,7 +18,7 @@ import type { ExchangeList } from '../../domain/messaging/ports.js';
 import { pageOf } from '../../domain/shared/page.js';
 import { Prisma } from './generated/client.js';
 import type { Db } from './client.js';
-import { toMessage } from './rows.js';
+import { pageWithMessages } from './page-with-messages.js';
 
 /**
  * A delivery row a statement changed, as it returns it for the rollup: its
@@ -103,22 +103,20 @@ export function createPrismaExchangeRollups(db: Db): ExchangeRollups {
   };
 }
 
-const listedRows = z.array(
-  z.object({
-    other_ship_id: idSchema('ship'),
-    name: z.string(),
-    type: z.string(),
-    kind: shipKindSchema,
-    newest_message_id: idSchema('message'),
-    unacknowledged: z.int(),
-  }),
-);
+const listedRow = z.object({
+  other_ship_id: idSchema('ship'),
+  name: z.string(),
+  type: z.string(),
+  kind: shipKindSchema,
+  newest_message_id: idSchema('message'),
+  unacknowledged: z.int(),
+});
 
 /** A page of a ship's rows, newest first, with the other ship of each. */
 export function exchangeListStatement({ fleetId, shipId, cursor, limit }: { fleetId: FleetId; shipId: ShipId; cursor?: MessageId | undefined; limit: number }): Prisma.Sql {
   const after = cursor === undefined ? Prisma.empty : Prisma.sql`AND e.newest_message_id < ${cursor}`;
   return Prisma.sql`
-    SELECT e.other_ship_id, s.name, s.type, s.kind::text AS kind, e.newest_message_id, e.unacknowledged
+    SELECT e.fleet_id, e.other_ship_id, s.name, s.type, s.kind::text AS kind, e.newest_message_id, e.unacknowledged
     FROM exchanges e
     JOIN ships s ON s.fleet_id = e.fleet_id AND s.id = e.other_ship_id
     WHERE e.fleet_id = ${fleetId} AND e.ship_id = ${shipId} AND s.retired_at IS NULL ${after}
@@ -130,16 +128,14 @@ export function exchangeListStatement({ fleetId, shipId, cursor, limit }: { flee
 export function createPrismaExchangeList(db: Db): ExchangeList {
   return {
     page: async ({ fleetId, shipId, cursor, limit }) => {
-      const rows = listedRows.parse(await db.$queryRaw(exchangeListStatement({ fleetId, shipId, cursor, limit })));
-      const messages = await db.message.findMany({ where: { fleetId, id: { in: rows.map((row) => row.newest_message_id) } } });
-      const byId = new Map(messages.map((row) => [row.id, toMessage(row)]));
-      const listed = rows.map((row) => {
-        const newestMessage = byId.get(row.newest_message_id);
-        if (!newestMessage) {
-          // The foreign key keeps every row's newest message in its fleet.
-          throw new Error(`Exchange of ${shipId} and ${row.other_ship_id} has no message ${row.newest_message_id}`);
-        }
-        return { otherShip: { id: row.other_ship_id, name: row.name, type: row.type, kind: row.kind }, newestMessage, unacknowledged: row.unacknowledged };
+      const rows = await pageWithMessages(db, {
+        statement: exchangeListStatement({ fleetId, shipId, cursor, limit }),
+        messageId: Prisma.sql`page.newest_message_id`,
+        order: Prisma.sql`page.newest_message_id DESC`,
+      });
+      const listed = rows.map(({ row, message: newestMessage }) => {
+        const other = listedRow.parse(row);
+        return { otherShip: { id: other.other_ship_id, name: other.name, type: other.type, kind: other.kind }, newestMessage, unacknowledged: other.unacknowledged };
       });
       return pageOf(listed, { limit, cursorOf: (row) => row.newestMessage.id });
     },

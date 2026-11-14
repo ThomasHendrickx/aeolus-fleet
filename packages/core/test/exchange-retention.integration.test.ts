@@ -277,7 +277,6 @@ describe('how far pruning went, per exchange, on Postgres (docs/design/exchange-
   });
 });
 
-
 describe('pages racing a pruning batch (#1726)', () => {
   it.each(['exchange', 'record', 'exchanges'] as const)('keeps the %s page and its messages in one snapshot', async (page) => {
     // Given a finished exchange message old enough to prune, and its snapshot closed.
@@ -286,23 +285,26 @@ describe('pages racing a pruning batch (#1726)', () => {
     core.clock.advance((RETENTION_DAYS + 1) * DAY_MS);
     await core.useCases.closeHealthSnapshots();
     let didPrune = false;
-    const reader = core.prisma.$extends({
-      query: {
-        async $queryRaw({ args, query }) {
-          const rows = await query(args);
-          // Hold the completed page statement while a real batch commits on another connection.
-          if (!didPrune) {
-            didPrune = true;
-            await core.useCases.pruneHistory();
-            expect(await isKept(note)).toBe(false);
-          }
-          return rows;
-        },
-      },
-    });
-
     // When pruning commits after the page statement, before any following statement.
-    const messages = await reader.$transaction(async (db) => {
+    const messages = await core.prisma.$transaction(async (transaction) => {
+      const db = new Proxy(transaction, {
+        get(target, property) {
+          if (property !== '$queryRaw') {
+            const value: unknown = Reflect.get(target, property);
+            return value;
+          }
+          return async (...args: Parameters<typeof transaction.$queryRaw>) => {
+            const rows = await transaction.$queryRaw(...args);
+            // Hold the completed page statement while a real batch commits on another connection.
+            if (!didPrune) {
+              didPrune = true;
+              await core.useCases.pruneHistory();
+              expect(await isKept(note)).toBe(false);
+            }
+            return rows;
+          };
+        },
+      });
       if (page === 'exchanges') {
         const result = await createPrismaExchangeList(db).page({ fleetId: argo.fleetId, shipId: thomas.shipId, limit: 20 });
         return result.items.map((row) => row.newestMessage);

@@ -7,6 +7,7 @@ import type { Db } from './client.js';
 import { addChangedDelivery, type ExchangeRollups } from './exchange-rollups.js';
 import { Prisma } from './generated/client.js';
 import { payloadColumnsOf, toDeliveryFromSql, toMessage } from './rows.js';
+import { pageWithMessages } from './page-with-messages.js';
 import { plainBytesOf } from '../../domain/messaging/sealed-payload.js';
 import { pageOf } from '../../domain/shared/page.js';
 
@@ -283,10 +284,12 @@ export function createPrismaDeliveryRepository(db: Db, rollups: ExchangeRollups)
       });
     },
     findExchangePage: async (query) => {
-      const rows = await db.$queryRaw<unknown[]>(exchangePageStatement(query));
-      const deliveries = rows.map(toDeliveryFromSql);
-      const newestFirst = query.toward === 'older' ? deliveries : deliveries.toReversed();
-      return withMessages(db, { fleetId: query.fleetId, deliveries: newestFirst });
+      const rows = await pageWithMessages(db, {
+        statement: exchangePageStatement(query),
+        messageId: Prisma.sql`page.message_id`,
+        order: Prisma.sql`page.id DESC`,
+      });
+      return rows.map(({ row, message }) => ({ delivery: toDeliveryFromSql(row), message }));
     },
     findUnacknowledgedUpToForUpdate: async (query) => {
       const rows = await db.$queryRaw<unknown[]>(unacknowledgedUpToStatement(query));
@@ -298,7 +301,7 @@ export function createPrismaDeliveryRepository(db: Db, rollups: ExchangeRollups)
       // id), and those of its type it claimed (the partial record index). A
       // delivery is in one half only, so the merged page holds no repeat.
       const after = cursor === undefined ? Prisma.empty : Prisma.sql`AND id < ${cursor}`;
-      const rows = await db.$queryRaw<unknown[]>`
+      const statement = Prisma.sql`
         SELECT * FROM (
           (SELECT id, fleet_id, message_id, recipient_ship_id, recipient_type, state::text AS state,
                   claimed_by_ship_id, claimed_by_lease_id, attempts, hand_over_number, handed_once_more_at, is_forced, created_at
@@ -316,17 +319,8 @@ export function createPrismaDeliveryRepository(db: Db, rollups: ExchangeRollups)
         ) AS record
         ORDER BY id DESC
         LIMIT ${limit + 1}`;
-      const deliveries = rows.map(toDeliveryFromSql);
-      const messages = await db.message.findMany({ where: { fleetId, id: { in: deliveries.map((delivery) => delivery.messageId) } } });
-      const byId = new Map(messages.map((row) => [row.id, toMessage(row)]));
-      const recorded = deliveries.map((delivery) => {
-        const message = byId.get(delivery.messageId);
-        if (!message) {
-          // The foreign key keeps every delivery's message in its fleet.
-          throw new Error(`Delivery ${delivery.id} has no message ${delivery.messageId}`);
-        }
-        return { delivery, message };
-      });
+      const rows = await pageWithMessages(db, { statement, messageId: Prisma.sql`page.message_id`, order: Prisma.sql`page.id DESC` });
+      const recorded = rows.map(({ row, message }) => ({ delivery: toDeliveryFromSql(row), message }));
       return pageOf(recorded, { limit, cursorOf: (row) => row.delivery.id });
     },
     findForUpdate: async (fleetId, deliveryId) => {
