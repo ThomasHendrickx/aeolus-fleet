@@ -110,6 +110,18 @@ describe('following the fleet', () => {
     expect(events.map((event) => event.type)).toEqual(['ShipCommissioned', 'OwnerSet', 'StartingPromptIssued']);
   });
 
+  it('answers the fleet\'s last position with no events, without waiting, to a follower past the fleet\'s last event, as after a restore', async () => {
+    // Given a follower holding a position past the fleet's last event
+    const last = await lastSeq();
+
+    // When it follows from there, willing to wait
+    const followed = await followFleet(argo, { afterSeq: last + 7, waitSeconds: 25 });
+
+    // Then it is answered the fleet's last position at once, to go on from there
+    expect(followed).toEqual({ isOk: true, value: { events: [], lastSeq: last } });
+    expect(waits).toEqual([]);
+  });
+
   it.each([
     { label: 'no event at most', input: { max: 0 }, kind: 'INVALID_FOLLOW_MAX' },
     { label: 'more than 100 at most', input: { max: 101 }, kind: 'INVALID_FOLLOW_MAX' },
