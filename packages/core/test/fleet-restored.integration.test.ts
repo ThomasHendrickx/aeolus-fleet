@@ -1,4 +1,4 @@
-import { SCOPES, type FleetId } from '@aeolus-fleet/common';
+import { createIdGenerator, SCOPES, type FleetId } from '@aeolus-fleet/common';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/client.js';
@@ -10,11 +10,14 @@ import { unwrap } from '../src/testing/result.js';
 import { createUseCases, type UseCases } from '../src/wiring.js';
 import { runServerCommand } from './support/commands.js';
 import { FLEET_URL, OPERATOR, operatorCaller, secretOf } from './support/core-fixtures.js';
+import { createDatabaseMigratedUpTo } from './support/older-schema.js';
 import { withOperatorLogin } from './support/operator-login.js';
 
 // fleet:restored, run as the self-hoster runs it after pg_restore: through
 // npm, from the repository root, against a real Postgres
 // (docs/design/self-hosting-operations.md, section 5).
+
+const newId = createIdGenerator();
 
 let databaseUrl: string;
 let prisma: PrismaClient;
@@ -111,6 +114,47 @@ describe('fleet:restored on Postgres', () => {
       await expect(prisma.event.count({ where: { type: 'LeaseRevoked' } })).resolves.toBe(0);
     } finally {
       await listener.close();
+    }
+  });
+
+  it('migrates a database restored from an older core first, then ends its leases', async () => {
+    // Given a backup made by an older core, restored: migrated only up to before sealing_progress, with argo and a crewed ship
+    const olderUrl = await createDatabaseMigratedUpTo('20261031090000_recovery_key');
+    const older = createPrismaClient(olderUrl);
+    const fleetId = newId('fleet');
+    const argoId = newId('ship');
+    const scoutId = newId('ship');
+    const leaseId = newId('lease');
+    const now = new Date();
+    try {
+      // Raw: the generated client knows columns that later migrations add.
+      await older.$executeRaw`INSERT INTO fleets (id, name, created_at) VALUES (${fleetId}, 'old fleet', ${now})`;
+      await older.$executeRaw`
+        INSERT INTO ships (id, fleet_id, name, type, kind, scopes, created_at) VALUES
+          (${argoId}, ${fleetId}, 'argo', 'operator', 'operator', '{}', ${now}),
+          (${scoutId}, ${fleetId}, 'scout', 'reviewer', 'agent', '{}', ${now})`;
+      await older.$executeRaw`
+        INSERT INTO leases (id, fleet_id, ship_id, location, crew_token_hash, started_at)
+        VALUES (${leaseId}, ${fleetId}, ${scoutId}, 'CLOUD', ${newKey()}, ${now})`;
+    } finally {
+      await older.$disconnect();
+    }
+
+    // When the self-hoster runs fleet:restored, with the newer core installed
+    const result = await runServerCommand({ script: 'fleet:restored', env: { DATABASE_URL: olderUrl, PUBLIC_URL: FLEET_URL } });
+
+    // Then it migrates what the backup lacks, and ends the ship's lease with LeaseRevoked, reason restored
+    expect(result.code, result.stderr).toBe(0);
+    expect(result.stdout).toContain('Ended 1 lease in fleet old fleet');
+    const migrated = createPrismaClient(olderUrl);
+    try {
+      await expect(migrated.$queryRaw`SELECT migration_name FROM _prisma_migrations WHERE migration_name = '20261113120000_events_owner_set_index' AND finished_at IS NOT NULL`).resolves.toHaveLength(1);
+      expect((await migrated.lease.findUniqueOrThrow({ where: { id: leaseId } })).endedAt).not.toBeNull();
+      await expect(migrated.event.findMany({ where: { type: 'LeaseRevoked' }, select: { actorKind: true, details: true } })).resolves.toEqual([
+        { actorKind: 'system', details: { leaseId, reason: 'restored', returnedDeliveries: 0 } },
+      ]);
+    } finally {
+      await migrated.$disconnect();
     }
   });
 });
