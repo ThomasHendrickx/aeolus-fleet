@@ -122,6 +122,7 @@ export function TrierarchsContainer() {
           isPending={join.isPending}
           error={join.error?.message}
           joined={join.data}
+          joinedInput={join.variables}
           onSubmit={(name) => {
             join.mutate(name);
           }}

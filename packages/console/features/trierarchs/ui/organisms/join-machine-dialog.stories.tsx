@@ -183,14 +183,14 @@ const COMPLETE_DESCRIPTION = 'Run this line in a terminal on the machine. It ins
 const ASKS_DESCRIPTION = 'Run this line in a terminal on the machine. It installs the trierarch, the aeolus-fleet plugin for each harness you pick, and starts the trierarch. It asks on the machine for the harnesses and the repositories. It ends with a report of how it went.';
 
 export const AfterJoinedComplete: Story = {
-  args: { joined: JOINED_COMPLETE, ...{ joinedInput: COMPLETE_INPUT } },
+  args: { joined: JOINED_COMPLETE, joinedInput: COMPLETE_INPUT },
   play: async () => {
     // Given all join options were filled.
     const line = await screen.findByTestId('join-machine-setup-line');
     // When the plugin answers with its setup line.
     await expect(line).toHaveTextContent(JOINED_COMPLETE.setupLine);
     // Then only that line is shown, with what it does and that it asks nothing.
-    await expect(screen.getByText(COMPLETE_DESCRIPTION)).toBeVisible();
+    await waitFor(async () => { await expect(screen.getByText(COMPLETE_DESCRIPTION)).toBeVisible(); });
     await expect(screen.queryByTestId('join-machine-prompt')).not.toBeInTheDocument();
     await expect(screen.queryByTestId('join-machine-crew-line-claude-code')).not.toBeInTheDocument();
     await expect(screen.getAllByRole('button', { name: /Copy/ })).toHaveLength(1);
@@ -205,7 +205,7 @@ export const AfterJoinedAsks: Story = {
     // When the plugin answers.
     await expect(line).toHaveTextContent(JOINED_ASKS.setupLine);
     // Then the description says the machine asks for harnesses and repositories.
-    await expect(screen.getByText(ASKS_DESCRIPTION)).toBeVisible();
+    await waitFor(async () => { await expect(screen.getByText(ASKS_DESCRIPTION)).toBeVisible(); });
     await expect(screen.queryByTestId('join-machine-prompt')).not.toBeInTheDocument();
   },
 };
@@ -214,7 +214,7 @@ export const AfterJoinedCopyFailed: Story = {
   args: { joined: JOINED_ASKS },
   beforeEach: () => {
     const clipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
-    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async () => { throw new Error('Clipboard unavailable'); } } });
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: () => Promise.reject(new Error('Clipboard unavailable')) } });
     return () => {
       if (clipboard === undefined) Reflect.deleteProperty(navigator, 'clipboard');
       else Object.defineProperty(navigator, 'clipboard', clipboard);
