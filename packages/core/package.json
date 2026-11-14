@@ -57,6 +57,7 @@
     "fleet:init": "tsx --conditions=@aeolus-fleet/source --env-file-if-exists=.env src/bin/aeolus-core.ts fleet:init",
     "sign-in": "tsx --conditions=@aeolus-fleet/source --env-file-if-exists=.env src/bin/aeolus-core.ts sign-in",
     "operator:reset-password": "tsx --conditions=@aeolus-fleet/source --env-file-if-exists=.env src/bin/aeolus-core.ts operator:reset-password",
+    "fleet:restored": "tsx --conditions=@aeolus-fleet/source --env-file-if-exists=.env src/bin/aeolus-core.ts fleet:restored",
     "db:migrate": "tsx --conditions=@aeolus-fleet/source --env-file-if-exists=.env src/bin/aeolus-core.ts migrate",
     "prepack": "cp ../../LICENSE LICENSE",
     "postpack": "rm LICENSE"

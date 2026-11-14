@@ -90,6 +90,7 @@ const LEASE_ENDS: Readonly<Record<string, string>> = {
   passwordReset: 'Its session ended with the operator password reset.',
   accountCutOff: 'Its session ended: the account signed in as argo was cut off.',
   retired: 'Its session ended: the ship was retired.',
+  restored: 'Its session ended: the fleet was restored from a backup.',
 };
 
 function leaseEnd(entry: TimelineEntry): SentencePart[] {

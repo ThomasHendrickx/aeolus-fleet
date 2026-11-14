@@ -124,6 +124,7 @@ Rejected: a standby replica, which is high availability and out of scope (L9).
 - It ends every open lease but argo's, writing `LeaseRevoked` for each, in one transaction per fleet. Every delivery in flight goes back to pending (L3, L4), and the timeline says why.
 - The end reason is a new one, `restored`, so a ship's timeline says why its session lost it, rather than reusing `released`.
 - It refuses to run while a core process is connected to the database (the delivery listener's `application_name` shows one).
+- Before it ends a lease, it applies the migrations a backup made by an older core lacks, as `start` does, so the restore steps stay `pg_restore`, `fleet:restored`, `start`.
 - It changes nothing else: messages, deliveries and ships stay as the backup holds them.
 - Every session that still holds a token from before gets `LEASE_ENDED`, which every crew and plugin handles by forgetting the ship.
 
