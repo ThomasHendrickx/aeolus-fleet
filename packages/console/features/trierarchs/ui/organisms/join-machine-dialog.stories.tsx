@@ -158,3 +158,19 @@ export const PressShowsPending: Story = {
     await expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();
   },
 };
+
+/** The unpictured folder edge clarified by orchestrator-1: empty is disabled silently; bad shape names the rule. */
+export const InvalidFolder: Story = {
+  play: async () => {
+    // Given a free name and the folder choice, when empty, then joining is disabled without a new error.
+    await named();
+    await userEvent.click(screen.getByTestId('join-machine-repositories-folder'));
+    await expect(screen.getByTestId('join-machine-submit')).toBeDisabled();
+    await expect(screen.getByTestId('join-machine-folder')).not.toHaveAttribute('aria-invalid', 'true');
+
+    // When a nonempty folder is no full path, then the error names how to fix it and joining remains disabled.
+    await userEvent.type(screen.getByTestId('join-machine-folder'), 'code/api');
+    await expect(screen.getByText('code/api is not a full path: start it with / or ~.')).toBeVisible();
+    await expect(screen.getByTestId('join-machine-submit')).toBeDisabled();
+  },
+};
