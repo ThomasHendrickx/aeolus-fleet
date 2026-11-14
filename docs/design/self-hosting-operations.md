@@ -1,6 +1,6 @@
 # Self-hosting operations: run, privileges, back up and restore
 
-Design for [#1791](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1791), [#1792](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1792), [#1793](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1793), [#1794](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1794) and [aeolus-fleet-gateway#350](https://github.com/ThomasHendrickx/aeolus-fleet-gateway/issues/350): the five gaps [Run the server](../guide/run-the-server.md#not-covered-yet) lists as not covered. Docs only, for Thomas to approve; nothing is built yet. Purpose first (section 1), the lessons to check against (section 2), then per gap what is true on main today, the options and a pick (sections 3 to 7), the restore flow (section 8), the questions (section 9) and the slices once approved (section 10). Every pick is a proposal until Thomas answers its question.
+Design for [#1791](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1791), [#1792](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1792), [#1793](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1793), [#1794](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1794) and [aeolus-fleet-gateway#350](https://github.com/ThomasHendrickx/aeolus-fleet-gateway/issues/350): the five gaps [Run the server](../guide/run-the-server.md#not-covered-yet) lists as not covered. Docs only; Thomas approved the purpose and every decision below on 2026-11-14, and nothing is built yet. Purpose first (section 1), the lessons to check against (section 2), then per gap what is true on main today and the decision (sections 3 to 7), the restore flow (section 8) and the slices in build order (section 9).
 
 ## 1. Purpose
 
@@ -45,27 +45,21 @@ Every pick below is checked against these, the blueprint's promises and the deci
 - The gateway's default port is 4200, the trierarch plugin's too: on one machine one of them must be moved.
 - The hosted fleet runs exactly this as Docker Compose: one image per release train, each built on the server from the npm packages at pinned versions, the plugins started once core is healthy, Postgres 16 beside them with a role and database per part. Staging walks it before every release.
 
-### Options
+### Decision: a separate self-hosting repository
 
-| | Option | For | Against |
-| --- | --- | --- | --- |
-| A | **systemd unit files**, one per part, with an environment file each | A few lines of text; no build; no Docker | Linux only; Node 26 and Postgres installed by hand; start order by `After=` only, so a plugin may start before core answers and exit (it restarts until core is up); a shape nobody runs or walks today |
-| B | **One Compose file and one Dockerfile** that builds an image from the published npm packages at the versions the self-hoster names, as the hosted fleet does; Postgres as an optional service | The shape staging walks; health-gated start order (`depends_on: condition: service_healthy`); Linux and macOS; one command up; npm stays the one published artefact, so trusted publishing (decision [0011](../decisions/0011-release-via-trusted-publishing.md)) is untouched | Needs Docker; the image is built on the self-hoster's machine; one file names parts from five trains, each at its own version |
-| C | **Published container images** per train on a registry, plus a Compose file | Nothing to build | A second artefact in five release pipelines, its signing and its registry kept; polish for zero customers (L9) |
-| D | Kubernetes manifests or a Helm chart | | Far beyond one self-hoster's server (L9) |
+The Compose file, the Dockerfile, `.env.example` and the Postgres init script live in a new public repository, `ThomasHendrickx/aeolus-fleet-selfhost`, not in aeolus-fleet. It scales better and gives self-hosting a clear place, and core's repository does not name the plugins and the gateway. It sits on top of the dependency graph: it knows every part, nothing depends on it, and no train repository names another.
 
-### Pick: B
+- It names each part at a pinned version, one variable per train in `.env.example` (`AEOLUS_CORE_VERSION`, `AEOLUS_SQUADRONS_VERSION`, `AEOLUS_TRIERARCH_PLUGIN_VERSION`, `AEOLUS_GATEWAY_VERSION`), and is updated after each train's release.
+- One Compose file and one Dockerfile build one image from the published npm packages at those versions, as the hosted fleet does. npm stays the one published artefact, so trusted publishing (decision [0011](../decisions/0011-release-via-trusted-publishing.md)) is untouched.
+- It runs core and the console always, and squadrons, the trierarch plugin and the gateway each in a Compose profile of its own, so a self-hoster turns on only the plugins they use.
+- It starts every plugin only once core's `/health` answers, restarts every part on failure (`restart: unless-stopped`), stops each with `SIGTERM` and a grace period.
+- It runs one process of squadrons and of the trierarch plugin (no replicas). The guide documents one process per database for the trierarch plugin; it gets no lock.
+- It publishes no port but on `127.0.0.1`: TLS and the public address stay the self-hoster's reverse proxy, as [Self-host](../guide/self-host.md) says. The gateway's port is 4300 (section 7), so no two parts clash.
+- It has a Postgres 16 service in a profile of its own, with an init script that makes each part's role and database as section 4 says; a self-hoster with a managed Postgres leaves that profile off and points each `DATABASE_URL` at it.
 
-One Compose setup in this repository, under `deploy/compose/` (a `compose.yaml`, a `Dockerfile` and an `.env.example`), and nothing else supported. It:
+aeolus-fleet's docs ([Run the server](../guide/run-the-server.md) and [Self-host](../guide/self-host.md)) point to that repository as the one supported way, and say that any other service manager works if it does what the guide's bullets say.
 
-- builds one image from the npm packages at the versions `.env` names, one variable per train (`AEOLUS_CORE_VERSION`, `AEOLUS_SQUADRONS_VERSION`, `AEOLUS_TRIERARCH_PLUGIN_VERSION`, `AEOLUS_GATEWAY_VERSION`);
-- runs core and the console always, and squadrons, the trierarch plugin and the gateway each in a Compose profile of its own, so a self-hoster turns on only the plugins they use;
-- starts every plugin only once core's `/health` answers, restarts every part on failure (`restart: unless-stopped`), stops each with `SIGTERM` and a grace period;
-- runs one process of squadrons and of the trierarch plugin (no replicas);
-- publishes no port but on `127.0.0.1`: TLS and the public address stay the self-hoster's reverse proxy, as [Self-host](../guide/self-host.md) already says;
-- has a Postgres 16 service in a profile of its own, with an init script that makes each part's role and database as section 4 says; a self-hoster with a managed Postgres leaves that profile off and points each `DATABASE_URL` at it.
-
-The guide's section 1 then names this setup as the one supported way, and says that any other service manager works if it does what the four bullets there already say.
+Rejected: systemd units (Linux only, Node and Postgres installed by hand, start order by `After=` only); published container images per train (a second artefact in five release pipelines, polish for zero customers, L9); Kubernetes manifests or a Helm chart (L9); a `deploy/compose/` in aeolus-fleet (core's repository would name the other trains).
 
 ## 4. Postgres privileges per part (#1792)
 
@@ -83,17 +77,11 @@ The guide's section 1 then names this setup as the one supported way, and says t
 - `LISTEN` and session advisory locks need a direct or session connection; a transaction pooler breaks core, squadrons and the gateway. The guide says so for core only.
 - squadrons, the trierarch plugin and the gateway keep crew tokens and outside credentials as they are in their databases (the gateway's README and the trierarch plugin's say so). A role that can read another part's database can read them.
 
-### Options
+### Decision: one role per part, owning its database, no other attribute
 
-| | Option | For | Against |
-| --- | --- | --- | --- |
-| A | **One role per part, owning its database, nothing else**: `LOGIN`, no `SUPERUSER`, `CREATEDB`, `CREATEROLE`, `REPLICATION` or `BYPASSRLS` | What every part needs today and what the guide already shows; the hosted fleet runs it; each part's start can migrate | The running part can change its own schema, so a compromised core could drop its own append-only trigger |
-| B | **Two roles per part**: an owner that migrates, and a runtime role with data rights only | The running part cannot change its schema | Start can no longer migrate: a second database URL per part, default privileges kept for every new table, a change in all five trains; it protects only against a part already compromised, which can read and change its data anyway (L9) |
-| C | One role shared by parts | | One part reads another's crew tokens and outside credentials. Rejected |
+The guide's section 2 states, per part: a role with `LOGIN` that owns its database, no `SUPERUSER`, `CREATEDB`, `CREATEROLE`, `REPLICATION` or `BYPASSRLS`, no extension, Postgres 16 or newer, a direct or session connection for every part (not only core), one role per part and never shared. The same role takes and restores its database's backups (section 5), so no backup role is needed. The self-hosting repository's init script makes exactly these.
 
-### Pick: A
-
-The guide's section 2 states, per part: a role with `LOGIN` that owns its database, no other attribute, no extension, Postgres 16 or newer, a direct or session connection for every part (not only core), one role per part and never shared. The same role takes and restores its database's backups (section 5), so no backup role is needed. The Compose setup's init script makes exactly these.
+Rejected: two roles per part (an owner that migrates and a runtime role), since start could no longer migrate and all five trains would change to guard against a part already compromised (L9); one role shared by parts, since one part would read another's crew tokens and outside credentials.
 
 ## 5. Backup schedule, retention and what a restored fleet does (#1793)
 
@@ -115,44 +103,37 @@ The guide says how to `pg_dump` and `pg_restore` each database, and nothing abou
 
 The hosted fleet backs up nightly with `pg_dump` of every database, encrypted, kept 14 days, and runs continuous WAL archiving with base backups (point-in-time recovery), the 14 newest kept.
 
-### Options: the schedule and retention
+### Decision: the schedule and retention
 
-| | Option | What a restore loses | Against |
-| --- | --- | --- | --- |
-| A | **Nightly `pg_dump` of every database at once, plus one before every upgrade; keep 14 days** | Up to a day of messages | A day is a long window for L1 |
-| B | **Continuous WAL archiving (point-in-time recovery)** with nightly base backups, 14 days | Minutes | Needs a tool (WAL-G, pgBackRest) or a managed Postgres that offers it; more for a self-hoster to run |
-| C | A standby replica | Nothing for a disk loss | High availability, out of scope (L9) |
+- A nightly `pg_dump` of every database at one moment, plus one before each upgrade, kept 14 days. It is the floor every self-hoster can run: the self-hosting repository does not run it; a cron line or a timer does.
+- Point-in-time recovery (continuous WAL archiving with base backups) is recommended wherever the Postgres offers it, since it shrinks what a restore loses from a day to minutes (L1).
+- A backup keeps what the fleet's own retention (decision [0066](../decisions/0066-retention.md)) already pruned, for as long as the backup is kept. Every backup is as secret as the crew tokens and outside credentials the plugins' databases hold, so it is encrypted and kept off the server.
 
-### Pick: A as the floor, B where the Postgres offers it
+Rejected: a standby replica, which is high availability and out of scope (L9).
 
-The guide recommends A as the schedule every self-hoster can run (the Compose setup does not run it; a cron line or a timer does), and says to turn on point-in-time recovery wherever the Postgres offers it, since it shrinks what a restore loses from a day to minutes (L1). Retention 14 days, with two notes: a backup keeps what the fleet's own retention (decision [0066](../decisions/0066-retention.md)) already pruned, for as long as the backup is kept; and every backup is as secret as the crew tokens and outside credentials the plugins' databases hold, so it is encrypted and kept off the server.
+### Decision: the restore rules
 
-Two rules come with it:
-
-- **Back up every database at the same moment, and restore every database to the same moment.** Never restore one part alone: core and each plugin hold each other's ids, crew tokens and messages, and a restore of one alone leaves them disagreeing (section 7 has the gateway's case).
+- **Always restore every database to the same moment, never one part alone.** Core and each plugin hold each other's ids, crew tokens and messages, and a restore of one alone leaves them disagreeing (section 7 has the gateway's case).
 - **Back up the settings too.** The databases hold the fleet; each part's environment holds what is not in them: core's `INSTALLATION_TOKEN` and KMS settings, the gateway's `GATEWAY_SECRET` and Web push keys, each plugin's installation token.
-
-### Options: what a restored fleet does
-
-| | Option | For | Against |
-| --- | --- | --- | --- |
-| A | **Document only**: after a restore, argo releases every crewed ship and reconnects each plugin | No code | argo becomes the fail-safe, ship by ship (L3); a missed ghost lease holds deliveries |
-| B | **One core command run once after a restore, before core starts**: it ends every open lease but argo's with a new end reason `restored`, writing `LeaseRevoked` for each, in one transaction per fleet | One step to remember, then no ghost lease: every delivery in flight goes back to pending (L3, L4); every session that still holds a token from before gets `LEASE_ENDED`, which every crew and plugin already handles by forgetting the ship (that the trierarch then crews it again from its crew request is to be confirmed in its repository before slice 4); the timeline says why | Sessions that were fine at the backup moment are cut too, and crew again; a new end reason; a forgotten run leaves today's behaviour |
-| C | **Detect a restore by itself**: an installation incarnation every client compares, or Postgres's timeline | No step to forget | Every train changes to compare it; a detection that guesses wrong ends every lease of a healthy fleet; far beyond L9 |
-
-### Pick: B
-
-`npx aeolus-core fleet:restored` (the name is Q8's), against the fleet's `DATABASE_URL`, after `pg_restore` and before `aeolus-core start`. It refuses to run while a core process is connected to the database (the delivery listener's `application_name` shows one). It changes nothing else: messages, deliveries and ships stay as the backup holds them.
-
-What it cannot fix, and the guide says plainly:
-
-- Messages sent after the backup are gone (L1). Point-in-time recovery shrinks that window; nothing removes it.
-- A session that crewed after the backup holds a token the fleet never knew (L5): it gets `UNKNOWN_CREW_TOKEN`. For it to crew again by itself, every crew must treat `UNKNOWN_CREW_TOKEN` as `LEASE_ENDED`. The plugin's scripts, squadrons and the gateway already stop using such a token; the trierarch must then crew the ship again from its crew request (Q10).
-
-Two small changes make the rest hold without argo:
-
-- **A follower ahead of the fleet starts again.** `fleet.follow` given a position past the fleet's last event answers the fleet's last position with no events, so the follower goes on from there instead of skipping the new events (Q11). Stopping every part for the restore resets the parts' own followers; this covers an open console tab.
 - The guide's restore steps stop every part first and start core before any plugin, so no plugin reconciles against a core that is not yet settled.
+
+### Decision: what a restored fleet does
+
+`npx aeolus-core fleet:restored`, a one-time core command run against the fleet's `DATABASE_URL` after `pg_restore` and before `aeolus-core start`:
+
+- It ends every open lease but argo's, writing `LeaseRevoked` for each, in one transaction per fleet. Every delivery in flight goes back to pending (L3, L4), and the timeline says why.
+- The end reason is a new one, `restored`, so a ship's timeline says why its session lost it, rather than reusing `released`.
+- It refuses to run while a core process is connected to the database (the delivery listener's `application_name` shows one).
+- It changes nothing else: messages, deliveries and ships stay as the backup holds them.
+- Every session that still holds a token from before gets `LEASE_ENDED`, which every crew and plugin handles by forgetting the ship.
+
+Every crew, the trierarch first, treats `UNKNOWN_CREW_TOKEN` as `LEASE_ENDED` and crews the ship again from its crew request. A session that crewed after the backup holds a token the fleet never knew (L5); this brings it back without argo.
+
+`fleet.follow` given a position past the fleet's last event answers the fleet's last position with no events, so a follower ahead of the restored fleet (an open console tab) goes on from there instead of missing the new events. Stopping every part for the restore resets the parts' own followers.
+
+What it cannot fix, and the guide says plainly: messages sent after the backup are gone (L1). Point-in-time recovery shrinks that window; nothing removes it.
+
+Rejected: document only, which makes argo the fail-safe ship by ship (L3); automatic detection of a restore, which changes every train and, guessing wrong, ends every lease of a healthy fleet (L9).
 
 ## 6. A sealed fleet (#1794)
 
@@ -174,22 +155,17 @@ So a backup of a sealed fleet holds its wrapped data keys and its sealed payload
 | After the company destroyed its key, with no recovery key | Never. Its backups are shredded with it, as decision 0068 intends; deliveries wait pending |
 | From a backup taken before sealing was turned on | It is not sealed: the backup holds plain payloads and a fleet without sealing. The fleet manager turns sealing on again |
 
-### Options
+### Decision: document only
 
-| | Option | For | Against |
-| --- | --- | --- | --- |
-| A | **Document only**: what to keep, for how long, and how to see a restored fleet reads its payloads (`fleet.sealing`, Health) | Every behaviour above already holds on main; no code | The company must follow the key-keeping rule; Aeolus cannot check it |
-| B | A check command that unwraps each data key of every sealed fleet after a restore and says which fail | One answer per fleet before people notice | `fleet.sealing` and Health already say it on the first failed unwrap; a second way to see the same fact (L9) |
-
-### Pick: A
-
-The guide gets a short part under backup and restore for sealed fleets, saying:
+Nothing in code changes. Run the server gets a short part under backup and restore for sealed fleets, saying:
 
 - Back up nothing more from the server: no key is on it. Keep core's KMS settings with the other settings.
 - The company keeps its company key, and every company key it replaced, enabled and granted for as long as it keeps a backup made before the change; the same for every recovery key's private half. Scheduling a key's deletion shreds the fleet and every backup of it once the KMS's waiting period ends.
 - On a new server, the company grants the new principal on its key for this fleet's id before the restored fleet starts, or its deliveries wait pending until it does.
 - After the restore, `fleet.sealing` and Health say whether the key is reachable; when the old company key is gone, `aeolus-core fleet:recover-keys` with the recovery key the backup was wrapped to.
 - A backup taken before turning sealing on is plain, and restores a fleet that is not sealed.
+
+Rejected: a check command that unwraps each data key of every sealed fleet after a restore, since `fleet.sealing` and Health already say it on the first failed unwrap.
 
 ## 7. The gateway (#350, aeolus-fleet-gateway)
 
@@ -202,19 +178,14 @@ The guide gets a short part under backup and restore for sealed fleets, saying:
 - Restored to an earlier moment than core: crew tokens issued since are lost; outside refresh tokens rotated since are already used up, so those grants fail until the person signs in again (Slack's configuration tokens rotate every 12 hours). Core restored to an earlier moment than the gateway: the gateway's tokens issued since are unknown, it drops them, and argo connects it again; ids it keeps point at nothing.
 - Nothing documents its upgrade or backup. Run the server does not list it.
 
-### Options
-
-| | Option | For | Against |
-| --- | --- | --- | --- |
-| A | **The gateway in Run the server as one more part**: its row in the parts table, its database in section 2, its place in the upgrade order and the backup set; its README keeps its settings | One page for the whole installation, as for squadrons and the trierarch plugin; the restore rules (same moment, all together) cover it | A page in core's repository describing another train |
-| B | A guide page of its own in the gateway's repository | Lives with its code | A self-hoster reads two pages for one upgrade and one restore |
-
-### Pick: A
+### Decision: the gateway is one more part in Run the server
 
 - **Upgrade order**: core first, then squadrons, the trierarch plugin and the gateway, each after core (each checks core's version). The gateway may run a new process beside the old one, so its upgrade needs no stop.
 - **Backup**: its database with every other, at the same moment, and `GATEWAY_SECRET` and its Web push keys with the settings. Keep `GATEWAY_SECRET` for good: changing it is not a rotation but a break.
 - **Restore**: with every other database, to the same moment. People whose outside grants rotated since sign in to that server again; a Slack workspace whose tokens rotated since is connected again.
-- In the gateway's repository: its default port moves off 4200 (to 4300) so it never clashes with the trierarch plugin, and its README's minimum core version is corrected.
+- **In the gateway's repository**: its default port moves from 4200 to 4300 so it never clashes with the trierarch plugin, and its README's minimum core version is corrected.
+
+Rejected: a guide page of its own in the gateway's repository, since a self-hoster would read two pages for one upgrade and one restore.
 
 ## 8. The restore flow
 
@@ -253,36 +224,24 @@ flowchart TD
     recover --> crews
     crews{"A session's crew token?"}
     crews -->|"from before the backup"| ended["LEASE_ENDED: it forgets the ship;<br/>the trierarch crews it again from its crew request"]
-    crews -->|"issued after the backup"| unknown["UNKNOWN_CREW_TOKEN: treated as LEASE_ENDED (Q10);<br/>crewed again the same way"]
+    crews -->|"issued after the backup"| unknown["UNKNOWN_CREW_TOKEN: treated as LEASE_ENDED;<br/>crewed again the same way"]
     ended --> flow["Pending deliveries handed to the new crews.<br/>Acknowledged since the backup: handed again, a duplicate (L2)"]
     unknown --> flow
     flow --> lost["Messages sent after the backup are gone (L1):<br/>the guide says so; PITR keeps this to minutes"]
     lost --> done(["Check /health, each /api/health, /version"])
 ```
 
-## 9. Questions for Thomas
+## 9. Slices
 
-1. **Purpose.** Is section 1 the purpose: one documented way to run, privilege, back up and restore every server part, a restore whose result is stated, sealed fleets and the gateway included, high availability out of scope? Pick: yes.
-2. **Running the parts (#1791).** One Compose file and one Dockerfile that builds from the npm packages, as the hosted fleet does (B), rather than systemd units (A) or published images (C)? Pick: B, the shape staging already walks, with npm the one artefact.
-3. **Where it lives.** One `deploy/compose/` in this repository, naming every train's part with a version variable each, rather than a piece in each train's repository? Pick: here, one file, since one installation runs them together.
-4. **Postgres in it.** A Postgres 16 service in its own profile, with an init script making each part's role and database, left off by a self-hoster with a managed Postgres? Pick: yes.
-5. **Privileges (#1792).** One role per part that owns its database and holds no other attribute (A), rather than a migrating role and a runtime role per part (B)? Pick: A; B changes all five trains to guard against a part already compromised.
-6. **Backup schedule.** Nightly `pg_dump` of every database at the same moment plus one before every upgrade, kept 14 days, with point-in-time recovery recommended wherever the Postgres offers it? Pick: yes.
-7. **Restore rule.** Always every database to the same moment, never one part alone? Pick: yes.
-8. **A restored fleet (#1793).** A one-time core command after `pg_restore` that ends every open lease but argo's (B), rather than document-only (A) or automatic detection (C)? And its name: `aeolus-core fleet:restored`? Pick: B, with that name.
-9. **Its end reason.** A new lease end reason `restored` on `LeaseRevoked`, rather than reusing `released`? Pick: `restored`, so a ship's timeline says why its session lost it.
-10. **Unknown crew tokens.** Should every crew, the trierarch first, treat `UNKNOWN_CREW_TOKEN` as `LEASE_ENDED` and crew the ship again from its crew request, so a session that crewed after the backup comes back without argo? It is a trierarch train change (an issue there). Pick: yes.
-11. **A follower ahead.** Should `fleet.follow`, given a position past the fleet's last event, answer the fleet's last position with no events, so an open console tab goes on after a restore instead of missing events? Pick: yes, a small core change in the same slice as the command.
-12. **Sealed fleets (#1794).** Document only (A): nothing more from the server, the company keeps every company key and recovery key as long as its backups, a new server needs the company's grant, `fleet.sealing` and `fleet:recover-keys` after; no check command (B)? Pick: A.
-13. **The gateway (#350).** The gateway as one more part in Run the server (A), not a guide page of its own (B), with its default port moved to 4300 and its README's minimum core version corrected in its repository? Pick: A and both fixes.
-14. **The trierarch plugin runs once.** It has no process lock, unlike squadrons. Document "one process per database" for it, and the Compose file runs one, rather than add a lock now? Pick: document; a lock only if two processes are shown to do harm.
+Each one PR in its own repository, thin, in this order, so they can be built one by one. Slices 1, 2, 5 and 7 hold code; the others are docs. Each issue names the slice it belongs to.
 
-## 10. Slices, once approved
-
-Each one PR, thin, in the order below. Only slices 4 and 5 hold code.
-
-1. **Docs: privileges and backups.** Run the server sections 2 and 5: the privileges per part (Q5), the schedule and the rules (Q6, Q7), the settings to keep, what a restored fleet does and loses, the restore steps. Removes those bullets from Not covered yet.
-2. **Docs: sealed fleets.** Run the server section 5, its sealed part (Q12). Removes the sealed bullet.
-3. **Docs and gateway: the gateway as a part.** Run the server's tables, upgrade order and backup set (Q13); in the gateway's repository its default port and README. Removes the gateway bullet.
-4. **Core: `fleet:restored` and the follower ahead** (Q8, Q9, Q11), from approved scenarios, with Testcontainers tests: every open lease but argo's ended with its events in one transaction per fleet; in-flight deliveries pending again; refused while a core process is connected; a follower ahead answered from the fleet's last position. The restore steps in the guide name the command. Q10 filed in the trierarch's repository.
-5. **Core: the Compose setup** (Q2, Q3, Q4, Q14): `deploy/compose/`, walked once on a clean machine before it merges; Run the server section 1 names it. Removes the last bullet, and the Not covered yet part with it.
+| | Slice | Repository | Issue |
+| --- | --- | --- | --- |
+| 1 | **Core: `fleet:restored`, the end reason `restored` and the follower ahead**, from approved scenarios, with Testcontainers tests: every open lease but argo's ended with its `LeaseRevoked` events in one transaction per fleet; in-flight deliveries pending again; refused while a core process is connected; a follower ahead answered from the fleet's last position | aeolus-fleet | [#1796](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1796), part of #1793 |
+| 2 | **Trierarch: `UNKNOWN_CREW_TOKEN` treated as `LEASE_ENDED`**, crewing again from the crew request; the other crews' scripts and plugins checked for the same | aeolus-fleet-trierarch | [#402](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/issues/402), part of aeolus-fleet#1793 |
+| 3 | **Docs: privileges and backups.** Run the server sections 2 and 5: the privileges per part, one process per database for squadrons and the trierarch plugin, the schedule and the rules, the settings to keep, what a restored fleet does and loses, the restore steps naming `fleet:restored`. Removes those bullets from Not covered yet | aeolus-fleet | [#1792](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1792), [#1793](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1793) |
+| 4 | **Docs: sealed fleets.** Run the server section 5, its sealed part. Removes the sealed bullet | aeolus-fleet | [#1794](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1794) |
+| 5 | **Gateway: default port 4300 and the README's minimum core version** | aeolus-fleet-gateway | [#350](https://github.com/ThomasHendrickx/aeolus-fleet-gateway/issues/350) |
+| 6 | **Docs: the gateway as a part.** Run the server's tables, upgrade order and backup set. Removes the gateway bullet | aeolus-fleet | [aeolus-fleet-gateway#350](https://github.com/ThomasHendrickx/aeolus-fleet-gateway/issues/350) |
+| 7 | **The self-hosting repository**: `compose.yaml`, `Dockerfile`, `.env.example` and the Postgres init script, each part at a pinned version, walked once on a clean machine before its first release | aeolus-fleet-selfhost (new, public) | [#1791](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1791) |
+| 8 | **Docs: point to it.** Run the server section 1 and Self-host name the self-hosting repository as the one supported way. Removes the last bullet, and the Not covered yet part with it | aeolus-fleet | [#1791](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1791) |
