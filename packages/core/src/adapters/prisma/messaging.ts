@@ -2,7 +2,7 @@ import { PING_CONTENT_TYPE, type DeliveryId, type FleetId, type ShipId } from '@
 
 import { isInExchange } from '../../domain/messaging/exchange.js';
 import type { Delivery, Message } from '../../domain/messaging/message.js';
-import type { DeliveryRepository, MessageRepository } from '../../domain/messaging/ports.js';
+import type { ClaimableDeliveries, DeliveryRepository, MessageRepository } from '../../domain/messaging/ports.js';
 import type { Db } from './client.js';
 import { addChangedDelivery, type ExchangeRollups } from './exchange-rollups.js';
 import { Prisma } from './generated/client.js';
@@ -128,6 +128,35 @@ async function withMessages(db: Db, { fleetId, deliveries }: { fleetId: FleetId;
 }
 
 /**
+ * SKIP LOCKED: a delivery another receive holds is passed over, never
+ * waited for, so two receivers never get the same one (ADR 0003). The
+ * limit counts the rows locked, not the rows scanned. Read committed: a
+ * row another receive claimed and committed meanwhile is checked again
+ * and no longer matches. One statement for the order: forced first
+ * (decision 0040), then the crew's own in flight, then pending, each
+ * oldest first. With inReplyTo, only deliveries of replies to that
+ * message, found through the messages' (fleet_id, in_reply_to_message_id) index.
+ */
+export function claimableStatement({ fleetId, shipId, type, leaseId, limit, excluding, inReplyTo, shouldSkipHanded }: ClaimableDeliveries): Prisma.Sql {
+  return Prisma.sql`
+        SELECT id, fleet_id, message_id, recipient_ship_id, recipient_type, state::text AS state,
+               claimed_by_ship_id, claimed_by_lease_id, attempts, hand_over_number, handed_once_more_at, is_forced, created_at
+        FROM deliveries
+        WHERE fleet_id = ${fleetId}
+          AND ((state IN ('received', 'handed') AND claimed_by_lease_id = ${leaseId} AND id <> ALL(${[...excluding]}::text[]))
+               OR (state = 'pending'
+                   AND (recipient_ship_id = ${shipId}
+                        OR (recipient_type = ${type} AND (cardinality(reachable_ship_ids) = 0 OR ${shipId} = ANY(reachable_ship_ids))))))
+          AND (${shouldSkipHanded ?? false} = false OR state <> 'handed')
+          AND (${inReplyTo ?? null}::text IS NULL
+               OR message_id IN (SELECT id FROM messages WHERE fleet_id = ${fleetId} AND in_reply_to_message_id = ${inReplyTo ?? null}))
+        ORDER BY is_forced DESC, state = 'pending', created_at, id
+        LIMIT ${limit}
+        FOR UPDATE SKIP LOCKED`;
+}
+
+
+/**
  * One page of an exchange: two halves, each read along the exchange index
  * from the cursor and cut at the page: the other ship's deliveries that
  * reached the ship, and the ship's that reached the other. A delivery is in
@@ -245,29 +274,7 @@ export function createPrismaDeliveryRepository(db: Db, rollups: ExchangeRollups)
       return { waiting, forced };
     },
     findClaimableForUpdate: async ({ fleetId, shipId, type, leaseId, limit, excluding, inReplyTo, shouldSkipHanded }) => {
-      // SKIP LOCKED: a delivery another receive holds is passed over, never
-      // waited for, so two receivers never get the same one (ADR 0003). The
-      // limit counts the rows locked, not the rows scanned. Read committed: a
-      // row another receive claimed and committed meanwhile is checked again
-      // and no longer matches. One statement for the order: forced first
-      // (decision 0040), then the crew's own in flight, then pending, each
-      // oldest first. With inReplyTo, only deliveries of replies to that
-      // message, found through the messages' (fleet_id, in_reply_to_message_id) index.
-      const rows = await db.$queryRaw<unknown[]>`
-        SELECT id, fleet_id, message_id, recipient_ship_id, recipient_type, state::text AS state,
-               claimed_by_ship_id, claimed_by_lease_id, attempts, hand_over_number, handed_once_more_at, is_forced, created_at
-        FROM deliveries
-        WHERE fleet_id = ${fleetId}
-          AND ((state IN ('received', 'handed') AND claimed_by_lease_id = ${leaseId} AND id <> ALL(${[...excluding]}::text[]))
-               OR (state = 'pending'
-                   AND (recipient_ship_id = ${shipId}
-                        OR (recipient_type = ${type} AND (cardinality(reachable_ship_ids) = 0 OR ${shipId} = ANY(reachable_ship_ids))))))
-          AND (${shouldSkipHanded ?? false} = false OR state <> 'handed')
-          AND (${inReplyTo ?? null}::text IS NULL
-               OR message_id IN (SELECT id FROM messages WHERE fleet_id = ${fleetId} AND in_reply_to_message_id = ${inReplyTo ?? null}))
-        ORDER BY is_forced DESC, state = 'pending', created_at, id
-        LIMIT ${limit}
-        FOR UPDATE SKIP LOCKED`;
+      const rows = await db.$queryRaw<unknown[]>(claimableStatement({ fleetId, shipId, type, leaseId, limit, excluding, inReplyTo, shouldSkipHanded }));
       const deliveries = rows.map(toDeliveryFromSql);
 
       const messages = await db.message.findMany({

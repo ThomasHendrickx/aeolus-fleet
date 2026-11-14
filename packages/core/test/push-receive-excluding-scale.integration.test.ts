@@ -113,7 +113,8 @@ describe(`a push receive excluding ${String(PUSH_RECEIVE_EXCLUDING_MAX)} held de
     const query = { fleetId, shipId: scout.shipId, type: 'reviewer', leaseId: scout.leaseId, limit: 10 };
     const plan = await planOf(claimableStatement({ ...query, excluding: held }));
 
-    expect(plan).toContain('deliveries_open_fleet_id_state_created_at_idx');
+    expect(plan).toContain('deliveries_fleet_id_claimed_by_lease_id_state_idx');
+    expect(plan).toContain('deliveries_fleet_id_recipient_ship_id_state_idx');
     expect(plan).not.toMatch(/Seq Scan on deliveries/);
     expect(scansOf(plan)).toEqual(scansOf(await planOf(claimableStatement({ ...query, excluding: [] }))));
   });
