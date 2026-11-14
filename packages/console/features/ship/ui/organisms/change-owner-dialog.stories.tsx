@@ -139,3 +139,35 @@ export const PersonShipsNotRead: Story = {
 
 /** On phone the dialog is a full-screen page. */
 export const Phone: Story = { globals: { viewport: { value: 'mobile1' } } };
+
+/** argo remains identified as the fallback when it is the current owner. */
+export const CurrentArgo: Story = {
+  args: { currentOwner: ARGO },
+  play: async () => {
+    const list = await openTheList();
+    await expect(within(list).getByRole('option', { name: /argo \(you\).*No person answers/ })).toBeVisible();
+  },
+};
+
+/** A search is cleared when a chosen owner list is reopened. */
+export const ReopeningAfterSearch: Story = {
+  args: { onQueryChange: fn() },
+  play: async ({ args }) => {
+    const field = await screen.findByTestId('change-owner-field');
+    await userEvent.clear(field);
+    await userEvent.type(field, 'bur');
+    await userEvent.click(await screen.findByRole('option', { name: /burak/ }));
+    await userEvent.click(screen.getByRole('button', { name: 'Show the choices' }));
+    await expect(args.onQueryChange).toHaveBeenLastCalledWith('');
+  },
+};
+
+/** Further active person ships can be requested from the picker. */
+export const MorePersonShips: Story = {
+  args: { hasMorePersonShips: true, onLoadMorePersonShips: fn() },
+  play: async ({ args }) => {
+    await openTheList();
+    await userEvent.click(screen.getByRole('button', { name: 'Load more person ships' }));
+    await expect(args.onLoadMorePersonShips).toHaveBeenCalled();
+  },
+};
