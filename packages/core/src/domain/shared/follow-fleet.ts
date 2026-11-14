@@ -16,7 +16,7 @@ export type FollowFleetRefusal = DomainError<'INVALID_FOLLOW_MAX' | 'INVALID_FOL
 export interface FleetFollowed {
   /** The events after the position, oldest first. */
   events: SequencedEvent[];
-  /** The number to follow from next: the last event's it went through, read or not, the position itself when none came, or the newest without one. */
+  /** The number to follow from next: the last event's it went through, read or not; when none came, the position itself, or the fleet's last when the position is past it, as after a restore; or the newest without one. */
   lastSeq: number;
 }
 
