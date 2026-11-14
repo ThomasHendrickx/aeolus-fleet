@@ -139,6 +139,12 @@ describe('deliveryHistorySentence', () => {
     );
   });
 
+  it('says a delivery went back to pending because the fleet was restored', () => {
+    expect(sentence(anEntry('DeliveryReturned', { ship: planner, leaseEnd: 'restored' }))).toBe(
+      'Back in the inbox: the fleet was restored from a backup.',
+    );
+  });
+
   it('counts the hand-overs of a pushed undeliverable message, never confirmed', () => {
     expect(sentence(anEntry('DeliveryUndeliverable', { ship: planner, attempts: 5, handOverNumber: 5 }))).toBe(
       'Handed 4 times, never confirmed; fifth refused: undeliverable.',

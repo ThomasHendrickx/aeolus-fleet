@@ -18,6 +18,7 @@ import { unwrap } from '../../testing/result.js';
 import { createEndLeasesAfterRestore, type EndLeasesAfterRestore } from './end-leases-after-restore.js';
 
 let core: InMemoryCore;
+let argo: ReturnType<typeof operatorCaller>;
 let endLeasesAfterRestore: EndLeasesAfterRestore;
 let fleetId: FleetId;
 let argoId: ShipId;
@@ -26,13 +27,13 @@ beforeEach(async () => {
   core = createInMemoryCore('2026-11-14T09:00:00.000Z');
   const fleet = await initialiseFleet(core);
   ({ fleetId, operatorShipId: argoId } = fleet);
+  argo = operatorCaller(fleet);
   endLeasesAfterRestore = createEndLeasesAfterRestore({ uow: core.uow, clock: core.clock, ids: core.ids });
 });
 
 /** A ship of the fleet commissioned and crewed by a session: its open lease. */
 async function crewedShip(name: string): Promise<{ shipId: ShipId; leaseId: LeaseId }> {
   const registry = registryUseCases(core);
-  const argo = operatorCaller({ fleetId, operatorShipId: argoId });
   const { shipId, secret } = unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name, type: 'reviewer' }));
   const { crewToken } = unwrap(
     await registry.claimShip({ shipId, secret: secretOf(secret), location: { kind: 'CLOUD' }, harness: 'claude-code' }),
