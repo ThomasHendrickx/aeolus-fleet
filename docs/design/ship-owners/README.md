@@ -66,7 +66,7 @@ Each with this design's pick, approved with the mockups.
 
 # The Owner control on the ship page
 
-For Thomas's approval before any code. Unblocks [issue 1778](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1778) (Permission asks 2/7): argo changes a ship's owner from the ship's page in the console, where today only the API's `fleet.setOwner` can (scope `fleet:owner`). Who may own a ship stays decision 0045: an active person's ship or argo.
+Approved by Thomas with Q1, Q2, Q3 and Q4 as picked; built for [issue 1778](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1778) (Permission asks 2/7): argo changes a ship's owner from the ship's page in the console, where today only the API's `fleet.setOwner` can (scope `fleet:owner`). Who may own a ship stays decision 0045: an active person's ship or argo.
 
 The mockups are static, in the console's tokens and parts: [mockups/owner-control.html](mockups/owner-control.html) (open with `#light` or `#dark`), one screenshot per state below.
 
@@ -140,6 +140,25 @@ The mockups are static, in the console's tokens and parts: [mockups/owner-contro
 | --- | --- |
 | ![7. A ship argo cannot change, 1440 light](mockups/owner-control-7-after-cannot-change-1440-light.png) | ![7. A ship argo cannot change, 375 light](mockups/owner-control-7-after-cannot-change-375-light.png) |
 | ![7. A ship argo cannot change, 1440 dark](mockups/owner-control-7-after-cannot-change-1440-dark.png) | ![7. A ship argo cannot change, 375 dark](mockups/owner-control-7-after-cannot-change-375-dark.png) |
+
+## Built
+
+The states as built, from the stories of `ShipHeader` (`WithOwner`, `WithOwnerArgoPhone`, `RetiredWithOwner`, `PersonOwnsItself`) and `ChangeOwnerDialog`, which also run as tests. The dialog's stories draw it alone, without the page behind it. Done (state 5) is the page's toast and the timeline's existing "Owner changed by argo" line, with no story of its own.
+
+| 375 | 1440 |
+| --- | --- |
+| ![Built, 2-owner-shown, 375 light](screenshots/owner-built-2-owner-shown-375-light.png) | ![Built, 2-owner-shown, 1440 light](screenshots/owner-built-2-owner-shown-1440-light.png) |
+| ![Built, 2-owner-shown, 375 dark](screenshots/owner-built-2-owner-shown-375-dark.png) | ![Built, 2-owner-shown, 1440 dark](screenshots/owner-built-2-owner-shown-1440-dark.png) |
+| ![Built, 3-changing, 375 light](screenshots/owner-built-3-changing-375-light.png) | ![Built, 3-changing, 1440 light](screenshots/owner-built-3-changing-1440-light.png) |
+| ![Built, 3-changing, 375 dark](screenshots/owner-built-3-changing-375-dark.png) | ![Built, 3-changing, 1440 dark](screenshots/owner-built-3-changing-1440-dark.png) |
+| ![Built, 4-saving, 375 light](screenshots/owner-built-4-saving-375-light.png) | ![Built, 4-saving, 1440 light](screenshots/owner-built-4-saving-1440-light.png) |
+| ![Built, 4-saving, 375 dark](screenshots/owner-built-4-saving-375-dark.png) | ![Built, 4-saving, 1440 dark](screenshots/owner-built-4-saving-1440-dark.png) |
+| ![Built, 6-refused, 375 light](screenshots/owner-built-6-refused-375-light.png) | ![Built, 6-refused, 1440 light](screenshots/owner-built-6-refused-1440-light.png) |
+| ![Built, 6-refused, 375 dark](screenshots/owner-built-6-refused-375-dark.png) | ![Built, 6-refused, 1440 dark](screenshots/owner-built-6-refused-1440-dark.png) |
+| ![Built, 7-retired, 375 light](screenshots/owner-built-7-retired-375-light.png) | ![Built, 7-retired, 1440 light](screenshots/owner-built-7-retired-1440-light.png) |
+| ![Built, 7-retired, 375 dark](screenshots/owner-built-7-retired-375-dark.png) | ![Built, 7-retired, 1440 dark](screenshots/owner-built-7-retired-1440-dark.png) |
+| ![Built, 7-owns-itself, 375 light](screenshots/owner-built-7-owns-itself-375-light.png) | ![Built, 7-owns-itself, 1440 light](screenshots/owner-built-7-owns-itself-1440-light.png) |
+| ![Built, 7-owns-itself, 375 dark](screenshots/owner-built-7-owns-itself-375-dark.png) | ![Built, 7-owns-itself, 1440 dark](screenshots/owner-built-7-owns-itself-1440-dark.png) |
 
 ## Questions the mockups do not settle
 
