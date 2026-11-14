@@ -1,5 +1,7 @@
 'use client';
 
+import type { JoinMachineInput } from './join-machine-input';
+
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { useConsoleRead } from './console-read-query';
@@ -136,7 +138,7 @@ export function useMachines() {
 export function useJoinMachine() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (name: string) => dataOf(await joinMachine(name)),
+    mutationFn: async (input: JoinMachineInput) => dataOf(await joinMachine(input)),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: MACHINES_KEY });
     },
