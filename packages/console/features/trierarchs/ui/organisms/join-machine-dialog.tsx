@@ -3,7 +3,7 @@
 import { CircleAlert, CircleCheck, CircleX, Plus, X } from 'lucide-react';
 import { useId, useState } from 'react';
 import { useFieldArray, useForm, useWatch } from 'react-hook-form';
-import type { JoinMachineInput } from '../../../../lib/join-machine-input';
+import type { JoinHarness, JoinMachineInput } from '../../../../lib/join-machine-input';
 import { RadioGroup, RadioGroupItem } from '../../../../components/atoms/radio-group';
 
 import { useConsoleConstants } from '../../../../lib/console-constants';
@@ -29,12 +29,12 @@ interface JoinMachineDialogProps {
   onSubmit: (input: JoinMachineInput) => void;
 }
 
-const HARNESSES = [
+const HARNESSES: readonly { value: JoinHarness; label: string; unattended: string | undefined }[] = [
   { value: 'claude-code', label: 'Claude Code', unattended: 'Run every tool without asking' },
   { value: 'codex', label: 'Codex', unattended: 'Run every command without asking, outside the sandbox' },
   { value: 'copilot', label: 'Copilot', unattended: undefined },
-] as const;
-type Harness = (typeof HARNESSES)[number]['value'];
+];
+type Harness = JoinHarness;
 type RepositoriesMode = 'ask' | 'list' | 'folder' | 'none';
 interface JoinForm {
   name: string;

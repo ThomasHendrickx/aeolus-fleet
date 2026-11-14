@@ -1,11 +1,10 @@
 'use server';
 
-import type { JoinMachineInput } from './join-machine-input';
-
 import { modelSchema } from '@aeolus-fleet/common';
 import { headers } from 'next/headers';
 
 import { connectPlugin, TRIERARCH_PLUGIN_SHIP } from './connect-plugin';
+import { joinMachineInputSchema, type JoinMachineInput } from './join-machine-input';
 import type { PluginAnswer } from './plugin-answer';
 import { pluginCalls, shownConnection } from './plugin-calls';
 import { serverInternalUrlFrom } from './server-url';
@@ -48,7 +47,11 @@ export async function connectTrierarchPlugin(): Promise<PluginAnswer<ShownConnec
 }
 
 export async function joinMachine(input: JoinMachineInput): Promise<PluginAnswer<JoinedMachine>> {
-  return call('machines.join', { input, isMutation: true, answers: joinedMachineSchema });
+  const parsed = joinMachineInputSchema.safeParse(input);
+  if (!parsed.success) {
+    return { kind: 'refused', message: 'That is no machine to join' };
+  }
+  return call('machines.join', { input: parsed.data, isMutation: true, answers: joinedMachineSchema });
 }
 
 /**
