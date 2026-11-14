@@ -1,6 +1,6 @@
 # Self-hosted sign-in: a person and their first agent
 
-Design for [#1806](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1806) and [gateway #355](https://github.com/ThomasHendrickx/aeolus-fleet-gateway/issues/355). Thomas approved the purpose and the five choices in the [source discussion](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1806#issuecomment-6880153617). Those choices are settled; the flow below describes their consequences and marks the remaining gaps. Design only, with no implementation slices.
+Design for [#1806](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1806) and [gateway #355](https://github.com/ThomasHendrickx/aeolus-fleet-gateway/issues/355). Thomas approved the purpose and the five choices in the [source discussion](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1806#issuecomment-6880153617). Those choices and the six decisions below are settled; the flow describes their consequences. Design only, with no implementation slices.
 
 ## 1. Purpose (agreed)
 
@@ -27,6 +27,12 @@ Decision numbers refer to the [decision index](../decisions/README.md). Code con
 - Q3, option 1: support one named person first, keeping a stable account and person-ship identity.
 - Q4, option 1: commission plus Bridge receive/reply proves the first journey; other channels follow separately.
 - Q5, option 1: preserve the identity and owner boundaries and revise self-host setup accordingly.
+- Trusted server access authorises a setup command that creates the first named account and binds it to the existing fleet; persist its id before provisioning and resume it on retry.
+- The first person signs in with a local password set through private input and reset through server access; the sign-in service stores a password hash and controls failed attempts.
+- The first person is fleet manager, explicitly granted every offered fleet scope with journey reach; argo permission remains false and the person ship retains its existing messaging scopes.
+- A server command removes access, records cleanup durably and notifies core and gateway; retry until acknowledged, report pending work, and bound gateway access by the account token expiry plus its existing 30-second allowance.
+- A server recovery command restores the existing account, credential and requested rights, revokes old shared sign-ins, and relies on protected backups and a documented restore procedure.
+- Run one small separate sign-in service from its own repository and image, configured by hand on HTTPS sibling addresses under one trusted installation domain, with exact callbacks and a shared Secure, HttpOnly parent-domain cookie.
 
 ## 4. One person's full journey
 
@@ -34,11 +40,11 @@ Maya runs one fleet, `workshop`, and commissions the agent `researcher`. Her dis
 
 ### 4.1 First setup
 
-Maya starts core and its console, the separate sign-in part and gateway, each with durable state and the public addresses needed for browser redirects. Core must be healthy and the gateway connected to the fleet before Bridge can receive anything. The existing self-host setup supplies the fleet and argo; creating another fleet is not required to add sign-in.
+Maya starts core and its console, the separate sign-in service from its runnable image, and gateway, each with durable state and the public addresses needed for browser redirects. She configures the service and explicit console and gateway client registrations by hand. Core must be healthy and the gateway connected to the fleet before Bridge can receive anything. The existing self-host setup supplies the fleet and argo; creating another fleet is not required to add sign-in.
 
 She configures an installation token on core and the sign-in server, core's `ACCOUNT_TOKEN_ISSUER` and public keys, and the console and gateway's sign-in client settings. Redirect destinations and cookie deployment must fit the contracts in section 5. Private signing keys and the installation token stay on servers. Core receives only public signing keys and fleet claims.
 
-Maya establishes her first named account and its rights in `workshop`. How she proves authority to do this and establishes a credential is unresolved (questions 1 and 2). This is an explicit setup gate: a public browser arriving first must not be assumed to own the installation. Her assigned rights must let her commission the intended agent and reach it, and let her person ship send and receive; the exact initial grant is question 3.
+Maya runs the setup command on the trusted server to establish her named account, set a local password through private input and bind the account to `workshop`. The command persists her account id before provisioning and resumes it on retry. A public browser arriving first cannot claim the installation. The command grants her fleet-manager rights, including every offered fleet scope and reach for the journey, while leaving argo permission false and giving her person ship its existing messaging scopes. Reconcile the grant when offered scopes change.
 
 The sign-in part keeps the account-to-fleet and account-to-person mapping. Where messaging rights already require a person ship, it commissions one through `fleet.commission` as the installation, using `person-<account id>` as the idempotency key. Otherwise core creates it on her first account commission. Both routes converge on that same installation commission key. A failed mapping update can retry that key; it must not create a second person ship. Rights and labels follow 0052.
 
@@ -46,7 +52,7 @@ An invalid installation token, inaccessible issuer keys, bad callback address or
 
 ### 4.2 First sign-in and commission
 
-Maya opens the console's normal person sign-in. The console redirects to the separate sign-in part with state, PKCE and its registered callback. Maya authenticates there using the credential method still to be chosen. The code returns to the initiating browser and is redeemed server to server. The console obtains a fresh account token for `workshop`, presents it to core and uses the account-token cookie for subsequent calls. This is an account session, with no argo lease.
+Maya opens the console's normal person sign-in. The console redirects to the separate sign-in part with state, PKCE and its registered callback. Maya authenticates there with her local password. The code returns to the initiating browser and is redeemed server to server. The console obtains a fresh account token for `workshop`, presents it to core and uses the account-token cookie for subsequent calls. This is an account session, with no argo lease.
 
 A refused credential leaves her signed out. Expired state, a replayed or refused code, an incorrect verifier or a different browser cannot complete the sign-in; she starts again. No fleet rights means no entry to `workshop`; an unavailable sign-in server means retry later, not a wrong-password message.
 
@@ -72,17 +78,17 @@ Signing out revokes the shared sign-in across apps. `installation.accounts.signO
 
 ### 4.5 Removing access
 
-Through the authorised administration path still to be chosen (question 4), Maya's account is disabled or its fleet rights removed. The sign-in part stops issuing it usable fleet tokens and revokes its shared sessions. For disabling the account, it calls `installation.accounts.cutOff`; core refuses its previously issued tokens. The existing cut-off is installation-wide, not a per-fleet membership operation.
+A trusted server command disables Maya's account or removes its fleet rights, recording cleanup work durably. The sign-in part stops issuing it usable fleet tokens and revokes its shared sessions. For disabling the account, it calls `installation.accounts.cutOff`; core refuses its previously issued tokens. The existing cut-off is installation-wide, not a per-fleet membership operation.
 
-The installation reconciles the person ship's labels and releases it when neither messaging nor owning rights remain, as 0052 requires. The gateway must invalidate access through the disabled account, including use of any person crew it holds; cutting off an account token alone does not revoke a ship crew token. It must also perform the existing owned-ship cleanup required for account disabling. Following 0055, disabling also ends her account-linked argo sessions, removes any argo permission and releases every trierarch app ship her person ship owns. Releasing a trierarch releases every lease it crewed; other owned agents are not all released indiscriminately. Unreachable installations leave durable cleanup work to retry until it lands. The exact gateway revocation interface remains question 4; removing access cannot be described as complete just because the login page refuses a password.
+The installation reconciles the person ship's labels and releases it when neither messaging nor owning rights remain, as 0052 requires. The gateway must invalidate access through the disabled account, including use of any person crew it holds; cutting off an account token alone does not revoke a ship crew token. It must also perform the existing owned-ship cleanup required for account disabling. Following 0055, disabling also ends her account-linked argo sessions, removes any argo permission and releases every trierarch app ship her person ship owns. Releasing a trierarch releases every lease it crewed; other owned agents are not all released indiscriminately. Unreachable installations leave durable cleanup work to retry until it lands. An authenticated gateway invalidation call clears cached authorisation and immediately rejects the account when received. Removal remains pending until all cleanup targets acknowledge it.
 
-The person ship, its history and ownership are retained, never retired and recommissioned as a rights change. Questions still reach it until ownership is moved through a later feature or the agent is retired; access removal does not reroute them to argo. A lost cut-off notice bounds account-token access to the existing 10-minute life, but does not establish a bound for cached gateway authorisation or a person crew: that contract must be settled in question 4.
+The person ship, its history and ownership are retained, never retired and recommissioned as a rights change. Questions still reach it until ownership is moved through a later feature or the agent is retired; access removal does not reroute them to argo. If notification is lost, gateway human access expires no later than the current account token, including the existing 30-second allowance, without successful renewal. A retained person crew cannot authorise browser access by itself.
 
 ### 4.6 Recovery through argo
 
 If Maya loses her credential, disables her only account or the sign-in part is unavailable, she uses trusted server access to run `aeolus-core sign-in` and opens its fresh one-use link privately. The command handles one fleet and refuses when there is none or more than one. Argo's independent sign-in remains usable without the account issuer. An expired or already used link needs a new link; argo takeover follows its existing single-sign-in rules.
 
-As argo she can inspect the fleet and release inaccessible crews through the existing console. She repairs deployment settings or restores the sign-in part, then uses the recovery procedure still to be chosen (question 5) to restore the same account id, rights and person-ship mapping. Argo's console cannot reset a credential stored in another part merely by signing in. Without trusted server access or recoverable identity state, this design promises no bypass.
+As argo she can inspect the fleet and release inaccessible crews through the existing console. She repairs deployment settings or restores the sign-in part, then uses the server recovery command to reset her credential on the existing account, explicitly re-enable it or restore rights when requested, and revoke old shared sign-ins. She keeps and tests protected backups to restore the same account id, rights and person-ship mapping. Argo's console cannot reset a credential stored in another part merely by signing in. Without trusted server access or recoverable identity state, this design promises no bypass.
 
 Maya signs in normally again, sees the same person ship and history and resumes Bridge. Argo is not the identity for her next ordinary agent or answer. Agent execution does not resume merely because human access was restored; released agents need crews again.
 
@@ -92,25 +98,25 @@ These are required boundaries, not a claim that the separate part or its adapter
 
 | Part | Responsibility and contract |
 | --- | --- |
-| Separate sign-in part | Own durable human accounts, credentials, shared browser sessions, the one local organisation value required by tokens, fleet rights and stable account/person mapping. Authenticate people, issue/revoke shared sign-ins, sign fleet account tokens, publish public keys and reconcile person lifecycle through core. Its bootstrap and recovery interface remain open. |
+| Separate sign-in part | Own durable human accounts, credentials, shared browser sessions, the one local organisation value required by tokens, fleet rights and stable account/person mapping. Authenticate people, issue/revoke shared sign-ins, sign fleet account tokens, publish public keys and reconcile person lifecycle through core. Its server commands handle setup, removal and recovery. Back up account ids, organisation value, fleet rights, person mappings, provisioning and cleanup retry records, deployment configuration and signing material in protected storage; restore them with the fleet backup and reconcile the existing person commission key. |
 | Core token boundary | `packages/common/src/schemas/account-token.ts`: `accountTokenClaimsSchema`, `AccountTokenClaims`, `ACCOUNT_TOKEN_HEADER` (`aeolus-account-token`) and `FLEET_HEADER` (`aeolus-fleet`). JWT claims are `iss`, fleet `aud`, opaque `sub`, nonempty `org`, space-separated `scope`, `group`, optional `person_ship` and `argo`, and `iat`/`exp`. Group values must resolve to the fleet's labels; absent argo permission means false. An organisation field does not require building organisation administration. |
 | Core signature and authorisation | `AccountTokenSignatures.verify` in `packages/core/src/domain/identity/ports.ts`, implemented by `createAccountTokenSignatures` in `adapters/crypto/account-token-signatures.ts`: exact configured issuer, `typ: at+jwt`, `kid`, EdDSA/Ed25519 or ES256/P-256, public JWKS. Core checks fleet, expiry, cut-off, scopes and reach. Preserve the 10-minute life, 30-second allowance and at-most-once-a-minute key refresh. Publish a replacement key before using it and retain the old one through its last token. |
 | Core installation API | `packages/core/src/adapters/trpc/installation.ts`: `installation.fleets.create/get/list` for provisioning or resolving the fleet; `installation.accounts.cutOff` and `.signOut` for distinct lifecycle jobs; `installation.operators.issueSignInTicket` for one-use argo/viewer tickets (2 minutes), not normal person sign-in. `installationProcedure` requires the configured installation token, otherwise the procedures are absent. Never send that token to a browser. |
 | Core fleet API and person lifecycle | `fleet.commission`, starting-prompt and release operations use the same actor/scopes/reach checks. `CommissionShip`, `CommissionShipInput` and `personShipKey` in `packages/core/src/domain/registry/commission-ship.ts` converge on the installation key `person-<account id>`. Core owns ships, labels, leases, events and durable messages, not account records. A person ship's messaging scopes are distinct from an account's management rights. |
 | Console | Existing account sign-in in `packages/console/lib/account-sign-in.ts` provides state/PKCE, safe return paths, server-side token presentation and a core account-token cookie. Its issuer adapter/configuration must reach the separate part. `console.session` validates argo/operator sessions; it does not turn them into accounts. Preserve the independent CLI argo entry. |
 | Gateway sign-in port | Public gateway `src/core/account-sign-in/ports.ts`: `SharedSignIn.authorizeUrl({state, codeChallenge})`, `.redeemCode({code, verifier})`, `.accountToken({signIn, fleetId})`, `.apps(signIn)` and `.revoke(signIn)`. `SharedAccountToken` returns token, end time, account id, nullable person ship, scopes and argo permission. `OpenableApps` supplies account display information, app URLs and fleet app choices even with one account and fleet. Refusals distinguish `signedOut`, `noRights`, `unavailable`; revoke can be unavailable. An adapter must meet all of these, not merely accept a password or validate an identity JWT. |
-| Gateway browser round trip | `AccountSignInSeals`, `AccountSignInUnderWay` and `createCompleteAccountSignIn` in `src/core/account-sign-in/complete-account-sign-in.ts` bind a sealed state to verifier, browser secret, local return path and a 10-minute deadline. Unknown/expired state and another browser refuse before code redemption. `SHARED_SIGN_IN_COOKIE` is `aeolus_account_session`; the existing flow assumes a domain shared by apps. Cookie scope, HTTPS origins and registered redirects are deployment requirements, with the supported topology unresolved in question 6. |
+| Gateway browser round trip | `AccountSignInSeals`, `AccountSignInUnderWay` and `createCompleteAccountSignIn` in `src/core/account-sign-in/complete-account-sign-in.ts` bind a sealed state to verifier, browser secret, local return path and a 10-minute deadline. Unknown/expired state and another browser refuse before code redemption. `SHARED_SIGN_IN_COOKIE` is `aeolus_account_session`; the existing flow assumes a domain shared by apps. Cookie scope, HTTPS origins and registered redirects are deployment requirements, using HTTPS sibling addresses under one trusted installation domain and exact registered callbacks. |
 | Gateway messaging and Bridge | Map the authenticated account to the person ship, keep its crew credential on the server, enforce current access at every human entry and apply revocation. Core carries deliveries; gateway keeps Bridge's records, question state and basket behavior. No new owner-routing or delivery semantics. |
 
 ## 6. Happy and unhappy paths
 
-The unresolved gates refer to section 7. They must be answered before these paths become an implementation contract.
+The paths apply the decisions above to setup, access removal and recovery.
 
 ```mermaid
 flowchart TD
     A["Maya starts core, console, sign-in part and gateway"] --> B{"Trust, callbacks and fleet connection ready?"}
     B -->|No| X["Correct server settings; no fallback to argo identity"]
-    B -->|Yes| C["Establish Maya's account and fleet rights: Q1 to Q3"]
+    B -->|Yes| C["Run setup command; establish Maya's account and fleet-manager rights"]
     C --> D{"Bootstrap authority and credential accepted?"}
     D -->|No| Y["Stay outside; recover setup authority"]
     D -->|Yes| E["Console starts state and PKCE; Maya signs in"]
@@ -147,7 +153,7 @@ flowchart TD
     E -->|Yes| F["Resume account work and Bridge"]
     E -->|Issuer down| G["No fresh token; existing tokens expire; agents continue"]
     E -->|No rights or disabled| H["Refuse human access"]
-    F --> I["Authorised access removal: Q4"]
+    F --> I["Server command removes access"]
     I --> J["Stop token issuance; revoke shared sessions"]
     J --> K["Account disable: installation.accounts.cutOff"]
     K --> L["Invalidate gateway access; reconcile labels and release person crew"]
@@ -161,80 +167,8 @@ flowchart TD
     Q --> R{"Link valid and deployment has one fleet?"}
     R -->|No| S["Correct fleet setup or issue fresh link"]
     R -->|Yes| T["Argo inspects fleet and releases inaccessible crews"]
-    T --> U["Repair sign-in part; recover same account and mapping: Q5"]
+    T --> U["Repair sign-in part; recover same account and mapping"]
     U --> V{"Normal person sign-in works again?"}
     V -->|No| W["Remain in recovery; argo cannot reset external credentials itself"]
     V -->|Yes| F
 ```
-
-## 7. Open questions
-
-These are proposals for Thomas to choose, not settled decisions. Each pick aims at the first person and one fleet; none requires account-management pages or changes the approved separate sign-in boundary.
-
-### 1. How should the first person prove control of the installation?
-
-**Context.** The existing fleet and argo already exist. Core's `aeolus-core sign-in` issues an argo link, not a person's identity. The separate part needs a stable account id and fleet binding before it can issue account tokens. A public visitor must not become the first person merely by arriving first. Person provisioning must reuse `person-<account id>` after a partial failure (section 5).
-
-**Options.**
-
-1. **A setup command on the server.** Trusted server access authorises creation of the named account and binding to the existing fleet. Persist its account id before provisioning; retries resume that record and the existing person commission key. Costs: one command to build and document, and server access for setup; no setup page or emailed link.
-2. **A one-use browser setup link issued on the server.** The command creates a short-lived link bound to the pending account and fleet; the browser finishes setup, and retries reuse that record. Costs: a setup page, token storage, expiry and replay handling, plus private handling of the link.
-
-**Pick: option 1.** Thomas already operates the server. A command proves control with the fewest moving parts and can resume the same identity without a public registration flow.
-
-### 2. What should the first person use to sign in?
-
-**Context.** Console and gateway need the separate part's browser sign-in and fleet-token contracts, not a raw identity-provider token. No email delivery service is approved. The credential belongs to the separate part; core keeps neither it nor the person's email. Recovery must preserve the account id (question 5).
-
-**Options.**
-
-1. **A local password, reset through server access.** The setup command sets it through private input; the separate part stores a password hash and serves sign-in. Costs: password hashing, failed-attempt controls and a server reset operation; no mail server or outside identity service.
-2. **A passkey, enrolled through a one-use setup link.** Normal sign-in uses the browser's passkey support. Costs: passkey registration and verification, a stable HTTPS relying-party address, and a server-authorised way to enrol a replacement after losing the device.
-3. **An existing external identity provider.** Bind its verified issuer and subject to the stable local account. Costs: provider configuration, a login adapter and availability dependency; trusted recovery must repair that binding without creating another account.
-
-**Pick: option 1.** It supplies repeatable sign-in without email or another service. For one person, a private server reset is enough; passkeys can follow when their benefit justifies their setup and recovery work.
-
-### 3. Which rights should the first person receive?
-
-**Context.** A named account does not automatically receive fleet rights or argo permission. Decisions 0052 and 0057 separate account management rights from the person ship's messaging scopes. Commission checks what the account may grant, plus reach and limits. The first journey needs ownership, commission, crewing and Bridge replies, with working reach between the person and agent.
-
-**Options.**
-
-1. **Make the first person the fleet manager.** The setup command explicitly grants every scope the fleet offers, as the existing fleet-manager rule requires, and configures reach for the journey. Keep argo permission false; give the person ship only its existing messaging scopes. Costs: broad authority over this fleet and reconciliation when its offered scopes change; no custom rights editor.
-2. **Grant a fixed set for the first journey.** Enumerate the account scopes needed to commission, obtain starting prompts, release and message the intended agent, the scopes it may grant that agent, and the corresponding reach. Costs: less authority, but a maintained grant definition and server-command changes whenever Thomas needs another capability.
-
-**Pick: option 1.** Thomas is the only person operating this fleet. An explicit fleet-manager grant avoids designing and maintaining a restricted role for himself. It still needs reach configured and does not make ordinary work argo's work.
-
-### 4. How should access removal finish across core and gateway?
-
-**Context.** Core's installation cut-off refuses older account tokens across the installation, not just one fleet. It does not invalidate the gateway's person crew. Decision 0055 also requires shared sign-ins and account-linked argo access to end, and release of the person ship and its owned trierarchs, whose releases end the leases they crewed. Other owned agents stay. An unreachable service needs durable retry work. The gateway's `SharedSignIn` port has no incoming account-disable operation today.
-
-**Options.**
-
-1. **A server command with an authenticated gateway invalidation call.** The command disables the account, stops token issuance, revokes shared sign-ins and argo permission, and records cleanup work durably before calling core and a new gateway operation. The gateway immediately rejects that account's human access when notified and clears its cached authorisation. Retry unconfirmed work until acknowledged; report removal as pending while any target is unreachable. Require gateway access to expire no later than the current account token, including the existing 30-second allowance, without successful renewal, even if notification is lost. Costs: one command, the gateway operation, expiry enforcement and a durable retry record; no administration page or event bus.
-2. **A browser administration page using the same removal contract.** Apply the same notifications, expiry bound, releases and durable retries through a protected account page. Costs: all of option 1 plus an administration UI, its authorisation and a recovery route when the only person disables herself.
-
-**Pick: option 1.** A server command is sufficient for one person. Notification gives prompt removal when services answer; token expiry also bounds human gateway access when they do not. A retained person crew never authorises browser access by itself, and incomplete cleanup stays visible as pending.
-
-### 5. How should server access restore the same person's sign-in?
-
-**Context.** The existing independent argo link restores fleet control even when the issuer is down, but cannot reset credentials in the separate part. Replacing the account would strand its person ship and ownership. Signing keys, durable identity state and a usable restore procedure matter as much as the credential.
-
-**Options.**
-
-1. **A recovery command plus a documented backup and restore.** Trusted server access resets the chosen credential or binding on the existing account, explicitly re-enables it or restores rights when requested, and revokes old shared sign-ins. Back up account ids, the local organisation value, fleet rights, person mappings, provisioning and cleanup retry records, deployment configuration and signing material in protected storage. Restore these with the fleet's backup and reconcile the existing person commission key. Costs: a command and a restore procedure; Thomas must keep and test the backups. Publish replacement signing keys before use and retain old public keys through their last valid token, as section 5 requires.
-2. **A one-use recovery link issued on the server, with the same backups.** Bind the link to the existing account and finish credential replacement in the browser. Costs: the same durable recovery and backup work, plus a recovery page and link expiry/replay handling; server access is still necessary.
-
-**Pick: option 1.** It uses the authority Thomas already needs for argo recovery and avoids another browser flow. Neither option can recover a lost account id or signing state from an argo sign-in alone.
-
-### 6. What should the first supported deployment look like?
-
-**Context.** The separate sign-in part is already approved. Console's account sign-in code and gateway's `SharedSignIn` port assume a shared browser cookie, registered callbacks and server-to-server token exchange. Unrelated public domains do not satisfy that assumption. Repository, release and setup choices should keep the part separate without building a deployment platform.
-
-**Options.**
-
-1. **A small separate repository and service, configured by hand.** Release a runnable image for the sign-in part. Extend the self-host setup guide with its setup command, durable storage and explicit console/gateway client registrations. Support HTTPS sibling addresses under one private-to-this-installation parent domain, with a shared Secure, HttpOnly cookie scoped to that parent and exact registered callbacks. Keep server-only client credentials and the installation token off the browser. Costs: one more service and image version, DNS/TLS and a shared domain containing only trusted apps; Thomas supplies configuration rather than an installer.
-2. **The same separate service and shared-domain topology, with generated setup.** Add a command that writes the service configuration, client registrations and deployment files for all parts. Costs: less manual configuration later, but a generator and coordinated version/configuration handling to build and maintain now.
-3. **Separate service with unrelated public domains.** Replace the shared-cookie assumption with a cross-origin sign-in design while preserving PKCE and browser binding. Costs: changes to both apps' sign-in adapters and a new browser trust and sign-out contract, beyond deploying the existing flow.
-
-**Pick: option 1.** One service, explicit configuration and compatible HTTPS addresses are enough for Thomas's first journey. Keep unrelated domains and a setup generator outside the first supported deployment.
