@@ -1,5 +1,7 @@
 'use server';
 
+import type { JoinMachineInput } from './join-machine-input';
+
 import { modelSchema } from '@aeolus-fleet/common';
 import { headers } from 'next/headers';
 
@@ -45,8 +47,8 @@ export async function connectTrierarchPlugin(): Promise<PluginAnswer<ShownConnec
   }
 }
 
-export async function joinMachine(name: string): Promise<PluginAnswer<JoinedMachine>> {
-  return call('machines.join', { input: { name }, isMutation: true, answers: joinedMachineSchema });
+export async function joinMachine(input: JoinMachineInput): Promise<PluginAnswer<JoinedMachine>> {
+  return call('machines.join', { input, isMutation: true, answers: joinedMachineSchema });
 }
 
 /**
