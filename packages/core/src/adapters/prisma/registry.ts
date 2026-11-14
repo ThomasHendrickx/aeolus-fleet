@@ -494,6 +494,10 @@ export function createPrismaLeaseRepository(db: Db): LeaseRepository {
       const rows = await db.$queryRaw<unknown[]>(crewedShipsStatement({ fleetId, shipIds }));
       return rows.map((row) => crewedShipRowSchema.parse(row).ship_id);
     },
+    listOpen: async (fleetId) => {
+      const rows = await db.lease.findMany({ where: { fleetId, endedAt: null }, select: { id: true, shipId: true }, orderBy: { startedAt: 'asc' } });
+      return rows.map((row) => ({ id: idSchema('lease').parse(row.id), shipId: idSchema('ship').parse(row.shipId) }));
+    },
     findLastSeen: async (fleetId, shipId) => {
       const [row] = await db.$queryRaw<unknown[]>`
         SELECT COALESCE(last_seen_at, started_at) AS last_seen_at

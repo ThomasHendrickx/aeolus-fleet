@@ -16,7 +16,7 @@ export type FollowFleetRefusal = DomainError<'INVALID_FOLLOW_MAX' | 'INVALID_FOL
 export interface FleetFollowed {
   /** The events after the position, oldest first. */
   events: SequencedEvent[];
-  /** The number to follow from next: the last event's it went through, read or not, the position itself when none came, or the newest without one. */
+  /** The number to follow from next: the last event's it went through, read or not; when none came, the position itself, or the fleet's last when the position is past it, as after a restore; or the newest without one. */
   lastSeq: number;
 }
 
@@ -47,8 +47,10 @@ function checkedWaitMs(waitSeconds: number | undefined): Result<number, FollowFl
  * wait, and nothing after the position, it watches its fleet's wake-ups and
  * reads again on each until an event comes or the wait has passed; it starts
  * watching before it reads a second time, so an event committed in between is
- * answered. It answers only the events the caller reads (decision 0034); one
- * it does not read moves the position on and does not end a wait. The
+ * answered. A position past the fleet's last event, as after a restore, is
+ * answered the fleet's last position at once, with no events, so the follower
+ * goes on from there. It answers only the events the caller reads (decision
+ * 0034); one it does not read moves the position on and does not end a wait. The
  * caller's scope is checked before this runs.
  */
 export function createFollowFleet(deps: {
@@ -80,6 +82,13 @@ export function createFollowFleet(deps: {
     try {
       for (;;) {
         const gone = await deps.feed.after(fleetId, { seq: position, limit: max.value });
+        if (gone.length === 0 && watch === undefined) {
+          // A position past the fleet's last event, as a follower holds after a restore set the fleet back, would wait for numbers already passed.
+          const last = await deps.feed.lastSeq(fleetId);
+          if (position > last) {
+            return ok({ events: [], lastSeq: last });
+          }
+        }
         position = gone.at(-1)?.seq ?? position;
         const events = await eventsRead(deps, { fleetId, reach, events: gone });
         const remainingMs = until - deps.clock.now().getTime();

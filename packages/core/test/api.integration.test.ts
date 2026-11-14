@@ -2107,6 +2107,20 @@ describe('fleet.follow at the API', () => {
     expect(events[0]?.seq).toBe(lastSeq + 1);
   });
 
+  it("answers a follower past the fleet's last event, as after a restore, the fleet's last position at once, with no events", async () => {
+    // Given a follower holding a position past the fleet's last event
+    const reader = await crewedReader('follow-ahead');
+    const { lastSeq } = await reader.fleet.follow.query({});
+
+    // When it follows from there, willing to wait
+    const startedAt = Date.now();
+    const followed = await reader.fleet.follow.query({ afterSeq: lastSeq + 50, waitSeconds: 20 });
+
+    // Then it is answered the fleet's last position with no events, without waiting out the wait
+    expect(followed).toEqual({ events: [], lastSeq });
+    expect(Date.now() - startedAt).toBeLessThan(10_000);
+  });
+
   it('refuse follow to a ship without fleet:read', async () => {
     const crewToken = await crewedShip();
 
