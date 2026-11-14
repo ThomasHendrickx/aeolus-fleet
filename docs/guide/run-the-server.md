@@ -228,8 +228,8 @@ flowchart TD
     pgr --> version{"Installed server at least<br/>the version that made the backup?"}
     version -->|no| newer["Install that version or newer:<br/>migrations only go forward"]
     newer --> settle
-    version -->|yes| settle["aeolus-core fleet:restored<br/>ends every lease but argo's"]
-    settle --> startcore["Start the server:<br/>it migrates what the backup lacks"]
+    version -->|yes| settle["aeolus-core fleet:restored<br/>migrates, then ends every lease but argo's"]
+    settle --> startcore["Start the server"]
     startcore --> health{"/health answers?"}
     health -->|no| log["Read the server's log"]
     health -->|yes| plugins["Start the console, then squadrons,<br/>the trierarch plugin, the gateway"]
@@ -250,15 +250,15 @@ flowchart TD
    ```
 
    A part with no backup in the set starts with an empty database, and you connect it again in **Settings**.
-5. **Install the server at the version that made the backup, or a newer one.** Migrations only go forward, so an older version cannot start on it.
+5. **Install the server at the version that made the backup, or a newer one**, and for `fleet:restored` a release after 0.39.0, the first that has it (not released yet). Migrations only go forward, so an older version cannot start on it.
 6. **Settle the restored fleet**, once, against the fleet's `DATABASE_URL`:
 
    ```sh
    npx aeolus-core fleet:restored
    ```
 
-   In every fleet, it ends every open [lease](words.md#lease) but argo's, with the reason "restored" on each ship's timeline, and puts every delivery in flight back to pending. It changes nothing else. It refuses while a server process is connected to the database: stop it first.
-7. **Start the server.** It applies any migration the backup lacks. Check `/health`.
+   It first applies the migrations the backup lacks, as `start` does, so a backup made by an older server restores on a newer one. Then, in every fleet, it ends every open [lease](words.md#lease) but argo's, with the reason "restored" on each ship's timeline, and puts every delivery in flight back to pending. It changes nothing else. It refuses while a server process is connected to the database, and changes nothing: stop it first.
+7. **Start the server.** Check `/health`.
 8. **Start the console, then each plugin**: squadrons, the trierarch plugin, the gateway. A plugin whose token the restored fleet does not know drops it: connect it again in **Settings**.
 9. **Check** `/health`, each `/api/health`, and `/version` signed in as argo.
 
