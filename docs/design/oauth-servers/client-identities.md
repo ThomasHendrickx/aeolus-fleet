@@ -4,7 +4,7 @@
 
 Let a fleet add an outside MCP server whose OAuth service does not register clients automatically, so each person signs in as their own outside account and their ships use that sign-in. Support an existing client id, with a secret where needed, and a gateway-controlled URL client id where the service accepts it. Preserve discovery, issuer checks, PKCE S256, grants per person, and tool and reach checks. Absence of automatic registration alone must no longer prevent addition. This does not promise compatibility with every OAuth service or a particular Home Assistant installation.
 
-Authority: [gateway issue 348, first pass and Thomas's answers](https://github.com/ThomasHendrickx/aeolus-fleet-gateway/issues/348#issuecomment-6880173708). This design proposes the detailed flows below for approval. It contains no implementation slices.
+Authority: [gateway issue 348, first pass and Thomas's answers](https://github.com/ThomasHendrickx/aeolus-fleet-gateway/issues/348#issuecomment-6880173708). This design records the approved detailed flows below.
 
 ## Lessons to check against
 
@@ -27,22 +27,9 @@ Authority: [gateway issue 348, first pass and Thomas's answers](https://github.c
 - D3: Generate one gateway-controlled URL client id per server added; ask for a fixed client dedicated to that server, without adding an unapproved uniqueness prohibition.
 - D4: Support plain URL client ids and gateway metadata documents when the authorization server advertises CIMD support.
 - D5: Support public clients (`none`), form secrets (`client_secret_post`) and Basic headers (`client_secret_basic`).
+- D6: If commission is definitely refused after automatic registration, best-effort delete only the client registered for this addition and report a failed delete. Never delete a supplied client.
 
-## Draft superseding decision text for Thomas's approval
-
-Proposed replacement for 0067's **Registration** paragraph:
-
-> **Client identity.** Every party has one OAuth client bound to its discovered issuer; every person's grant of the party uses that client. Automatic dynamic registration (RFC 7591) remains the default. The person adding the server may instead enter an existing client id, with a secret and its authentication method where required, or choose a gateway-controlled URL client id unique to that addition. Ask for an entered client dedicated to that server. URL ids support the service's plain URL convention or a gateway-owned client metadata document when the service advertises support. A failed or refused selected method never silently selects another. Public, client_secret_post and client_secret_basic clients are supported. Discovery from the protected resource, issuer binding, PKCE S256 or refusal, resource in authorization and token requests, state and issuer checks, and the existing outside-scope selection remain required.
-
-Proposed replacement for the client clause in **Ending a grant**:
-
-> Retiring the party ends all its grants, revoking their tokens where offered and dropping them locally regardless of revocation success. Delete an outside client only when the gateway dynamically registered it for this party and holds its registration-management credentials. Never delete an entered client. A gateway URL document is withdrawn when its party is retired; there is no outside registration to delete.
-
-Proposed replacement for the relevant **Rejected** clause:
-
-> Rejected: requiring pre-registered clients as the only method; silently falling back after registration refusal; one gateway URL client id shared across parties. Entered clients and client metadata documents are supported as explicit choices.
-
-The rest of 0067, including per-person ownership, consent, grants and call handling, remains in force. On approval, update 0067 and its index line together, replacing the entered-client/CIMD deferral and DCR-only refusal. This file is the draft; it does not mark that decision approved or allocate a new decision number.
+Client identity and cleanup are recorded in [decision 0074](../../decisions/0074-outside-oauth-client-identities.md), superseding the relevant parts of 0067.
 
 ## Flow vocabulary and code ownership
 
@@ -126,7 +113,7 @@ sequenceDiagram
   end
 ```
 
-The current registration request asks for `client_secret_post`; retain that request rather than inventing a preference ladder. Validate the returned method, including the applicable registration default when omitted, against supported public/form/Basic handling and discovered capabilities. Missing DCR remains an error for the automatic choice alone. If the outside service registers a client but its response is lost, the gateway has no id or management token to delete it; this is an existing remote-registration uncertainty, not permission to repeat under a different identity. See open question 1 for the post-registration commission-refusal gap.
+The current registration request asks for `client_secret_post`; retain that request rather than inventing a preference ladder. Validate the returned method, including the applicable registration default when omitted, against supported public/form/Basic handling and discovered capabilities. Missing DCR remains an error for the automatic choice alone. If the outside service registers a client but its response is lost, the gateway has no id or management token to delete it; this is an existing remote-registration uncertainty, not permission to repeat under a different identity. If commission is definitely refused, best-effort delete this addition's automatically registered client and report a failed delete.
 
 ### F3: fixed client id
 
@@ -205,7 +192,7 @@ flowchart TD
   C --> D{"Fleet answer"}
   D -->|Unavailable or answer lost| E["Keep saved party, return refusal, same request resumes"]
   D -->|Definite refusal| F["Current approved(): remove party, return COMMISSION_REFUSED"]
-  F --> G["No grant, fixed client untouched, URL unpublished, DCR cleanup gap Q1"]
+  F --> G["No grant, fixed client untouched, URL unpublished, best-effort delete this addition's DCR client and report a failed delete"]
   D -->|Ship and secret| H["Save awaitingCrew before register"]
   D -->|Ship but no recoverable secret| I["Keep awaitingCrew, show state, do not commission another ship"]
   H --> J{"Register proxy ship succeeds?"}
@@ -349,7 +336,3 @@ sequenceDiagram
 ```
 
 Only the retired party's grants are traversed, scoped by fleet and party; unrelated grants are untouched. Failure to revoke tokens or delete an owned DCR client cannot be reported as successful remote cleanup, even though current code completes local retirement. Revocation removes grants, not the supplied client. A retired document cannot start a new local sign-in: both start and callback require the live party. Outside caches do not give a retired proxy ship permission to act.
-
-## Open questions
-
-1. After DCR succeeds but fleet commission is definitely refused, should the gateway best-effort delete the client it just registered, or retain a recoverable addition until cleanup succeeds? `approved()` currently removes the party on definite commission refusal and has no client-cleanup hook; Thomas's answers choose client identities but do not settle this failure boundary. Proposed answer: best-effort deletion only for this addition's gateway-owned DCR client, with an explicit cleanup failure report; never touch a supplied client. A lost registration response remains unrecoverable without a client id or management credentials. This question does not change pre-registration check failures or the explicit no-fallback decision.
