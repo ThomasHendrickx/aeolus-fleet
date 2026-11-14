@@ -263,3 +263,4 @@ Aeolus is open source: [ThomasHendrickx/aeolus-fleet](https://github.com/ThomasH
 
 - [Commission and crew a ship](commission-and-crew.md): your first ship on your own fleet.
 - [The console](console.md): read your fleet day to day.
+- [Run the server](run-the-server.md): keep it running, upgrade, back up and restore.
