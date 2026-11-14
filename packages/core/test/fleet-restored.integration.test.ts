@@ -78,11 +78,13 @@ describe('fleet:restored on Postgres', () => {
     expect(result.stdout).toContain('Ended 1 lease in fleet home fleet');
     expect(result.stdout).toContain('Ended 1 lease in fleet away fleet');
     await expect(prisma.lease.findMany({ where: { endedAt: null }, select: { id: true } })).resolves.toEqual([{ id: argoLease.id }]);
-    const revoked = await prisma.event.findMany({ where: { type: 'LeaseRevoked' }, orderBy: { seq: 'asc' } });
-    expect(revoked.map((event) => ({ actor: event.actorKind, details: event.details }))).toEqual([
+    const revoked = await prisma.event.findMany({ where: { type: 'LeaseRevoked' } });
+    // Each fleet in its own unit of work, in no order the scenario names.
+    expect(revoked).toHaveLength(2);
+    expect(revoked.map((event) => ({ actor: event.actorKind, details: event.details }))).toEqual(expect.arrayContaining([
       { actor: 'system', details: { leaseId: scout.leaseId, reason: 'restored', returnedDeliveries: 1 } },
       { actor: 'system', details: { leaseId: lookout.leaseId, reason: 'restored', returnedDeliveries: 0 } },
-    ]);
+    ]));
     await expect(prisma.delivery.findMany({ select: { state: true, claimedByShipId: true } })).resolves.toEqual([
       { state: 'pending', claimedByShipId: null },
     ]);

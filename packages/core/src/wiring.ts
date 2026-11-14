@@ -57,6 +57,7 @@ import { createReadNotices, type ReadNotices } from './domain/identity/read-noti
 import { createRecordGuideProgress, type RecordGuideProgress } from './domain/identity/record-guide-progress.js';
 import { createSetGuide, type SetGuide } from './domain/identity/set-guide.js';
 import { createResetOperatorPassword, type ResetOperatorPassword } from './domain/identity/reset-operator-password.js';
+import { createEndLeasesAfterRestore, type EndLeasesAfterRestore } from './domain/registry/end-leases-after-restore.js';
 import { createSetNotices, type SetNotices } from './domain/identity/set-notices.js';
 import { createSetOperatorLogin, type SetOperatorLogin } from './domain/identity/set-operator-login.js';
 import { createSetTheme, type SetTheme } from './domain/identity/set-theme.js';
@@ -383,6 +384,7 @@ export interface UseCases {
   readGuide: ReadGuide;
   recordGuideProgress: RecordGuideProgress;
   resetOperatorPassword: ResetOperatorPassword;
+  endLeasesAfterRestore: EndLeasesAfterRestore;
   authenticate: Authenticate;
   authenticateAccount: AuthenticateAccount;
   authenticateInstallation: AuthenticateInstallation;
@@ -678,6 +680,7 @@ export function createUseCases(options: {
     // Without pagasae's signatures core trusts no account, and argo's own sign-in is the way in.
     setOperatorLogin: createSetOperatorLogin({ uow, clock, ids, accounts: createPrismaOperatorAccountLookup(prisma), passwords: argon2idPasswordHasher, isSelfHosted: options.accountTokenSignatures === undefined }),
     resetOperatorPassword: createResetOperatorPassword({ uow, clock, ids, passwords: argon2idPasswordHasher }),
+    endLeasesAfterRestore: createEndLeasesAfterRestore({ uow, clock, ids }),
     authenticate: createAuthenticate({ callers: createPrismaCallers(prisma), hasher: sha256Hasher, clock }),
     authenticateAccount: createAuthenticateAccount({
       signatures: options.accountTokenSignatures ?? NO_ACCOUNT_TOKEN_SIGNATURES,

@@ -7,6 +7,7 @@ import { readFile } from 'node:fs/promises';
 
 import { fleetInit } from '../adapters/cli/fleet-init.js';
 import { fleetRecoverKeys } from '../adapters/cli/fleet-recover-keys.js';
+import { fleetRestored } from '../adapters/cli/fleet-restored.js';
 import { companyKeyVaultFor } from '../adapters/kms/company-key-vault.js';
 import { migrate } from '../adapters/cli/migrate.js';
 import { operatorResetPassword } from '../adapters/cli/operator-reset-password.js';
@@ -17,7 +18,7 @@ import { migrateDatabase, MigrationError } from '../adapters/prisma/migrate.js';
 import { ConfigError } from '../config.js';
 import { start } from '../start.js';
 
-const USAGE = 'Usage: aeolus-core start | migrate | fleet:init --name "<fleet name>" | sign-in | operator:reset-password | fleet:recover-keys --identity <file> --company-key <ARN>';
+const USAGE = 'Usage: aeolus-core start | migrate | fleet:init --name "<fleet name>" | sign-in | operator:reset-password | fleet:restored | fleet:recover-keys --identity <file> --company-key <ARN>';
 
 const [command, ...args] = process.argv.slice(2);
 
@@ -53,6 +54,11 @@ switch (command) {
         resetOperatorPassword: useCases.resetOperatorPassword,
         io,
       }),
+    );
+    break;
+  case 'fleet:restored':
+    await runCommand(args, ({ useCases, isCoreConnected, io }) =>
+      fleetRestored(args, { isCoreConnected, listFleets: useCases.listFleets, endLeasesAfterRestore: useCases.endLeasesAfterRestore, io }),
     );
     break;
   case 'fleet:recover-keys':
