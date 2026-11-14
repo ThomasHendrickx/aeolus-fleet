@@ -75,7 +75,7 @@
     "@opentelemetry/sdk-node": "^0.223.0",
     "@opentelemetry/sdk-trace-base": "^2.12.0",
     "@prisma/adapter-pg": "^7.10.0",
-    "@prisma/client": "^7.10.0",
+    "@prisma/client": "^7.10.1",
     "@prisma/instrumentation": "^7.10.1",
     "@scalar/fastify-api-reference": "^1.72.4",
     "@trpc/server": "^11.19.0",
