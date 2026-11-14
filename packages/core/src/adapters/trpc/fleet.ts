@@ -1497,7 +1497,7 @@ export const fleetRouter = router({
         'Needs fleet:read. The fleet\'s events after afterSeq, oldest first, up to max (1 to 100, 100 when left out):',
         'each with its seq, type, time, the ship that caused it and the ship, message and delivery it concerns, never its details. Only the events in your read reach (decision 0034): a message\'s through its sender or recipient, any other through the ship it concerns.',
         'Pass the lastSeq it answers as afterSeq next, so you miss nothing across reconnects: it counts the events you do not read too.',
-        'Without afterSeq it answers no events and the current lastSeq to start from.',
+        'Without afterSeq it answers no events and the current lastSeq to start from; so does an afterSeq past the fleet\'s last event, as after a restore, at once.',
         'With waitSeconds (0 to 25) it waits while none has come, and answers as soon as one commits.',
       ].join(' '),
     })
