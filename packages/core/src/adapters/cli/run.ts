@@ -3,7 +3,7 @@ import { createUseCases, type UseCases } from '../../wiring.js';
 import { createPrismaClient } from '../prisma/client.js';
 import { isCoreConnected } from '../prisma/core-connections.js';
 import { describeFailure } from '../prisma/failure-log.js';
-import { MigrationError } from '../prisma/migrate.js';
+import { migrateDatabase, MigrationError } from '../prisma/migrate.js';
 import type { CommandIo, ExitCode } from './io.js';
 import { terminalIo } from './terminal.js';
 
@@ -29,7 +29,7 @@ export async function runAtTerminal(command: (io: CommandIo) => Promise<ExitCode
 /** Runs a server command against the configured database and exits with its code. */
 export function runCommand(
   args: string[],
-  command: (run: { args: string[]; useCases: UseCases; consoleOrigin: string; isCoreConnected: () => Promise<boolean>; io: CommandIo }) => Promise<ExitCode>,
+  command: (run: { args: string[]; useCases: UseCases; consoleOrigin: string; isCoreConnected: () => Promise<boolean>; migrateDatabase: () => Promise<void>; io: CommandIo }) => Promise<ExitCode>,
 ): Promise<never> {
   return runAtTerminal(async (io) => {
     const config = loadConfig(process.env);
@@ -40,6 +40,7 @@ export function runCommand(
         useCases: createUseCases({ prisma, hasInstallation: config.installationToken !== undefined }),
         consoleOrigin: config.consoleOrigin,
         isCoreConnected: () => isCoreConnected(prisma),
+        migrateDatabase: () => migrateDatabase(config.databaseUrl),
         io,
       });
     } finally {

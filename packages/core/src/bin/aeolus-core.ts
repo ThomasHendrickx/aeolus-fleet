@@ -57,8 +57,8 @@ switch (command) {
     );
     break;
   case 'fleet:restored':
-    await runCommand(args, ({ useCases, isCoreConnected, io }) =>
-      fleetRestored(args, { isCoreConnected, listFleets: useCases.listFleets, endLeasesAfterRestore: useCases.endLeasesAfterRestore, io }),
+    await runCommand(args, ({ useCases, isCoreConnected, migrateDatabase, io }) =>
+      fleetRestored(args, { isCoreConnected, migrateDatabase, listFleets: useCases.listFleets, endLeasesAfterRestore: useCases.endLeasesAfterRestore, io }),
     );
     break;
   case 'fleet:recover-keys':

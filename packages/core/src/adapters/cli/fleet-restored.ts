@@ -8,15 +8,18 @@ const USAGE = 'Usage: aeolus-core fleet:restored';
 
 /**
  * `fleet:restored`: run once after `pg_restore` and before `aeolus-core
- * start` (docs/design/self-hosting-operations.md, section 5). In every fleet
- * of the installation, each in its own unit of work, it ends every open lease
- * but argo's with the reason `restored`. Refused while a core process is
- * connected to the database, whose crews it would cut off mid-work.
+ * start` (docs/design/self-hosting-operations.md, section 5). It first
+ * applies the migrations a backup made by an older core lacks, as `start`
+ * does. Then, in every fleet of the installation, each in its own unit of
+ * work, it ends every open lease but argo's with the reason `restored`.
+ * Refused while a core process is connected to the database, whose crews it
+ * would cut off mid-work.
  */
 export async function fleetRestored(
   args: string[],
   deps: {
     isCoreConnected: () => Promise<boolean>;
+    migrateDatabase: () => Promise<void>;
     listFleets: ListFleets;
     endLeasesAfterRestore: EndLeasesAfterRestore;
     io: CommandIo;
@@ -34,6 +37,7 @@ export async function fleetRestored(
     io.err('A core process is connected to this database: stop every core process first. Nothing changed.');
     return 1;
   }
+  await deps.migrateDatabase();
 
   for (const fleet of await deps.listFleets()) {
     const ended = await deps.endLeasesAfterRestore({ fleetId: fleet.id });
