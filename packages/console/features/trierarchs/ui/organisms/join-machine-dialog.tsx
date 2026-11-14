@@ -181,7 +181,7 @@ function NameStep({ takenNames, onNameChange, isPending, error, onSubmit }: Pick
                     return (
                       <div key={field.id} className="flex flex-col gap-1.5">
                         <div className="flex min-w-0 items-center gap-2">
-                          <Input {...form.register(`entries.${index}.value`)} isMono disabled={isPending} aria-label={`Path or git URL ${index + 1}`} placeholder="~/code/web or git@github.com:acme/web.git" aria-invalid={error === undefined ? undefined : true} aria-describedby={error === undefined ? undefined : errorId} data-testid={`join-machine-repository-${index + 1}`} className="min-w-0 flex-1 max-sm:h-(--size-control-touch) max-sm:text-input-touch" />
+                          <Input {...form.register(`entries.${index}.value`)} isMono disabled={isPending} aria-label={`Path or git URL ${index + 1}`} placeholder="~/code/web or git@github.com:acme/docs.git" aria-invalid={error === undefined ? undefined : true} aria-describedby={error === undefined ? undefined : errorId} data-testid={`join-machine-repository-${index + 1}`} className="min-w-0 flex-1 max-sm:h-(--size-control-touch) max-sm:text-input-touch" />
                           <Button type="button" variant="ghost" size="sm" isIconOnly disabled={isPending} icon={<X />} aria-label={`Remove field ${index + 1}`} data-testid={`join-machine-remove-${index + 1}`} onClick={() => { remove(index); }} />
                         </div>
                         {error === undefined ? null : <InlineError variant="field" id={errorId} title={error} />}
