@@ -1,3 +1,5 @@
+import { createPrismaDeliveryRepository } from '../src/adapters/prisma/messaging.js';
+import { createPrismaExchangeList, createPrismaExchangeRollups } from '../src/adapters/prisma/exchange-rollups.js';
 import { aQuestion } from './support/formatted-message-fixtures.js';
 import { ANSWER_CONTENT_TYPE, idSchema, NOTICE_CONTENT_TYPE, QUESTION_CONTENT_TYPE, type MessageId, type ShipId } from '@aeolus-fleet/common';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -272,5 +274,52 @@ describe('how far pruning went, per exchange, on Postgres (docs/design/exchange-
 
     // Then no mark of it is left.
     await expect(core.prisma.$queryRaw<{ count: number }[]>`SELECT count(*)::int AS count FROM pruned_exchanges`).resolves.toEqual([{ count: 0 }]);
+  });
+});
+
+describe('pages racing a pruning batch (#1726)', () => {
+  it.each(['exchange', 'record', 'exchanges'] as const)('keeps the %s page and its messages in one snapshot', async (page) => {
+    // Given a finished exchange message old enough to prune, and its snapshot closed.
+    const note = await send(lookout, { to: thomas.shipId, payload: 'Ready to merge' });
+    await acknowledgeAll(thomas);
+    core.clock.advance((RETENTION_DAYS + 1) * DAY_MS);
+    await core.useCases.closeHealthSnapshots();
+    let didPrune = false;
+    // When pruning commits after the page statement, before any following statement.
+    const messages = await core.prisma.$transaction(async (transaction) => {
+      const db = new Proxy(transaction, {
+        get(target, property) {
+          if (property !== '$queryRaw') {
+            const value: unknown = Reflect.get(target, property);
+            return value;
+          }
+          return async (...args: Parameters<typeof transaction.$queryRaw>) => {
+            const rows = await transaction.$queryRaw(...args);
+            // Hold the completed page statement while a real batch commits on another connection.
+            if (!didPrune) {
+              didPrune = true;
+              await core.useCases.pruneHistory();
+              expect(await isKept(note)).toBe(false);
+            }
+            return rows;
+          };
+        },
+      });
+      if (page === 'exchanges') {
+        const result = await createPrismaExchangeList(db).page({ fleetId: argo.fleetId, shipId: thomas.shipId, limit: 20 });
+        return result.items.map((row) => row.newestMessage);
+      }
+      const deliveries = createPrismaDeliveryRepository(db, createPrismaExchangeRollups(db));
+      if (page === 'record') {
+        const result = await deliveries.findRecordPage({ fleetId: argo.fleetId, shipId: thomas.shipId, limit: 20 });
+        return result.items.map((row) => row.message);
+      }
+      const result = await deliveries.findExchangePage({ fleetId: argo.fleetId, shipId: thomas.shipId, otherShipId: lookout.shipId, toward: 'older', limit: 20 });
+      return result.map((row) => row.message);
+    });
+
+    // Then the page still answers the message it saw, rather than failing or silently dropping it.
+    expect(didPrune).toBe(true);
+    expect(messages.map((message) => ({ id: message.id, payload: message.payload }))).toEqual([{ id: note, payload: 'Ready to merge' }]);
   });
 });
