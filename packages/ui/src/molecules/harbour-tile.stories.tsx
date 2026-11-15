@@ -132,8 +132,50 @@ export const NotALink: Story = {
 /** Keyboard focus: the ring, and the arrow shows. */
 export const KeyboardFocus: Story = {
   play: async ({ canvasElement }) => {
-    within(canvasElement).getByRole('link').focus();
-    await expect(within(canvasElement).getByRole('link')).toHaveFocus();
+    // Given a linked tile, when it receives keyboard focus.
+    const tile = within(canvasElement).getByRole('link');
+    await userEvent.tab();
+    await expect(tile).toHaveFocus();
+
+    // Then the design system's 2 px solid ring is visible, offset by 2 px.
+    const style = getComputedStyle(tile);
+    await expect(style.outlineStyle).toBe('solid');
+    await expect(style.outlineWidth).toBe('2px');
+    await expect(style.outlineOffset).toBe('2px');
+    const probe = document.createElement('div');
+    probe.style.color = 'var(--ring)';
+    tile.append(probe);
+    await expect(style.outlineColor).toBe(getComputedStyle(probe).color);
+    probe.remove();
+  },
+};
+
+/** Pressing a hovered tile hides its arrow, as the approved pressed state shows. */
+export const Pressed: Story = {
+  tags: ['!dev'],
+  play: async ({ canvasElement }) => {
+    // Given a hovered linked tile whose arrow is visible.
+    const tile = within(canvasElement).getByRole('link');
+    tile.addEventListener('click', (event) => { event.preventDefault(); }, { once: true });
+    const arrow = tile.querySelector('span.absolute');
+    if (arrow === null) throw new Error('the linked tile has no arrow');
+    const { cdp } = await import('vitest/browser');
+    const browser = cdp();
+    const bounds = tile.getBoundingClientRect();
+    const position = { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 };
+    await browser.send('Input.dispatchMouseEvent', { type: 'mouseMoved', ...position });
+    await waitFor(() => expect(getComputedStyle(arrow).opacity).toBe('1'));
+
+    // When the pointer is held down on it.
+    await browser.send('Input.dispatchMouseEvent', { type: 'mousePressed', button: 'left', clickCount: 1, ...position });
+    try {
+      // Then the pressed tile keeps no hover arrow.
+      await expect(tile.matches(':active')).toBe(true);
+      await waitFor(() => expect(getComputedStyle(arrow).opacity).toBe('0'));
+    } finally {
+      await browser.send('Input.dispatchMouseEvent', { type: 'mouseReleased', button: 'left', clickCount: 1, ...position });
+      await browser.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 0, y: 0 });
+    }
   },
 };
 
