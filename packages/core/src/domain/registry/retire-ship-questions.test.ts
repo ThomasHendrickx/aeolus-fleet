@@ -1,11 +1,12 @@
 import { ANSWER_CONTENT_TYPE, WITHDRAWAL_CONTENT_TYPE, type DeliveryId, type FleetId, type MessageId, type Question, type ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { agentCaller, argoAboard, historyUseCases, initialiseFleet, messagingUseCases, operatorCaller, registryUseCases, SESSION_MODEL } from '../../../test/support/core-fixtures.js';
+import { agentCaller, argoAboard, crewAboard, historyUseCases, initialiseFleet, messagingUseCases, operatorCaller, registryUseCases, sealFleet, SESSION_MODEL } from '../../../test/support/core-fixtures.js';
 import { aQuestion } from '../../../test/support/formatted-message-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { newKey } from '../../testing/keys.js';
 import { unwrap } from '../../testing/result.js';
+import { isSealedPayload } from '../messaging/public.js';
 import type { Crew, ShipCaller } from '../shared/caller.js';
 
 /**
@@ -69,7 +70,7 @@ function withdrawalOf(from: ShipCaller, { to, questionId }: { to: ShipId; questi
 }
 
 describe('retiring a ship that asked a question nobody answered', () => {
-  it('withdraws it from argo as its own withdraw would: a withdrawal from it, pending for argo, with MessageAccepted', async () => {
+  it('withdraws it from argo as its own withdraw would: a withdrawal from it, pending for argo, with MessageAccepted caused by the retire\'s actor', async () => {
     await asked(scout, { to: argoId, question: aQuestion({ id: FIRST_QUESTION }) });
 
     await retired(scout);
@@ -78,11 +79,11 @@ describe('retiring a ship that asked a question nobody answered', () => {
     expect([
       withdrawals(),
       core.state.deliveries.filter(({ messageId }) => messageId === withdrawal?.id).map(({ recipient, state }) => ({ recipient, state })),
-      core.state.events.filter(({ type, messageId }) => type === 'MessageAccepted' && messageId === withdrawal?.id).map(({ shipId, occurredAt }) => ({ shipId, occurredAt })),
+      core.state.events.filter(({ type, messageId }) => type === 'MessageAccepted' && messageId === withdrawal?.id).map(({ shipId, actor, occurredAt }) => ({ shipId, actor, occurredAt })),
     ]).toEqual([
       [withdrawalOf(scout, { to: argoId, questionId: FIRST_QUESTION })],
       [{ recipient: { kind: 'ship', shipId: argoId }, state: 'pending' }],
-      [{ shipId: scout.shipId, occurredAt: core.clock.now() }],
+      [{ shipId: argoId, actor: { kind: 'ship', shipId: operator.shipId }, occurredAt: core.clock.now() }],
     ]);
   });
 
@@ -141,5 +142,20 @@ describe('retiring a ship whose questions are settled', () => {
     await retired(scout);
 
     expect(withdrawals()).toEqual([]);
+  });
+});
+
+describe('retiring a ship with an open question in a sealed fleet (decision 0068)', () => {
+  it('reads the sealed question, stores the withdrawal sealed, and the asked ship receives it as written', async () => {
+    await sealFleet(core, fleetId);
+    await asked(scout, { to: lookout.shipId, question: aQuestion({ id: FIRST_QUESTION }) });
+
+    await retired(scout);
+
+    const { deliveries } = unwrap(await messaging.receiveDeliveries(crewAboard(core, lookout), { max: 10 }));
+    expect([
+      core.state.messages.filter((message) => !isSealedPayload(message.payload)).length,
+      deliveries.filter(({ contentType }) => contentType === WITHDRAWAL_CONTENT_TYPE).map(({ payload }) => payload),
+    ]).toEqual([0, [JSON.stringify({ questionId: FIRST_QUESTION })]]);
   });
 });

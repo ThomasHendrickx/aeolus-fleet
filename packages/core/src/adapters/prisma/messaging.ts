@@ -1,4 +1,5 @@
-import { PING_CONTENT_TYPE, type DeliveryId, type FleetId, type ShipId } from '@aeolus-fleet/common';
+import { idSchema, PING_CONTENT_TYPE, QUESTION_CONTENT_TYPE, REPLACEMENT_CONTENT_TYPE, WITHDRAWAL_CONTENT_TYPE, type DeliveryId, type FleetId, type ShipId } from '@aeolus-fleet/common';
+import { z } from 'zod';
 
 import { isInExchange } from '../../domain/messaging/exchange.js';
 import type { Delivery, Message } from '../../domain/messaging/message.js';
@@ -94,6 +95,30 @@ export function createPrismaMessageRepository(db: Db): BufferedMessageRepository
     find: async (fleetId, messageId) => {
       const row = await db.message.findFirst({ where: { fleetId, id: messageId } });
       return row ? toMessage(row) : undefined;
+    },
+    listQuestionMessagesOf: async (fleetId, shipId) => {
+      // By the sender's index (fleet_id, sender_ship_id, id); the content type
+      // compared by its essence, as the domain compares it.
+      const ids = z.array(z.object({ id: idSchema('message') })).parse(
+        await db.$queryRaw`
+          SELECT m.id FROM messages m
+          JOIN ships s ON s.fleet_id = m.fleet_id AND s.id = m.selector_ship_id
+          WHERE m.fleet_id = ${fleetId}
+            AND m.sender_ship_id = ${shipId}
+            AND m.selector_kind = 'ship'
+            AND m.selector_ship_id <> ${shipId}
+            AND s.retired_at IS NULL
+            AND lower(btrim(split_part(m.content_type, ';', 1))) IN (${QUESTION_CONTENT_TYPE}, ${WITHDRAWAL_CONTENT_TYPE}, ${REPLACEMENT_CONTENT_TYPE})
+          ORDER BY m.id ASC`,
+      );
+      const messages = (await db.message.findMany({ where: { fleetId, id: { in: ids.map(({ id }) => id) } }, orderBy: { id: 'asc' } })).map(toMessage);
+      const replies = (
+        await db.message.findMany({ where: { fleetId, inReplyToMessageId: { in: messages.map(({ id }) => id) } }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] })
+      ).map(toMessage);
+      return messages.map((message) => ({
+        message,
+        replies: replies.filter((reply) => reply.inReplyToMessageId === message.id && message.selector.kind === 'ship' && reply.senderShipId === message.selector.shipId),
+      }));
     },
   };
 }

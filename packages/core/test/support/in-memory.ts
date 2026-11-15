@@ -1,5 +1,5 @@
 import type { CommissionApproval, CommissionApprovalRepository } from '../../src/domain/registry/commission-approval.js';
-import { createIdGenerator, idSchema, LEASE_END_REASONS, PING_CONTENT_TYPE, type DeliveryId, type FeatureFlag, type FleetId, type IdGenerator, type LabelValueId, type LeaseWaker, type MessageId, type ShipId } from '@aeolus-fleet/common';
+import { createIdGenerator, idSchema, isQuestionContentType, isReplacementContentType, isWithdrawalContentType, LEASE_END_REASONS, PING_CONTENT_TYPE, type DeliveryId, type FeatureFlag, type FleetId, type IdGenerator, type LabelValueId, type LeaseWaker, type MessageId, type ShipId } from '@aeolus-fleet/common';
 
 import type { ConsoleSession } from '../../src/domain/identity/console-session.js';
 import type { Credential } from '../../src/domain/identity/credential.js';
@@ -1576,6 +1576,22 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       find: (fleetId, messageId) => {
         const found = state.messages.find((held) => held.fleetId === fleetId && held.id === messageId);
         return Promise.resolve(found && structuredClone(found));
+      },
+      listQuestionMessagesOf: (fleetId, shipId) => {
+        const isQuestionFamily = (contentType: string) => isQuestionContentType(contentType) || isWithdrawalContentType(contentType) || isReplacementContentType(contentType);
+        const isActive = (askedShipId: ShipId) => state.ships.some((ship) => ship.fleetId === fleetId && ship.id === askedShipId && ship.retiredAt === null);
+        const sent = state.messages.filter(
+          ({ fleetId: held, senderShipId, selector, contentType }) =>
+            held === fleetId && senderShipId === shipId && selector.kind === 'ship' && selector.shipId !== shipId && isActive(selector.shipId) && isQuestionFamily(contentType),
+        );
+        return Promise.resolve(
+          sent.map((message) => ({
+            message: structuredClone(message),
+            replies: state.messages
+              .filter((reply) => reply.fleetId === fleetId && reply.inReplyToMessageId === message.id && message.selector.kind === 'ship' && reply.senderShipId === message.selector.shipId)
+              .map((reply) => structuredClone(reply)),
+          })),
+        );
       },
     },
     prunedExchanges: {
