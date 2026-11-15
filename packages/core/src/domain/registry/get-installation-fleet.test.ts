@@ -46,12 +46,12 @@ describe('getting one fleet of the installation', () => {
           needsAttention: 0,
           overdue: 0,
           stuck: [],
-          // Read from its stuck snapshot: each closed hour at its mark, then now.
-          stuckPerHour: [...Array.from({ length: 167 }, (_unused, index) => ({ at: new Date(Date.parse('2026-10-04T12:00:00.000Z') - (166 - index) * 3_600_000), count: 0 })), { at: new Date('2026-10-04T12:00:00.000Z'), count: 0 }],
+          // Read from its stuck snapshot: each hour once, the last at now, which is on an hour mark.
+          stuckPerHour: [...Array.from({ length: 167 }, (_unused, index) => ({ at: new Date(Date.parse('2026-10-04T12:00:00.000Z') - (167 - index) * 3_600_000), count: 0 })), { at: new Date('2026-10-04T12:00:00.000Z'), count: 0 }],
           acknowledged: {
             count: 0,
             medianMs: null,
-            perHour: [...Array.from({ length: 23 }, (_unused, index) => ({ at: new Date(Date.parse('2026-10-04T12:00:00.000Z') - (22 - index) * 3_600_000), count: 0 })), { at: new Date('2026-10-04T12:00:00.000Z'), count: 0 }],
+            perHour: [...Array.from({ length: 23 }, (_unused, index) => ({ at: new Date(Date.parse('2026-10-04T12:00:00.000Z') - (23 - index) * 3_600_000), count: 0 })), { at: new Date('2026-10-04T12:00:00.000Z'), count: 0 }],
           },
         },
         featureFlags: [{ flag: 'sealing', isOn: false, canTurnOff: true }],

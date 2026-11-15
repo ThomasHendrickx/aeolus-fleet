@@ -164,6 +164,16 @@ describe('reading the fleet health', () => {
     expect(perHour.map((hour) => hour.count)).toEqual([...Array.from({ length: 21 }, () => 0), 1, 0, 1]);
   });
 
+  it('answers each hour once, also when now is exactly on an hour mark', async () => {
+    scene.core.clock.set('2026-10-03T12:00:00.000Z');
+    await closeSnapshot(scene.core);
+
+    const { stuckPerHour, acknowledged } = await readHealth();
+
+    const times = (hours: readonly { at: Date }[]) => new Set(hours.map((hour) => hour.at.getTime())).size;
+    expect([stuckPerHour.length, times(stuckPerHour), acknowledged.perHour.length, times(acknowledged.perHour)]).toEqual([168, 168, 24, 24]);
+  });
+
   it('answers no median when nothing was acknowledged in the last 24 hours', async () => {
     await expect(readHealth()).resolves.toMatchObject({ acknowledged: { count: 0, medianMs: null } });
   });
@@ -185,7 +195,8 @@ describe('reading the fleet health from the stuck snapshot', () => {
     const fromSnapshot = await readHealth();
 
     expect(fromSnapshot.stuck).toEqual(replayed.stuck);
-    expect(fromSnapshot.stuckPerHour.slice(0, -1)).toEqual(replayed.stuckPerHour.slice(1));
+    // Now is on an hour mark, so the snapshot's series is the replay's, each hour once.
+    expect(fromSnapshot.stuckPerHour).toEqual(replayed.stuckPerHour);
     expect(fromSnapshot.acknowledged.count).toBe(replayed.acknowledged.count);
   });
 
