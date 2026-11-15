@@ -5,6 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { Prisma } from '../src/adapters/prisma/generated/client.js';
 import { createPrismaClientTellingStatements } from '../src/adapters/prisma/client.js';
 import { createPrismaHealthSnapshots } from '../src/adapters/prisma/health-snapshots.js';
+import { baseDeliveriesStatement } from '../src/adapters/prisma/health.js';
 import { createPrismaFleetRepository } from '../src/adapters/prisma/registry.js';
 import { createPrismaSnapshotUnitOfWork } from '../src/adapters/prisma/unit-of-work.js';
 import { createCloseHealthSnapshots } from '../src/domain/shared/close-health-snapshots.js';
@@ -52,6 +53,17 @@ afterAll(async () => {
 });
 
 describe('the snapshot close on a fleet at staging scale', () => {
+  it('bootstraps the oldest catch-up hour without scanning message, delivery or event history', async () => {
+    // Given 3,000 ships, 150,000 finished historical messages and 167 hourly batches of 1,000 sends.
+    const firstHour = new Date(core.clock.now().getTime() - CATCH_UP_HOURS * HOUR_MS);
+
+    // When the first snapshot reads the deliveries open at the oldest catch-up hour.
+    const statement = baseDeliveriesStatement(fleetId, firstHour);
+
+    // Then every history read uses an index, including events nested beneath the candidate aggregate.
+    await assertIndexedPlan(core.prisma, statement);
+  });
+
   it('catches up a stale checkpoint hour by hour, each hour looking up its sends by key', async () => {
     // Given 3,000 ships, 150,000 finished messages and a checkpoint 168 hours old, with 1,000 sends in each hour since.
     const snapshots = createPrismaHealthSnapshots(core.prisma);
