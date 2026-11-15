@@ -13,6 +13,7 @@ import { createPostgresCore, heldUnitOfWork, type PostgresCore } from './support
 import { unwrap } from '../src/testing/result.js';
 import { newKey } from '../src/testing/keys.js';
 import { withOperatorLogin } from './support/operator-login.js';
+import { createInMemoryKeyVault } from './support/in-memory-key-vault.js';
 import { unsealedFleetsOnly } from './support/sealing.js';
 
 // Retiring a ship withdraws its open questions on a real Postgres (#1632):
@@ -25,12 +26,14 @@ const SCOUT_MODEL = 'claude-opus-5-5';
 const QUESTION_ID = '11111111-1111-4111-8111-111111111111';
 
 let core: PostgresCore;
+let vault = createInMemoryKeyVault();
 let operator: ShipCaller;
 let argo: Crew;
 let scout: ShipCaller;
 
 beforeEach(async () => {
-  core = await createPostgresCore();
+  vault = createInMemoryKeyVault();
+  core = await createPostgresCore({ keyVault: vault.vault });
   const fleet = unwrap(await withOperatorLogin(core.prisma, core.useCases.initialiseFleet({ name: 'home fleet' })));
   operator = operatorCaller(fleet);
   const { shipId } = unwrap(await core.useCases.commissionShip(operator, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
@@ -81,6 +84,26 @@ describe('retiring a ship with an open question on Postgres', () => {
     expect(found.items.map(({ message, state }) => ({ sender: message.sender.id, contentType: message.contentType, state }))).toEqual([
       { sender: scout.shipId, contentType: WITHDRAWAL_CONTENT_TYPE, state: 'pending' },
     ]);
+  });
+
+  it('keeps an unfilled question withdrawable when sealing reaches it before the metadata batch', async () => {
+    // Given a plain question left by an upgrade and not yet visited by the fill.
+    const question = await askedArgo();
+    const answeredId = '22222222-2222-4222-8222-222222222222';
+    const answered = await askedArgo(answeredId);
+    unwrap(await core.useCases.replyToMessage(argo, answerTo(answered.deliveryId, answeredId)));
+    await core.prisma.message.updateMany({ data: { askedQuestionId: null, answeredQuestionId: null } });
+
+    // When the fleet seals its payload before the metadata pass and retires its sender.
+    const companyKey = await vault.aCompanyKey();
+    await vault.bindToFleet(companyKey, operator.fleetId);
+    unwrap(await core.useCases.turnOnSealing(operator, { companyKey }));
+    await core.useCases.sealStoredPayloads();
+    unwrap(await core.useCases.retireShip(operator, { shipId: scout.shipId }));
+
+    // Then sealing preserved the uuid and retirement withdrew the sealed question.
+    await expect(core.prisma.message.findUniqueOrThrow({ where: { id: question.messageId } })).resolves.toMatchObject({ payload: null, askedQuestionId: QUESTION_ID });
+    await expect(storedWithdrawals()).resolves.toEqual([{ senderShipId: scout.shipId, selectorShipId: argo.shipId, questionId: QUESTION_ID }]);
   });
 
   it('stores no withdrawal when the retire fails after it, and leaves the ship active', async () => {

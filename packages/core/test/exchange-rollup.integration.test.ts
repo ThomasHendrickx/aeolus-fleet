@@ -3,6 +3,7 @@ import { createIdGenerator, idSchema, type DeliveryId, type MessageId, type Ship
 import { z } from 'zod';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { createApp } from '../src/app.js';
 import { backfillMessageMetadata } from '../src/adapters/prisma/message-metadata-backfill.js';
 import { sha256Hasher } from '../src/adapters/crypto/secrets.js';
 import { createPrismaUnitOfWork, type PrismaTx } from '../src/adapters/prisma/unit-of-work.js';
@@ -149,6 +150,48 @@ describe('the rollup of exchanges on Postgres', () => {
     expect(partial.items).toMatchObject([{ unacknowledged: 3, unseenPlainMessages: 2 }]);
     expect(backfilled.items).toMatchObject([{ unacknowledged: 3, unseenPlainMessages: 2 }]);
     expect(after.items).toMatchObject([{ unacknowledged: 1, unseenPlainMessages: 0 }]);
+  });
+
+  it('starts serving before filling old exchanges and finishes the fill while serving', async () => {
+    // Given an old exchange and a server that has not started listening.
+    const thomas = await crewed({ name: 'thomas', kind: 'person', type: 'person' });
+    const lookout = await crewed({ name: 'lookout', kind: 'agent', type: 'reviewer' });
+    await send(lookout, { to: { kind: 'ship', shipId: thomas.shipId }, payload: 'One' });
+    await core.prisma.$executeRaw`UPDATE exchanges SET unseen_plain_messages = NULL`;
+    const server = createApp({ databaseUrl: core.databaseUrl, publicUrl: 'http://localhost', clock: core.clock, logger: false });
+    try {
+      const before = await core.prisma.exchange.findFirstOrThrow();
+      // When core starts listening, its background pass fills the exchange.
+      await server.listen({ host: '127.0.0.1', port: 0 });
+      await expect.poll(async () => (await core.prisma.messageMetadataBackfill.findUnique({ where: { fleetId: argo.fleetId } }))?.isComplete).toBe(true);
+      // Then no fill ran before listen, and the serving core committed the right count.
+      expect(before.unseenPlainMessages).toBeNull();
+      await expect(rollup()).resolves.toEqual(await recount());
+    } finally {
+      await server.close();
+    }
+  });
+
+  it('rolls back a failed batch with its cursor and resumes without doubling the count', async () => {
+    // Given an old exchange with a pending plain message and no filled count.
+    const thomas = await crewed({ name: 'thomas', kind: 'person', type: 'person' });
+    const lookout = await crewed({ name: 'lookout', kind: 'agent', type: 'reviewer' });
+    await send(lookout, { to: { kind: 'ship', shipId: thomas.shipId }, payload: 'One' });
+    await core.prisma.$executeRaw`UPDATE exchanges SET unseen_plain_messages = NULL`;
+    await core.prisma.$executeRawUnsafe(`CREATE FUNCTION fail_cursor() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'cursor disk full'; END $$`);
+    await core.prisma.$executeRawUnsafe(`CREATE TRIGGER fail_cursor BEFORE UPDATE ON message_metadata_backfills FOR EACH ROW EXECUTE FUNCTION fail_cursor()`);
+
+    // When the batch fails after recounting but before committing its cursor.
+    await expect(backfillMessageMetadata(core.prisma)).rejects.toThrow('cursor disk full');
+    const failed = await core.prisma.exchange.findFirstOrThrow();
+    await core.prisma.$executeRawUnsafe('DROP TRIGGER fail_cursor ON message_metadata_backfills');
+    await backfillMessageMetadata(core.prisma);
+    await backfillMessageMetadata(core.prisma);
+
+    // Then the failed transaction changed nothing and its retry counted exactly once.
+    expect(failed.unseenPlainMessages).toBeNull();
+    await expect(rollup()).resolves.toEqual(await recount());
+    expect(unwrap(await core.useCases.readExchanges(thomas, {})).items).toMatchObject([{ unseenPlainMessages: 1 }]);
   });
 
   it('is kept as messages are sent, claimed, acknowledged and returned when a lease ends', async () => {
