@@ -166,6 +166,28 @@ describe('the TDD evidence check', () => {
     expect(violations(head)).toEqual([]);
   });
 
+  it.each(['added', 'changed'])('accepts a %s Storybook story as a red commit', (change) => {
+    const story = 'packages/console/components/button.stories.tsx';
+    if (change === 'changed') {
+      repository.write(story, 'initial story\n');
+      repository.commit('test(console): initial story');
+    }
+
+    repository.write(story, 'story with play function\n');
+    repository.commit('test(console): button behavior (red)');
+    const head = green();
+
+    expect(violations(head)).toEqual([]);
+  });
+
+  it('refuses a red commit that changes an ordinary production tsx file', () => {
+    repository.write('packages/core/src/domain/registry/fleet.tsx', 'production component\n');
+    repository.commit('test(registry): component (red)');
+    const head = green();
+
+    expect(violations(head)).toHaveLength(1);
+  });
+
   it('judges common/src like server/src', () => {
     repository.write('packages/common/src/ids/index.ts', 'export const id = 1;\n');
     const head = repository.commit('feat(common): ids');
