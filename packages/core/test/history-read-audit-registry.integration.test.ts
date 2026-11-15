@@ -199,7 +199,7 @@ describe('the health reads on a fleet with 120,000 messages', () => {
 });
 
 describe('the fleet delete on a fleet with 120,000 messages', () => {
-  // Scans the fleet's history: issue to file.
+  // Scans the fleet's history (#1856): asserted until it is fixed.
   it('installation.fleets.delete scans the fleet\'s history by design', async () => {
     // Rolled back: the fleet and its history stay for the other tests.
     const scans = await scansOf(({ client }) => rolledBack(client, (tx) => createPrismaFleetRepository(tx).delete(scale.fleetId)));

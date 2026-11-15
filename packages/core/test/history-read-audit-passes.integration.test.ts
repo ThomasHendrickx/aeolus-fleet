@@ -142,12 +142,12 @@ describe('the maintenance pass on a fleet with 120,000 messages', () => {
     expect(await scansOf(({ client }) => rolledBack(client, (tx) => createPrismaHistoryPruner(tx).go(scale.fleetId, set)))).toEqual([]);
   });
 
-  // Scans the fleet's history: issue to file.
+  // Scans the fleet's history (#1854): asserted until it is fixed.
   it('fleet.turnOnSealing asks whether the fleet stores a plain payload by scanning messages', async () => {
     expect(await scansOf(({ client }) => createPrismaFleetSealingRepository(client).storesPlainPayload(scale.fleetId))).toEqual(['messages']);
   });
 
-  // Scans the fleet's history: issue to file.
+  // Scans the fleet's history (#1855): asserted until it is fixed.
   it('fleet.turnOnSealing counts the fleet\'s plain payloads by scanning messages', async () => {
     expect(await scansOf(({ client }) => createPrismaFleetSealingRepository(client).plainPayloadCount(scale.fleetId))).toEqual(['messages']);
   });
@@ -187,12 +187,12 @@ describe('the maintenance pass on a fleet with 120,000 messages', () => {
 });
 
 describe('the migrations not yet released on a fleet with 120,000 messages', () => {
-  // Scans the fleet's history: issue to file. One scan of messages for each of its two UPDATE statements.
+  // Scans the fleet's history (#1857): asserted until it is fixed. One scan of messages for each of its two UPDATE statements.
   it('20261115090000_messages_asked_answered_question_id fills the question ids by scanning messages twice', async () => {
     expect(await migrationScans('20261115090000_messages_asked_answered_question_id')).toEqual(['messages', 'messages']);
   });
 
-  // Scans the fleet's history: issue to file.
+  // Scans the fleet's history (#1858): asserted until it is fixed.
   it('20261115100000_unseen_plain_messages counts the unseen plain messages by scanning messages', async () => {
     expect(await migrationScans('20261115100000_unseen_plain_messages')).toEqual(['messages']);
   });
