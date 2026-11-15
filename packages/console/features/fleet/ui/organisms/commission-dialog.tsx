@@ -101,7 +101,8 @@ function CommissionDialogBody({ types, taken, onTypedChange, isPending, error, s
   const [grantedScopes, setGrantedScopes] = useState<readonly string[]>([]);
   // On by default while the trierarch plugin is connected, off otherwise (#245: Thomas's decision).
   const [isCrewRequested, setIsCrewRequested] = useState(crewRequest !== undefined);
-  const [crewValues, setCrewValues] = useState<CrewSettingsValues>(() => defaultValues(crewRequest?.offers ?? []));
+  const [editedCrewValues, setCrewValues] = useState<CrewSettingsValues>();
+  const crewValues = editedCrewValues ?? defaultValues(crewRequest?.offers ?? []);
   const isWaitingForMachine = crewValues.machineLabels.length > 0 && crewRequest?.machineLabels?.matchOf(crewValues.machineLabels).matching.length === 0;
   const crewSettings = settingsOf(crewValues);
   const refusal = crewRequest?.check?.kind === 'refused' ? crewRequest.check : undefined;
