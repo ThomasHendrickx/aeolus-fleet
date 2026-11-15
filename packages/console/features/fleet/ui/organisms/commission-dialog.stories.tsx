@@ -338,3 +338,22 @@ export const NoComputerWithRoom: Story = {
     await expect(screen.getByTestId('commission-request-crew')).toBeChecked();
   },
 };
+
+/** The phone form keeps its action full width and pinned above the bottom edge. */
+export const PhoneActions: Story = {
+  args: ApprovedFirstState.args,
+  play: async () => {
+    if (!('__vitest_browser__' in window)) return;
+    const { page } = await import('vitest/browser');
+    const initial = { width: window.innerWidth, height: window.innerHeight };
+    await page.viewport(375, 1000);
+    try {
+      const submit = await screen.findByTestId('commission-submit');
+      const footer = submit.closest('[data-slot="dialog-footer"]');
+      await expect(submit.getBoundingClientRect().width).toBeGreaterThan(300);
+      await expect(footer?.getBoundingClientRect().bottom).toBeGreaterThan(950);
+    } finally {
+      await page.viewport(initial.width, initial.height);
+    }
+  },
+};
