@@ -75,3 +75,13 @@ export const PressShowsPending: Story = {
     await expect(screen.getByTestId('ship-permissions-save')).toHaveTextContent('Saving permissions');
   },
 };
+
+/** All five rows in the approved editor fit without concealing the locked permission. */
+export const HeldPermissionVisible: Story = {
+  play: async () => {
+    await userEvent.click(screen.getByTestId('ship-permissions-change'));
+    const locked = screen.getByRole('checkbox', { name: /Read leads/ });
+    const list = screen.getByTestId('permissions-choices');
+    await expect(locked.getBoundingClientRect().bottom <= list.getBoundingClientRect().bottom).toBe(true);
+  },
+};

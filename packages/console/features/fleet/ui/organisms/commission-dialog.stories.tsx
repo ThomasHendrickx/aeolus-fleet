@@ -314,3 +314,18 @@ export const PendingCrewCheck: Story = {
     await expect(screen.getByTestId('commission-name')).toHaveValue('reviewer-03');
   },
 };
+
+/** The approved disabled state still shows a workspace and repository without an offered harness. */
+export const NoHarnessOffered: Story = {
+  args: NoComputerCanCrew.args,
+  play: async () => {
+    // Given no computer offers a harness.
+    await userEvent.click(await screen.findByTestId('commission-request-crew'));
+    // When the request is on.
+    // Then the fields explain the empty choices and keep the repository visible.
+    await expect(screen.getByTestId('crew-settings-harness')).toHaveTextContent('No harness offered');
+    await expect(screen.getByTestId('crew-settings-workspace-kind')).toHaveTextContent('Repository');
+    await expect(screen.getByTestId('crew-settings-workspace')).toHaveTextContent('Choose...');
+    await expect(screen.getByText('Connect a computer that offers a harness, or turn off Request a crew.')).toBeVisible();
+  },
+};
