@@ -233,6 +233,7 @@ export interface ListedExchange {
   otherShip: { id: ShipId; name: string; type: string; kind: ShipKind };
   newestMessage: Message;
   unacknowledged: number;
+  unseenPlainMessages: number;
 }
 
 /**

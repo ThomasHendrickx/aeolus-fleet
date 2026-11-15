@@ -1,5 +1,5 @@
 import type { CommissionApproval, CommissionApprovalRepository } from '../../src/domain/registry/commission-approval.js';
-import { createIdGenerator, idSchema, LEASE_END_REASONS, PING_CONTENT_TYPE, type DeliveryId, type FeatureFlag, type FleetId, type IdGenerator, type LabelValueId, type LeaseWaker, type MessageId, type ShipId } from '@aeolus-fleet/common';
+import { createIdGenerator, isConventionContentType, idSchema, LEASE_END_REASONS, PING_CONTENT_TYPE, type DeliveryId, type FeatureFlag, type FleetId, type IdGenerator, type LabelValueId, type LeaseWaker, type MessageId, type ShipId } from '@aeolus-fleet/common';
 
 import type { ConsoleSession } from '../../src/domain/identity/console-session.js';
 import type { Credential } from '../../src/domain/identity/credential.js';
@@ -1613,7 +1613,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         if (ship?.kind !== 'person') {
           return Promise.resolve({ items: [], nextCursor: null });
         }
-        const rows = new Map<ShipId, { newestMessage: Message; unacknowledged: number }>();
+        const rows = new Map<ShipId, { newestMessage: Message; unacknowledged: number; unseenPlainMessages: number }>();
         for (const delivery of state.deliveries.filter((held) => held.fleetId === fleetId)) {
           const message = state.messages.find((held) => held.fleetId === fleetId && held.id === delivery.messageId);
           const reached = delivery.recipient.kind === 'ship' ? delivery.recipient.shipId : delivery.claimedByShipId;
@@ -1626,6 +1626,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
           rows.set(otherShipId, {
             newestMessage: row && row.newestMessage.id > message.id ? row.newestMessage : structuredClone(message),
             unacknowledged: (row?.unacknowledged ?? 0) + (isOpen ? 1 : 0),
+            unseenPlainMessages: (row?.unseenPlainMessages ?? 0) + (isOpen && !isConventionContentType(message.contentType) ? 1 : 0),
           });
         }
         const listed = [...rows.entries()]

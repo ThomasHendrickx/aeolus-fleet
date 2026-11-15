@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import { createIdGenerator, idSchema, type DeliveryId, type MessageId, type ShipId } from '@aeolus-fleet/common';
 import { z } from 'zod';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -10,6 +11,7 @@ import { createSendMessage } from '../src/domain/messaging/send-message.js';
 import type { Crew, ShipCaller } from '../src/domain/shared/caller.js';
 import type { Selector } from '../src/domain/shared/selector.js';
 import type { UnitOfWork } from '../src/domain/shared/unit-of-work.js';
+import { executeSqlFile } from '../src/testing/database.js';
 import { newKey } from '../src/testing/keys.js';
 import { unwrap } from '../src/testing/result.js';
 import { operatorCaller, secretOf } from './support/core-fixtures.js';
@@ -75,24 +77,25 @@ async function labelOf(shipIds: readonly ShipId[]): Promise<Selector> {
 }
 
 /** The rollup as stored: each person ship's row per other ship. */
-async function rollup(): Promise<{ shipId: string; otherShipId: string; newestMessageId: string; unacknowledged: number }[]> {
+async function rollup(): Promise<{ shipId: string; otherShipId: string; newestMessageId: string; unacknowledged: number; unseenPlainMessages: number }[]> {
   return z
-    .array(z.object({ shipId: z.string(), otherShipId: z.string(), newestMessageId: z.string(), unacknowledged: z.int() }))
+    .array(z.object({ shipId: z.string(), otherShipId: z.string(), newestMessageId: z.string(), unacknowledged: z.int(), unseenPlainMessages: z.int() }))
     .parse(
       await core.prisma.$queryRaw`
-        SELECT ship_id AS "shipId", other_ship_id AS "otherShipId", newest_message_id AS "newestMessageId", unacknowledged
+        SELECT ship_id AS "shipId", other_ship_id AS "otherShipId", newest_message_id AS "newestMessageId", unacknowledged, unseen_plain_messages AS "unseenPlainMessages"
         FROM exchanges ORDER BY ship_id, other_ship_id`,
     );
 }
 
 /** What a recount from the deliveries says each person ship's rows hold: the deliveries from the other ship still open, and the newest message both ways. */
-async function recount(): Promise<{ shipId: string; otherShipId: string; newestMessageId: string; unacknowledged: number }[]> {
+async function recount(): Promise<{ shipId: string; otherShipId: string; newestMessageId: string; unacknowledged: number; unseenPlainMessages: number }[]> {
   return z
-    .array(z.object({ shipId: z.string(), otherShipId: z.string(), newestMessageId: z.string(), unacknowledged: z.int() }))
+    .array(z.object({ shipId: z.string(), otherShipId: z.string(), newestMessageId: z.string(), unacknowledged: z.int(), unseenPlainMessages: z.int() }))
     .parse(
       await core.prisma.$queryRaw`
         SELECT s.id AS "shipId", x.other AS "otherShipId", max(x.message_id) AS "newestMessageId",
-               (count(*) FILTER (WHERE x.is_to_ship AND x.state IN ('pending', 'received', 'handed')))::int AS unacknowledged
+               (count(*) FILTER (WHERE x.is_to_ship AND x.state IN ('pending', 'received', 'handed')))::int AS unacknowledged,
+               (count(*) FILTER (WHERE x.is_to_ship AND x.state IN ('pending', 'received', 'handed') AND lower(btrim(split_part(m.content_type, ';', 1))) NOT IN ('application/vnd.aeolus.question+json')))::int AS "unseenPlainMessages"
         FROM ships s
         JOIN LATERAL (
           SELECT d.sender_ship_id AS other, d.message_id, d.state::text AS state, true AS is_to_ship
@@ -101,6 +104,7 @@ async function recount(): Promise<{ shipId: string; otherShipId: string; newestM
           SELECT d.reached_ship_id, d.message_id, d.state::text, false
           FROM deliveries d WHERE d.fleet_id = s.fleet_id AND d.is_in_exchange AND d.sender_ship_id = s.id AND d.reached_ship_id IS NOT NULL
         ) x ON true
+        JOIN messages m ON m.fleet_id = s.fleet_id AND m.id = x.message_id
         WHERE s.kind = 'person'
         GROUP BY 1, 2
         ORDER BY 1, 2`,
@@ -114,11 +118,21 @@ describe('the rollup of exchanges on Postgres', () => {
     const lookout = await crewed({ name: 'lookout', kind: 'agent', type: 'reviewer' });
     const to: Selector = { kind: 'ship', shipId: thomas.shipId };
     await send(lookout, { to, payload: 'One' });
-    const last = await send(lookout, { to, payload: 'Two' });
-    unwrap(await core.useCases.sendMessage(lookout, { ...sendOf(lookout, { to, payload: '{}' }), contentType: 'application/vnd.aeolus.question+json; charset=utf-8' }));
+    const last = unwrap(await core.useCases.sendMessage(lookout, { ...sendOf(lookout, { to, payload: '{}' }), contentType: 'application/json' })).messageId;
+    unwrap(await core.useCases.sendMessage(lookout, { ...sendOf(lookout, { to, payload: JSON.stringify({ id: 'db3ef9eb-4b56-463e-9de6-92b475b70a59', title: 'Merge?', context: '', options: [{ key: 1, label: 'Yes' }], pick: { option: 1, why: 'Ready' } }) }), contentType: 'application/vnd.aeolus.question+json; charset=utf-8' }));
+
+    const retired = await crewed({ name: 'retired', kind: 'agent', type: 'reviewer' });
+    await send(retired, { to, payload: 'An old chat' });
+    unwrap(await core.useCases.retireShip(argo, { shipId: retired.shipId }));
+    const { meetingId } = unwrap(await core.useCases.openMeeting(lookout, { ships: [{ shipId: thomas.shipId }], idempotencyKey: newKey(), model: MODEL }));
+    await send(lookout, { to: { kind: 'meeting', meetingId }, payload: 'In the meeting' });
+    unwrap(await core.useCases.pingShip(argo, { shipId: thomas.shipId }));
 
     // When the person reads the exchanges and marks the plain messages seen.
     const before = unwrap(await core.useCases.readExchanges(thomas, {}));
+    await core.prisma.$executeRaw`ALTER TABLE exchanges DROP COLUMN unseen_plain_messages`;
+    await executeSqlFile(core.databaseUrl, fileURLToPath(new URL('../src/adapters/prisma/migrations/20261115100000_unseen_plain_messages/migration.sql', import.meta.url)));
+    expect(unwrap(await core.useCases.readExchanges(thomas, {})).items).toMatchObject([{ unacknowledged: 3, unseenPlainMessages: 2 }]);
     unwrap(await core.useCases.acknowledgeUpTo(thomas, { otherShipId: lookout.shipId, messageId: last }));
     const after = unwrap(await core.useCases.readExchanges(thomas, {}));
 
@@ -142,8 +156,8 @@ describe('the rollup of exchanges on Postgres', () => {
     unwrap(await core.useCases.releaseShip(argo, { shipId: thomas.shipId }));
 
     // Then the row of thomas and the lookout held one open before, and none after; only person ships have rows.
-    expect(kept).toEqual([{ shipId: thomas.shipId, otherShipId: lookout.shipId, newestMessageId: answer, unacknowledged: 1 }]);
-    expect(await rollup()).toEqual([{ shipId: thomas.shipId, otherShipId: lookout.shipId, newestMessageId: answer, unacknowledged: 0 }]);
+    expect(kept).toEqual([{ shipId: thomas.shipId, otherShipId: lookout.shipId, newestMessageId: answer, unacknowledged: 1, unseenPlainMessages: 1 }]);
+    expect(await rollup()).toEqual([{ shipId: thomas.shipId, otherShipId: lookout.shipId, newestMessageId: answer, unacknowledged: 0, unseenPlainMessages: 0 }]);
     expect(await recount()).toEqual(await rollup());
   });
 
@@ -173,7 +187,7 @@ describe('the rollup of exchanges on Postgres', () => {
     await Promise.all([...sendAll(6), takeAndAck(thomas), takeAndAck(maria), takeAndAck(maria), core.useCases.releaseShip(argo, { shipId: thomas.shipId })]);
 
     // Then the rollup's counts are what a recount says.
-    const counts = (rows: Awaited<ReturnType<typeof rollup>>) => rows.map(({ shipId, otherShipId, unacknowledged }) => ({ shipId, otherShipId, unacknowledged }));
+    const counts = (rows: Awaited<ReturnType<typeof rollup>>) => rows.map(({ shipId, otherShipId, unacknowledged, unseenPlainMessages }) => ({ shipId, otherShipId, unacknowledged, unseenPlainMessages }));
     expect(counts(await rollup())).toEqual(counts(await recount()));
     expect((await rollup()).length).toBe(8);
   });
@@ -221,7 +235,7 @@ describe('the rollup of exchanges on Postgres', () => {
     await expect(acking(thomas, { deliveryId: await deliveryOf(byName, thomas.shipId) })).rejects.toThrow('disk full');
 
     // Then the rollup is as it was.
-    expect(before).toEqual([{ shipId: thomas.shipId, otherShipId: lookout.shipId, newestMessageId: byName, unacknowledged: 1 }]);
+    expect(before).toEqual([{ shipId: thomas.shipId, otherShipId: lookout.shipId, newestMessageId: byName, unacknowledged: 1, unseenPlainMessages: 1 }]);
     expect(await rollup()).toEqual(before);
   });
 
@@ -297,7 +311,7 @@ describe('the rollup of exchanges on Postgres', () => {
     expect(updated).toBe(2);
     await expect(core.prisma.delivery.count({ where: { state: 'acknowledged' } })).resolves.toBe(0);
     await expect(core.prisma.event.count({ where: { type: 'DeliveryAcknowledged' } })).resolves.toBe(0);
-    expect(before).toEqual([{ shipId: thomas.shipId, otherShipId: lookout.shipId, newestMessageId: sent.at(-1), unacknowledged: 3 }]);
+    expect(before).toEqual([{ shipId: thomas.shipId, otherShipId: lookout.shipId, newestMessageId: sent.at(-1), unacknowledged: 3, unseenPlainMessages: 3 }]);
     expect(await rollup()).toEqual(before);
     expect(await recount()).toEqual(before);
   });

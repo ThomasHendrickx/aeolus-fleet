@@ -20,6 +20,7 @@ export interface ExchangesEntry {
   otherShipType: string;
   otherShipKind: ShipKind;
   unacknowledged: number;
+  unseenPlainMessages: number;
   newestMessage: { messageId: MessageId; senderShipId: ShipId; payload: ListedPayload; contentType: string; sentAt: Date };
 }
 
@@ -47,7 +48,7 @@ export function createReadExchanges(deps: { uow: UnitOfWork<ReadExchangesTx>; se
         }
         const page = await tx.exchanges.page({ fleetId: crew.fleetId, shipId: crew.shipId, cursor, limit });
         const items: ExchangesEntry[] = [];
-        for (const { otherShip, newestMessage: message, unacknowledged } of page.items) {
+        for (const { otherShip, newestMessage: message, unacknowledged, unseenPlainMessages } of page.items) {
           const payload = listedUnsealed(keys, { row: { fleetId: message.fleetId, rowId: message.id }, payload: message.payload });
           if (!payload.isOk) {
             return payload;
@@ -58,6 +59,7 @@ export function createReadExchanges(deps: { uow: UnitOfWork<ReadExchangesTx>; se
             otherShipType: otherShip.type,
             otherShipKind: otherShip.kind,
             unacknowledged,
+            unseenPlainMessages,
             newestMessage: { messageId: message.id, senderShipId: message.senderShipId, payload: payload.value, contentType: message.contentType, sentAt: message.createdAt },
           });
         }
