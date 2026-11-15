@@ -88,11 +88,14 @@ export function createPrismaFleetSealingRepository(db: Db): FleetSealingReposito
       return message !== null || schedule !== null;
     },
     payloadsToSeal: async (fleetId) => {
+      // Before sealing is on every payload is plain: the messages the fleet
+      // stored by UTC day, pruned ones too, read from message_days and never
+      // from messages (#1855), and its plain schedules.
       const [messages, schedules] = await Promise.all([
-        db.message.count({ where: { fleetId, payload: { not: null } } }),
+        db.messageDay.aggregate({ where: { fleetId }, _sum: { messages: true } }),
         db.schedule.count({ where: { fleetId, payload: { not: null } } }),
       ]);
-      return messages + schedules;
+      return (messages._sum.messages ?? 0) + schedules;
     },
     turnOn: async (sealing, firstKey) => {
       const { keyAvailability } = sealing;

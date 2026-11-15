@@ -564,7 +564,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         ),
       payloadsToSeal: (fleetId) =>
         Promise.resolve(
-          state.messages.filter((held) => held.fleetId === fleetId && typeof held.payload === 'string').length +
+          state.messages.filter((held) => held.fleetId === fleetId).length +
             state.schedules.filter((held) => held.fleetId === fleetId && typeof held.send.payload === 'string').length,
         ),
       turnOn: (sealing, firstKey) => {

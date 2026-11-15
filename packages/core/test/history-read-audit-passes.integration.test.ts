@@ -147,8 +147,8 @@ describe('the maintenance pass on a fleet with 120,000 messages', () => {
     expect(await scansOf(({ client }) => createPrismaFleetSealingRepository(client).storesPlainPayload(scale.fleetId))).toEqual(['messages']);
   });
 
-  it('fleet.turnOnSealing counts the payloads to seal from the messages stored by day, reading no message', async () => {
-    expect(await plansOf(core, ({ client }) => createPrismaFleetSealingRepository(client).payloadsToSeal(scale.fleetId))).toEqual([]);
+  it('fleet.turnOnSealing counts the payloads to seal from the messages stored by day, scanning no message', async () => {
+    expect(await scansOf(({ client }) => createPrismaFleetSealingRepository(client).payloadsToSeal(scale.fleetId))).toEqual([]);
   });
 
   it('the sealing pass reads a batch of plain payloads through its indexes', async () => {
