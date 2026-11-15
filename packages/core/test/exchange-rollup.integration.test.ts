@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createApp } from '../src/app.js';
 import { sha256Hasher } from '../src/adapters/crypto/secrets.js';
+import { createPrismaMetadataFillIndexes } from '../src/adapters/prisma/message-metadata-fill.js';
 import { createPrismaUnitOfWork, type PrismaTx } from '../src/adapters/prisma/unit-of-work.js';
 import { createAcknowledgeDelivery } from '../src/domain/messaging/acknowledge-delivery.js';
 import { createAcknowledgeUpTo } from '../src/domain/messaging/acknowledge-up-to.js';
@@ -214,6 +215,8 @@ describe('the rollup of exchanges on Postgres', () => {
     const messageId = await send(lookout, { to: { kind: 'ship', shipId: thomas.shipId }, payload: 'One' });
     unwrap(await core.useCases.pushReceiveDeliveries(thomas, {}));
     await core.prisma.$executeRaw`UPDATE exchanges SET unseen_plain_messages = NULL`;
+    // As core serves once its first pass built the fill's indexes: a build waits for every open transaction, the held ack's too.
+    await createPrismaMetadataFillIndexes(core.prisma).build();
     const { uow } = heldUnitOfWork(core.prisma, (tx, hold) => ({
       ...tx,
       deliveries: {
