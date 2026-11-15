@@ -8,6 +8,7 @@ import { z } from 'zod';
 
 import type { PrismaClient } from './client.js';
 import { Prisma } from './generated/client.js';
+import { fillMessageQuestionIdsStatement } from './fill-message-question-ids.js';
 import { unseenPlainMessagesStatement } from './unseen-plain-messages.js';
 
 const BATCH_SIZE = 100;
@@ -39,11 +40,7 @@ export async function backfillMessageMetadata(prisma: PrismaClient, options: { b
       );
       const ids = rows.map((row) => row.id);
       if (ids.length > 0) {
-        await db.$executeRaw`
-          UPDATE messages SET
-            asked_question_id = COALESCE(asked_question_id, CASE WHEN lower(btrim(split_part(content_type, ';', 1))) IN ('application/vnd.aeolus.question+json', 'application/vnd.aeolus.question-replacement+json') THEN substring(payload from '"id"\\s*:\\s*"([^"]*)"') END),
-            answered_question_id = COALESCE(answered_question_id, CASE WHEN lower(btrim(split_part(content_type, ';', 1))) = 'application/vnd.aeolus.answer+json' THEN substring(payload from '"questionId"\\s*:\\s*"([^"]*)"') END)
-          WHERE fleet_id = ${fleetId} AND id = ANY(${ids}::text[]) AND payload IS NOT NULL`;
+        await db.$executeRaw(fillMessageQuestionIdsStatement({ fleetId, ids }));
         // Each exchange is visited with its newest message. Lock before recounting
         // in a fresh statement: a concurrent delivery's rollup delta lands either
         // before the recount or after it, exactly once, in the same lock order.

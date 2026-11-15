@@ -15,7 +15,7 @@ WHERE asked_question_id IS NULL AND payload IS NOT NULL
 
 -- One durable cursor per fleet, committed with each batch after core listens.
 CREATE TABLE message_metadata_backfills (
-  fleet_id TEXT PRIMARY KEY REFERENCES fleets(id) ON DELETE CASCADE,
+  fleet_id TEXT PRIMARY KEY REFERENCES fleets(id) ON DELETE CASCADE ON UPDATE CASCADE,
   after_message_id TEXT NOT NULL DEFAULT '',
   is_complete BOOLEAN NOT NULL DEFAULT false
 );

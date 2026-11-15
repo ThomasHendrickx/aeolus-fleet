@@ -730,9 +730,6 @@ model MessageDay {
   @@map("message_days")
 }
 
-/// The rollup of a person ship's list of exchanges (docs/design/exchange-read, E4, E5): per other ship it
-/// exchanged with, the newest message between them and how many of the other ship's deliveries to it are
-/// not yet acknowledged. Written in the transactions that make and change deliveries, never counted from history.
 /// The after-start metadata pass commits its message id cursor with each batch.
 model MessageMetadataBackfill {
   fleetId        String  @id @map("fleet_id")
@@ -743,6 +740,9 @@ model MessageMetadataBackfill {
   @@map("message_metadata_backfills")
 }
 
+/// The rollup of a person ship's list of exchanges (docs/design/exchange-read, E4, E5): per other ship it
+/// exchanged with, the newest message between them and how many of the other ship's deliveries to it are
+/// not yet acknowledged. Written in the transactions that make and change deliveries, never counted from history.
 model Exchange {
   fleetId             String @map("fleet_id")
   shipId              String @map("ship_id")
@@ -1140,6 +1140,8 @@ model Delivery {
   @@index([fleetId, claimedByShipId, id], map: "deliveries_in_flight_claimed_idx", where: raw("((recipient_type IS NOT NULL) AND (state = ANY (ARRAY['received'::delivery_state, 'handed'::delivery_state])))"))
   /// One exchange page is two range scans, one per direction (docs/design/exchange-read, E3). Partial, so a foreign key check never picks it.
   @@index([fleetId, reachedShipId, senderShipId, id], map: "deliveries_exchange_idx", where: raw("is_in_exchange"))
+  /// The partial metadata fill and its fallback count only the open part of an exchange.
+  @@index([fleetId, reachedShipId, senderShipId, id], map: "deliveries_open_exchange_idx", where: raw("(is_in_exchange AND (state = ANY (ARRAY['pending'::delivery_state, 'received'::delivery_state, 'handed'::delivery_state])))"))
   /// Every foreign key has an index leading with its columns, so deleting a
   /// referenced row checks it with an index, not a scan (#331).
   @@index([fleetId, messageId, id])

@@ -179,6 +179,7 @@ describe('unseen plain message backfill at scale', () => {
     // Then the open deliveries use an index and their messages use key lookups.
     expect(plan).toContain('Index Cond:');
     expect(plan).toMatch(/Index.*Scan.*messages/);
+    expect(plan).toContain('deliveries_open_exchange_idx');
     expect(plan).not.toMatch(/Seq Scan on (messages|deliveries)/);
   });
 });

@@ -18,7 +18,7 @@ import { newKey } from '../src/testing/keys.js';
 import { unwrap } from '../src/testing/result.js';
 import { operatorCaller, secretOf } from './support/core-fixtures.js';
 import { withOperatorLogin } from './support/operator-login.js';
-import { createPostgresCore, type PostgresCore } from './support/postgres-core.js';
+import { createPostgresCore, heldUnitOfWork, type PostgresCore } from './support/postgres-core.js';
 import { unsealedFleetsOnly } from './support/sealing.js';
 
 // The rollup of the list of exchanges on a real Postgres
@@ -133,6 +133,7 @@ describe('the rollup of exchanges on Postgres', () => {
     // When the person reads the exchanges, the migration backfills them again, and the person marks the plain messages seen.
     const before = unwrap(await core.useCases.readExchanges(thomas, {}));
     await core.prisma.$executeRaw`ALTER TABLE exchanges DROP COLUMN unseen_plain_messages`;
+    await core.prisma.$executeRaw`DROP INDEX deliveries_open_exchange_idx`;
     await executeSqlFile(core.databaseUrl, fileURLToPath(new URL('../src/adapters/prisma/migrations/20261115100000_unseen_plain_messages/migration.sql', import.meta.url)));
     const partial = unwrap(await core.useCases.readExchanges(thomas, {}));
     // Each batch commits separately; restarting from the beginning is harmless.
@@ -192,6 +193,31 @@ describe('the rollup of exchanges on Postgres', () => {
     expect(failed.unseenPlainMessages).toBeNull();
     await expect(rollup()).resolves.toEqual(await recount());
     expect(unwrap(await core.useCases.readExchanges(thomas, {})).items).toMatchObject([{ unseenPlainMessages: 1 }]);
+  });
+
+  it('keeps the filled count correct when a batch runs before an acknowledgement commits', async () => {
+    // Given a pending plain message in an unfilled old exchange.
+    const thomas = await crewed({ name: 'thomas', kind: 'person', type: 'person' });
+    const lookout = await crewed({ name: 'lookout', kind: 'agent', type: 'reviewer' });
+    const messageId = await send(lookout, { to: { kind: 'ship', shipId: thomas.shipId }, payload: 'One' });
+    unwrap(await core.useCases.pushReceiveDeliveries(thomas, {}));
+    await core.prisma.$executeRaw`UPDATE exchanges SET unseen_plain_messages = NULL`;
+    const { uow } = heldUnitOfWork(core.prisma, (tx, hold) => ({
+      ...tx,
+      deliveries: {
+        ...tx.deliveries,
+        update: async (delivery) => {
+          await tx.deliveries.update(delivery);
+          await hold(backfillMessageMetadata(core.prisma).then(() => undefined));
+        },
+      },
+    }));
+    // When the batch counts the committed delivery while its ack is uncommitted.
+    const acknowledge = createAcknowledgeDelivery({ uow, clock: core.clock, ids: newId });
+    unwrap(await acknowledge(thomas, { deliveryId: await deliveryOf(messageId, thomas.shipId) }));
+    // Then the ack's subsequent delta clears the filled count exactly once.
+    await expect(rollup()).resolves.toEqual(await recount());
+    expect(unwrap(await core.useCases.readExchanges(thomas, {})).items).toMatchObject([{ unseenPlainMessages: 0 }]);
   });
 
   it('is kept as messages are sent, claimed, acknowledged and returned when a lease ends', async () => {

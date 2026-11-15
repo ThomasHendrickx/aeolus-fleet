@@ -46,6 +46,7 @@ export interface AppOptions {
 
 /** How often core runs the 10 and 60 minute clocks: argo hears of an overdue delivery within this of its clock running out. */
 const OVERDUE_PASS_MS = 30_000;
+const MESSAGE_METADATA_BATCH_INTERVAL_MS = 100;
 
 /** How long core waits for pagasae's key set before it goes on with the keys it holds. */
 const KEY_SET_FETCH_TIMEOUT_MS = 5_000;
@@ -159,7 +160,7 @@ export function createApp(options: AppOptions): FastifyInstance {
           void metadataBackfill?.stop();
         }
       },
-      everyMs: 100,
+      everyMs: MESSAGE_METADATA_BATCH_INTERVAL_MS,
       onError: (error) => { server.log.warn(failureForLog(error), 'message metadata backfill failed: retrying its batch'); },
     });
     done();
