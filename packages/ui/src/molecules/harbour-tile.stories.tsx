@@ -327,3 +327,55 @@ export const ReducedMotion: Story = {
     }
   },
 };
+
+/** Sorting re-inserts the same keyed tile when Working becomes Idle. */
+function SortedChangingTiles() {
+  const [isIdle, setIsIdle] = useState(false);
+  const changing = { ...WORKING, state: isIdle ? 'idle' : 'working' } satisfies HarbourTileShip;
+  const neighbour = { ...WORKING, id: 'shp_neighbour', name: 'builder-2' };
+  return (
+    <div className="grid gap-3">
+      <button type="button" data-testid="harbour-tile-story-sort" onClick={() => { setIsIdle(true); }}>Idle</button>
+      {(isIdle ? [neighbour, changing] : [changing, neighbour]).map((ship) => (
+        <HarbourTile key={ship.id} ship={ship} kind="agents" href="#ship" now={NOW} />
+      ))}
+    </div>
+  );
+}
+
+export const ReinsertedTileSettlesColours: Story = {
+  render: () => <SortedChangingTiles />,
+  play: async ({ canvasElement }) => {
+    // Given two Working ships, with the changing ship first in state order.
+    const canvas = within(canvasElement);
+    const tile = canvas.getByRole('link', { name: /orchestrator-1/ });
+    const before = boundsOf(tile);
+    const workingBackground = getComputedStyle(tile).backgroundColor;
+
+    // When Working becomes Idle, the sort re-inserts that same keyed node.
+    await userEvent.click(canvas.getByTestId('harbour-tile-story-sort'));
+
+    // Then position changes immediately, while only colours settle for 180 ms.
+    await expect(canvas.getAllByTestId('harbour-tile')[1]).toBe(tile);
+    await expect(boundsOf(tile).y).toBeGreaterThan(before.y);
+    await expect(boundsOf(tile).width).toBe(before.width);
+    await expect(boundsOf(tile).height).toBe(before.height);
+    await expect(within(tile).getByTestId('ship-state')).toHaveTextContent('Idle');
+    await expect(within(tile).queryByTestId('harbour-tile-live')).toBeNull();
+    await expect(getComputedStyle(tile).transform).toBe('none');
+    const transitions = colourTransitionsOf(tile);
+    await expect(transitions.map((transition) => transition.transitionProperty)).toEqual(expect.arrayContaining(['background-color', 'color', 'border-top-color']));
+    for (const transition of transitions) {
+      transition.pause();
+      transition.currentTime = 90;
+      await expect(transition.effect?.getTiming()).toMatchObject({ duration: 180, easing: 'ease-out' });
+    }
+    await expect(getComputedStyle(tile).backgroundColor).not.toBe(workingBackground);
+    await expect(getComputedStyle(tile).backgroundColor).not.toBe(colourOf('bg-card', 'backgroundColor'));
+    await expect(colourTransitionsOf(within(tile).getByTestId('ship-state')).map((transition) => transition.effect?.getTiming().duration)).toEqual([180]);
+    for (const transition of transitions) transition.play();
+    await waitFor(() => expect(colourTransitionsOf(tile)).toEqual([]));
+    await expect(getComputedStyle(tile).backgroundColor).toBe(colourOf('bg-card', 'backgroundColor'));
+    await expect(getComputedStyle(tile).borderTopColor).toBe(colourOf('border-border', 'borderTopColor'));
+  },
+};
