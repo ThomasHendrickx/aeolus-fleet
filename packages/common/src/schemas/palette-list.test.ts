@@ -11,7 +11,7 @@ describe("an app's palette list (header-across-apps A1, header design H4)", () =
     expect(paletteListSchema.parse(list)).toEqual(list);
   });
 
-  it.each(['https://evil.example/fleet', '//evil.example/fleet', 'fleet'])('refuses an entry that leads off its own app: %s', (path) => {
+  it.each(['https://evil.example/fleet', '//evil.example/fleet', 'fleet', '/\\evil.example/fleet', '\\/evil.example/fleet', '/\n/evil.example/fleet', '/\t/evil.example/fleet', '/\r/evil.example/fleet', '/fleet\u0000'])('refuses an entry that leads off its own app: %j', (path) => {
     expect(paletteListSchema.safeParse({ app: 'gateway', entries: [{ ...yourFleet, path }] }).success).toBe(false);
   });
 
