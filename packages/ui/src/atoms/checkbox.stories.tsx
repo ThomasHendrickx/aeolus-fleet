@@ -20,6 +20,7 @@ function ShowRetiredShips({
         defaultChecked={isChecked}
         disabled={isDisabled}
         aria-invalid={isInvalid || undefined}
+        data-testid="checkbox"
       />
       <Label htmlFor="show-retired-ships" className="text-meta font-normal text-muted-foreground">
         Show retired ships
@@ -44,7 +45,7 @@ export const Disabled: Story = { args: { isChecked: false, isDisabled: true } };
 export const Invalid: Story = {
   args: { isChecked: false, isInvalid: true },
   play: async ({ canvasElement }) => {
-    const checkbox = within(canvasElement).getByRole('checkbox');
+    const checkbox = within(canvasElement).getByTestId('checkbox');
     const destructive = document.createElement('span');
     destructive.className = 'border border-destructive';
     canvasElement.append(destructive);
