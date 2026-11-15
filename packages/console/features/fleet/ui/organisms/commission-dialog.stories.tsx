@@ -198,7 +198,7 @@ export const SignedInAsAccount: Story = {
 function CommissionWithDelayedOffers(args: ComponentProps<typeof CommissionDialog>) {
   const [offers, setOffers] = useState<typeof OFFERS>([]);
   useEffect(() => {
-    const timer = setTimeout(() => { setOffers(OFFERS); }, 500);
+    const timer = setTimeout(() => { setOffers(OFFERS); }, 1500);
     return () => { clearTimeout(timer); };
   }, []);
   return <CommissionDialog {...args} crewRequest={{ offers, onSettingsChange: () => undefined }} />;
@@ -217,5 +217,18 @@ export const OffersArriveAfterOpening: Story = {
     });
     await userEvent.click(screen.getByTestId('commission-submit'));
     await expect(args.onSubmit).toHaveBeenCalledOnce();
+  },
+};
+
+/** An edited first prompt is kept when the options arrive (#1720). */
+export const EditedBeforeOffersArrive: Story = {
+  render: (args) => <CommissionWithDelayedOffers {...args} />,
+  play: async () => {
+    await userEvent.type(await screen.findByTestId('crew-settings-first-prompt'), 'Triage issues');
+    await waitFor(async () => {
+      await expect(screen.getByTestId('crew-settings-harness')).toHaveTextContent('Claude Code');
+      await expect(screen.getByTestId('crew-settings-workspace')).toHaveTextContent('aeolus-fleet');
+    }, { timeout: 4000 });
+    await expect(screen.getByTestId('crew-settings-first-prompt')).toHaveValue('Triage issues');
   },
 };
