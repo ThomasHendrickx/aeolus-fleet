@@ -1,14 +1,14 @@
 import { paletteListSchema, PALETTE_LIST_PATH, type FleetId, type PaletteList } from '@aeolus-fleet/common';
 import { otherAppsPaletteOf, paletteOriginsOf, type AppPaletteGroup, type ReadPaletteList } from '@aeolus-fleet/common/rules';
-import { cookies } from 'next/headers';
 
-import { appsListFor } from './apps-list';
+import { appsListOfThisPageLoad } from './apps-list-read';
 import type { PluginAnswer } from './plugin-answer';
 
 /**
  * The other apps' palette entries for the console (docs/design/header-across-apps.md,
  * A2): the web app's server reads the palette list of each app the signed-in
- * account may open from the fleet in view, and outside any fleet, and keeps it
+ * account may open (the apps list the header's read took, lib/apps-list-read.ts)
+ * from the fleet in view, and outside any fleet, and keeps it
  * for a while by its origin (header design H4), never another fleet's apps.
  * The shared rule keeps each list with the origin it was read from and only
  * the entries the account may open. An app that does not answer shows by its
@@ -40,7 +40,7 @@ async function paletteListAt(origin: string, now: number): Promise<PaletteList |
 }
 
 export async function readPaletteAcrossApps({ fleetId }: { fleetId: FleetId }): Promise<PluginAnswer<AppPaletteGroup[]>> {
-  const list = await appsListFor({ environment: process.env, cookieHeader: (await cookies()).toString() });
+  const list = await appsListOfThisPageLoad();
   if (list === null) {
     return { kind: 'answered', data: [] };
   }
