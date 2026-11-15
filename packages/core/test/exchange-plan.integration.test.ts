@@ -138,6 +138,18 @@ describe('the exchange reads on a fleet with a long history', () => {
     }
   });
 
+  it('reads unseen plain message counts from the indexed rollup without scanning history', async () => {
+    // Given the fleet has a long history and many rollup rows.
+    // When a page includes its unseen plain message count.
+    const statement = exchangeListStatement({ fleetId, shipId: thomas.shipId, limit: PAGE });
+    const plan = await planOf(statement);
+
+    // Then the count comes from the existing indexed read, with no history recount.
+    expect(statement.sql).toContain('e.unseen_plain_messages');
+    expect(plan).toContain('exchanges_fleet_id_ship_id_newest_message_id_idx');
+    expect(plan).not.toMatch(/(Scan on deliveries|Scan on messages|Seq Scan on exchanges)/);
+  });
+
   it("lists a person ship's exchanges along the rollup's index of newest messages, not every exchange", async () => {
     const plan = await planOf(exchangeListStatement({ fleetId, shipId: thomas.shipId, limit: PAGE }));
 

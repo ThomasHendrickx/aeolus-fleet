@@ -62,10 +62,10 @@ describe('the list of exchanges', () => {
           otherShipName: 'scout',
           otherShipType: 'scout',
           otherShipKind: 'agent',
-          unacknowledged: 1,
+          unacknowledged: 1, unseenPlainMessages: 1,
           newestMessage: { messageId: answer, senderShipId: thomas.shipId, payload: 'Thanks', contentType: 'text/plain', sentAt: new Date('2026-11-06T12:00:04.000Z') },
         },
-        { otherShipId: lookout.shipId, otherShipName: 'lookout', unacknowledged: 1, newestMessage: { payload: 'And PR #1498?' } },
+        { otherShipId: lookout.shipId, otherShipName: 'lookout', unacknowledged: 1, unseenPlainMessages: 1, newestMessage: { payload: 'And PR #1498?' } },
       ],
       nextCursor: null,
     });

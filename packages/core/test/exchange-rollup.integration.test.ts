@@ -108,6 +108,25 @@ async function recount(): Promise<{ shipId: string; otherShipId: string; newestM
 }
 
 describe('the rollup of exchanges on Postgres', () => {
+  it('counts unseen plain messages separately from conventions and clears only plain messages seen up to here', async () => {
+    // Given a person has two plain messages and a question from the same ship.
+    const thomas = await crewed({ name: 'thomas', kind: 'person', type: 'person' });
+    const lookout = await crewed({ name: 'lookout', kind: 'agent', type: 'reviewer' });
+    const to: Selector = { kind: 'ship', shipId: thomas.shipId };
+    await send(lookout, { to, payload: 'One' });
+    const last = await send(lookout, { to, payload: 'Two' });
+    unwrap(await core.useCases.sendMessage(lookout, { ...sendOf(lookout, { to, payload: '{}' }), contentType: 'application/vnd.aeolus.question+json; charset=utf-8' }));
+
+    // When the person reads the exchanges and marks the plain messages seen.
+    const before = unwrap(await core.useCases.readExchanges(thomas, {}));
+    unwrap(await core.useCases.acknowledgeUpTo(thomas, { otherShipId: lookout.shipId, messageId: last }));
+    const after = unwrap(await core.useCases.readExchanges(thomas, {}));
+
+    // Then the question stays unacknowledged but contributes no unseen plain message.
+    expect(before.items).toMatchObject([{ unacknowledged: 3, unseenPlainMessages: 2 }]);
+    expect(after.items).toMatchObject([{ unacknowledged: 1, unseenPlainMessages: 0 }]);
+  });
+
   it('is kept as messages are sent, claimed, acknowledged and returned when a lease ends', async () => {
     // Given the lookout wrote thomas by name and by type, thomas's crew took both and acknowledged one, and thomas answered.
     const thomas = await crewed({ name: 'thomas', kind: 'person', type: 'person' });
