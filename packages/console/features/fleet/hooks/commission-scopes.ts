@@ -11,5 +11,5 @@ export function useCommissionScopes() {
   const trpc = useTRPC();
   const session = useQuery(trpc.console.session.queryOptions());
   const catalogue = useFleetScopes();
-  return catalogue.data === undefined || session.data === undefined ? undefined : grantableScopes(catalogue.data, session.data.kind === 'operator' ? undefined : session.data.scopes, true);
+  return catalogue.data === undefined || session.data === undefined ? undefined : grantableScopes(catalogue.data, session.data.kind === 'operator' ? undefined : session.data.scopes);
 }
