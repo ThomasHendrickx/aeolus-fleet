@@ -1,8 +1,22 @@
 import { ALERT_CONTENT_TYPE } from './alert.js';
 import { essenceOf } from './content-type.js';
-import { isNoticeContentType } from './notice-message.js';
-import { isAnswerContentType, isQuestionContentType, isReplacementContentType, isWithdrawalContentType } from './question.js';
-import { isStepContentType, isStepOutcomeContentType, isStepReplacementContentType, isStepWithdrawalContentType } from './step.js';
+import { NOTICE_CONTENT_TYPE } from './notice-message.js';
+import { ANSWER_CONTENT_TYPE, QUESTION_CONTENT_TYPE, REPLACEMENT_CONTENT_TYPE, WITHDRAWAL_CONTENT_TYPE } from './question.js';
+import { STEP_CONTENT_TYPE, STEP_OUTCOME_CONTENT_TYPE, STEP_REPLACEMENT_CONTENT_TYPE, STEP_WITHDRAWAL_CONTENT_TYPE } from './step.js';
+
+/** The conventions' content types, by essence; a query that tells them apart in SQL builds its list from this one. */
+export const CONVENTION_CONTENT_TYPES: readonly string[] = [
+  QUESTION_CONTENT_TYPE,
+  ANSWER_CONTENT_TYPE,
+  WITHDRAWAL_CONTENT_TYPE,
+  REPLACEMENT_CONTENT_TYPE,
+  STEP_CONTENT_TYPE,
+  STEP_OUTCOME_CONTENT_TYPE,
+  STEP_WITHDRAWAL_CONTENT_TYPE,
+  STEP_REPLACEMENT_CONTENT_TYPE,
+  ALERT_CONTENT_TYPE,
+  NOTICE_CONTENT_TYPE,
+];
 
 /**
  * Whether a message is one of the conventions (decision 0038, the bridge
@@ -12,16 +26,5 @@ import { isStepContentType, isStepOutcomeContentType, isStepReplacementContentTy
  * E6) and retention keeps it as before (E8).
  */
 export function isConventionContentType(contentType: string): boolean {
-  return (
-    isQuestionContentType(contentType) ||
-    isAnswerContentType(contentType) ||
-    isWithdrawalContentType(contentType) ||
-    isReplacementContentType(contentType) ||
-    isStepContentType(contentType) ||
-    isStepOutcomeContentType(contentType) ||
-    isStepWithdrawalContentType(contentType) ||
-    isStepReplacementContentType(contentType) ||
-    essenceOf(contentType) === ALERT_CONTENT_TYPE ||
-    isNoticeContentType(contentType)
-  );
+  return CONVENTION_CONTENT_TYPES.includes(essenceOf(contentType));
 }
