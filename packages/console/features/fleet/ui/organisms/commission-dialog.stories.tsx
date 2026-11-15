@@ -210,7 +210,6 @@ export const OffersArriveAfterOpening: Story = {
   play: async ({ args }) => {
     await typeNameAndType();
     window.dispatchEvent(new Event('deliver-offers'));
-    await userEvent.click(screen.getByTestId('commission-request-crew'));
     await waitFor(async () => {
       await expect(screen.getByTestId('crew-settings-harness')).toHaveTextContent('Claude Code');
       await expect(screen.getByTestId('crew-settings-workspace')).toHaveTextContent('aeolus-fleet');
@@ -327,5 +326,15 @@ export const NoHarnessOffered: Story = {
     await expect(screen.getByTestId('crew-settings-workspace-kind')).toHaveTextContent('Repository');
     await expect(screen.getByTestId('crew-settings-workspace')).toHaveTextContent('Choose...');
     await expect(screen.getByText('Connect a computer that offers a harness, or turn off Request a crew.')).toBeVisible();
+  },
+};
+
+/** With computers full, requesting a crew stays available but starts off. */
+export const NoComputerWithRoom: Story = {
+  args: WithTrierarchPluginNoRoom.args,
+  play: async () => {
+    await expect(await screen.findByTestId('commission-request-crew')).not.toBeChecked();
+    await userEvent.click(screen.getByTestId('commission-request-crew'));
+    await expect(screen.getByTestId('commission-request-crew')).toBeChecked();
   },
 };
