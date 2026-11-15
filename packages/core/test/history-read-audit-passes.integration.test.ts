@@ -10,7 +10,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import type { Db, PrismaClient } from '../src/adapters/prisma/client.js';
 import { createApp } from '../src/app.js';
-import { ensureMessagesPlainPayloadIndex } from '../src/adapters/prisma/messages-plain-payload-index.js';
+import { ensureIndexAfterStart } from '../src/adapters/prisma/index-after-start.js';
 import { createPrismaHealthSnapshots } from '../src/adapters/prisma/health-snapshots.js';
 import { createPrismaHistoryPruner } from '../src/adapters/prisma/history-pruner.js';
 import { createPrismaOverdueDeliveryRepository, createPrismaPushedCrews } from '../src/adapters/prisma/overdue.js';
@@ -25,6 +25,11 @@ import { plansOf, scansIn, sequentialScansOf } from './support/statement-plans.j
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
 const MIGRATIONS = new URL('../src/adapters/prisma/migrations/', import.meta.url);
+const PLAIN_PAYLOAD_INDEX = {
+  name: 'messages_plain_payload_idx',
+  create: `CREATE INDEX CONCURRENTLY IF NOT EXISTS messages_plain_payload_idx
+    ON messages (fleet_id, created_at, id) WHERE payload IS NOT NULL`,
+};
 
 let core: PostgresCore;
 let scale: ScaleHistory;
@@ -32,7 +37,7 @@ let scale: ScaleHistory;
 beforeAll(async () => {
   core = await createPostgresCore();
   scale = await seedScaleHistory(core);
-  await ensureMessagesPlainPayloadIndex(core.databaseUrl);
+  await ensureIndexAfterStart(PLAIN_PAYLOAD_INDEX, { databaseUrl: core.databaseUrl, signal: new AbortController().signal });
 }, 600_000);
 
 afterAll(async () => {
@@ -166,7 +171,7 @@ describe('the maintenance pass on a fleet with 120,000 messages', () => {
   it('the plain payload question is answered while the index does not exist yet', async () => {
     await core.prisma.$executeRaw`DROP INDEX CONCURRENTLY IF EXISTS messages_plain_payload_idx`;
     expect(await createPrismaFleetSealingRepository(core.prisma).storesPlainPayload(scale.fleetId)).toBe(true);
-    await ensureMessagesPlainPayloadIndex(core.databaseUrl);
+    await ensureIndexAfterStart(PLAIN_PAYLOAD_INDEX, { databaseUrl: core.databaseUrl, signal: new AbortController().signal });
   }, 120_000);
 
   it('fleet.turnOnSealing and the sealing pass ask whether the fleet stores a plain payload through the plain payloads\' index', async () => {

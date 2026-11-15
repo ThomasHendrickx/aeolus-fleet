@@ -7,7 +7,7 @@ import { checkDatabase, createPrismaClient, latestMigration } from './adapters/p
 import { listenForPendingDeliveries } from './adapters/prisma/delivery-notices.js';
 import { failureForLog } from './adapters/prisma/failure-log.js';
 import { createFleetEventWakeups, fleetEventWakeupsOf } from './adapters/prisma/fleet-event-wakeups.js';
-import { ensureMessagesPlainPayloadIndex } from './adapters/prisma/messages-plain-payload-index.js';
+import { ensureIndexAfterStart } from './adapters/prisma/index-after-start.js';
 import { createReceiverWakeups } from './adapters/prisma/receiver-wakeups.js';
 import { ensureHealthBootstrapIndex } from './adapters/prisma/health-bootstrap-index.js';
 import type { Clock } from './domain/shared/clock.js';
@@ -153,11 +153,18 @@ export function createApp(options: AppOptions): FastifyInstance {
     everyMs: options.overduePassMs ?? OVERDUE_PASS_MS,
   });
 
+  // Closing aborts both builds, so a stop never waits for them; the next start builds them again.
+  const indexBuild = new AbortController();
   let plainPayloadIndex: RepeatingPass | undefined;
   server.addHook('onListen', (done) => {
     plainPayloadIndex = repeatPass({
       pass: async () => {
-        if (await ensureMessagesPlainPayloadIndex(options.databaseUrl)) {
+        if (await ensureIndexAfterStart({
+          name: 'messages_plain_payload_idx',
+          create: `
+            CREATE INDEX CONCURRENTLY IF NOT EXISTS messages_plain_payload_idx
+            ON messages (fleet_id, created_at, id) WHERE payload IS NOT NULL`,
+        }, { databaseUrl: options.databaseUrl, signal: indexBuild.signal })) {
           void plainPayloadIndex?.stop();
         }
       },
@@ -167,13 +174,11 @@ export function createApp(options: AppOptions): FastifyInstance {
     done();
   });
 
-  // Closing aborts the build, so a stop never waits for it; the next start builds it again.
-  const bootstrapIndexBuild = new AbortController();
   let bootstrapIndex: RepeatingPass | undefined;
   server.addHook('onListen', (done) => {
     bootstrapIndex = repeatPass({
       pass: async () => {
-        if (await ensureHealthBootstrapIndex(options.databaseUrl, bootstrapIndexBuild.signal)) {
+        if (await ensureHealthBootstrapIndex(options.databaseUrl, indexBuild.signal)) {
           void bootstrapIndex?.stop();
         }
       },
@@ -203,7 +208,7 @@ export function createApp(options: AppOptions): FastifyInstance {
   });
 
   server.addHook('onClose', async () => {
-    bootstrapIndexBuild.abort();
+    indexBuild.abort();
     await bootstrapIndex?.stop();
     await plainPayloadIndex?.stop();
     await overduePasses.stop();
