@@ -76,11 +76,14 @@ interface CommissionDialogProps {
   /** What commissioning may grant, as the fleet describes it (decision 0046); undefined while it is read. */
   scopeGroups?: readonly OfferedScopes[];
   /** The ship, and the crew request to write once it is commissioned: none when Request a crew is off. */
-  onSubmit: (ship: { name: string; type: string; note?: string; scopes?: string[]; owner?: ShipId }, request: { settings: CrewSettings | Record<string, never> } | undefined) => void;
+  onSubmit: (ship: { name: string; type: string; note?: string; scopes?: string[]; owner?: ShipId }, request: { settings: CrewSettings | Record<string, never> } | undefined) => void | Promise<void>;
 }
 
 /** The open dialog's fields: they start empty each time it opens. */
-function CommissionDialogBody({ types, taken, onTypedChange, isPending, error, shipLimit, accountUrl, crewRequest, owner, scopeGroups, onSubmit }: Omit<CommissionDialogProps, 'isOpen' | 'onOpenChange'>) {
+function CommissionDialogBody({ types, taken, onTypedChange, isPending: isRequestPending, error, shipLimit, accountUrl, crewRequest, owner, scopeGroups, onSubmit }: Omit<CommissionDialogProps, 'isOpen' | 'onOpenChange'>) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string>();
+  const isPending = isRequestPending || isSubmitting;
   const constants = useConsoleConstants();
   const { shipHandleMaxLength, firstPromptMaxBytes } = constants;
   const nameId = useId();
@@ -134,7 +137,10 @@ function CommissionDialogBody({ types, taken, onTypedChange, isPending, error, s
       className="contents"
       onSubmit={(event) => {
         event.preventDefault();
-        if (canCommission) {
+        void (async () => {
+        if (canCommission && !isPending) {
+          setIsSubmitting(true);
+          setSubmitError(undefined);
           const ship = {
             name,
             type: trimmedType,
@@ -143,8 +149,15 @@ function CommissionDialogBody({ types, taken, onTypedChange, isPending, error, s
             ...(owner === undefined || ownerShipId === undefined ? {} : { owner: ownerShipId }),
           };
           // Without the trierarch plugin a request holds no settings: the ship waits on Needs crew, crewed by hand.
-          onSubmit(ship, !isCrewRequested ? undefined : crewRequest === undefined ? { settings: {} } : crewSettings === undefined ? undefined : { settings: crewSettings });
+          try {
+            await onSubmit(ship, !isCrewRequested ? undefined : crewRequest === undefined ? { settings: {} } : crewSettings === undefined ? undefined : { settings: crewSettings });
+          } catch (failure) {
+            setSubmitError(failure instanceof Error ? failure.message : 'Couldn’t commission the ship. Nothing you typed is lost. Try again.');
+          } finally {
+            setIsSubmitting(false);
+          }
         }
+        })();
       }}
     >
       <DialogHeader>
@@ -307,7 +320,7 @@ function CommissionDialogBody({ types, taken, onTypedChange, isPending, error, s
           />
         ) : null}
       </div>
-      {error === undefined ? null : <InlineError title="Not commissioned" description={error} />}
+      {(submitError ?? error) === undefined ? null : <InlineError title="Not commissioned" description={submitError ?? error ?? ''} />}
       {isWaitingForMachine ? <p className="text-meta text-muted-foreground" data-testid="commission-crew-note">The request will wait for a machine with these labels.</p> : null}
       <DialogFooter className="items-center">
         {!canCommission ? <div className="mr-auto flex min-w-0 flex-1 flex-col gap-1 text-meta" role="status" data-testid="commission-disabled-reason">
@@ -338,17 +351,21 @@ function CommissionDialogBody({ types, taken, onTypedChange, isPending, error, s
  */
 export function CommissionDialog(props: CommissionDialogProps) {
   const { isOpen, onOpenChange, isPending } = props;
+  const [isSubmitting, setIsSubmitting] = useState(false);
   return (
     <Dialog
       open={isOpen}
       onOpenChange={(isNowOpen) => {
-        if (!isPending) {
+        if (!isPending && !isSubmitting) {
           onOpenChange(isNowOpen);
         }
       }}
     >
       <DialogContent size="md" data-testid="commission-dialog" className={dialogSurface.phoneFullScreen}>
-        <CommissionDialogBody {...props} />
+        <CommissionDialogBody {...props} onSubmit={async (ship, request) => {
+          setIsSubmitting(true);
+          try { await props.onSubmit(ship, request); } finally { setIsSubmitting(false); }
+        }} />
       </DialogContent>
     </Dialog>
   );

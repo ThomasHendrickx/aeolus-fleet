@@ -133,7 +133,7 @@ export function CommissionShip({ isOpen, onOpenChange }: { isOpen: boolean; onOp
               },
             }
           : {})}
-        onSubmit={(ship, request) => {
+        onSubmit={async (ship, request) => {
           // A new key for every submission: the server's guard against a retried request, not a way to resubmit.
           const commissioned = { ...ship, idempotencyKey: crypto.randomUUID() };
           if (!hasTrierarchs || request === undefined) {
@@ -141,15 +141,11 @@ export function CommissionShip({ isOpen, onOpenChange }: { isOpen: boolean; onOp
             return;
           }
           // Asked afresh before anything is commissioned: a refusal commissions nothing, and its field shows why.
-          check
-            .checkNow()
-            .catch(() => undefined)
-            .then((checked) => {
-              if (checked?.kind !== 'refused') {
-                commissionThenRequest(commissioned, request);
-              }
-            })
-            .catch(() => undefined);
+          const checked = await check.checkNow();
+          if (checked.kind === 'refused') {
+            throw new Error(`${checked.reason} Nothing was commissioned. Update the crew settings and try again.`);
+          }
+          commissionThenRequest(commissioned, request);
         }}
       />
       <StartingPromptDialog
