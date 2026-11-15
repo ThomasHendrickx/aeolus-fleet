@@ -1,43 +1,31 @@
 # Commission a ship
 
-## 1. Purpose
+Purpose and behaviour agreed. Screen mockups await approval. [#1245](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1245).
 
-A person commissioning a ship faces 17 permission switches, a disabled Commission button without a clear reason, and no way on the ship page to add a permission later ([#1245](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1245)). They should be able to commission a ship that sends and receives without studying the scope catalogue, understand what still prevents commission, and change what the ship may do from its page, including letting it open a meeting.
+## Purpose
 
-## 2. Lessons to check against
+A person can commission a ship that sends and receives without studying the scope catalogue, understand what still prevents commission, and change what the ship may do from its page, including letting it open a meeting.
 
-- [Decisions index](../../decisions/README.md), especially 0016, 0034, 0046, 0050 and 0057: scopes say what, reach says where. Grant only what the actor may grant, within manage reach. Live grants and revokes already exist, take effect at the next call and record `ScopesChanged`. Bundled roles and scopes fixed at commission were rejected.
-- [Gateway scopes](../gateway-scopes/gateway-scopes.md), lessons L4, L8 and section 4.1: descriptions explain scopes; pickers must include core, plugin and fleet scopes. A ship's type does not grant it scopes.
-- [Scopes on behalf](../on-behalf-scopes/on-behalf-scopes.md): changing a live ship checks the granter, unlike a plugin commissioning on behalf of the asking ship. A console choice cannot widen that authority.
-- [Ship owners](../ship-owners/README.md): argo must name a person ship at commission; with none, commission stays unavailable. Change owner sits beside the owner on the ship page. Explaining Commission must account for Owner as well as crew settings.
-- [Console conventions](../console-conventions.md#crew-requests-and-trierarchs) start Request a crew on when the trierarch plugin is connected. Q2 asks to change that rule. [Conventions](../conventions.md#components-which-one) put persistent help inline, never only in a Tooltip or Toast.
+## Lessons to check against
 
-## 3. Open questions
+- [0046](../../decisions/0046-scope-catalogue.md): scopes say what, reach says where; live changes use the actor's grant authority and manage reach.
+- [Gateway scopes](../gateway-scopes/gateway-scopes.md): descriptions explain core, plugin and fleet scopes; type grants nothing.
+- [Ship owners](../ship-owners/README.md): argo names a person ship; Owner can prevent commission too.
+- [Conventions](../conventions.md): persistent help stays inline; use the existing form, controls and tokens.
 
-### Q1. How much must a person choose at commission?
+## Decisions
 
-1. Start with sending and receiving; offer extra actions when wanted, described in plain words, such as Read the fleet and Open a meeting.
-2. Show every scope immediately, each with its description.
+[0075: Commission form and ship permissions](../../decisions/0075-commission-form-and-permissions.md).
 
-Pick: 1. An ordinary ship needs no extra grant. Keep each extra scope individually selectable, including plugin and fleet scopes, without making its type a permission choice.
+## Screens for approval
 
-### Q2. With no computer available, should Request a crew start on?
+1440 px, light and dark. Mockups redrawn from CommissionDialog and ShipHeader at `c46db4979`, using the shared tokens and fonts; these are not running UI screenshots. The current form has searchable scope pickers; the issue's audit shows the earlier switches. Crew settings below Repository are omitted from the drawings.
 
-1. Keep today's default whenever the trierarch plugin is connected; the person turns it off to get the starting prompt.
-2. Start it off when no computer offers a harness, so commission leads to the starting prompt; the person may still turn it on.
+| Screen | Light before | Light after | Dark before | Dark after |
+| --- | --- | --- | --- | --- |
+| Commission form, first state | [before](mockups/first-before-1440-light.png) | [after](mockups/first-after-1440-light.png) | [before](mockups/first-before-1440-dark.png) | [after](mockups/first-after-1440-dark.png) |
+| Extra permissions opened | [before](mockups/extras-before-1440-light.png) | [after](mockups/extras-after-1440-light.png) | [before](mockups/extras-before-1440-dark.png) | [after](mockups/extras-after-1440-dark.png) |
+| Disabled button and reason | [before](mockups/disabled-before-1440-light.png) | [after](mockups/disabled-after-1440-light.png) | [before](mockups/disabled-before-1440-dark.png) | [after](mockups/disabled-after-1440-dark.png) |
+| Ship permissions | [before](mockups/ship-before-1440-light.png) | [after](mockups/ship-after-1440-light.png) | [before](mockups/ship-before-1440-dark.png) | [after](mockups/ship-after-1440-dark.png) |
 
-Pick: 2. A connected plugin alone cannot start a session. This changes the recorded default and needs Thomas's agreement.
-
-### Q3. Where should the reason for a disabled Commission button appear?
-
-1. Beside the button, naming what is missing and what to do, while keeping each field's own hint.
-2. Only under the field that needs attention.
-
-Pick: 1. The person pressing Commission should find the reason there, including when Owner or crew settings prevent it.
-
-### Q4. Where should a person change a live ship's scopes?
-
-1. On the ship page, beside the scopes it holds, offering grants and revokes within the actor's authority.
-2. On a separate Scopes page, choosing a ship there.
-
-Pick: 1. The person is already looking at the ship that needs Open a meeting. It follows Change owner and uses the existing live grant rule.
+Change permissions beside the held permissions: [light](mockups/ship-closed-after-1440-light.png), [dark](mockups/ship-closed-after-1440-dark.png).
