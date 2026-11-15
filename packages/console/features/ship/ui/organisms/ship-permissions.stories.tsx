@@ -48,12 +48,18 @@ export const Save: Story = {
   },
 };
 export const Cancel: Story = {
-  play: async () => {
-    await userEvent.click(screen.getByTestId('ship-permissions-change'));
-    await userEvent.click(screen.getByRole('checkbox', { name: /Read the fleet/ }));
-    await userEvent.click(screen.getByTestId('ship-permissions-cancel'));
-    await userEvent.click(screen.getByTestId('ship-permissions-change'));
-    await expect(screen.getByRole('checkbox', { name: /Read the fleet/ })).toBeChecked();
+  play: async ({ step }) => {
+    await step('Given an editor with an unsaved permission removal', async () => {
+      await userEvent.click(screen.getByTestId('ship-permissions-change'));
+      await userEvent.click(screen.getByRole('checkbox', { name: /Read the fleet/ }));
+    });
+    await step('When the person cancels and opens the editor again', async () => {
+      await userEvent.click(screen.getByTestId('ship-permissions-cancel'));
+      await userEvent.click(screen.getByTestId('ship-permissions-change'));
+    });
+    await step('Then the held permission is still checked', async () => {
+      await expect(screen.getByRole('checkbox', { name: /Read the fleet/ })).toBeChecked();
+    });
   },
 };
 export const ReadOnly: Story = { args: { canChange: false } };
