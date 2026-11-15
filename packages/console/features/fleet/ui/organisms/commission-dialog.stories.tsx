@@ -123,7 +123,7 @@ export const OwnerNothingPicked: Story = {
   play: async () => {
     await typeNameAndType();
     await expect(screen.getByTestId('commission-submit')).toBeDisabled();
-    await expect(screen.getByText('The person who answers for reviewer-03: its questions, gates and trouble go to their ship.')).toBeVisible();
+    await expect(screen.getByText('Its questions, gates and trouble go to this person’s ship.')).toBeVisible();
   },
 };
 /** Signed in as argo, the owner argo named last preselected: Commission ship commissions it with that owner. */
@@ -286,7 +286,7 @@ export const DisabledReason: Story = {
 };
 
 /** The approved first state with argo's last owner, in either theme. */
-export const ApprovedFirstState: Story = { args: { owner: { choices: PERSON_SHIPS, lastPicked: CHARLOTTE }, crewRequest: { offers: [], onSettingsChange: () => undefined }, scopeGroups: [{ title: 'Core', namespace: null, scopes: [{ scope: 'meetings:open', description: 'Invite ships to a meeting.' }, { scope: 'fleet:read', description: 'Read ships, timelines and messages.' }] }, SQUADRONS_SCOPES, { title: 'CRM', namespace: 'crm', scopes: [{ scope: 'crm:read-leads', description: 'Read leads in the CRM.' }] }] } };
+export const ApprovedFirstState: Story = { args: { owner: { choices: PERSON_SHIPS, lastPicked: PERSON_SHIPS.find((person) => person.name === 'thomas')?.id }, crewRequest: { offers: [], onSettingsChange: () => undefined }, scopeGroups: [{ title: 'Core', namespace: null, scopes: [{ scope: 'meetings:open', description: 'Invite ships to a meeting.' }, { scope: 'fleet:read', description: 'Read ships, timelines and messages.' }] }, SQUADRONS_SCOPES, { title: 'CRM', namespace: 'crm', scopes: [{ scope: 'crm:read-leads', description: 'Read leads in the CRM.' }] }] } };
 export const ApprovedExtras: Story = {
   args: ApprovedFirstState.args,
   play: async () => {
@@ -363,7 +363,7 @@ export const ApprovedFieldHints: Story = {
   args: ApprovedFirstState.args,
   play: async () => {
     // Given the first commission state.
-    await expect(await screen.findByText('Ships of the same type share a type address.')).toBeVisible();
+    await waitFor(async () => { await expect(await screen.findByText('Ships of the same type share a type address.')).toBeVisible(); });
     await expect(screen.getByText('Its questions, gates and trouble go to this person’s ship.')).toBeVisible();
     await expect(screen.getByTestId('commission-disabled-reason')).toHaveTextContent('Complete the two fields above to commission this ship.');
     // When an existing type is entered.

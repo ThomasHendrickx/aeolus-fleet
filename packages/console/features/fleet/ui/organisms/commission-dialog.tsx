@@ -2,7 +2,7 @@
 
 import type { CrewSettings, ShipId } from '@aeolus-fleet/common';
 import { isShipHandle } from '@aeolus-fleet/common/rules';
-import { CircleCheck, CircleX, Tag, UserRound } from 'lucide-react';
+import { CircleCheck, CircleX, X } from 'lucide-react';
 import { useId, useState } from 'react';
 
 import { Button, classNames, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, dialogSurface, DialogTitle, Input, Label, Switch, InlineError } from '@aeolus-fleet/ui';
@@ -10,7 +10,7 @@ import { useConsoleConstants } from '../../../../lib/console-constants';
 import { promptBytes, settingsOf, withDefaultsFilled, workspaceProblems, type CrewSettingsValues, type HarnessOffer } from '../../../../lib/crew-settings-form';
 import type { MachineLabelsInput } from '../../../../lib/machine-labels';
 import type { SettingsCheck } from '../../../../lib/trierarch-plugin-schemas';
-import { asHandle, checkShipName, typeHint } from '../../../../lib/ship-name';
+import { asHandle, checkShipName } from '../../../../lib/ship-name';
 import { PermissionChoices } from '../../../../components/molecules/permission-choices';
 import { Combobox } from '../../../../components/atoms/combobox';
 import { Textarea } from '../../../../components/atoms/textarea';
@@ -129,7 +129,7 @@ function CommissionDialogBody({ types, taken, onTypedChange, isPending: isReques
   const canCommission = check.kind === 'available' && isTypeValid && shipLimit === undefined && isCrewReady && isOwnerReady;
   const missing = [check.kind === 'available' ? null : 'name', isTypeValid ? null : 'type', isOwnerReady ? null : 'owner', isCrewReady ? null : 'crew settings'].filter((item) => item !== null);
   const missingRequirements = shipLimit !== undefined ? 'The fleet is at its ship limit.' : missing.length === 2 && missing[0] === 'name' && missing[1] === 'type' ? 'Enter a name and type.' : missing.length === 2 && missing[0] === 'owner' && missing[1] === 'crew settings' ? 'Pick an owner and complete crew settings.' : `Complete ${missing.join(', ')}.`;
-  const missingHelp = shipLimit !== undefined ? 'View the limits or retire a ship before commissioning another.' : [check.kind === 'available' ? null : name === '' ? 'Enter a free ship name.' : check.message, isTypeValid ? null : 'Enter a type.', isOwnerReady ? null : owner.choices?.length === 0 ? 'Commission the person’s ship first.' : 'Pick the person who answers for this ship.', isCrewReady ? null : crewRequest.offers.length === 0 ? 'Connect a computer offering a harness, or turn off Request a crew.' : workspaceNote ?? 'Complete the crew settings, or turn off Request a crew.'].filter((item) => item !== null).join(' ');
+  const missingHelp = missing.length === 2 && missing[0] === 'name' && missing[1] === 'type' && shipLimit === undefined ? 'Complete the two fields above to commission this ship.' : shipLimit !== undefined ? 'View the limits or retire a ship before commissioning another.' : [check.kind === 'available' ? null : name === '' ? 'Enter a free ship name.' : check.message, isTypeValid ? null : 'Enter a type.', isOwnerReady ? null : owner.choices?.length === 0 ? 'Commission the person’s ship first.' : 'Pick the person who answers for this ship.', isCrewReady ? null : crewRequest.offers.length === 0 ? 'Connect a computer offering a harness, or turn off Request a crew.' : workspaceNote ?? 'Complete the crew settings, or turn off Request a crew.'].filter((item) => item !== null).join(' ');
   const hasCrewSettings = crewRequest !== undefined && isCrewRequested;
 
   return (
@@ -162,6 +162,7 @@ function CommissionDialogBody({ types, taken, onTypedChange, isPending: isReques
         })();
       }}
     >
+      <DialogClose render={<Button type="button" variant="ghost" size="sm" isIconOnly className="absolute right-3 top-3" aria-label="Close commission form" disabled={isPending} />}><X aria-hidden /></DialogClose>
       <DialogHeader>
         <DialogTitle>Commission a ship</DialogTitle>
         <DialogDescription>
@@ -207,7 +208,7 @@ function CommissionDialogBody({ types, taken, onTypedChange, isPending: isReques
           aria-live="polite"
           className={classNames('text-meta', isNameProblem ? 'text-destructive-text' : 'text-muted-foreground')}
         >
-          {check.message}
+          {check.kind === 'empty' ? `1 to ${String(shipHandleMaxLength)} lowercase letters, digits, hyphens or colons.` : check.message}
         </p>
       </div>
       <div className="flex flex-col gap-1.5">
@@ -222,7 +223,6 @@ function CommissionDialogBody({ types, taken, onTypedChange, isPending: isReques
           }}
           isFreeText
           toQuery={asHandle}
-          leadingIcon={<Tag />}
           placeholder="e.g. reviewer"
           isInvalid={isTypeProblem}
           aria-describedby={typeHintId}
@@ -231,7 +231,7 @@ function CommissionDialogBody({ types, taken, onTypedChange, isPending: isReques
         <p id={typeHintId} className={classNames('text-meta', isTypeProblem ? 'text-destructive-text' : 'text-muted-foreground')}>
           {isTypeProblem
             ? `Use 1 to ${String(shipHandleMaxLength)} lowercase letters, digits, hyphens or colons.`
-            : typeHint(type, taken.typeShipCounts.get(trimmedType))}
+            : taken.typeShipCounts.get(trimmedType) === undefined || trimmedType === '' ? 'Ships of the same type share a type address.' : `${String(taken.typeShipCounts.get(trimmedType))} active ships have this type.`}
         </p>
       </div>
       {owner === undefined ? null : (
@@ -247,7 +247,6 @@ function CommissionDialogBody({ types, taken, onTypedChange, isPending: isReques
             {...(owner.onQueryChange === undefined ? {} : { onQueryChange: owner.onQueryChange })}
             groupLabel="Person ships"
             emptyText={(query) => `No person ship is named ${query}.`}
-            leadingIcon={<UserRound />}
             placeholder={owner.failure !== undefined && owner.choices === undefined ? 'Person ships not read' : owner.choices === undefined ? 'Reading the person ships' : owner.choices.length === 0 ? 'No person ship yet' : 'Pick a person ship'}
             aria-describedby={ownerHintId}
             data-testid="commission-owner"
@@ -256,7 +255,7 @@ function CommissionDialogBody({ types, taken, onTypedChange, isPending: isReques
             <p id={ownerHintId} className="text-meta text-muted-foreground">
               {owner.choices?.length === 0
                 ? 'A ship needs a person to answer for it. Commission that person\'s ship first.'
-                : `The person who answers for ${name === '' ? 'the ship' : name}: its questions, gates and trouble go to their ship.`}
+                : 'Its questions, gates and trouble go to this person’s ship.'}
             </p>
           ) : (
             <div id={ownerHintId}>
