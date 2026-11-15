@@ -851,6 +851,42 @@ describe('the sealing pass on Postgres and a LocalStack KMS (decision 0068, B5)'
     expect(await prisma.message.count({ where: { fleetId: fleet.fleetId } })).toBeGreaterThanOrEqual(200);
   });
 
+  it('the plain payload one message or one schedule still stores, among sealed ones, keeps the fleet sealing until it is sealed too', { timeout: 180_000 }, async () => {
+    const fleet = await aHostedFleet();
+    const scout = await aCrewedReviewer(fleet, 'scout');
+    await plainSends(fleet, { to: scout, count: 5 });
+    unwrap(
+      await useCases.scheduleMessage(scout, {
+        selector: { kind: 'ship', name: 'argo' },
+        payload: PAYLOAD,
+        model: 'claude-opus-5-5',
+        idempotencyKey: newKey(),
+        timing: { kind: 'once', at: new Date('2026-12-01T10:00:00.000Z') },
+      }),
+    );
+    unwrap(await useCases.turnOnSealing(fleet.argo, { companyKey: await aKeyBoundTo(fleet.fleetId) }));
+    const sealings = createPrismaFleetSealingRepository(prisma);
+    const dataKeyId = await sealings.currentDataKeyId(fleet.fleetId);
+    if (dataKeyId === undefined) {
+      throw new Error('Turning sealing on must make a current data key');
+    }
+    const sealedAs = <Id>(id: Id) => ({ id, requestHash: 'a request hash', payload: { plainBytes: 5, sealed: { dataKeyId, nonce: new Uint8Array(12), ciphertext: new Uint8Array(21) } } });
+    const { messages, schedules } = await sealings.plainPayloads(fleet.fleetId, { after: null, limit: 10 });
+    const [middle] = messages.splice(2, 1);
+    if (middle === undefined || schedules.length !== 1) {
+      throw new Error('The fleet must store five plain messages and one plain schedule');
+    }
+
+    await sealings.sealPayloads(fleet.fleetId, { messages: messages.map(({ id }) => sealedAs(id)), schedules: [] });
+    const isPlainWithAMessageAndTheSchedule = await sealings.storesPlainPayload(fleet.fleetId);
+    await sealings.sealPayloads(fleet.fleetId, { messages: [], schedules: schedules.map(({ id }) => sealedAs(id)) });
+    const isPlainWithTheMessageOnly = await sealings.storesPlainPayload(fleet.fleetId);
+    await sealings.sealPayloads(fleet.fleetId, { messages: [sealedAs(middle.id)], schedules: [] });
+    const isPlainWithNone = await sealings.storesPlainPayload(fleet.fleetId);
+
+    expect({ isPlainWithAMessageAndTheSchedule, isPlainWithTheMessageOnly, isPlainWithNone }).toEqual({ isPlainWithAMessageAndTheSchedule: true, isPlainWithTheMessageOnly: true, isPlainWithNone: false });
+  });
+
   it('on a fleet that pruned, the payloads to seal count the messages it stored by day, pruned ones too, and the pass still leaves none plain', { timeout: 180_000 }, async () => {
     const fleet = await aHostedFleet();
     const scout = await aCrewedReviewer(fleet, 'scout');

@@ -7,6 +7,7 @@ import { checkDatabase, createPrismaClient, latestMigration } from './adapters/p
 import { listenForPendingDeliveries } from './adapters/prisma/delivery-notices.js';
 import { failureForLog } from './adapters/prisma/failure-log.js';
 import { createFleetEventWakeups, fleetEventWakeupsOf } from './adapters/prisma/fleet-event-wakeups.js';
+import { ensureIndexAfterStart } from './adapters/prisma/index-after-start.js';
 import { createReceiverWakeups } from './adapters/prisma/receiver-wakeups.js';
 import { ensureHealthBootstrapIndex } from './adapters/prisma/health-bootstrap-index.js';
 import type { Clock } from './domain/shared/clock.js';
@@ -49,6 +50,7 @@ export interface AppOptions {
 /** How often core runs the 10 and 60 minute clocks: argo hears of an overdue delivery within this of its clock running out. */
 const OVERDUE_PASS_MS = 30_000;
 const BOOTSTRAP_INDEX_RETRY_MS = 1_000;
+const PLAIN_PAYLOAD_INDEX_RETRY_MS = 1_000;
 
 /** How long core waits for pagasae's key set before it goes on with the keys it holds. */
 const KEY_SET_FETCH_TIMEOUT_MS = 5_000;
@@ -153,13 +155,32 @@ export function createApp(options: AppOptions): FastifyInstance {
     everyMs: options.overduePassMs ?? OVERDUE_PASS_MS,
   });
 
-  // Closing aborts the build, so a stop never waits for it; the next start builds it again.
-  const bootstrapIndexBuild = new AbortController();
+  // Closing aborts both builds, so a stop never waits for them; the next start builds them again.
+  const indexBuild = new AbortController();
+  let plainPayloadIndex: RepeatingPass | undefined;
+  server.addHook('onListen', (done) => {
+    plainPayloadIndex = repeatPass({
+      pass: async () => {
+        if (await ensureIndexAfterStart({
+          name: 'messages_plain_payload_idx',
+          create: `
+            CREATE INDEX CONCURRENTLY IF NOT EXISTS messages_plain_payload_idx
+            ON messages (fleet_id, created_at, id) WHERE payload IS NOT NULL`,
+        }, { databaseUrl: options.databaseUrl, signal: indexBuild.signal })) {
+          void plainPayloadIndex?.stop();
+        }
+      },
+      everyMs: PLAIN_PAYLOAD_INDEX_RETRY_MS,
+      onError: (error) => { server.log.warn(failureForLog(error), 'plain payload index build failed: retrying while serving'); },
+    });
+    done();
+  });
+
   let bootstrapIndex: RepeatingPass | undefined;
   server.addHook('onListen', (done) => {
     bootstrapIndex = repeatPass({
       pass: async () => {
-        if (await ensureHealthBootstrapIndex(options.databaseUrl, bootstrapIndexBuild.signal)) {
+        if (await ensureHealthBootstrapIndex(options.databaseUrl, indexBuild.signal)) {
           void bootstrapIndex?.stop();
         }
       },
@@ -189,8 +210,9 @@ export function createApp(options: AppOptions): FastifyInstance {
   });
 
   server.addHook('onClose', async () => {
-    bootstrapIndexBuild.abort();
+    indexBuild.abort();
     await bootstrapIndex?.stop();
+    await plainPayloadIndex?.stop();
     await overduePasses?.stop();
     await scheduleTimer.stop();
     await listener.close();

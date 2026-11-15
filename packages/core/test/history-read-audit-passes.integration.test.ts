@@ -3,12 +3,14 @@
  * (holding scale, decisions 4 and 5): each statement a pass task or step runs
  * on messages, deliveries or events, by plan. Migrations are planned, never run.
  */
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 
 import { idSchema } from '@aeolus-fleet/common';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import type { Db, PrismaClient } from '../src/adapters/prisma/client.js';
+import { createApp } from '../src/app.js';
+import { ensureIndexAfterStart } from '../src/adapters/prisma/index-after-start.js';
 import { createPrismaHealthSnapshots } from '../src/adapters/prisma/health-snapshots.js';
 import { createPrismaHistoryPruner } from '../src/adapters/prisma/history-pruner.js';
 import { createPrismaOverdueDeliveryRepository, createPrismaPushedCrews } from '../src/adapters/prisma/overdue.js';
@@ -23,6 +25,11 @@ import { plansOf, scansIn, sequentialScansOf } from './support/statement-plans.j
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
 const MIGRATIONS = new URL('../src/adapters/prisma/migrations/', import.meta.url);
+const PLAIN_PAYLOAD_INDEX = {
+  name: 'messages_plain_payload_idx',
+  create: `CREATE INDEX CONCURRENTLY IF NOT EXISTS messages_plain_payload_idx
+    ON messages (fleet_id, created_at, id) WHERE payload IS NOT NULL`,
+};
 
 let core: PostgresCore;
 let scale: ScaleHistory;
@@ -30,6 +37,7 @@ let scale: ScaleHistory;
 beforeAll(async () => {
   core = await createPostgresCore();
   scale = await seedScaleHistory(core);
+  await ensureIndexAfterStart(PLAIN_PAYLOAD_INDEX, { databaseUrl: core.databaseUrl, signal: new AbortController().signal });
 }, 600_000);
 
 afterAll(async () => {
@@ -143,9 +151,33 @@ describe('the maintenance pass on a fleet with 120,000 messages', () => {
     expect(await scansOf(({ client }) => rolledBack(client, (tx) => createPrismaHistoryPruner(tx).go(scale.fleetId, set)))).toEqual([]);
   });
 
-  // Scans the fleet's history (#1854): asserted until it is fixed.
-  it('fleet.turnOnSealing asks whether the fleet stores a plain payload by scanning messages', async () => {
-    expect(await scansOf(({ client }) => createPrismaFleetSealingRepository(client).storesPlainPayload(scale.fleetId))).toEqual(['messages']);
+  it('no migration builds the plain payloads\' index: core builds it after it listens', async () => {
+    const migrations = readdirSync(MIGRATIONS, { withFileTypes: true }).filter((entry) => entry.isDirectory());
+    expect(migrations.filter(({ name }) => readFileSync(new URL(`${name}/migration.sql`, MIGRATIONS), 'utf8').includes('messages_plain_payload_idx'))).toEqual([]);
+    await core.prisma.$executeRaw`DROP INDEX CONCURRENTLY IF EXISTS messages_plain_payload_idx`;
+    const server = createApp({ databaseUrl: core.databaseUrl, publicUrl: 'http://localhost', clock: core.clock, logger: false, overduePassMs: 600_000 });
+    try {
+      await server.listen({ host: '127.0.0.1', port: 0 });
+      await expect.poll(async () => {
+        const [row] = await core.prisma.$queryRaw<{ isReady: boolean }[]>`
+          SELECT EXISTS (SELECT 1 FROM pg_index WHERE indexrelid = to_regclass('messages_plain_payload_idx') AND indisvalid) AS "isReady"`;
+        return row?.isReady;
+      }, { timeout: 60_000 }).toBe(true);
+    } finally {
+      await server.close();
+    }
+  }, 120_000);
+
+  it('the plain payload question is answered while the index does not exist yet', async () => {
+    await core.prisma.$executeRaw`DROP INDEX CONCURRENTLY IF EXISTS messages_plain_payload_idx`;
+    expect(await createPrismaFleetSealingRepository(core.prisma).storesPlainPayload(scale.fleetId)).toBe(true);
+    await ensureIndexAfterStart(PLAIN_PAYLOAD_INDEX, { databaseUrl: core.databaseUrl, signal: new AbortController().signal });
+  }, 120_000);
+
+  it('fleet.turnOnSealing and the sealing pass ask whether the fleet stores a plain payload through the plain payloads\' index', async () => {
+    const plans = await plansOf(core, ({ client }) => createPrismaFleetSealingRepository(client).storesPlainPayload(scale.fleetId));
+    expect(scansIn(plans)).toEqual([]);
+    expect(plans.map(({ plan }) => plan.includes('messages_plain_payload_idx'))).toEqual([true]);
   });
 
   it('fleet.turnOnSealing counts the payloads to seal from the messages stored by day, scanning no message', async () => {
