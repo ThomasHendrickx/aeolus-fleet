@@ -104,10 +104,9 @@ function CommissionDialogBody({ types, taken, onTypedChange, isPending: isReques
   // What argo picked stays offered when a later search no longer finds it.
   const ownerChoices = owner?.choices === undefined && pickedOwner == null ? undefined : [...(owner?.choices ?? []), ...(pickedOwner == null || owner?.choices?.some((choice) => choice.id === pickedOwner.id) === true ? [] : [pickedOwner])];
   const [grantedScopes, setGrantedScopes] = useState<readonly string[]>([]);
-  // The first available offers set the default; an explicit choice stays switchable and is kept.
-  const [isCrewRequestPicked, setIsCrewRequested] = useState<boolean>();
   const canComputerCrew = (crewRequest?.offers.length ?? 0) > 0 && crewRequest?.check?.kind !== 'noRoom';
-  const isCrewRequested = isCrewRequestPicked ?? canComputerCrew;
+  // Once shown, the switch belongs to the person; live checks only update its hint.
+  const [isCrewRequested, setIsCrewRequested] = useState(canComputerCrew);
   const [isExtraOpen, setIsExtraOpen] = useState(false);
   const [permissionQuery, setPermissionQuery] = useState('');
   const [editedCrewValues, setCrewValues] = useState<CrewSettingsValues>();
