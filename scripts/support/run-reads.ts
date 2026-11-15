@@ -1,7 +1,8 @@
 import type { Baseline } from './baseline.ts';
 import { measureRead } from './measure-read.ts';
 import type { Read } from './read.ts';
-import { reportOf, type ReadReport } from './report-of.ts';
+import type { ReadReport } from './read-report.ts';
+import { reportOf } from './report-of.ts';
 import { requestOf } from './request-of.ts';
 import type { Target } from './target.ts';
 

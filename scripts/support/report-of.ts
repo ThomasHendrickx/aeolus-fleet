@@ -1,13 +1,7 @@
 import { BUDGET } from './budget.ts';
 import type { Baseline } from './baseline.ts';
-import type { Measurement } from './measurement.ts';
+import type { ReadReport } from './read-report.ts';
 import { verdictOf } from './verdict-of.ts';
-
-/** A read of the run: what it measured, or why it could not be measured. */
-export interface ReadReport {
-  name: string;
-  measured: Measurement | { notMeasured: string };
-}
 
 const percentOf = (rate: number): string => `${String(Math.round(rate * 1000) / 10)}%`;
 const msOf = (ms: number): string => `${String(Math.round(ms))} ms`;
