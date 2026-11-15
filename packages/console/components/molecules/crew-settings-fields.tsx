@@ -23,6 +23,7 @@ interface CrewSettingsFieldsProps {
   /** The field the trierarch plugin refused, with why: its error shows under it. */
   refusal?: { field: string; reason: string };
   isDisabled?: boolean;
+  isCommission?: boolean;
   /** The fleet's labels and machines, for the request's machine labels; the field is left out without them. */
   machineLabels?: MachineLabelsInput;
 }
@@ -38,18 +39,16 @@ const NONE = '';
  * squadron with its hint (decision 12). Built from what the
  * answering machines offer; a field the trierarch plugin refused shows why.
  */
-export function CrewSettingsFields({ shipName, offers, values, onChange, firstPromptMaxBytes, squadrons, refusal, isDisabled = false, machineLabels }: CrewSettingsFieldsProps) {
+export function CrewSettingsFields({ shipName, offers, values, onChange, firstPromptMaxBytes, squadrons, refusal, isDisabled = false, isCommission = false, machineLabels }: CrewSettingsFieldsProps) {
   const ids = { harness: useId(), options: useId(), firstPrompt: useId(), squadron: useId() };
   const offer = offers.find((each) => each.harness === values.harness);
   const errorOf = (field: string) => (refusal?.field === field ? refusal.reason : undefined);
   const bytes = promptBytes(values.firstPrompt);
   const isPromptTooLong = bytes > firstPromptMaxBytes;
-  return (
-    <div className="flex flex-col gap-4" data-testid="crew-settings-fields">
-      <SettingsField id={ids.harness} label="Harness" error={errorOf('harness')}>
+  const harnessField = (<SettingsField id={ids.harness} label="Harness" error={errorOf('harness')} hint={isCommission && offers.length === 0 ? 'Connect a computer that offers a harness, or turn off Request a crew.' : undefined}>
         <SettingsSelect
           id={ids.harness}
-          items={Object.fromEntries(offers.map((each) => [each.harness, harnessWord(each.harness)]))}
+          items={offers.length === 0 && isCommission ? { '': 'No harness offered' } : Object.fromEntries(offers.map((each) => [each.harness, harnessWord(each.harness)]))}
           value={values.harness}
           isDisabled={isDisabled}
           testId="crew-settings-harness"
@@ -57,8 +56,12 @@ export function CrewSettingsFields({ shipName, offers, values, onChange, firstPr
             onChange(withHarness(values, { harness, offers }));
           }}
         />
-      </SettingsField>
+      </SettingsField>);
+  return (
+    <div className="flex flex-col gap-4" data-testid="crew-settings-fields">
+      {isCommission ? null : harnessField}
       <WorkspaceFields
+        harness={isCommission ? harnessField : undefined}
         shipName={shipName}
         offered={offer ?? { repositories: [], folders: [] }}
         workspace={values.workspace}

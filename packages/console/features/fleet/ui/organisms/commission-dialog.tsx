@@ -2,20 +2,24 @@
 
 import type { CrewSettings, ShipId } from '@aeolus-fleet/common';
 import { isShipHandle } from '@aeolus-fleet/common/rules';
-import { CircleCheck, CircleX, Tag, UserRound } from 'lucide-react';
+import { CircleCheck, CircleX, X } from 'lucide-react';
 import { useId, useState } from 'react';
 
-import { Button, classNames, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, dialogSurface, DialogTitle, Input, Label, ScopePicker, Switch, InlineError } from '@aeolus-fleet/ui';
+import { Button, classNames, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, dialogSurface, DialogTitle, Input, Label, Switch, InlineError } from '@aeolus-fleet/ui';
 import { useConsoleConstants } from '../../../../lib/console-constants';
 import { promptBytes, settingsOf, withDefaultsFilled, workspaceProblems, type CrewSettingsValues, type HarnessOffer } from '../../../../lib/crew-settings-form';
 import type { MachineLabelsInput } from '../../../../lib/machine-labels';
 import type { SettingsCheck } from '../../../../lib/trierarch-plugin-schemas';
-import { asHandle, checkShipName, typeHint } from '../../../../lib/ship-name';
+import { asHandle, checkShipName } from '../../../../lib/ship-name';
+import { PermissionChoices } from '../../../../components/molecules/permission-choices';
 import { Combobox } from '../../../../components/atoms/combobox';
 import { Textarea } from '../../../../components/atoms/textarea';
 import { CrewSettingsFields } from '../../../../components/molecules/crew-settings-fields';
 import { LimitNotice } from '../../../../components/molecules/limit-notice';
 import { shipLimitNotice } from '../../../../lib/limits';
+import type { Result } from '../../../../lib/result';
+
+type CommissionOutcome = void | Result<void, { kind: 'crewRefused'; message: string }>;
 
 /** The scopes offered under one heading: the fleet scopes, or one plugin's under its ship's name, each with the fleet's description. */
 interface OfferedScopes {
@@ -48,7 +52,7 @@ interface CommissionDialogProps {
   /**
    * With the trierarch plugin connected: what the machines offer, the fleet's
    * squadrons, and the plugin's check of the settings as the form makes them;
-   * Request a crew then starts on. Without it, Request a crew starts off and
+   * Request a crew starts on when a computer can crew. Without it, it starts off and
    * puts the ship on Needs crew, to crew by hand.
    */
   crewRequest?: {
@@ -70,16 +74,20 @@ interface CommissionDialogProps {
     /** Each change of the text typed in the field, so the person ships that match are read. */
     onQueryChange?: (query: string) => void;
     /** A read of the person ships failed: why, and how to read again. */
-    failure?: { message: string; onRetry: () => void };
+    failure?: { message: string; onRetry: () => void; isRetrying?: boolean };
   };
   /** What commissioning may grant, as the fleet describes it (decision 0046); undefined while it is read. */
   scopeGroups?: readonly OfferedScopes[];
+  scopeFailure?: { message: string; onRetry: () => void; isRetrying?: boolean };
   /** The ship, and the crew request to write once it is commissioned: none when Request a crew is off. */
-  onSubmit: (ship: { name: string; type: string; note?: string; scopes?: string[]; owner?: ShipId }, request: { settings: CrewSettings | Record<string, never> } | undefined) => void;
+  onSubmit: (ship: { name: string; type: string; note?: string; scopes?: string[]; owner?: ShipId }, request: { settings: CrewSettings | Record<string, never> } | undefined) => CommissionOutcome | Promise<CommissionOutcome>;
 }
 
 /** The open dialog's fields: they start empty each time it opens. */
-function CommissionDialogBody({ types, taken, onTypedChange, isPending, error, shipLimit, accountUrl, crewRequest, owner, scopeGroups, onSubmit }: Omit<CommissionDialogProps, 'isOpen' | 'onOpenChange'>) {
+function CommissionDialogBody({ types, taken, onTypedChange, isPending: isRequestPending, error, shipLimit, accountUrl, crewRequest, owner, scopeGroups, scopeFailure, onSubmit }: Omit<CommissionDialogProps, 'isOpen' | 'onOpenChange'>) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string>();
+  const isPending = isRequestPending || isSubmitting;
   const constants = useConsoleConstants();
   const { shipHandleMaxLength, firstPromptMaxBytes } = constants;
   const nameId = useId();
@@ -99,8 +107,11 @@ function CommissionDialogBody({ types, taken, onTypedChange, isPending, error, s
   // What argo picked stays offered when a later search no longer finds it.
   const ownerChoices = owner?.choices === undefined && pickedOwner == null ? undefined : [...(owner?.choices ?? []), ...(pickedOwner == null || owner?.choices?.some((choice) => choice.id === pickedOwner.id) === true ? [] : [pickedOwner])];
   const [grantedScopes, setGrantedScopes] = useState<readonly string[]>([]);
-  // On by default while the trierarch plugin is connected, off otherwise (#245: Thomas's decision).
-  const [isCrewRequested, setIsCrewRequested] = useState(crewRequest !== undefined);
+  const canComputerCrew = (crewRequest?.offers.length ?? 0) > 0 && crewRequest?.check?.kind !== 'noRoom';
+  // Once shown, the switch belongs to the person; live checks only update its hint.
+  const [isCrewRequested, setIsCrewRequested] = useState(canComputerCrew);
+  const [isExtraOpen, setIsExtraOpen] = useState(false);
+  const [permissionQuery, setPermissionQuery] = useState('');
   const [editedCrewValues, setCrewValues] = useState<CrewSettingsValues>();
   const offers = crewRequest?.offers ?? [];
   const crewValues = withDefaultsFilled(editedCrewValues, offers);
@@ -119,6 +130,9 @@ function CommissionDialogBody({ types, taken, onTypedChange, isPending, error, s
   const isTypeProblem = trimmedType !== '' && !isTypeValid;
   const isOwnerReady = owner === undefined || ownerShipId !== undefined;
   const canCommission = check.kind === 'available' && isTypeValid && shipLimit === undefined && isCrewReady && isOwnerReady;
+  const missing = [check.kind === 'available' ? null : 'name', isTypeValid ? null : 'type', isOwnerReady ? null : 'owner', isCrewReady ? null : 'crew settings'].filter((item) => item !== null);
+  const missingRequirements = shipLimit !== undefined ? 'The fleet is at its ship limit.' : missing.length === 2 && missing[0] === 'name' && missing[1] === 'type' ? 'Enter a name and type.' : missing.length === 2 && missing[0] === 'owner' && missing[1] === 'crew settings' ? 'Pick an owner and complete crew settings.' : `Complete ${missing.join(', ')}.`;
+  const missingHelp = missing.length === 2 && missing[0] === 'name' && missing[1] === 'type' && shipLimit === undefined ? 'Complete the two fields above to commission this ship.' : shipLimit !== undefined ? 'View the limits or retire a ship before commissioning another.' : [check.kind === 'available' ? null : name === '' ? 'Enter a free ship name.' : check.message, isTypeValid ? null : 'Enter a type.', isOwnerReady ? null : owner.choices?.length === 0 ? 'Commission the person’s ship first.' : 'Pick the person who answers for this ship.', isCrewReady ? null : crewRequest.offers.length === 0 ? 'Connect a computer offering a harness, or turn off Request a crew.' : workspaceNote ?? 'Complete the crew settings, or turn off Request a crew.'].filter((item) => item !== null).join(' ');
   const hasCrewSettings = crewRequest !== undefined && isCrewRequested;
 
   return (
@@ -128,7 +142,10 @@ function CommissionDialogBody({ types, taken, onTypedChange, isPending, error, s
       className="contents"
       onSubmit={(event) => {
         event.preventDefault();
-        if (canCommission) {
+        void (async () => {
+        if (canCommission && !isPending) {
+          setIsSubmitting(true);
+          setSubmitError(undefined);
           const ship = {
             name,
             type: trimmedType,
@@ -137,10 +154,21 @@ function CommissionDialogBody({ types, taken, onTypedChange, isPending, error, s
             ...(owner === undefined || ownerShipId === undefined ? {} : { owner: ownerShipId }),
           };
           // Without the trierarch plugin a request holds no settings: the ship waits on Needs crew, crewed by hand.
-          onSubmit(ship, !isCrewRequested ? undefined : crewRequest === undefined ? { settings: {} } : crewSettings === undefined ? undefined : { settings: crewSettings });
+          try {
+            const outcome = await onSubmit(ship, !isCrewRequested ? undefined : crewRequest === undefined ? { settings: {} } : crewSettings === undefined ? undefined : { settings: crewSettings });
+            if (outcome !== undefined && !outcome.isOk) {
+              setSubmitError(outcome.error.message);
+            }
+          } catch (failure) {
+            setSubmitError(failure instanceof Error ? failure.message : 'Couldn’t commission the ship. Nothing you typed is lost. Try again.');
+          } finally {
+            setIsSubmitting(false);
+          }
         }
+        })();
       }}
     >
+      <DialogClose render={<Button type="button" variant="ghost" size="sm" isIconOnly className="absolute right-3 top-3" aria-label="Close commission form" disabled={isPending} />}><X aria-hidden /></DialogClose>
       <DialogHeader>
         <DialogTitle>Commission a ship</DialogTitle>
         <DialogDescription>
@@ -186,7 +214,7 @@ function CommissionDialogBody({ types, taken, onTypedChange, isPending, error, s
           aria-live="polite"
           className={classNames('text-meta', isNameProblem ? 'text-destructive-text' : 'text-muted-foreground')}
         >
-          {check.message}
+          {check.kind === 'empty' ? `1 to ${String(shipHandleMaxLength)} lowercase letters, digits, hyphens or colons.` : check.message}
         </p>
       </div>
       <div className="flex flex-col gap-1.5">
@@ -201,7 +229,6 @@ function CommissionDialogBody({ types, taken, onTypedChange, isPending, error, s
           }}
           isFreeText
           toQuery={asHandle}
-          leadingIcon={<Tag />}
           placeholder="e.g. reviewer"
           isInvalid={isTypeProblem}
           aria-describedby={typeHintId}
@@ -210,7 +237,7 @@ function CommissionDialogBody({ types, taken, onTypedChange, isPending, error, s
         <p id={typeHintId} className={classNames('text-meta', isTypeProblem ? 'text-destructive-text' : 'text-muted-foreground')}>
           {isTypeProblem
             ? `Use 1 to ${String(shipHandleMaxLength)} lowercase letters, digits, hyphens or colons.`
-            : typeHint(type, taken.typeShipCounts.get(trimmedType))}
+            : taken.typeShipCounts.get(trimmedType) === undefined || trimmedType === '' ? 'Ships of the same type share a type address.' : `${String(taken.typeShipCounts.get(trimmedType))} active ships have this type.`}
         </p>
       </div>
       {owner === undefined ? null : (
@@ -226,7 +253,6 @@ function CommissionDialogBody({ types, taken, onTypedChange, isPending, error, s
             {...(owner.onQueryChange === undefined ? {} : { onQueryChange: owner.onQueryChange })}
             groupLabel="Person ships"
             emptyText={(query) => `No person ship is named ${query}.`}
-            leadingIcon={<UserRound />}
             placeholder={owner.failure !== undefined && owner.choices === undefined ? 'Person ships not read' : owner.choices === undefined ? 'Reading the person ships' : owner.choices.length === 0 ? 'No person ship yet' : 'Pick a person ship'}
             aria-describedby={ownerHintId}
             data-testid="commission-owner"
@@ -235,7 +261,7 @@ function CommissionDialogBody({ types, taken, onTypedChange, isPending, error, s
             <p id={ownerHintId} className="text-meta text-muted-foreground">
               {owner.choices?.length === 0
                 ? 'A ship needs a person to answer for it. Commission that person\'s ship first.'
-                : `The person who answers for ${name === '' ? 'the ship' : name}: its questions, gates and trouble go to their ship.`}
+                : 'Its questions, gates and trouble go to this person’s ship.'}
             </p>
           ) : (
             <div id={ownerHintId}>
@@ -243,6 +269,7 @@ function CommissionDialogBody({ types, taken, onTypedChange, isPending, error, s
                 title="Couldn’t read the person ships"
                 description={`${owner.failure.message}. Nothing you typed is lost; try again to pick an owner.`}
                 onRetry={owner.failure.onRetry}
+                isRetrying={owner.failure.isRetrying}
               />
             </div>
           )}
@@ -260,44 +287,33 @@ function CommissionDialogBody({ types, taken, onTypedChange, isPending, error, s
           }}
         />
       </div>
-      {scopeGroups === undefined ? (
-        <p className="text-meta text-muted-foreground" data-testid="commission-scopes-reading">
-          Reading the fleet&apos;s scopes.
-        </p>
-      ) : (
-        scopeGroups.map((group) => (
-          <div key={group.namespace ?? ''} className="flex flex-col gap-2" data-testid={`commission-scopes-${group.namespace ?? 'fleet'}`}>
-            <ScopePicker
-              label={
-                <>
-                  {group.title} {group.namespace === null ? null : <span className="font-mono text-id text-muted-foreground">{group.namespace}</span>}
-                </>
-              }
-              listed={group.scopes}
-              picked={grantedScopes.filter((scope) => group.scopes.some((each) => each.scope === scope))}
-              onPick={(picked) => {
-                setGrantedScopes((held) => [...held.filter((scope) => !group.scopes.some((each) => each.scope === scope)), ...picked]);
-              }}
-              isDisabled={isPending}
-            />
-            {group.namespace === null ? (
-              <p className="text-meta text-muted-foreground">Every ship sends and receives. Fleet access lets its session act as the console does; crew ships lets a trierarch start their sessions. It cannot be changed later.</p>
-            ) : null}
-          </div>
-        ))
-      )}
+      <section className="flex flex-col gap-1.5" aria-label="Permissions">
+        <h3 className="text-body font-semibold">Permissions</h3>
+        <p className="text-meta text-muted-foreground">Every ship sends and receives messages.</p>
+        <button type="button" className="flex items-center justify-between text-left text-body font-medium" aria-expanded={isExtraOpen} disabled={isPending} onClick={() => { setIsExtraOpen(!isExtraOpen); }} data-testid="commission-extra-permissions">
+          <span><span aria-hidden>{isExtraOpen ? '⌄' : '›'} </span><span>Extra permissions</span></span>
+          {grantedScopes.length === 0 ? null : <span className="text-meta text-muted-foreground">{grantedScopes.length} selected</span>}
+        </button>
+        {!isExtraOpen ? null : scopeFailure !== undefined ? <InlineError title="Couldn’t read permissions" description={scopeFailure.message} onRetry={scopeFailure.onRetry} isRetrying={scopeFailure.isRetrying} /> : scopeGroups === undefined ? <p className="animate-pulse text-meta text-muted-foreground" data-testid="commission-scopes-reading">Reading the fleet&apos;s scopes.</p> : <>
+          <PermissionChoices choices={scopeGroups.flatMap((group) => group.scopes).filter(({ scope }) => scope !== 'messages:send' && scope !== 'messages:receive')} picked={grantedScopes} onPick={setGrantedScopes} query={permissionQuery} onQueryChange={setPermissionQuery} isDisabled={isPending} />
+          <p className="text-meta text-muted-foreground">Each choice grants one permission.</p>
+        </>}
+      </section>
       <div className="flex flex-col gap-3 border-t border-border pt-4">
         <div className="flex items-center justify-between gap-3">
           <Label htmlFor={crewId}>Request a crew</Label>
-          <Switch id={crewId} checked={isCrewRequested} onCheckedChange={setIsCrewRequested} data-testid="commission-request-crew" />
+          <Switch id={crewId} checked={isCrewRequested} onCheckedChange={setIsCrewRequested} disabled={isPending} data-testid="commission-request-crew" />
         </div>
         <p className="-mt-2 text-meta text-muted-foreground">
           {crewRequest === undefined
             ? `Puts ${name === '' ? 'the ship' : name} on your Needs crew list until you crew it by hand. You get its starting prompt next either way.`
-            : 'The trierarch plugin picks a trierarch that starts the session and keeps it crewed.'}
+            : !canComputerCrew
+              ? isCrewRequested ? 'No computer can crew this ship right now. Turn this off to get the starting prompt.' : 'No computer can crew this ship right now. You get the starting prompt next. You can still request a crew.'
+              : 'The trierarch plugin picks a trierarch that starts the session and keeps it crewed.'}
         </p>
         {hasCrewSettings ? (
           <CrewSettingsFields
+            isCommission
             shipName={name.trim() === '' ? 'this ship' : name.trim()}
             offers={crewRequest.offers}
             values={crewValues}
@@ -313,21 +329,14 @@ function CommissionDialogBody({ types, taken, onTypedChange, isPending, error, s
           />
         ) : null}
       </div>
-      {error === undefined ? null : <InlineError title="Not commissioned" description={error} />}
-      <DialogFooter className="items-center">
-        {crewRequest === undefined ? null : (
-          <span className="mr-auto text-meta text-muted-foreground" data-testid="commission-crew-note">
-            {!isCrewRequested
-              ? null
-              : (workspaceNote ??
-                (isWaitingForMachine
-                  ? 'The request will wait for a machine with these labels.'
-                  : crewRequest.check?.kind === 'noRoom'
-                    ? 'The request will wait for room.'
-                    : 'Uncheck Request a crew to get the starting prompt instead.'))}
-          </span>
-        )}
-        <DialogClose render={<Button type="button" disabled={isPending} />}>Cancel</DialogClose>
+      {(submitError ?? error) === undefined ? null : <InlineError title="Not commissioned" description={submitError ?? error ?? ''} />}
+      {isWaitingForMachine ? <p className="text-meta text-muted-foreground" data-testid="commission-crew-note">The request will wait for a machine with these labels.</p> : null}
+      <DialogFooter className="items-center max-sm:fixed max-sm:inset-x-0 max-sm:bottom-0 max-sm:z-10 max-sm:flex-col max-sm:items-stretch max-sm:border-t max-sm:border-border max-sm:bg-popover max-sm:p-4 max-sm:[&_button]:w-full max-sm:[&_button]:h-(--size-control-touch)">
+        {!canCommission ? <div className="mr-auto flex min-w-0 flex-1 flex-col gap-1 text-meta max-sm:order-first max-sm:mb-2" role="status" data-testid="commission-disabled-reason">
+          <span>{missingRequirements}</span>
+          <span className="text-muted-foreground">{missingHelp}</span>
+        </div> : !isCrewRequested ? null : <span className="mr-auto text-meta text-muted-foreground" >{isWaitingForMachine ? 'The request will wait for a machine with these labels.' : crewRequest?.check?.kind === 'noRoom' ? 'The request will wait for room.' : 'Turn off Request a crew to get the starting prompt instead.'}</span>}
+        <DialogClose render={<Button type="button" className="max-sm:order-last" disabled={isPending} />}>Cancel</DialogClose>
         <Button type="submit" variant="primary" isLoading={isPending} disabled={!canCommission} data-testid="commission-submit">
           {isPending ? 'Commissioning' : hasCrewSettings ? 'Commission and request crew' : 'Commission ship'}
         </Button>
@@ -351,17 +360,21 @@ function CommissionDialogBody({ types, taken, onTypedChange, isPending, error, s
  */
 export function CommissionDialog(props: CommissionDialogProps) {
   const { isOpen, onOpenChange, isPending } = props;
+  const [isSubmitting, setIsSubmitting] = useState(false);
   return (
     <Dialog
       open={isOpen}
       onOpenChange={(isNowOpen) => {
-        if (!isPending) {
+        if (!isPending && !isSubmitting) {
           onOpenChange(isNowOpen);
         }
       }}
     >
-      <DialogContent size="md" data-testid="commission-dialog" className={dialogSurface.phoneFullScreen}>
-        <CommissionDialogBody {...props} />
+      <DialogContent size="md" data-testid="commission-dialog" className={`${dialogSurface.phoneFullScreen} max-sm:pb-60 max-sm:max-h-dvh`}>
+        <CommissionDialogBody {...props} onSubmit={async (ship, request) => {
+          setIsSubmitting(true);
+          try { return await props.onSubmit(ship, request); } finally { setIsSubmitting(false); }
+        }} />
       </DialogContent>
     </Dialog>
   );

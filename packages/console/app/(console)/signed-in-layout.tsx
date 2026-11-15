@@ -8,7 +8,7 @@ import { AccountRenewal } from '../../features/account-renewal/state/account-ren
 import { ArgoSignIn } from '../../features/argo-sign-in/state/argo-sign-in';
 import { ConsoleCommands } from '../../features/commands/state/console-commands';
 import { ComposeMessage } from '../../features/compose/organisms/compose-message';
-import { ConsoleGuide } from '../../features/guide/organisms/console-guide';
+import { ConsoleGuide } from '../../features/guide/state/console-guide';
 import { ConsoleNotices } from '../../features/notices/organisms/console-notices';
 import { useAccess } from '../../lib/access';
 import { useAccountMenu } from '../../lib/account';

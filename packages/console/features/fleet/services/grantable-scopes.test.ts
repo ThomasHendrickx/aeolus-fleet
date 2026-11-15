@@ -61,7 +61,7 @@ describe('grantableScopes', () => {
   });
 
   it("offers each plugin's scopes under the name of the ship that declared them, with their descriptions", () => {
-    expect(grantableScopes(NAMESPACES, ['fleet:read']).filter(({ namespace }) => namespace === 'squadrons')).toEqual([
+    expect(grantableScopes(NAMESPACES).filter(({ namespace }) => namespace === 'squadrons')).toEqual([
       {
         title: 'squadrons',
         namespace: 'squadrons',
@@ -74,7 +74,7 @@ describe('grantableScopes', () => {
   });
 
   it("offers the fleet's own scopes after the plugins', each namespace with its descriptions", () => {
-    expect(grantableScopes(NAMESPACES, ['fleet:read']).slice(1)).toEqual([
+    expect(grantableScopes(NAMESPACES).slice(1)).toEqual([
       {
         title: 'squadrons',
         namespace: 'squadrons',
@@ -99,4 +99,21 @@ describe('grantableScopes', () => {
 
     expect(grantableScopes([...NAMESPACES, empty], ['fleet:read']).map(({ title }) => title)).toEqual(['Fleet access', 'squadrons', "The fleet's own"]);
   });
+});
+
+it('offers every core permission including opening meetings, with plugin and fleet permissions, for argo', () => {
+  // Given a catalogue with a permission outside the old fleet access list.
+  const meeting: FleetNamespace = { namespace: 'meetings', kind: 'core', declaredBy: null, scopes: [{ scope: 'meetings:open', description: 'Invite ships to a meeting.' }] };
+  // When argo commissions a ship.
+  const offered = grantableScopes([...NAMESPACES, meeting]);
+  // Then all individual permissions are available as extras.
+  expect(offered.flatMap((group) => group.scopes.map(({ scope }) => scope))).toEqual(['messages:send', 'messages:force', 'messages:resend', 'fleet:read', 'fleet:manage', 'scopes:grant', 'meetings:open', 'squadrons:form', 'squadrons:scale', 'crm:read-leads', 'crm:write-leads']);
+});
+
+it('offers an account only the permissions it may grant across every namespace', () => {
+  // Given an account holding one core, one plugin and one fleet permission.
+  // When its grant authority is applied to the catalogue.
+  const offered = grantableScopes(NAMESPACES, ['fleet:read', 'squadrons:form', 'crm:read-leads']);
+  // Then unrelated permissions are absent, without bundling the namespaces.
+  expect(offered.flatMap((group) => group.scopes.map(({ scope }) => scope))).toEqual(['fleet:read', 'squadrons:form', 'crm:read-leads']);
 });

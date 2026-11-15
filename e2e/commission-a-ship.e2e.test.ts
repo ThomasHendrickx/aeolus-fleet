@@ -80,15 +80,16 @@ async function fillCommission(page: Page, ship: { name: string; type: string; no
   await pickOwner(page, 'charlotte');
 }
 
-/** Picks one of the fleet scopes in the CommissionDialog's scope picker, found by its code; with a description, the option shows it. */
+/** Picks an extra permission by its scope code and checks its description when given. */
 async function pickFleetScope(page: Page, { scope, description }: { scope: string; description?: string }): Promise<void> {
-  await page.getByTestId('commission-dialog').getByTestId('commission-scopes-fleet').getByTestId('scope-picker-search').fill(scope);
-  const option = page.getByTestId('scope-picker-option').filter({ hasText: scope });
+  const dialog = page.getByTestId('commission-dialog');
+  await dialog.getByTestId('permissions-search').fill(scope);
+  const option = dialog.getByTestId('permissions-choices').locator('label').filter({ has: page.getByText(scope, { exact: true }) });
   if (description !== undefined) {
     await option.getByText(description).waitFor();
   }
-  await option.click();
-  await page.getByTestId('commission-scopes-fleet').getByTestId('scope-picker-chip').filter({ hasText: scope }).waitFor();
+  await option.getByTestId('permissions-choice').click();
+  await option.getByRole('checkbox', { checked: true }).waitFor();
 }
 
 async function commission(page: Page, ship: { name: string; type: string; note?: string }): Promise<void> {
@@ -216,6 +217,7 @@ describe('commissioning a ship in the console', () => {
     const page = await signedInPage();
     await fillCommission(page, { name: 'squad-manager', type: 'squadron' });
     const dialog = page.getByTestId('commission-dialog');
+    await dialog.getByTestId('commission-extra-permissions').click();
     await pickFleetScope(page, { scope: 'fleet:read', description: 'Read ships, timelines, messages, labels, events and fleet-wide views' });
     await pickFleetScope(page, { scope: 'fleet:manage' });
 
@@ -231,6 +233,7 @@ describe('commissioning a ship in the console', () => {
     const page = await signedInPage();
     await fillCommission(page, { name: 'mac-mini', type: 'trierarch' });
     const dialog = page.getByTestId('commission-dialog');
+    await dialog.getByTestId('commission-extra-permissions').click();
     await pickFleetScope(page, { scope: 'crew:run' });
 
     await dialog.getByTestId('commission-submit').click();
@@ -292,16 +295,18 @@ describe('commissioning a ship in the console', () => {
     const dialog = page.getByTestId('commission-dialog');
 
     await fillCommission(page, { name: 'Harbour Master', type: 'reviewer' });
-    await dialog.getByText('Use 1 to 48 lowercase letters, digits, hyphens or colons.').waitFor();
+    await dialog.getByRole('paragraph').filter({ hasText: 'Use 1 to 48 lowercase letters, digits, hyphens or colons.' }).waitFor();
+    await dialog.getByTestId('commission-disabled-reason').getByText('Use 1 to 48 lowercase letters, digits, hyphens or colons.').waitFor();
     await expect(dialog.getByTestId('commission-submit').isDisabled()).resolves.toBe(true);
 
     await dialog.getByTestId('commission-name').fill('dock');
-    await dialog.getByText('dock is already used by an active ship.').waitFor();
+    await dialog.getByRole('paragraph').filter({ hasText: 'dock is already used by an active ship.' }).waitFor();
+    await dialog.getByTestId('commission-disabled-reason').getByText('dock is already used by an active ship.').waitFor();
     await expect(dialog.getByTestId('commission-submit').isDisabled()).resolves.toBe(true);
 
     await dialog.getByTestId('commission-name').fill('harbour');
     await dialog.getByText('harbour is available.').waitFor();
-    await dialog.getByText(/^\d+ ships? uses? this type\.$/).waitFor();
+    await dialog.getByText(/^\d+ active ships have this type\.$/).waitFor();
     await expect(dialog.getByTestId('commission-submit').isEnabled()).resolves.toBe(true);
   });
 });

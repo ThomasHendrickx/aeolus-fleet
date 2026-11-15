@@ -26,9 +26,10 @@ export interface ScopeGroup {
 }
 
 /** The fleet scopes in the order given, each with its description, then each plugin namespace that declares a scope, then the fleet's own. */
-export function grantableScopes(namespaces: readonly FleetNamespace[], fleetScopes: readonly string[]): ScopeGroup[] {
+export function grantableScopes(namespaces: readonly FleetNamespace[], heldScopes?: readonly string[]): ScopeGroup[] {
   const described = new Map(namespaces.filter(({ kind }) => kind === 'core').flatMap(({ scopes }) => scopes.map(({ scope, description }) => [scope, description] as const)));
-  const fleet = fleetScopes.flatMap((scope) => {
+  const allowed = heldScopes === undefined ? undefined : new Set(heldScopes);
+  const fleet = (heldScopes ?? [...described.keys()]).flatMap((scope) => {
     const description = described.get(scope);
     return description === undefined ? [] : [{ scope, description }];
   });
@@ -36,5 +37,6 @@ export function grantableScopes(namespaces: readonly FleetNamespace[], fleetScop
     kind !== 'plugin' || declaredBy === null || scopes.length === 0 ? [] : [{ title: declaredBy.name, namespace, scopes: scopes.map(({ scope, description }) => ({ scope, description })) }],
   );
   const fleetOwn = namespaces.flatMap(({ namespace, kind, scopes }) => (kind !== 'fleet' ? [] : [{ title: FLEET_OWN_TITLE, namespace, scopes: scopes.map(({ scope, description }) => ({ scope, description })) }]));
-  return [{ title: 'Fleet access', namespace: null, scopes: fleet }, ...plugins, ...fleetOwn];
+  const groups = [{ title: 'Fleet access', namespace: null, scopes: fleet }, ...plugins, ...fleetOwn];
+  return allowed !== undefined ? groups.map((group) => ({ ...group, scopes: group.scopes.filter(({ scope }) => allowed.has(scope)) })) : groups;
 }
