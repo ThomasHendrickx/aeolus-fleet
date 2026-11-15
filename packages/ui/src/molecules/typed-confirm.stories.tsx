@@ -27,7 +27,7 @@ export const Match: Story = { args: { value: 'reviewer-01' } };
 
 /** While the action runs, the field holds still. */
 export const Disabled: Story = {
-  args: { value: 'reviewer-01', disabled: true },
+  args: { value: 'reviewer-01', isDisabled: true },
   play: async ({ canvasElement }) => {
     await expect(within(canvasElement).getByRole('textbox')).toBeDisabled();
   },
