@@ -8,6 +8,14 @@ const sentence = (actions: string, asks: string) =>
 
 const named = (overrides: Partial<JoinMachineInput>): JoinMachineInput => ({ name: 'laptop', ...overrides });
 
+const repositoryCases: readonly (readonly [NonNullable<JoinMachineInput['repositories']>, string])[] = [
+  [{ kind: 'folder', path: '~/code' }, 'adds every repository directly in ~/code'],
+  [{ kind: 'none' }, 'adds no repositories'],
+  [{ kind: 'list', entries: [] }, 'adds 0 repositories'],
+  [{ kind: 'list', entries: ['a/one'] }, 'adds 1 repository'],
+  [{ kind: 'list', entries: ['a/one', 'a/two'] }, 'adds 2 repositories'],
+];
+
 describe('joinMachineDescription, texts not on the boards', () => {
   it.each([
     [['claude-code'], 'the aeolus-fleet plugin for Claude Code'],
@@ -22,14 +30,8 @@ describe('joinMachineDescription, texts not on the boards', () => {
     expect(description).toBe(sentence(`the trierarch and ${plugin}, adds no repositories, and starts the trierarch`, 'It asks nothing.'));
   });
 
-  it.each([
-    [{ kind: 'folder', path: '~/code' }, 'adds every repository directly in ~/code'],
-    [{ kind: 'none' }, 'adds no repositories'],
-    [{ kind: 'list', entries: [] }, 'adds 0 repositories'],
-    [{ kind: 'list', entries: ['a/one'] }, 'adds 1 repository'],
-    [{ kind: 'list', entries: ['a/one', 'a/two'] }, 'adds 2 repositories'],
-  ] as const)('describes repositories %j', (repositories, action) => {
-    const description = joinMachineDescription(named({ harnesses: ['codex'], repositories: structuredClone(repositories) as JoinMachineInput['repositories'] }));
+  it.each(repositoryCases)('describes repositories %j', (repositories, action) => {
+    const description = joinMachineDescription(named({ harnesses: ['codex'], repositories }));
 
     expect(description).toBe(sentence(`the trierarch and the aeolus-fleet plugin for Codex, ${action}, and starts the trierarch`, 'It asks nothing.'));
   });
