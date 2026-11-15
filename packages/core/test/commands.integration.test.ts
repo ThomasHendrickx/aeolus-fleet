@@ -50,7 +50,7 @@ describe('the server commands', () => {
       args: ['--name', 'second fleet'],
     });
 
-    expect(result.code).toBe(1);
+    expect(result.code).toBe(3);
     expect(result.stderr).toContain('A fleet already exists');
     expect(result.stdout).not.toMatch(/aeolus_sk_v1_/);
     await expect(database.fleet.count()).resolves.toBe(1);

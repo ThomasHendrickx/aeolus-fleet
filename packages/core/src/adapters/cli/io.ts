@@ -9,8 +9,11 @@ export interface CommandIo {
   ask(question: string, options?: { isHidden?: boolean }): Promise<string | undefined>;
 }
 
-/** Exit codes: 0 done, 1 refused by the domain or the installation, 2 wrong usage. */
-export type ExitCode = 0 | 1 | 2;
+/**
+ * Exit codes: 0 done, 1 refused by the domain or the installation, 2 wrong usage,
+ * 3 `fleet:init` found the fleet already there (a script tells "already set up" from a failure).
+ */
+export type ExitCode = 0 | 1 | 2 | 3;
 
 export type NewPassword = { kind: 'given'; password: string } | { kind: 'differ' } | { kind: 'ended' };
 
