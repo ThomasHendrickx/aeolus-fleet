@@ -1,0 +1,44 @@
+Console stories, main vs this branch, pixel bytes compared (121 stories x 375 and 1440):
+1846 vs base: 221/242 identical
+  organisms-joinmachinedialog--after-failed--1440.png: 711 bytes differ
+  organisms-joinmachinedialog--after-failed--375.png: 3894 bytes differ
+  organisms-joinmachinedialog--after-field-added--1440.png: 384 bytes differ
+  organisms-joinmachinedialog--after-field-added--375.png: 381 bytes differ
+  organisms-joinmachinedialog--after-filled--1440.png: 84 bytes differ
+  organisms-joinmachinedialog--after-filled--375.png: 63 bytes differ
+  organisms-joinmachinedialog--after-harness-unticked--375.png: 1128 bytes differ
+  organisms-joinmachinedialog--after-invalid-list--1440.png: 108 bytes differ
+  organisms-joinmachinedialog--after-invalid-list--375.png: 1173 bytes differ
+  organisms-joinmachinedialog--after-joining--1440.png: 576 bytes differ
+  organisms-joinmachinedialog--after-joining--375.png: 513 bytes differ
+  organisms-joinmachinedialog--after-no-repositories--375.png: 17 bytes differ
+  organisms-joinmachinedialog--invalid-folder--1440.png: 14 bytes differ
+  organisms-joinmachinedialog--press-shows-pending--1440.png: 933 bytes differ
+  organisms-joinmachinedialog--press-shows-pending--375.png: 300 bytes differ
+  pages-trierarchs-mcp-servers--add-new-secret--1440.png: 213 bytes differ
+  pages-trierarchs-mcp-servers--body-too-large--375.png: 24 bytes differ
+  pages-trierarchs-mcp-servers--no-answer--375.png: 24 bytes differ
+  pages-trierarchs-mcp-servers--secret-menu--1440.png: 88 bytes differ
+  pages-trierarchs-mcp-servers--secret-menu--375.png: 34606 bytes differ
+  pages-trierarchs-mcp-servers--stale--375.png: 24 bytes differ
+
+Noise: main shot twice, the same stories that differ above:
+base2 vs base: 78/96 identical
+  organisms-joinmachinedialog--after-failed--1440.png: 4626 bytes differ
+  organisms-joinmachinedialog--after-failed--375.png: 3917 bytes differ
+  organisms-joinmachinedialog--after-field-added--1440.png: 4533 bytes differ
+  organisms-joinmachinedialog--after-field-added--375.png: 327 bytes differ
+  organisms-joinmachinedialog--after-filled--1440.png: 4533 bytes differ
+  organisms-joinmachinedialog--after-filled--375.png: 3786 bytes differ
+  organisms-joinmachinedialog--after-harness-unticked--1440.png: 4542 bytes differ
+  organisms-joinmachinedialog--after-invalid-list--1440.png: 255 bytes differ
+  organisms-joinmachinedialog--after-invalid-list--375.png: 1035 bytes differ
+  organisms-joinmachinedialog--after-joining--1440.png: 357 bytes differ
+  organisms-joinmachinedialog--after-joining--375.png: 513 bytes differ
+  organisms-joinmachinedialog--after-unattended-ticked--1440.png: 55 bytes differ
+  organisms-joinmachinedialog--press-shows-pending--375.png: 3792 bytes differ
+  pages-trierarchs-mcp-servers--refused--375.png: 24 bytes differ
+  pages-trierarchs-mcp-servers--secret-menu--1440.png: 108 bytes differ
+  pages-trierarchs-mcp-servers--secret-menu--375.png: 34606 bytes differ
+  pages-trierarchs-mcp-servers--stale--375.png: 24 bytes differ
+  pages-trierarchs-mcp-servers--too-large--375.png: 24 bytes differ
