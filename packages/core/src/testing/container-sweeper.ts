@@ -105,9 +105,9 @@ export async function removeStaleContainers(
   const containers = await runtime.listRepositoryContainers();
   const removable: string[] = [];
   for (const { id, createdAt, owner } of containers) {
-    const alive = owner === undefined ? undefined : await isAlive(owner);
+    const isLive = owner === undefined ? undefined : await isAlive(owner);
     const isStale = now.getTime() - createdAt.getTime() > STALE_AFTER_MS;
-    if (alive === false || (alive === undefined && isStale)) {
+    if (isLive === false || (isLive === undefined && isStale)) {
       removable.push(id);
     }
   }
@@ -126,8 +126,9 @@ export async function removeStaleTestContainers(): Promise<void> {
       });
       // Created is in seconds.
       return containers.map((container) => {
-        const pid = Number(container.Labels[RUN_PID_LABEL]);
-        const startedAt = container.Labels[RUN_STARTED_LABEL];
+        const labels = container.Labels as Record<string, string | undefined>;
+        const pid = Number(labels[RUN_PID_LABEL]);
+        const startedAt = labels[RUN_STARTED_LABEL];
         return {
           id: container.Id,
           createdAt: new Date(container.Created * 1000),
