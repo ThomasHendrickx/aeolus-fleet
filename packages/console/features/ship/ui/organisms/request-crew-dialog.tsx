@@ -83,7 +83,8 @@ function RequestCrewForm(props: Omit<RequestCrewDialogProps, 'isOpen' | 'onOpenC
   const { firstPromptMaxBytes } = useConsoleConstants();
   const { shipName, mode, offers, enabledModels, heldSettings, squadrons, machineLabels, check, refusedAt, error, isPending, onSettingsChange, onSubmit } = props;
   const words = WORDS[mode];
-  const [values, setValues] = useState<CrewSettingsValues>(() => (mode === 'edit' ? valuesOf(heldSettings, { offers, enabledModels }) : defaultValues(offers)));
+  const [editedValues, setValues] = useState<CrewSettingsValues>();
+  const values = editedValues ?? (mode === 'edit' ? valuesOf(heldSettings, { offers, enabledModels }) : defaultValues(offers));
   const settings = settingsOf(values);
   const refusal = check?.kind === 'refused' ? check : undefined;
   const isPromptTooLong = promptBytes(values.firstPrompt) > firstPromptMaxBytes;
