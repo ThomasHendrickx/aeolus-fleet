@@ -1,9 +1,9 @@
 import { ANSWER_CONTENT_TYPE, QUESTION_CONTENT_TYPE, type FleetId, type ShipId } from '@aeolus-fleet/common';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { Prisma } from '../src/adapters/prisma/generated/client.js';
 import { createPrismaMetadataFillIndexes } from '../src/adapters/prisma/message-metadata-fill.js';
 import { openQuestionsStatement } from '../src/adapters/prisma/messaging.js';
+import { assertIndexedPlan } from './support/assert-indexed-plan.js';
 import { createPostgresCore, type PostgresCore } from './support/postgres-core.js';
 import { unwrap } from '../src/testing/result.js';
 import { newKey } from '../src/testing/keys.js';
@@ -57,8 +57,7 @@ afterAll(async () => {
 describe("the open questions of a ship with a long question history", () => {
   it('are selected along the index of the questions it asked, each answer and withdrawal looked up by index, one page at a time', async () => {
     const statement = openQuestionsStatement(fleetId, { shipId: scoutId, limit: 100 });
-    const rows = await core.prisma.$queryRaw<{ 'QUERY PLAN': string }[]>(Prisma.sql`EXPLAIN ${statement}`);
-    const plan = rows.map((row) => row['QUERY PLAN']).join('\n');
+    const plan = await assertIndexedPlan(core.prisma, statement);
 
     expect(plan).toContain('messages_fleet_id_sender_ship_id_id_asked_idx');
     // A plain question the fill has not reached yet is read along its own partial index.

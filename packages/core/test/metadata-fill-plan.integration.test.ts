@@ -2,6 +2,11 @@ import { idSchema, type FleetId, type MessageId, type ShipId } from '@aeolus-fle
 import { z } from 'zod';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
+import { createPrismaClientTellingStatements } from '../src/adapters/prisma/client.js';
+import { isAskingContentType } from '../src/adapters/prisma/content-type-sql.js';
+import { Prisma } from '../src/adapters/prisma/generated/client.js';
+import { createPrismaFleetSealingRepository } from '../src/adapters/prisma/sealings.js';
+import { unseenPlainMessagesStatement } from '../src/adapters/prisma/unseen-plain-messages.js';
 import { exchangeListStatement } from '../src/adapters/prisma/exchange-rollups.js';
 import { fillMessageQuestionIdsStatement } from '../src/adapters/prisma/fill-message-question-ids.js';
 import {
@@ -133,5 +138,46 @@ describe('the list of exchanges while the fill has not reached them', () => {
 
     expect(plan).toContain('deliveries_open_exchange_idx');
     expect(exchangeScans(plan)).toEqual([]);
+  });
+});
+
+
+describe('the metadata queries used by sealing and exchange reads', () => {
+  it('selects unfilled questions through the partial index', async () => {
+    const shipId = exchanges[0]?.shipId ?? 'shp_none';
+    const plan = await assertIndexedPlan(core.prisma, Prisma.sql`
+      SELECT m.id FROM messages m WHERE m.fleet_id = ${fleetId} AND m.sender_ship_id = ${shipId}
+        AND m.asked_question_id IS NULL AND m.payload IS NOT NULL AND ${isAskingContentType('m.content_type')}`);
+
+    expect(plan).toContain('messages_unfilled_questions_idx');
+  });
+
+  it('counts unseen plain messages through open deliveries and message keys', async () => {
+    const key = exchanges[0] ?? { shipId: 'shp_none', otherShipId: 'shp_none' };
+    const plan = await assertIndexedPlan(core.prisma, Prisma.sql`
+      SELECT ${unseenPlainMessagesStatement(Prisma.sql`e`)} FROM exchanges e
+      WHERE e.fleet_id = ${fleetId} AND e.ship_id = ${key.shipId} AND e.other_ship_id = ${key.otherShipId}`);
+
+    expect(plan).toContain('deliveries_open_exchange_idx');
+    expect(plan).toMatch(/messages_(pkey|fleet_id_id_key)/);
+  });
+
+  it('preserves question ids by message key before sealing payloads', async () => {
+    const statements: { query: string; params: string }[] = [];
+    const client = createPrismaClientTellingStatements(core.databaseUrl, (query, params) => statements.push({ query, params }));
+    const dataKeyId = idSchema('dataKey').parse('dky_' + '0'.repeat(26));
+    try {
+      await client.dataKey.create({ data: { id: dataKeyId, fleetId, wrappedByCompanyKey: new Uint8Array(1), checkValue: new Uint8Array(1), createdAt: core.clock.now(), isCurrent: true } });
+      const messages = messageIds.map((id) => ({ id, requestHash: 'sealed', payload: { plainBytes: 5, sealed: { dataKeyId, nonce: new Uint8Array(12), ciphertext: new Uint8Array(21) } } }));
+      await createPrismaFleetSealingRepository(client).sealPayloads(fleetId, { messages, schedules: [] });
+      const fills = statements.filter(({ query }) => query.includes('UPDATE messages') && query.includes('asked_question_id'));
+      expect(fills).toHaveLength(1);
+      for (const statement of fills) {
+        const plan = await assertIndexedPlan(core.prisma, statement);
+        expect(plan).toMatch(/messages_(pkey|fleet_id_id_key)/);
+      }
+    } finally {
+      await client.$disconnect();
+    }
   });
 });
