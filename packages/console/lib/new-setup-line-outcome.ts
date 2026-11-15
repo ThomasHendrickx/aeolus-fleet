@@ -29,3 +29,15 @@ export class NewSetupLineError extends Error {
     this.outcome = outcome;
   }
 }
+
+/** What a failed try left behind, and what to do (trierarch#260): the release may have gone through before the new line failed. */
+export function failureWords(name: string, outcome: NewSetupLineOutcome): string {
+  switch (outcome) {
+    case 'unchanged':
+      return 'Nothing changed.';
+    case 'released':
+      return `${name} was released, but has no new setup line yet: its old line stopped working and its trierarch lost its crew. Get a new setup line again, here or on its card, and run it on the machine.`;
+    case 'unsure':
+      return `${name} may have been released: if so, its old line stopped working and its trierarch lost its crew. Get a new setup line again, here or on its card, and run it on the machine.`;
+  }
+}

@@ -2,6 +2,7 @@
 
 import type { JoinMachineInput } from './join-machine-input';
 
+import type { ShipId } from '@aeolus-fleet/common';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { useConsoleRead } from './console-read-query';
@@ -15,7 +16,8 @@ import { CATALOGUE_WAIT_MS, renewUntilHolding } from './renew-until-holding';
 import { useTRPC } from './trpc';
 import { connectTrierarchPlugin, joinMachine, newSetupLine, setModelEnabled } from './trierarch-plugin-actions';
 import type { Machine, NewSetupLine, SettingsCheck } from './trierarch-plugin-schemas';
-import { NewSetupLineError, newSetupLineOutcomeOf } from './new-setup-line-outcome';
+import { newSetupLineOptions } from './new-setup-line-attempt';
+import type { NewSetupLineError } from './new-setup-line-outcome';
 
 /**
  * The trierarch plugin as the browser reads it (decision 0030): its
@@ -148,7 +150,7 @@ export function useJoinMachine() {
 }
 
 /** Whether the machine is crewed now, read afresh; undefined when the read fails or no longer lists it. */
-async function isCrewedNow(shipId: string): Promise<boolean | undefined> {
+async function isCrewedNow(shipId: ShipId): Promise<boolean | undefined> {
   try {
     const machine = (await fetchConsoleRead({ read: 'machines' })).find((listed) => listed.shipId === shipId);
     return machine === undefined ? undefined : machine.status === 'crewed';
@@ -166,20 +168,13 @@ async function isCrewedNow(shipId: string): Promise<boolean | undefined> {
  */
 export function useNewSetupLine() {
   const queryClient = useQueryClient();
-  return useMutation<NewSetupLine, NewSetupLineError, Pick<Machine, 'shipId' | 'status'>>({
-    mutationFn: async (machine) => {
-      const answer = await newSetupLine(machine.shipId);
-      if (answer.kind === 'answered') {
-        return answer.data;
-      }
-      const wasCrewed = machine.status === 'crewed';
-      const outcome = newSetupLineOutcomeOf({ wasCrewed, isCrewedNow: wasCrewed ? await isCrewedNow(machine.shipId) : undefined });
-      throw new NewSetupLineError(answer.message, outcome);
-    },
-    onSettled: async () => {
-      await queryClient.invalidateQueries({ queryKey: MACHINES_KEY });
-    },
-  });
+  return useMutation<NewSetupLine, NewSetupLineError, Pick<Machine, 'shipId' | 'status'>>(
+    newSetupLineOptions({
+      call: newSetupLine,
+      isCrewedNow,
+      refreshMachines: () => queryClient.invalidateQueries({ queryKey: MACHINES_KEY }),
+    }),
+  );
 }
 
 const checkKey = (settings: unknown) => ['trierarch-plugin', 'check', JSON.stringify(settings)];

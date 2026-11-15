@@ -4,7 +4,7 @@ import { CircleAlert, TriangleAlert } from 'lucide-react';
 import { useState } from 'react';
 
 import { Button, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, dialogSurface, DialogTitle, InlineError } from '@aeolus-fleet/ui';
-import type { NewSetupLineOutcome } from '../../../../lib/new-setup-line-outcome';
+import { failureWords, type NewSetupLineOutcome } from '../../../../lib/new-setup-line-outcome';
 import { SetupLineBlock } from '../molecules/setup-line-block';
 
 interface NewSetupLineDialogProps {
@@ -18,18 +18,6 @@ interface NewSetupLineDialogProps {
   /** The new setup line, once: shown only now. */
   setupLine?: string;
   onConfirm: () => void;
-}
-
-/** What a failed try left behind, and what to do (trierarch#260): the release may have gone through before the new line failed. */
-function failureWords(name: string, outcome: NewSetupLineOutcome): string {
-  switch (outcome) {
-    case 'unchanged':
-      return 'Nothing changed.';
-    case 'released':
-      return `${name} was released, but has no new setup line yet: its old line stopped working and its trierarch lost its crew. Get a new setup line again, here or on its card, and run it on the machine.`;
-    case 'unsure':
-      return `${name} may have been released: if so, its old line stopped working and its trierarch lost its crew. Get a new setup line again, here or on its card, and run it on the machine.`;
-  }
 }
 
 /** What getting a new line does, before it is done: the old line stops working, and a trierarch running with it loses its crew. */
