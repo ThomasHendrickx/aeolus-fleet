@@ -170,6 +170,7 @@ describe('the maintenance pass on a fleet with 120,000 messages', () => {
   });
 
   it('the pruning pass prunes the fleet\'s finished history through its indexes', async () => {
+    await core.prisma.$executeRaw`UPDATE fleets SET retention_set = true, retention_days = 30 WHERE id = ${scale.fleetId}`;
     // One batch of 500 runs every statement of the pass (a batch's statements read the same text for each cursor): a budget of 0 ends the pass after it, where the 85,000 finished messages would take 170 batches.
     expect(await scansOf(({ client }) => createUseCases({ prisma: client, clock: core.clock, pruneBudgetMs: 0 }).pruneHistory((_, error) => { throw error; }))).toEqual([]);
   });
