@@ -235,3 +235,53 @@ export const EditedBeforeOffersArrive: Story = {
     await expect(screen.getByTestId('crew-settings-first-prompt')).toHaveValue('Triage issues');
   },
 };
+
+/** Approved first state: no computer can crew, and extras stay out of the way. */
+export const NoComputerCanCrew: Story = {
+  args: { crewRequest: { offers: [], onSettingsChange: () => undefined } },
+  play: async () => {
+    // Given a connected plugin without an offered harness.
+    const crew = await screen.findByTestId('commission-request-crew');
+    // When the form opens.
+    await expect(crew).not.toBeChecked();
+    await expect(screen.queryByRole('textbox', { name: 'Find a permission' })).toBeNull();
+    // Then it explains both the default and what prevents commission.
+    await expect(screen.getByText('No computer can crew this ship right now. You get the starting prompt next. You can still request a crew.')).toBeVisible();
+    await expect(screen.getByTestId('commission-disabled-reason')).toHaveTextContent('Enter a name and type.');
+    await userEvent.click(crew);
+    await expect(crew).toBeChecked();
+    await expect(screen.getByTestId('crew-settings-harness')).toBeVisible();
+  },
+};
+
+/** Each extra is one permission, with plain words and its scope beside it. */
+export const ExtraPermissions: Story = {
+  args: { scopeGroups: [FLEET_ACCESS, SQUADRONS_SCOPES], onSubmit: fn() },
+  play: async ({ args }) => {
+    // Given a ship that needs one extra permission.
+    await typeNameAndType();
+    // When its commissioner opens and searches the extras.
+    await userEvent.click(screen.getByText('Extra permissions'));
+    await userEvent.type(screen.getByRole('textbox', { name: 'Find a permission' }), 'Read the fleet');
+    await userEvent.click(screen.getByRole('checkbox', { name: /Read the fleet/ }));
+    // Then exactly that permission is granted.
+    await expect(screen.getByText('1 selected')).toBeVisible();
+    await userEvent.click(screen.getByTestId('commission-submit'));
+    await expect(args.onSubmit).toHaveBeenCalledWith({ name: 'reviewer-03', type: 'reviewer', scopes: ['fleet:read'] }, undefined);
+  },
+};
+
+/** The footer names every missing requirement, alongside the field hints. */
+export const DisabledReason: Story = {
+  args: { owner: { choices: [] }, crewRequest: { offers: [], onSettingsChange: () => undefined } },
+  play: async () => {
+    // Given a name and type but no owner or computer.
+    await typeNameAndType();
+    // When a crew is requested anyway.
+    await userEvent.click(screen.getByTestId('commission-request-crew'));
+    // Then the button's reason says what to complete and how.
+    await expect(screen.getByTestId('commission-disabled-reason')).toHaveTextContent('Pick an owner and complete crew settings.');
+    await expect(screen.getByTestId('commission-disabled-reason')).toHaveTextContent('Commission the person’s ship first.');
+    await expect(screen.getByTestId('commission-submit')).toBeDisabled();
+  },
+};
