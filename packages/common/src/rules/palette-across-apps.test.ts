@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { createIdGenerator } from '../ids/index.js';
+import { accountIdSchema } from '../schemas/account-token.js';
 import type { AppsList } from '../schemas/apps-list.js';
 import type { PaletteList } from '../schemas/palette-list.js';
 import { otherAppsPaletteOf, paletteEntryMatches } from './palette-across-apps.js';
@@ -15,7 +16,7 @@ const ACCOUNT_URL = 'https://account.acme.example/';
 /** The apps list of an account that may open the console and the gateway in its fleet, and Account. */
 function anAppsList(fleetApps: AppsList['fleets'][number]['apps'] = [{ app: 'console', url: CONSOLE_URL }, { app: 'gateway', url: GATEWAY_URL }]): AppsList {
   return {
-    account: { id: 'acc-sam', email: 'sam@acme.example' },
+    account: { id: accountIdSchema.parse('acc-sam'), email: 'sam@acme.example' },
     apps: [{ app: 'account', url: ACCOUNT_URL }],
     fleets: [{ id: fleetId, name: 'Acme fleet', argo: false, apps: fleetApps }],
   };

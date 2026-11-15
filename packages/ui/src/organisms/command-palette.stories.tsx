@@ -2,7 +2,9 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import { Ship } from 'lucide-react';
 import { expect, fn, screen, userEvent, waitFor } from 'storybook/test';
 
-import { CommandPalette, type CommandGroup } from './command-palette.js';
+import type { AppPaletteGroup } from '@aeolus-fleet/common/rules';
+
+import { appPaletteGroupOf, CommandPalette, type CommandGroup } from './command-palette.js';
 
 const GROUPS: readonly CommandGroup[] = [
   {
@@ -95,5 +97,75 @@ export const HandsOutTheQuery: Story = {
   play: async ({ args }) => {
     await userEvent.type(screen.getByTestId('command-palette-input'), 'ga');
     await waitFor(() => expect(args.onQueryChange).toHaveBeenLastCalledWith('ga'));
+  },
+};
+
+const MCP_ADDRESS = 'https://gateway.acme.example/mcp';
+
+/** Other apps' entries, as the open app's server hands them over (header-across-apps A2, A3). */
+const OTHER_APPS: readonly AppPaletteGroup[] = [
+  { app: 'gateway', label: 'Gateway', entries: [{ key: 'gateway:mcp-address', label: 'Copy MCP address', keywords: ['mcp'], icon: 'copy', copyText: MCP_ADDRESS }] },
+  { app: 'account', label: 'Account', entries: [{ key: 'account:rights', label: 'Your rights', keywords: [], icon: 'shield', href: '#account-rights' }] },
+];
+
+/** Puts a clipboard in place of the browser's, so a story sees what was copied, or a copy fail. */
+function withClipboard(writeText: (text: string) => Promise<void>): () => void {
+  const held = Object.getOwnPropertyDescriptor(Navigator.prototype, 'clipboard');
+  Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+  return () => {
+    Reflect.deleteProperty(navigator, 'clipboard');
+    if (held !== undefined) {
+      Object.defineProperty(Navigator.prototype, 'clipboard', held);
+    }
+  };
+}
+
+/** Other apps' pages and actions under each app's name, each row naming the app it opens (M2). */
+export const AcrossApps: Story = {
+  args: { groupsOf: () => OTHER_APPS.map(appPaletteGroupOf) },
+  play: async ({ args }) => {
+    // Given the palette shows Account's Your rights
+    const rights = await screen.findByText('Your rights');
+    // Then the row names the app it opens
+    await expect(screen.getAllByTestId('command-palette-item-app').map((app) => app.textContent)).toContain('Account');
+    // When the person chooses it
+    await userEvent.click(rights);
+    // Then the palette says it is opening Account, until the browser leaves
+    await waitFor(() => expect(screen.getByText('Opening Account')).toBeVisible());
+    await expect(args.onOpenChange).not.toHaveBeenCalled();
+  },
+};
+
+const copied: string[] = [];
+
+/** Copy MCP address copies and says Copied, with no app opening (A3). */
+export const CopyMcpAddress: Story = {
+  args: { groupsOf: () => OTHER_APPS.map(appPaletteGroupOf), initialQuery: 'mcp' },
+  beforeEach: () =>
+    withClipboard((text) => {
+      copied.push(text);
+      return Promise.resolve();
+    }),
+  play: async ({ args }) => {
+    // Given the palette shows the gateway's Copy MCP address
+    await screen.findByText('Copy MCP address');
+    // When the person presses Enter
+    await userEvent.keyboard('{Enter}');
+    // Then the address is copied, the row says Copied, and nothing opens or closes
+    await waitFor(() => expect(screen.getByTestId('command-palette')).toHaveTextContent('Copied'));
+    await expect(copied).toContain(MCP_ADDRESS);
+    await expect(args.onOpenChange).not.toHaveBeenCalled();
+    await expect(args.onSelect).not.toHaveBeenCalled();
+  },
+};
+
+/** A copy the browser refuses says so on the row, and what to do. */
+export const CopyFailed: Story = {
+  args: { groupsOf: () => OTHER_APPS.map(appPaletteGroupOf), initialQuery: 'mcp' },
+  beforeEach: () => withClipboard(() => Promise.reject(new Error('denied'))),
+  play: async () => {
+    await screen.findByText('Copy MCP address');
+    await userEvent.keyboard('{Enter}');
+    await waitFor(() => expect(screen.getByTestId('command-palette')).toHaveTextContent('Couldn’t copy. Try again'));
   },
 };

@@ -43,7 +43,10 @@ let gateway: Server;
 let account: Server;
 const contexts: BrowserContext[] = [];
 
-/** An app serving its palette list at the fixed path, and a page anywhere else. */
+/**
+ * An app serving its palette list at the fixed path, and a page anywhere else,
+ * on a host of its own under localhost: an apps list names apps by domain name.
+ */
 async function anApp(list: PaletteList): Promise<{ server: Server; url: string }> {
   const app = createServer((request, response) => {
     if (request.url === PALETTE_LIST_PATH) {
@@ -52,12 +55,12 @@ async function anApp(list: PaletteList): Promise<{ server: Server; url: string }
     }
     response.writeHead(200, { 'content-type': 'text/html' }).end(`<h1>${list.app} ${request.url ?? ''}</h1>`);
   });
-  await new Promise<void>((resolve) => app.listen(0, '127.0.0.1', resolve));
+  await new Promise<void>((resolve) => app.listen(0, resolve));
   const address = app.address();
   if (address === null || typeof address === 'string') {
     throw new Error('the app listens on no port');
   }
-  return { server: app, url: `http://127.0.0.1:${String(address.port)}/` };
+  return { server: app, url: `http://${list.app}.localhost:${String(address.port)}/` };
 }
 
 beforeAll(async () => {
