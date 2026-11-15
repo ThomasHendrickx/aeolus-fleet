@@ -128,7 +128,7 @@ export function createInMemoryMetadataFill(history: { fleetId: FleetId; messages
           isBuildFailing = false;
           return Promise.reject(new Error('the index build failed'));
         }
-        return Promise.resolve();
+        return Promise.resolve(true);
       },
     },
     fleets: { list: () => Promise.resolve([...state.keys()].map((id) => ({ id, name: id, createdAt: new Date(0) }))) },

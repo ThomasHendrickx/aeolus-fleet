@@ -6,7 +6,6 @@ import { createPostgresCore, type PostgresCore } from './support/postgres-core.j
 
 const INDEX_TEST_MS = 60_000;
 const CLOSE_WITHIN_MS = 5_000;
-const INDEX_BUILT_MS = 30_000;
 const NO_OVERDUE_PASS_MS = 600_000;
 let core: PostgresCore;
 

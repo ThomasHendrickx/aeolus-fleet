@@ -514,6 +514,6 @@ export interface MessageMetadataFill {
 
 /** Outbound port: the indexes the fill and the reads of what it has not filled yet use, built while core serves, without holding writes. */
 export interface MetadataFillIndexes {
-  /** Builds each one that is not there or not valid; settles once all are valid. */
-  build(): Promise<void>;
+  /** Builds each one that is not there or not valid; false means a build stopped or another core holds it. */
+  build(): Promise<boolean>;
 }

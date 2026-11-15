@@ -4,6 +4,7 @@ import type { HarbourOutput } from '@aeolus-fleet/common';
 import type { HarbourState } from '@aeolus-fleet/common/rules';
 import { useRender } from '@base-ui/react/use-render';
 import { ArrowUpRight } from 'lucide-react';
+import { Component, createRef, type RefObject } from 'react';
 
 import { ShipState, shipStateWordOf } from '../atoms/ship-state.js';
 import { classNames } from '../class-names.js';
@@ -37,7 +38,7 @@ const TILE = 'relative grid h-full min-h-28 min-w-0 grid-rows-[auto_1fr_auto] ga
  * A new state's colours settle over 180 ms rather than flash; its word, icon
  * and band change at once (docs/design/working-band). Reduced motion: at once.
  */
-const SETTLE = 'transition-colors duration-180 ease-[ease-out] motion-reduce:transition-none';
+const SETTLE = 'harbour-tile-colours transition-colors duration-180 ease-[ease-out] motion-reduce:transition-none';
 
 /** A tile that is not a link settles its background, text and border. */
 const PLAIN = 'transition-[background-color,color,border-color] duration-180 ease-[ease-out]';
@@ -48,7 +49,7 @@ const PLAIN = 'transition-[background-color,color,border-color] duration-180 eas
  * Reduced motion: nothing moves.
  */
 const LINK =
-  'group cursor-pointer [transition:background-color_180ms_ease-out,color_180ms_ease-out,border-color_180ms_ease-out,box-shadow_var(--duration-fast)_var(--default-transition-timing-function),transform_var(--duration-fast)_var(--default-transition-timing-function)] outline-none hover:-translate-y-px hover:shadow-[0_2px_8px_-2px_color-mix(in_oklch,var(--foreground)_18%,transparent)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring active:translate-y-0 active:shadow-none motion-reduce:hover:translate-y-0';
+  'group cursor-pointer [transition:background-color_180ms_ease-out,color_180ms_ease-out,border-color_180ms_ease-out,box-shadow_var(--duration-fast)_var(--default-transition-timing-function),transform_var(--duration-fast)_var(--default-transition-timing-function)] outline-none hover:-translate-y-px hover:shadow-[0_2px_8px_-2px_color-mix(in_oklch,var(--foreground)_18%,transparent)] focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring active:translate-y-0 active:shadow-none motion-reduce:hover:translate-y-0';
 
 export interface HarbourTileProps {
   ship: HarbourTileShip;
@@ -62,6 +63,14 @@ export interface HarbourTileProps {
   now: Date;
 }
 
+/** Colours sampled before React moves or updates the node, including an interrupted settle. */
+interface TileColours {
+  element: HTMLElement;
+  background: string;
+  text: string;
+  border: string;
+}
+
 /**
  * One ship on Harbour (docs/design/fleet-overview, "The tile"), the same in
  * the console and Bridge: its kind, its whole name, what it is doing (its
@@ -69,27 +78,69 @@ export interface HarbourTileProps {
  * an href it opens the ship's page, the arrow showing on hover and focus. A
  * working ship's tile carries the live band in Sea, which stands still under
  * reduced motion; a new state's colours settle without moving the tile. The title holds "name: note" for the note cut short.
+ *
+ * React's snapshot lifecycle runs before DOM placement. Hooks have no equivalent
+ * for reading the old colours before a parent's keyed sort re-inserts this node.
+ * Starting styles supply that snapshot only when the browser lost its old style;
+ * ordinary updates keep their native CSS transitions, including hover and press.
  */
-export function HarbourTile({ ship, kind, href, link, now }: HarbourTileProps) {
+export class HarbourTile extends Component<HarbourTileProps, object, readonly TileColours[]> {
+  private readonly tile = createRef<HTMLElement>();
+
+  override getSnapshotBeforeUpdate(previousProps: HarbourTileProps): readonly TileColours[] {
+    const tile = this.tile.current;
+    if (tile === null) return [];
+    if (previousProps.ship.state === this.props.ship.state && tile.getAnimations().length === 0) return [];
+    return [tile, ...tile.querySelectorAll<HTMLElement>('.harbour-tile-colours')].map((element) => {
+      const style = getComputedStyle(element);
+      return { element, background: style.backgroundColor, text: style.color, border: style.borderTopColor };
+    });
+  }
+
+  // eslint-disable-next-line @typescript-eslint/max-params -- React fixes this lifecycle's three-argument signature.
+  override componentDidUpdate(_previousProps: HarbourTileProps, _previousState: object, colours: readonly TileColours[]) {
+    const tile = this.tile.current;
+    if (colours.length === 0 && tile !== null) {
+      for (const element of [tile, ...tile.querySelectorAll<HTMLElement>('.harbour-tile-colours')]) {
+        delete element.dataset.harbourSettle;
+      }
+    }
+    for (const { element, background, text, border } of colours) {
+      element.style.setProperty('--harbour-from-background', background);
+      element.style.setProperty('--harbour-from-text', text);
+      element.style.setProperty('--harbour-from-border', border);
+      element.dataset.harbourSettle = '';
+    }
+  }
+
+  override render() {
+    return <HarbourTileView {...this.props} tileRef={this.tile} />;
+  }
+}
+
+/** Starting styles are inactive on mount and never override reduced-motion rules. */
+const STARTING_COLOURS = 'data-harbour-settle:starting:bg-(--harbour-from-background) data-harbour-settle:starting:text-(--harbour-from-text) data-harbour-settle:starting:border-(--harbour-from-border)';
+
+function HarbourTileView({ ship, kind, href, link, now, tileRef }: HarbourTileProps & { tileRef: RefObject<HTMLElement | null> }) {
   const { name, state, note } = ship;
   const { kindWord, KindIcon } = HARBOUR_GROUP_LOOK[kind];
   const isLink = href !== undefined;
   const content = (
     <>
       <span className="flex min-w-0 items-start gap-2 pr-4.5">
-        <span data-testid="harbour-tile-kind" title={kindWord} className={classNames('inline-flex size-5.5 shrink-0 items-center justify-center rounded-md border bg-card/70', SETTLE, state === 'idle' ? 'border-border' : 'border-current/25')}>
+        <span data-testid="harbour-tile-kind" title={kindWord} className={classNames('inline-flex size-5.5 shrink-0 items-center justify-center rounded-md border bg-card/70', SETTLE, STARTING_COLOURS, state === 'idle' ? 'border-border' : 'border-current/25')}>
           <KindIcon aria-hidden className="size-3.25" />
         </span>
         <span className="min-w-0 pt-0.5 text-meta leading-4.5 font-semibold wrap-anywhere text-foreground">{name}</span>
       </span>
       {isLink ? (
-        <span className="absolute top-2.25 right-2.25 inline-flex text-muted-foreground opacity-0 transition-opacity duration-(--duration-fast) group-hover:opacity-100 group-focus-visible:opacity-100 motion-reduce:transition-none">
+        <span className="absolute top-2.25 right-2.25 inline-flex text-muted-foreground opacity-0 transition-opacity duration-(--duration-fast) group-hover:opacity-100 group-focus-visible:opacity-100 group-active:opacity-0 motion-reduce:transition-none">
           <ArrowUpRight aria-hidden className="size-3.5" />
         </span>
       ) : null}
       <span className="line-clamp-2 text-caption leading-4 text-muted-foreground">{note}</span>
       <span className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5">
-        <ShipState state={state} size="caption" className={SETTLE} />
+        <ShipState state={state} size="caption" className={classNames(SETTLE, STARTING_COLOURS)} />
         <span data-testid="harbour-tile-age" className="text-caption whitespace-nowrap text-muted-foreground">
           {lastActivityWordsOf(ship.lastActivityAt, now)}
         </span>
@@ -104,13 +155,14 @@ export function HarbourTile({ ship, kind, href, link, now }: HarbourTileProps) {
     </>
   );
   return useRender({
+    ref: tileRef,
     defaultTagName: isLink ? 'a' : 'div',
     render: isLink ? link : undefined,
     props: {
       'data-testid': 'harbour-tile',
       'data-state': state,
       title: `${name}: ${note ?? shipStateWordOf(state)}`,
-      className: classNames(TILE, TILE_TONES[state], isLink ? classNames(LINK, LINK_TONES[state]) : PLAIN),
+      className: classNames(TILE, TILE_TONES[state], STARTING_COLOURS, isLink ? classNames(LINK, LINK_TONES[state]) : PLAIN),
       ...(isLink ? { href } : {}),
       children: content,
     },

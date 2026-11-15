@@ -10,10 +10,11 @@ import { idSchema, type FleetId, type MessageId } from '@aeolus-fleet/common';
 import { z } from 'zod';
 
 import type { ExchangeKey, MessageMetadataFill, MetadataFillIndexes } from '../../domain/messaging/ports.js';
-import type { Db, PrismaClient } from './client.js';
+import type { Db } from './client.js';
 import { askingContentTypeText } from './content-type-sql.js';
 import { fillMessageQuestionIdsStatement } from './fill-message-question-ids.js';
 import { Prisma } from './generated/client.js';
+import { ensureIndexAfterStart } from './index-after-start.js';
 import { unseenPlainMessagesStatement } from './unseen-plain-messages.js';
 
 /**
@@ -34,24 +35,16 @@ const FILL_INDEXES: readonly { name: string; definition: string }[] = [
   },
 ];
 
-/** CREATE INDEX CONCURRENTLY runs outside a transaction: on the client, never in a unit of work. */
-export function createPrismaMetadataFillIndexes(prisma: PrismaClient): MetadataFillIndexes {
+/** Builds each index on its own cancellable connection while core serves. */
+export function createPrismaMetadataFillIndexes(databaseUrl: string, signal: AbortSignal = new AbortController().signal): MetadataFillIndexes {
   return {
     build: async () => {
       for (const { name, definition } of FILL_INDEXES) {
-        const [index] = z.array(z.object({ isValid: z.boolean() })).parse(
-          await prisma.$queryRaw`SELECT indisvalid AS "isValid" FROM pg_index WHERE indexrelid = to_regclass(${name})`,
-        );
-        if (index?.isValid === true) {
-          continue;
+        if (!await ensureIndexAfterStart({ name, create: `CREATE INDEX CONCURRENTLY IF NOT EXISTS ${name} ${definition}` }, { databaseUrl, signal })) {
+          return false;
         }
-        // An invalid index is one a failed build left; it is built again.
-        // The names and definitions are the constants above, never outside input.
-        if (index !== undefined) {
-          await prisma.$executeRawUnsafe(`DROP INDEX CONCURRENTLY IF EXISTS "${name}"`);
-        }
-        await prisma.$executeRawUnsafe(`CREATE INDEX CONCURRENTLY IF NOT EXISTS "${name}" ${definition}`);
       }
+      return true;
     },
   };
 }

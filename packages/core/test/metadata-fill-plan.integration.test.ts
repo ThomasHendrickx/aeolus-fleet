@@ -68,7 +68,7 @@ beforeAll(async () => {
   await core.prisma.$executeRaw`
     INSERT INTO message_metadata_backfills (fleet_id) SELECT 'flt_' || lpad(n::text, 26, '0') FROM generate_series(1, ${OTHER_FLEETS}) n`;
   // As core serves once the fill built its indexes after start.
-  await createPrismaMetadataFillIndexes(core.prisma).build();
+  await createPrismaMetadataFillIndexes(core.databaseUrl).build();
   await core.prisma.$executeRaw`ANALYZE`;
   messageIds = (await core.prisma.message.findMany({ where: { fleetId }, orderBy: { id: 'asc' }, skip: 60_000, take: BATCH, select: { id: true } })).map((row) => idSchema('message').parse(row.id));
   exchanges = (await core.prisma.exchange.findMany({ where: { fleetId }, orderBy: [{ shipId: 'asc' }, { otherShipId: 'asc' }], skip: 1_500, take: BATCH }))

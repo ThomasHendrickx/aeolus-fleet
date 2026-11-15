@@ -54,7 +54,9 @@ export function createFillMessageMetadata(deps: {
 
   return async (onFleetError) => {
     if (!wasIndexBuildDone) {
-      await deps.indexes.build();
+      if (!await deps.indexes.build()) {
+        return { isComplete: false };
+      }
       wasIndexBuildDone = true;
     }
     let isComplete = true;

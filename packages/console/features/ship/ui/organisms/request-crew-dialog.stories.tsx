@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
-import { expect, within } from 'storybook/test';
+import { expect, screen, userEvent, waitFor, within } from 'storybook/test';
+import { useEffect, useState, type ComponentProps } from 'react';
 
 import { MACHINE_LABELS, MACHINE_VALUES, OFFERS, SETTINGS } from '../../../../lib/fixtures/machines.fixtures';
 import { RequestCrewDialog } from './request-crew-dialog';
@@ -95,5 +96,43 @@ export const RefusedSubRepository: Story = {
     const page = within(canvasElement.ownerDocument.body);
     await expect(page.getByTestId('crew-settings-sub-repository-row')).toHaveTextContent('no trierarch offering claude-code has repository hemma');
     await expect(page.getByTestId('request-crew-note')).toHaveTextContent('Nothing was requested.');
+  },
+};
+
+function RequestWithDelayedOffers(args: ComponentProps<typeof RequestCrewDialog> & { initialOffers?: typeof OFFERS }) {
+  const [offers, setOffers] = useState<typeof OFFERS>(args.initialOffers ?? []);
+  useEffect(() => {
+    const deliverOffers = () => { setOffers(OFFERS); };
+    window.addEventListener('deliver-offers', deliverOffers);
+    return () => { window.removeEventListener('deliver-offers', deliverOffers); };
+  }, []);
+  return <RequestCrewDialog {...args} offers={offers} />;
+}
+
+/** Options arrive after the request dialog opens (#1720). */
+export const OffersArriveAfterOpening: Story = {
+  render: (args) => <RequestWithDelayedOffers {...args} />,
+  play: async () => {
+    window.dispatchEvent(new Event('deliver-offers'));
+    await waitFor(async () => {
+      await expect(screen.getByTestId('crew-settings-harness')).toHaveTextContent('Claude Code');
+      await expect(screen.getByTestId('crew-settings-workspace')).toHaveTextContent('aeolus-fleet');
+      await expect(screen.getByTestId('request-crew-submit')).toBeEnabled();
+    }, { timeout: 4000 });
+  },
+};
+
+/** An edited first prompt is kept when the options arrive (#1720). */
+export const EditedBeforeOffersArrive: Story = {
+  render: (args) => <RequestWithDelayedOffers {...args} initialOffers={OFFERS.map((offer) => ({ ...offer, repositories: [], folders: [] }))} />,
+  play: async () => {
+    await userEvent.type(await screen.findByTestId('crew-settings-first-prompt'), 'Triage issues');
+    window.dispatchEvent(new Event('deliver-offers'));
+    await waitFor(async () => {
+      await expect(screen.getByTestId('crew-settings-harness')).toHaveTextContent('Claude Code');
+      await expect(screen.getByTestId('crew-settings-workspace')).toHaveTextContent('aeolus-fleet');
+      await expect(screen.getByTestId('request-crew-submit')).toBeEnabled();
+    }, { timeout: 4000 });
+    await expect(screen.getByTestId('crew-settings-first-prompt')).toHaveValue('Triage issues');
   },
 };

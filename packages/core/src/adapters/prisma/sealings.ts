@@ -82,11 +82,18 @@ export function createPrismaFleetSealingRepository(db: Db): FleetSealingReposito
     find: (fleetId) => sealingOf(db, { fleetId, isForUpdate: false }),
     findForUpdate: (fleetId) => sealingOf(db, { fleetId, isForUpdate: true }),
     storesPlainPayload: async (fleetId) => {
-      const [message, schedule] = await Promise.all([
-        db.message.findFirst({ where: { fleetId, payload: { not: null } }, select: { id: true } }),
+      // The oldest plain message, through the plain payloads' partial index:
+      // its order leaves the plan no scan of the fleet's messages, whatever
+      // its statistics say of how many are still plain.
+      const [messages, schedule] = await Promise.all([
+        db.$queryRaw<unknown[]>`
+          SELECT id FROM messages
+          WHERE fleet_id = ${fleetId} AND payload IS NOT NULL
+          ORDER BY created_at, id
+          LIMIT 1`,
         db.schedule.findFirst({ where: { fleetId, payload: { not: null } }, select: { id: true } }),
       ]);
-      return message !== null || schedule !== null;
+      return messages.length > 0 || schedule !== null;
     },
     payloadsToSeal: async (fleetId) => {
       // Before sealing is on every payload is plain: the messages the fleet

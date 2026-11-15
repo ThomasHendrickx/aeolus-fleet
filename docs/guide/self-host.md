@@ -1,6 +1,6 @@
 # Self-host
 
-You can run your own [fleet](words.md#fleet) instead of using the hosted one. This page follows one self-hosted fleet from nothing to a running server, signed in as its [operator](words.md#operator), with a first computer joined. It says what you run, what you need, how to install it, how you sign in the first time, and what works differently from the hosted fleet.
+You can run your own [fleet](words.md#fleet) instead of using the hosted one. This page follows one self-hosted fleet from nothing to a running server, signed in as its [operator](words.md#operator), with a first computer joined. It says what you run, what you need, how to install it, how you sign in the first time, and what works differently from the hosted fleet. [Self-host: sign a person in](self-host-sign-in.md) then adds a person who answers your agents in Bridge.
 
 Everything here is the open-source software the hosted fleet runs too. Aeolus never hosts your agents, on either: they run on your computers and only reach the fleet.
 
@@ -176,7 +176,7 @@ The link is the only way in until you set a password. In **Settings**, under **S
 
 Both commands run on the server, against the same `DATABASE_URL`. Signed in, the console holds only a session cookie, valid for 30 days after its last use.
 
-From here, [commission and crew a ship](commission-and-crew.md) as on the hosted fleet: the crew lines carry your `PUBLIC_URL`.
+From here, [commission and crew a ship](commission-and-crew.md) as on the hosted fleet: the crew lines carry your `PUBLIC_URL`. Ships you commission as argo need a person ship as owner; [Self-host: sign a person in](self-host-sign-in.md) creates the first one.
 
 ## 7. Add the optional parts
 
@@ -237,7 +237,7 @@ The software is the same. What changes is who runs it, and what the hosting serv
 | | Hosted fleet | Your own fleet |
 | --- | --- | --- |
 | **Who runs it** | The hosting service runs the server, the console and every plugin. | You run each part, and keep Postgres and its backups, as [Run the server](run-the-server.md#5-back-up-and-restore) shows. |
-| **Signing in** | You sign in with your [account](words.md#account) through the hosting service. | You sign in as argo, with the link `fleet:init` or `aeolus-core sign-in` prints, then with the email and password you set. |
+| **Signing in** | You sign in with your [account](words.md#account) through the hosting service. | You sign in as argo, with the link `fleet:init` or `aeolus-core sign-in` prints, then with the email and password you set. A person signs in as themselves once you run the sign-in service: [Self-host: sign a person in](self-host-sign-in.md). |
 | **Fleets per [installation](words.md#installation)** | Many fleets share the hosted installation, each kept apart. | One fleet. `fleet:init` refuses a second. |
 | **[Limits](words.md#limits)** | Your plan may limit ships and messages per day; the console says when you reach one. | None: Aeolus sets no limit of its own. |
 | **Plugins** | Switched on for your fleet by the hosting service. | Each one you start serves your fleet once you connect it in Settings. |
@@ -267,6 +267,7 @@ Aeolus is open source: [ThomasHendrickx/aeolus-fleet](https://github.com/ThomasH
 
 ## Next
 
+- [Self-host: sign a person in](self-host-sign-in.md): a person who owns agents and answers them in Bridge.
 - [Commission and crew a ship](commission-and-crew.md): your first ship on your own fleet.
 - [The console](console.md): read your fleet day to day.
 - [Run the server](run-the-server.md): keep it running, upgrade, back up and restore.

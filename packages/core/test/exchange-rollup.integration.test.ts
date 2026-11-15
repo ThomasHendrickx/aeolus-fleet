@@ -146,7 +146,7 @@ describe('the rollup of exchanges on Postgres', () => {
     await executeSqlFile(core.databaseUrl, fileURLToPath(new URL('../src/adapters/prisma/migrations/20261115100000_unseen_plain_messages/migration.sql', import.meta.url)));
     const partial = unwrap(await core.useCases.readExchanges(thomas, {}));
     // Each batch commits separately; restarting from the beginning is harmless.
-    await fillUntilComplete(core.prisma, 1);
+    await fillUntilComplete(core, 1);
     await expect(rollup()).resolves.toEqual(await recount());
     const backfilled = unwrap(await core.useCases.readExchanges(thomas, {}));
     unwrap(await core.useCases.acknowledgeUpTo(thomas, { otherShipId: lookout.shipId, messageId: last }));
@@ -196,10 +196,10 @@ describe('the rollup of exchanges on Postgres', () => {
 
     // When the batch fails after recounting but before committing its cursor.
     const failures: unknown[] = [];
-    await expect(metadataFillOf(core.prisma)((_, error) => failures.push(error))).resolves.toEqual({ isComplete: false });
+    await expect(metadataFillOf(core)((_, error) => failures.push(error))).resolves.toEqual({ isComplete: false });
     const failed = await core.prisma.exchange.findFirstOrThrow();
     await core.prisma.$executeRawUnsafe('DROP TRIGGER fail_cursor ON message_metadata_backfills');
-    await fillUntilComplete(core.prisma);
+    await fillUntilComplete(core);
 
     // Then the failed transaction changed nothing and its retry counted exactly once.
     expect(String(failures)).toContain('cursor disk full');
@@ -216,14 +216,14 @@ describe('the rollup of exchanges on Postgres', () => {
     unwrap(await core.useCases.pushReceiveDeliveries(thomas, {}));
     await core.prisma.$executeRaw`UPDATE exchanges SET unseen_plain_messages = NULL`;
     // As core serves once its first pass built the fill's indexes: a build waits for every open transaction, the held ack's too.
-    await createPrismaMetadataFillIndexes(core.prisma).build();
+    await createPrismaMetadataFillIndexes(core.databaseUrl).build();
     const { uow } = heldUnitOfWork(core.prisma, (tx, hold) => ({
       ...tx,
       deliveries: {
         ...tx.deliveries,
         update: async (delivery) => {
           await tx.deliveries.update(delivery);
-          await hold(metadataFillOf(core.prisma)().then(() => undefined));
+          await hold(metadataFillOf(core)().then(() => undefined));
         },
       },
     }));
@@ -246,7 +246,7 @@ describe('the rollup of exchanges on Postgres', () => {
     await core.prisma.$executeRaw`INSERT INTO message_metadata_backfills (fleet_id, after_message_id) VALUES (${argo.fleetId}, ${newest})`;
 
     // When the fill runs, one exchange a batch, until it says it is complete.
-    await fillUntilComplete(core.prisma, 1);
+    await fillUntilComplete(core, 1);
 
     // Then every exchange from before holds its count, and none is left to recount on each read.
     await expect(core.prisma.exchange.count({ where: { unseenPlainMessages: null } })).resolves.toBe(0);
@@ -259,8 +259,8 @@ describe('the rollup of exchanges on Postgres', () => {
     await core.prisma.$executeRaw`UPDATE pg_index SET indisvalid = false WHERE indexrelid = 'deliveries_open_exchange_idx'::regclass`;
 
     // When the fill runs twice.
-    await fillUntilComplete(core.prisma);
-    await fillUntilComplete(core.prisma);
+    await fillUntilComplete(core);
+    await fillUntilComplete(core);
 
     // Then both indexes are valid, the open deliveries one on its own columns.
     await expect(fillIndexes()).resolves.toEqual([

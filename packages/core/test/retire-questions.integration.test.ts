@@ -149,10 +149,10 @@ describe("the open questions of a ship, as Postgres selects them", () => {
     // Given old questions and answers whose uuids have not yet been filled.
     await core.prisma.message.updateMany({ data: { askedQuestionId: null, answeredQuestionId: null } });
     if (state === 'partial') {
-      await metadataFillOf(core.prisma, 1)();
+      await metadataFillOf(core, 1)();
     }
     if (state === 'filled') {
-      await fillUntilComplete(core.prisma, 1);
+      await fillUntilComplete(core, 1);
       await expect(core.prisma.message.findUniqueOrThrow({ where: { id: answered.messageId } })).resolves.toMatchObject({ askedQuestionId: ANSWERED });
     }
     const messages = createPrismaMessageRepository(core.prisma);

@@ -46,7 +46,7 @@ beforeAll(async () => {
            'answer-' || id, created_at + interval '1 second', 'h', 'ship', ${scoutId}, ${argoId}, id
     FROM messages WHERE fleet_id = ${fleetId} AND asked_question_id IS NOT NULL AND right(id, 1) IN ('0', '2', '4', '6', '8') AND sender_ship_id = ${scoutId}`;
   // As core serves once the metadata fill built its indexes after start.
-  await createPrismaMetadataFillIndexes(core.prisma).build();
+  await createPrismaMetadataFillIndexes(core.databaseUrl).build();
   await core.prisma.$executeRaw`ANALYZE`;
 }, 120_000);
 
