@@ -351,7 +351,7 @@ export const PhoneActions: Story = {
       const submit = await screen.findByTestId('commission-submit');
       const footer = submit.closest('[data-slot="dialog-footer"]');
       await expect(submit.getBoundingClientRect().width).toBeGreaterThan(300);
-      await expect(footer?.getBoundingClientRect().bottom).toBeGreaterThan(950);
+      await waitFor(async () => { await expect(footer?.getBoundingClientRect().bottom).toBeGreaterThan(950); });
     } finally {
       await page.viewport(initial.width, initial.height);
     }

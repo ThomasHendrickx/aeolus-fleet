@@ -325,12 +325,12 @@ function CommissionDialogBody({ types, taken, onTypedChange, isPending: isReques
       </div>
       {(submitError ?? error) === undefined ? null : <InlineError title="Not commissioned" description={submitError ?? error ?? ''} />}
       {isWaitingForMachine ? <p className="text-meta text-muted-foreground" data-testid="commission-crew-note">The request will wait for a machine with these labels.</p> : null}
-      <DialogFooter className="items-center">
-        {!canCommission ? <div className="mr-auto flex min-w-0 flex-1 flex-col gap-1 text-meta" role="status" data-testid="commission-disabled-reason">
+      <DialogFooter className="items-center max-sm:fixed max-sm:inset-x-0 max-sm:bottom-0 max-sm:z-10 max-sm:flex-col max-sm:items-stretch max-sm:border-t max-sm:border-border max-sm:bg-popover max-sm:p-4 max-sm:[&_button]:w-full max-sm:[&_button]:h-(--size-control-touch)">
+        {!canCommission ? <div className="mr-auto flex min-w-0 flex-1 flex-col gap-1 text-meta max-sm:order-first max-sm:mb-2" role="status" data-testid="commission-disabled-reason">
           <span>{missingRequirements}</span>
           <span className="text-muted-foreground">{missingHelp}</span>
         </div> : !isCrewRequested ? null : <span className="mr-auto text-meta text-muted-foreground" >{isWaitingForMachine ? 'The request will wait for a machine with these labels.' : crewRequest?.check?.kind === 'noRoom' ? 'The request will wait for room.' : 'Turn off Request a crew to get the starting prompt instead.'}</span>}
-        <DialogClose render={<Button type="button" disabled={isPending} />}>Cancel</DialogClose>
+        <DialogClose render={<Button type="button" className="max-sm:order-last" disabled={isPending} />}>Cancel</DialogClose>
         <Button type="submit" variant="primary" isLoading={isPending} disabled={!canCommission} data-testid="commission-submit">
           {isPending ? 'Commissioning' : hasCrewSettings ? 'Commission and request crew' : 'Commission ship'}
         </Button>
@@ -364,7 +364,7 @@ export function CommissionDialog(props: CommissionDialogProps) {
         }
       }}
     >
-      <DialogContent size="md" data-testid="commission-dialog" className={dialogSurface.phoneFullScreen}>
+      <DialogContent size="md" data-testid="commission-dialog" className={`${dialogSurface.phoneFullScreen} max-sm:pb-60 max-sm:max-h-dvh`}>
         <CommissionDialogBody {...props} onSubmit={async (ship, request) => {
           setIsSubmitting(true);
           try { await props.onSubmit(ship, request); } finally { setIsSubmitting(false); }
