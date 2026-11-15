@@ -842,6 +842,9 @@ model Message {
   @@index([fleetId, senderShipId, id], map: "messages_fleet_id_sender_ship_id_id_asked_idx", where: { askedQuestionId: { not: null } })
   /// A data key's sealed messages, for its foreign key.
   @@index([fleetId, sealedDataKeyId])
+  /// The plain messages of a sealing fleet, oldest first: whether one is left is
+  /// read from it alone, never across the sealed ones (decision 0068, #1854).
+  @@index([fleetId, createdAt, id], map: "messages_plain_payload_idx", where: { payload: { not: null } })
   /// Every foreign key has an index leading with its columns, so deleting a
   /// referenced row checks it with an index, not a scan (#331).
   @@index([fleetId, selectorShipId, id])
