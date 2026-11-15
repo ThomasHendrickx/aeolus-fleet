@@ -329,26 +329,31 @@ export const ReducedMotion: Story = {
 };
 
 /** Sorting re-inserts the same keyed tile when Working becomes Idle. */
-function SortedChangingTiles() {
-  const [isIdle, setIsIdle] = useState(false);
-  const changing = { ...WORKING, state: isIdle ? 'idle' : 'working' } satisfies HarbourTileShip;
-  const neighbour = { ...WORKING, id: 'shp_neighbour', name: 'builder-2' };
+function SortedChangingTiles({ href }: { href?: string }) {
+  const [state, setState] = useState<HarbourState>('working');
+  const isIdle = state === 'idle';
+  const [isReversed, setIsReversed] = useState(false);
+  const changing = { ...WORKING, state } satisfies HarbourTileShip;
+  const neighbour = { ...WORKING, id: 'shp_neighbour', name: 'builder-2' } satisfies HarbourTileShip;
+  const ships = isIdle ? [neighbour, changing] : [changing, neighbour];
   return (
-    <div className="grid gap-3">
-      <button type="button" data-testid="harbour-tile-story-sort" onClick={() => { setIsIdle(true); }}>Idle</button>
-      {(isIdle ? [neighbour, changing] : [changing, neighbour]).map((ship) => (
-        <HarbourTile key={ship.id} ship={ship} kind="agents" href="#ship" now={NOW} />
+    <div className="grid gap-3" data-testid="harbour-tile-story-sorted">
+      <button type="button" data-testid="harbour-tile-story-reverse" onClick={() => { setIsReversed(!isReversed); }}>Reverse order</button>
+      <button type="button" data-testid="harbour-tile-story-blocked" onClick={() => { setState('blocked'); }}>Blocked</button>
+      <button type="button" data-testid="harbour-tile-story-sort" onClick={() => { setState('idle'); }}>Idle</button>
+      {(isReversed ? ships.toReversed() : ships).map((ship) => (
+        <HarbourTile key={ship.id} ship={ship} kind="agents" href={href} now={NOW} />
       ))}
     </div>
   );
 }
 
 export const ReinsertedTileSettlesColours: Story = {
-  render: () => <SortedChangingTiles />,
+  render: () => <SortedChangingTiles href="#ship" />,
   play: async ({ canvasElement }) => {
     // Given two Working ships, with the changing ship first in state order.
     const canvas = within(canvasElement);
-    const tile = canvas.getByRole('link', { name: /orchestrator-1/ });
+    const tile = canvas.getByTitle(/orchestrator-1:/);
     const before = boundsOf(tile);
     const workingBackground = getComputedStyle(tile).backgroundColor;
 
@@ -377,5 +382,70 @@ export const ReinsertedTileSettlesColours: Story = {
     await waitFor(() => expect(colourTransitionsOf(tile)).toEqual([]));
     await expect(getComputedStyle(tile).backgroundColor).toBe(colourOf('bg-card', 'backgroundColor'));
     await expect(getComputedStyle(tile).borderTopColor).toBe(colourOf('border-border', 'borderTopColor'));
+
+    // A later re-sort without a state change must not replay old Working colours.
+    await userEvent.click(canvas.getByTestId('harbour-tile-story-reverse'));
+    await userEvent.click(canvas.getByTestId('harbour-tile-story-reverse'));
+    await expect(tile.getAnimations({ subtree: true })).toEqual([]);
+    await expect(getComputedStyle(tile).backgroundColor).toBe(colourOf('bg-card', 'backgroundColor'));
+  },
+};
+
+export const ReinsertedTileReducedMotion: Story = {
+  tags: ['!dev'],
+  render: () => <SortedChangingTiles href="#ship" />,
+  play: async ({ canvasElement }) => {
+    await emulateReducedMotion('reduce');
+    try {
+      // Given a sorted pair with reduced motion requested.
+      const canvas = within(canvasElement);
+      const tile = canvas.getByTitle(/orchestrator-1:/);
+
+      // When the changing ship becomes Idle and is re-inserted.
+      await userEvent.click(canvas.getByTestId('harbour-tile-story-sort'));
+
+      // Then the final colours and state are immediate, with no band or interpolation.
+      await expect(canvas.getAllByTestId('harbour-tile')[1]).toBe(tile);
+      await expect(within(tile).getByTestId('ship-state')).toHaveTextContent('Idle');
+      await expect(within(tile).queryByTestId('harbour-tile-live')).toBeNull();
+      await expect(tile.getAnimations({ subtree: true })).toEqual([]);
+      await expect(getComputedStyle(tile).backgroundColor).toBe(colourOf('bg-card', 'backgroundColor'));
+      await expect(getComputedStyle(tile).borderTopColor).toBe(colourOf('border-border', 'borderTopColor'));
+    } finally {
+      await emulateReducedMotion('no-preference');
+    }
+  },
+};
+
+export const ReinsertedPlainTileSettlesColours: Story = {
+  ...ReinsertedTileSettlesColours,
+  render: () => <SortedChangingTiles />,
+};
+
+export const InterruptedSettleSurvivesReinsertion: Story = {
+  render: () => <SortedChangingTiles href="#ship" />,
+  play: async ({ canvasElement }) => {
+    // Given a tile halfway through its Working to Blocked colour settle.
+    const canvas = within(canvasElement);
+    const tile = canvas.getByTitle(/orchestrator-1:/);
+    await userEvent.click(canvas.getByTestId('harbour-tile-story-blocked'));
+    const background = colourTransitionsOf(tile).find((transition) => transition.transitionProperty === 'background-color');
+    await expect(background).toBeDefined();
+    if (background === undefined) throw new Error('the initial colour settle is missing');
+    background.pause();
+    background.currentTime = 90;
+    const interrupted = getComputedStyle(tile).backgroundColor;
+
+    // When a newer Idle report re-inserts the tile before that settle finishes.
+    await userEvent.click(canvas.getByTestId('harbour-tile-story-sort'));
+
+    // Then the new settle continues from the displayed colour to the latest state.
+    const next = colourTransitionsOf(tile).find((transition) => transition.transitionProperty === 'background-color');
+    await expect(next?.effect?.getKeyframes()[0]?.backgroundColor).toBe(interrupted);
+    await expect(next?.effect?.getTiming()).toMatchObject({ duration: 180, easing: 'ease-out' });
+    await expect(within(tile).getByTestId('ship-state')).toHaveTextContent('Idle');
+    await expect(within(tile).queryByTestId('harbour-tile-live')).toBeNull();
+    await waitFor(() => expect(colourTransitionsOf(tile)).toEqual([]));
+    await expect(getComputedStyle(tile).backgroundColor).toBe(colourOf('bg-card', 'backgroundColor'));
   },
 };
