@@ -193,4 +193,30 @@ In the decided order (decision 8). Each ends green and released; the scale tests
 | S6 | Paging, the fleet snapshot (decision 4): `fleet.list` by an opaque cursor on the ship's place in the order asked, with the overview's filters, search and sort in the same database query, a page size within a maximum; the overview pages 20 at a time | 3,000 ships page within budget on staging; before and after per read reported |
 | S7 | Paging, every other list: timeline, messages (#1112), inbox, Needs attention | no list procedure answers unpaged; every read within budget on staging; before and after per read reported |
 
+## 9. The reads
+
+Every read a console page, the shared header or an installation caller makes. The measured run of the holding scale design reads this table, so a read added here is measured and one missing here is not. `<ship id>`, `<message id>` and `<fleet id>` stand for the first ship the fleet lists, its first message and the fleet of the run.
+
+| Read | Credential | Input |
+|---|---|---|
+| `fleet.health` | fleet | |
+| `fleet.stuckCount` | fleet | |
+| `fleet.stuckSummary` | fleet | |
+| `fleet.stuck` | fleet | `{"limit":20}` |
+| `fleet.stuckHistory` | fleet | |
+| `fleet.acknowledged` | fleet | |
+| `fleet.list` | fleet | `{"limit":20}` |
+| `fleet.listedShip` | fleet | `{"shipId":"<ship id>"}` |
+| `fleet.shipCounts` | fleet | |
+| `fleet.labels` | fleet | |
+| `fleet.scopes` | fleet | |
+| `fleet.shipTimeline` | fleet | `{"shipId":"<ship id>","limit":20}` |
+| `fleet.shipMessages` | fleet | `{"shipId":"<ship id>","limit":20}` |
+| `fleet.message` | fleet | `{"messageId":"<message id>"}` |
+| `fleet.inbox` | fleet | `{"filter":"open","limit":20}` |
+| `fleet.needsAttention` | fleet | `{"limit":20}` |
+| `console.session` | session | |
+| `installation.fleets.list` | installation | |
+| `installation.fleets.get` | installation | `{"fleetId":"<fleet id>"}` |
+
 Decision 6 (the header's cookie) is pagasae's slice, in its own train (pagasae#122), and can go at any time.
