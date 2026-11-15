@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
-import type { Browser, BrowserContext, Page } from 'playwright';
+import type { Browser, BrowserContext, Locator, Page } from 'playwright';
+import { THEME_COOKIE } from '@aeolus-fleet/common/rules';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { createPrismaClient, type PrismaClient } from '../packages/core/src/adapters/prisma/client.js';
@@ -13,9 +14,10 @@ import { holdSignOutSlow, signIn } from './support/console.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 import { withOperatorLogin } from '../packages/core/test/support/operator-login.js';
 
+
 // The AccountMenu, end to end, on desktop and on phone: the session's device
-// and the operator's theme, which applies at once and comes back from the
-// account on the next load, and Sign out.
+// and argo's theme, which applies at once and comes back from this browser's
+// theme cookie on the next load, and Sign out.
 
 const clock = createTestClock('2026-10-01T09:00:00.000Z');
 /** Sign-ins are rate limited per window; each test signs in after the window of the one before. */
@@ -125,28 +127,41 @@ describe.each([
   ['desktop', false],
   ['phone', true],
 ])('the AccountMenu on %s', (_device, isPhone) => {
-  it('shows this session, switches the theme at once and keeps it on the account for the next load', async () => {
+  it('argo follows this browser: a theme picked shows at once, is kept in the theme cookie every app reads, and comes back on the next load (header-across-apps T2)', async () => {
+    // Given argo signed in, its avatar menu open
     const page = await signedInPage({ isPhone });
-
     await visible(page, 'avatar-menu').click();
     await visible(page, 'avatar-menu-session').getByText(/Device · .*Chrome, since/).waitFor();
+
+    // When argo picks Dark
     await visible(page, 'avatar-menu-theme-dark').click();
 
+    // Then it shows at once, the browser keeps it, and the next load paints it
     await expect.poll(() => isDark(page)).toBe(true);
-    await expect
-      .poll(async () => (await database.operator.findFirstOrThrow()).theme)
-      .toBe('dark');
-    await page.reload();
-    await expect.poll(() => isDark(page)).toBe(true);
+    await expect.poll(() => themeCookieOf(page)).toBe('dark');
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await expect(isDark(page)).resolves.toBe(true);
 
     await visible(page, 'avatar-menu').click();
     await visible(page, 'avatar-menu-theme-light').click();
     await expect.poll(() => isDark(page)).toBe(false);
-    await expect
-      .poll(async () => (await database.operator.findFirstOrThrow()).theme)
-      .toBe('light');
-    await page.reload();
-    await expect.poll(() => isDark(page)).toBe(false);
+    await expect.poll(() => themeCookieOf(page)).toBe('light');
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await expect(isDark(page)).resolves.toBe(false);
+  });
+
+  it('shows argo the theme this browser keeps from the first paint, as another app kept it (header-across-apps T1, T2)', async () => {
+    // Given argo signed in, in a browser where another app kept Dark
+    const page = await signedInPage({ isPhone });
+    await page.context().addCookies([{ name: THEME_COOKIE, value: 'dark', url: web.url }]);
+
+    // When the next page loads
+    await page.reload({ waitUntil: 'domcontentloaded' });
+
+    // Then it is dark from the first paint, and the menu says Dark
+    await expect(isDark(page)).resolves.toBe(true);
+    await visible(page, 'avatar-menu').click();
+    await expect(themeChosen(visible(page, 'avatar-menu-theme-dark'))).resolves.toBe(true);
   });
 
   it('links to the source on GitHub as Help in the avatar menu, opening in a new tab', async () => {
@@ -309,3 +324,13 @@ describe.each([
     expect(writesSent).toEqual(['console.signOut']);
   });
 });
+
+/** The theme this browser keeps in the cookie every Aeolus app reads; undefined without one. */
+async function themeCookieOf(page: Page): Promise<string | undefined> {
+  return (await page.context().cookies()).find((cookie) => cookie.name === THEME_COOKIE)?.value;
+}
+
+/** Whether a theme choice shows as chosen: checked in the desktop menu, pressed in the phone sheet. */
+async function themeChosen(choice: Locator): Promise<boolean> {
+  return (await choice.getAttribute('aria-checked')) === 'true' || (await choice.getAttribute('aria-pressed')) === 'true';
+}
