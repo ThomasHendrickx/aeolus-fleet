@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
-import { expect, screen, waitFor, within } from 'storybook/test';
+import { expect, screen, userEvent, waitFor, within } from 'storybook/test';
 import { useEffect, useState, type ComponentProps } from 'react';
 
 import { MACHINE_LABELS, MACHINE_VALUES, OFFERS, SETTINGS } from '../../../../lib/fixtures/machines.fixtures';
@@ -99,10 +99,10 @@ export const RefusedSubRepository: Story = {
   },
 };
 
-function RequestWithDelayedOffers(args: ComponentProps<typeof RequestCrewDialog>) {
-  const [offers, setOffers] = useState<typeof OFFERS>([]);
+function RequestWithDelayedOffers(args: ComponentProps<typeof RequestCrewDialog> & { initialOffers?: typeof OFFERS }) {
+  const [offers, setOffers] = useState<typeof OFFERS>(args.initialOffers ?? []);
   useEffect(() => {
-    const timer = setTimeout(() => { setOffers(OFFERS); }, 500);
+    const timer = setTimeout(() => { setOffers(OFFERS); }, 1500);
     return () => { clearTimeout(timer); };
   }, []);
   return <RequestCrewDialog {...args} offers={offers} />;
@@ -117,5 +117,19 @@ export const OffersArriveAfterOpening: Story = {
       await expect(screen.getByTestId('crew-settings-workspace')).toHaveTextContent('aeolus-fleet');
       await expect(screen.getByTestId('request-crew-submit')).toBeEnabled();
     });
+  },
+};
+
+/** An edited first prompt is kept when the options arrive (#1720). */
+export const EditedBeforeOffersArrive: Story = {
+  render: (args) => <RequestWithDelayedOffers {...args} initialOffers={OFFERS.map((offer) => ({ ...offer, repositories: [], folders: [] }))} />,
+  play: async () => {
+    await userEvent.type(await screen.findByTestId('crew-settings-first-prompt'), 'Triage issues');
+    await waitFor(async () => {
+      await expect(screen.getByTestId('crew-settings-harness')).toHaveTextContent('Claude Code');
+      await expect(screen.getByTestId('crew-settings-workspace')).toHaveTextContent('aeolus-fleet');
+      await expect(screen.getByTestId('request-crew-submit')).toBeEnabled();
+    }, { timeout: 4000 });
+    await expect(screen.getByTestId('crew-settings-first-prompt')).toHaveValue('Triage issues');
   },
 };
