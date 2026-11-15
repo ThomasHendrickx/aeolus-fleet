@@ -1,4 +1,5 @@
 // @ts-check
+// The lint script gives ESLint 8 GiB because the default Node heap runs out on this repository.
 import js from '@eslint/js';
 import nextPlugin from '@next/eslint-plugin-next';
 import checkFile from 'eslint-plugin-check-file';

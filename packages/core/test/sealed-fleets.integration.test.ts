@@ -75,7 +75,7 @@ beforeAll(async () => {
   databaseUrl = await createMigratedDatabase();
   prisma = createPrismaClient(databaseUrl);
   useCases = createUseCases({ prisma, clock, keyVault, receiveWaitMs: 0 });
-  server = createApp({ databaseUrl, publicUrl: FLEET_URL, clock, logger: false, installationToken: INSTALLATION_TOKEN, keyVault });
+  server = createApp({ databaseUrl, publicUrl: FLEET_URL, clock, logger: false, installationToken: INSTALLATION_TOKEN, keyVault, hasMaintenancePass: false });
   address = await server.listen({ host: '127.0.0.1', port: 0 });
 });
 
@@ -792,9 +792,11 @@ describe('the sealing pass on Postgres and a LocalStack KMS (decision 0068, B5)'
     unwrap(await useCases.turnOnSealing(fleet.argo, { companyKey: await aKeyBoundTo(fleet.fleetId) }));
 
     const sendsDuringThePass = Array.from({ length: 40 }, (_, index) => useCases.sendMessage(fleet.argo, aMessageTo(scout.shipId, `${PAYLOAD} during #${index}`)));
-    const [, ...sent] = await Promise.all([useCases.sealStoredPayloads(), ...sendsDuringThePass]);
-    await useCases.sealStoredPayloads();
+    const failures: unknown[] = [];
+    const [, ...sent] = await Promise.all([useCases.sealStoredPayloads((_, error) => failures.push(error)), ...sendsDuringThePass]);
+    await useCases.sealStoredPayloads((_, error) => failures.push(error));
 
+    expect(failures).toEqual([]);
     expect(sent.filter((result) => !result.isOk)).toEqual([]);
     expect(await sealingPassOf(fleet.fleetId)).toEqual({ plainMessages: 0, plainSchedules: 0, state: 'sealed', sealedEvents: [{ actorKind: 'system' }] });
     expect(await everyPayloadReceived(scout)).toHaveLength(440);
