@@ -9,6 +9,8 @@ import { failureForLog } from './adapters/prisma/failure-log.js';
 import { createFleetEventWakeups, fleetEventWakeupsOf } from './adapters/prisma/fleet-event-wakeups.js';
 import { createReceiverWakeups } from './adapters/prisma/receiver-wakeups.js';
 import type { Clock } from './domain/shared/clock.js';
+import { backfillMessageMetadata } from './adapters/prisma/message-metadata-backfill.js';
+import { repeatPass, type RepeatingPass } from './repeating-pass.js';
 import { startMaintenancePass } from './maintenance-pass.js';
 import { startScheduleTimer } from './schedule-timer.js';
 import { createUseCases, systemClock } from './wiring.js';
@@ -148,6 +150,21 @@ export function createApp(options: AppOptions): FastifyInstance {
     everyMs: options.overduePassMs ?? OVERDUE_PASS_MS,
   });
 
+  let metadataBackfill: RepeatingPass | undefined;
+  server.addHook('onListen', (done) => {
+    metadataBackfill = repeatPass({
+      pass: async () => {
+        if (await backfillMessageMetadata(prisma) === 0) {
+          // Stop scheduling once every durable cursor is complete.
+          void metadataBackfill?.stop();
+        }
+      },
+      everyMs: 100,
+      onError: (error) => { server.log.warn(failureForLog(error), 'message metadata backfill failed: retrying its batch'); },
+    });
+    done();
+  });
+
   // Before the server stops taking requests and waits for the ones it holds:
   // a waiting receive answers no deliveries at once instead of holding it up,
   // and a live subscription and every wake stream end.
@@ -168,6 +185,7 @@ export function createApp(options: AppOptions): FastifyInstance {
   });
 
   server.addHook('onClose', async () => {
+    await metadataBackfill?.stop();
     await overduePasses.stop();
     await scheduleTimer.stop();
     await listener.close();

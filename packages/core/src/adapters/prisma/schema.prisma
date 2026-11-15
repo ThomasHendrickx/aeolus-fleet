@@ -72,6 +72,7 @@ model Fleet {
   keyUnavailableReason       String?       @map("key_unavailable_reason")
   keyAvailabilitySince       DateTime?     @map("key_availability_since") @db.Timestamptz(3)
 
+  messageMetadataBackfill          MessageMetadataBackfill?
   ships                            Ship[]
   leases                           Lease[]
   crewRequests                     CrewRequest[]
@@ -732,13 +733,23 @@ model MessageDay {
 /// The rollup of a person ship's list of exchanges (docs/design/exchange-read, E4, E5): per other ship it
 /// exchanged with, the newest message between them and how many of the other ship's deliveries to it are
 /// not yet acknowledged. Written in the transactions that make and change deliveries, never counted from history.
+/// The after-start metadata pass commits its message id cursor with each batch.
+model MessageMetadataBackfill {
+  fleetId        String  @id @map("fleet_id")
+  afterMessageId String  @default("") @map("after_message_id")
+  isComplete     Boolean @default(false) @map("is_complete")
+  fleet          Fleet   @relation(fields: [fleetId], references: [id], onDelete: Cascade)
+
+  @@map("message_metadata_backfills")
+}
+
 model Exchange {
   fleetId             String @map("fleet_id")
   shipId              String @map("ship_id")
   otherShipId         String @map("other_ship_id")
   newestMessageId     String @map("newest_message_id")
   unacknowledged      Int    @default(0)
-  unseenPlainMessages Int    @default(0) @map("unseen_plain_messages")
+  unseenPlainMessages Int?   @map("unseen_plain_messages")
 
   fleet         Fleet   @relation(fields: [fleetId], references: [id])
   ship          Ship    @relation("ExchangeShip", fields: [fleetId, shipId], references: [fleetId, id], onDelete: Restrict)
@@ -840,6 +851,7 @@ model Message {
   @@index([fleetId, questionId], map: "messages_fleet_id_question_id_idx", where: { questionId: { not: null } })
   /// The questions a ship asked, by message id: its open ones are selected along it when it retires (#1632).
   @@index([fleetId, senderShipId, id], map: "messages_fleet_id_sender_ship_id_id_asked_idx", where: { askedQuestionId: { not: null } })
+  @@index([fleetId, senderShipId, id], map: "messages_unfilled_questions_idx", where: raw("((asked_question_id IS NULL) AND (payload IS NOT NULL) AND (lower(btrim(split_part(content_type, ';'::text, 1))) = ANY (ARRAY['application/vnd.aeolus.question+json'::text, 'application/vnd.aeolus.question-replacement+json'::text])))"))
   /// A data key's sealed messages, for its foreign key.
   @@index([fleetId, sealedDataKeyId])
   /// Every foreign key has an index leading with its columns, so deleting a

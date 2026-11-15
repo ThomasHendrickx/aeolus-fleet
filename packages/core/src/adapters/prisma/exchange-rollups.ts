@@ -19,6 +19,7 @@ import type { ExchangeList } from '../../domain/messaging/ports.js';
 import { pageOf } from '../../domain/shared/page.js';
 import { Prisma } from './generated/client.js';
 import type { Db } from './client.js';
+import { unseenPlainMessagesStatement } from './unseen-plain-messages.js';
 import { pageWithMessages } from './page-with-messages.js';
 
 /**
@@ -122,7 +123,7 @@ const listedRow = z.object({
 export function exchangeListStatement({ fleetId, shipId, cursor, limit }: { fleetId: FleetId; shipId: ShipId; cursor?: MessageId | undefined; limit: number }): Prisma.Sql {
   const after = cursor === undefined ? Prisma.empty : Prisma.sql`AND e.newest_message_id < ${cursor}`;
   return Prisma.sql`
-    SELECT e.fleet_id, e.other_ship_id, s.name, s.type, s.kind::text AS kind, e.newest_message_id, e.unacknowledged, e.unseen_plain_messages
+    SELECT e.fleet_id, e.other_ship_id, s.name, s.type, s.kind::text AS kind, e.newest_message_id, e.unacknowledged, COALESCE(e.unseen_plain_messages, ${unseenPlainMessagesStatement(Prisma.sql`e`)}) AS unseen_plain_messages
     FROM exchanges e
     JOIN ships s ON s.fleet_id = e.fleet_id AND s.id = e.other_ship_id
     WHERE e.fleet_id = ${fleetId} AND e.ship_id = ${shipId} AND s.retired_at IS NULL ${after}

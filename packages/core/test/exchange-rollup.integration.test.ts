@@ -135,8 +135,11 @@ describe('the rollup of exchanges on Postgres', () => {
     await executeSqlFile(core.databaseUrl, fileURLToPath(new URL('../src/adapters/prisma/migrations/20261115100000_unseen_plain_messages/migration.sql', import.meta.url)));
     const partial = unwrap(await core.useCases.readExchanges(thomas, {}));
     // Each batch commits separately; restarting from the beginning is harmless.
-    await backfillMessageMetadata(core.prisma, { batchSize: 1 });
-    await backfillMessageMetadata(core.prisma, { batchSize: 1 });
+    while (await backfillMessageMetadata(core.prisma, { batchSize: 1 }) > 0) {
+      // A new call reads the cursor committed by the previous batch.
+    }
+    await expect(backfillMessageMetadata(core.prisma, { batchSize: 1 })).resolves.toBe(0);
+    await expect(rollup()).resolves.toEqual(await recount());
     const backfilled = unwrap(await core.useCases.readExchanges(thomas, {}));
     unwrap(await core.useCases.acknowledgeUpTo(thomas, { otherShipId: lookout.shipId, messageId: last }));
     const after = unwrap(await core.useCases.readExchanges(thomas, {}));

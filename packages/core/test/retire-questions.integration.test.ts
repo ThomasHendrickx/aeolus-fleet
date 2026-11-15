@@ -1,6 +1,7 @@
 import { ANSWER_CONTENT_TYPE, createIdGenerator, REPLACEMENT_CONTENT_TYPE, idSchema, WITHDRAWAL_CONTENT_TYPE, type DeliveryId, type MessageId } from '@aeolus-fleet/common';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { backfillMessageMetadata } from '../src/adapters/prisma/message-metadata-backfill.js';
 import { sha256Hasher } from '../src/adapters/crypto/secrets.js';
 import { createPrismaMessageRepository } from '../src/adapters/prisma/messaging.js';
 import { createReplyToMessage } from '../src/domain/messaging/reply-to-message.js';
@@ -104,7 +105,7 @@ describe("the open questions of a ship, as Postgres selects them", () => {
   const ANSWERED_ELSEWHERE = '66666666-6666-4666-8666-666666666666';
   const OPEN = '77777777-7777-4777-8777-777777777777';
 
-  it('leaves out the answered, the withdrawn and the replaced, keeps an open replacement and a question whose reply names another, and pages by message id', async () => {
+  it.each(['unfilled', 'partial', 'filled'])('leaves out the answered, withdrawn and replaced and pages the open questions while metadata is %s', async (state) => {
     const answered = await askedArgo(ANSWERED);
     unwrap(await core.useCases.replyToMessage(argo, answerTo(answered.deliveryId, ANSWERED)));
     await askedArgo(WITHDRAWN);
@@ -122,6 +123,17 @@ describe("the open questions of a ship, as Postgres selects them", () => {
         idempotencyKey: newKey(),
       }),
     );
+    // Given old questions and answers whose uuids have not yet been filled.
+    await core.prisma.message.updateMany({ data: { askedQuestionId: null, answeredQuestionId: null } });
+    if (state === 'partial') {
+      await backfillMessageMetadata(core.prisma, { batchSize: 1 });
+    }
+    if (state === 'filled') {
+      while (await backfillMessageMetadata(core.prisma, { batchSize: 1 }) > 0) {
+        // Resume from each committed cursor.
+      }
+      await expect(core.prisma.message.findUniqueOrThrow({ where: { id: answered.messageId } })).resolves.toMatchObject({ askedQuestionId: ANSWERED });
+    }
     const messages = createPrismaMessageRepository(core.prisma);
 
     const first = await messages.listOpenQuestionsOf(scout.fleetId, { shipId: scout.shipId, limit: 2 });
