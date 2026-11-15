@@ -1392,13 +1392,6 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         const account = state.operatorAccounts.find((held) => held.fleetId === fleetId);
         return Promise.resolve(account && { ...account });
       },
-      setTheme: ({ fleetId, operatorId, theme }) => {
-        const account = state.operatorAccounts.find((held) => held.fleetId === fleetId && held.id === operatorId);
-        if (account) {
-          account.theme = theme;
-        }
-        return Promise.resolve();
-      },
       changePassword: ({ fleetId, operatorId, passwordHash }) => {
         const account = state.operatorAccounts.find((held) => held.fleetId === fleetId && held.id === operatorId);
         if (account) {

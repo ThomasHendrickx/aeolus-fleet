@@ -9,8 +9,6 @@ import {
   setGuideProgressInputSchema,
   setLoginInputSchema,
   setLoginOutputSchema,
-  setThemeInputSchema,
-  setThemeOutputSchema,
   redeemSignInTicketInputSchema,
   signInInputSchema,
 } from '@aeolus-fleet/common';
@@ -100,7 +98,7 @@ export const consoleRouter = router({
     return okOrThrow(await ctx.useCases.readArgoSignIn(ctx.caller));
   }),
 
-  /** The signed-in operator: email, theme, and this console session's device and start; a viewer's session alone; an account by its id. */
+  /** The signed-in operator: email, and this console session's device and start; a viewer's session alone; an account by its id. */
   account: signedInProcedure.output(accountOutputSchema).query(async ({ ctx }) => {
     if (!isShipCaller(ctx.caller)) {
       return ctx.caller.kind === 'account' ? { kind: 'account' as const, accountId: ctx.caller.accountId } : refuseNoConsoleSignIn();
@@ -146,15 +144,6 @@ export const consoleRouter = router({
     const featureFlags = [...(await ctx.useCases.readFeatureFlags({ fleetId }))];
     return { fleetId, fleetName, expiresAt: use.expiresAt.toISOString(), kind, scopes: [...scopes], featureFlags };
   }),
-
-  /** Stores the operator's theme on their account, so it follows them to any browser. */
-  setTheme: authenticatedProcedure
-    .input(setThemeInputSchema)
-    .output(setThemeOutputSchema)
-    .mutation(async ({ ctx, input }) => {
-      okOrThrow(await ctx.useCases.setTheme(ctx.caller, input));
-      return {};
-    }),
 
   /** Sets the email and password of argo's own sign-in, on a self-hosted fleet (accounts design, A1). */
   setLogin: authenticatedProcedure

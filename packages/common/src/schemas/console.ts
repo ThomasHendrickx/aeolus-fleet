@@ -45,7 +45,6 @@ export const redeemSignInTicketInputSchema = z.strictObject({ ticket: z.string()
 
 /** The theme, one per browser (rules/theme.ts). */
 export { THEMES, type Theme };
-export const themeSchema = z.enum(THEMES);
 
 /** ISO 8601 in UTC. */
 const isoTime = z.iso.datetime();
@@ -87,13 +86,13 @@ export type ConsoleSessionOutput = z.infer<typeof consoleSessionOutputSchema>;
 const accountSessionSchema = z.object({ device: z.string(), since: isoTime, accountId: accountIdSchema.nullable().optional() });
 
 /**
- * Output of `console.account`: the signed-in operator, their theme, and this
+ * Output of `console.account`: the signed-in operator and this
  * console session: the device it signed in from and since when. A viewer's
- * session has no email and no theme (decision 0022).
+ * session has no email (decision 0022).
  */
 export const accountOutputSchema = z.discriminatedUnion('kind', [
   // No email until argo sets one in Settings: fleet:init gives its own sign-in none (accounts design, A1).
-  z.object({ kind: z.literal('operator'), email: z.string().nullable(), theme: themeSchema, hasPassword: z.boolean(), session: accountSessionSchema }),
+  z.object({ kind: z.literal('operator'), email: z.string().nullable(), hasPassword: z.boolean(), session: accountSessionSchema }),
   z.object({ kind: z.literal('viewer'), session: accountSessionSchema }),
   // An account by its id alone: core keeps no email (decision 0058); the console asks pagasae for its name.
   z.object({ kind: z.literal('account'), accountId: accountIdSchema }),
@@ -113,8 +112,6 @@ export const argoSignInOutputSchema = z.discriminatedUnion('isSignedIn', [
 
 export type ArgoSignInOutput = z.infer<typeof argoSignInOutputSchema>;
 
-/** Input of `console.setTheme`. */
-export const setThemeInputSchema = z.object({ theme: themeSchema });
 
 /**
  * Input of `console.setLogin`: the email and new password of argo's own
@@ -134,5 +131,3 @@ export type SetLoginInput = z.infer<typeof setLoginInputSchema>;
 /** Output of `console.setLogin`: nothing; the OK is the answer. */
 export const setLoginOutputSchema = z.strictObject({});
 
-/** Output of `console.setTheme`: nothing; the OK is the answer. */
-export const setThemeOutputSchema = z.strictObject({});

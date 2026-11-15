@@ -161,7 +161,7 @@ describe.each([
     // Then it is dark from the first paint, and the menu says Dark
     await expect(isDark(page)).resolves.toBe(true);
     await visible(page, 'avatar-menu').click();
-    await expect(themeChosen(visible(page, 'avatar-menu-theme-dark'))).resolves.toBe(true);
+    await expect.poll(() => themeChosen(visible(page, 'avatar-menu-theme-dark'))).toBe(true);
   });
 
   it('links to the source on GitHub as Help in the avatar menu, opening in a new tab', async () => {

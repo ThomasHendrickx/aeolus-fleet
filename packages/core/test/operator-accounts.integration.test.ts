@@ -36,7 +36,6 @@ async function anAccount(overrides: Partial<Omit<OperatorAccount, 'email'>> & { 
     fleetId: await createFleet(),
     email: `${newId('operator')}@example.com`,
     passwordHash: '$argon2id$v=19$m=19456,t=2,p=1$c2FsdA$aGFzaA',
-    theme: 'system',
     createdAt: now,
     ...overrides,
   };

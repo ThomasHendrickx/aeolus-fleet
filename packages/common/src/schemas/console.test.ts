@@ -8,7 +8,6 @@ import {
   presentAccountTokenInputSchema,
   redeemSignInTicketInputSchema,
   setLoginInputSchema,
-  setThemeInputSchema,
   signInInputSchema,
 } from './console.js';
 
@@ -100,12 +99,11 @@ describe('accountOutputSchema', () => {
   const account = {
     kind: 'operator',
     email: 'operator@example.com',
-    theme: 'system',
     hasPassword: true,
     session: { device: 'Mac · Chrome', since: '2026-10-01T08:02:00.000Z' },
   };
 
-  it('takes the email, the theme and this session', () => {
+  it('takes the email and this session', () => {
     expect(accountOutputSchema.parse(account)).toEqual(account);
   });
 
@@ -120,10 +118,6 @@ describe('accountOutputSchema', () => {
     expect(accountOutputSchema.parse({ ...account, email: null })).toMatchObject({ kind: 'operator', email: null });
   });
 
-  it('refuses another theme', () => {
-    expect(accountOutputSchema.safeParse({ ...account, theme: 'sepia' }).success).toBe(false);
-  });
-
   it('says whether argo has a password, so Settings asks for it before a change', () => {
     expect(accountOutputSchema.parse({ ...account, hasPassword: false })).toMatchObject({ hasPassword: false });
     expect(accountOutputSchema.safeParse({ ...account, hasPassword: 'yes' }).success).toBe(false);
@@ -133,7 +127,7 @@ describe('accountOutputSchema', () => {
     expect(accountOutputSchema.parse({ kind: 'account', accountId: 'acc-mathilde' })).toEqual({ kind: 'account', accountId: 'acc-mathilde' });
   });
 
-  it("takes a viewer's session alone, with no email and no theme", () => {
+  it("takes a viewer's session alone, with no email", () => {
     const viewer = { kind: 'viewer', session: account.session };
 
     expect(accountOutputSchema.parse(viewer)).toEqual(viewer);
@@ -169,15 +163,6 @@ describe('setLoginInputSchema', () => {
   });
 });
 
-describe('setThemeInputSchema', () => {
-  it.each(['light', 'dark', 'system'])('takes %s', (theme) => {
-    expect(setThemeInputSchema.parse({ theme })).toEqual({ theme });
-  });
-
-  it('refuses another theme', () => {
-    expect(setThemeInputSchema.safeParse({ theme: 'auto' }).success).toBe(false);
-  });
-});
 
 describe('redeemSignInTicketInputSchema', () => {
   it('takes the ticket a hosting installation issued', () => {

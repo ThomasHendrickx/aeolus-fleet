@@ -1,6 +1,5 @@
 import {
   accountIdSchema,
-  themeSchema,
   deliveryStateSchema,
   crewRequestSettingsSchema,
   crewStatusSchema,
@@ -495,7 +494,6 @@ const operatorAccountSqlRow = z
     fleet_id: idSchema('fleet'),
     email: z.string().nullable(),
     password_hash: z.string().nullable(),
-    theme: themeSchema,
     created_at: z.date(),
   })
   .transform(
@@ -504,7 +502,6 @@ const operatorAccountSqlRow = z
       fleetId: row.fleet_id,
       email: row.email,
       passwordHash: row.password_hash,
-      theme: row.theme,
       createdAt: row.created_at,
     }),
   );

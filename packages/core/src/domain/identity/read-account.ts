@@ -1,4 +1,4 @@
-import type { AccountId, Theme } from '@aeolus-fleet/common';
+import type { AccountId } from '@aeolus-fleet/common';
 
 import type { ShipCaller } from '../shared/caller.js';
 import { refuse, type DomainError } from '../shared/errors.js';
@@ -23,13 +23,13 @@ interface OperatorSessionView extends SessionView {
 }
 
 /** The operator's account with this session, its email null until argo sets one, or a viewer's session alone: a viewer has no email and no theme (decision 0022). */
-export type AccountView = { kind: 'operator'; email: string | null; theme: Theme; hasPassword: boolean; session: OperatorSessionView } | { kind: 'viewer'; session: SessionView };
+export type AccountView = { kind: 'operator'; email: string | null; hasPassword: boolean; session: OperatorSessionView } | { kind: 'viewer'; session: SessionView };
 
 export type ReadAccount = (caller: ShipCaller) => Promise<Result<AccountView, DomainError<'NOT_THE_OPERATOR_SHIP'>>>;
 
 /**
  * Use case: the signed-in operator's account, for the AccountMenu and
- * Settings: their email, their theme, whether argo has a password (Settings
+ * Settings: their email, whether argo has a password (Settings
  * then asks for it before a change), and this console session; for a viewer session, the
  * session alone. Only a console session has one; any other caller is refused.
  */
@@ -48,7 +48,6 @@ export function createReadAccount(deps: { uow: UnitOfWork<ReadAccountTx> }): Rea
       return ok({
         kind: 'operator',
         email: account.email,
-        theme: account.theme,
         hasPassword: account.passwordHash !== null,
         session: { device: session.device, since: session.createdAt, accountId: session.accountId },
       });

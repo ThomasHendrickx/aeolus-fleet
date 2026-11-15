@@ -4,7 +4,6 @@ import {
   newOperatorPasswordProblem,
   type FleetId,
   type OperatorId,
-  type Theme,
 } from '@aeolus-fleet/common';
 
 import { refuse, type DomainError } from '../shared/errors.js';
@@ -31,8 +30,6 @@ export interface OperatorAccount {
    * such as one a hosting installation created, who signs in another way.
    */
   passwordHash: string | null;
-  /** How the console looks for this operator; System until they choose. */
-  theme: Theme;
   createdAt: Date;
 }
 

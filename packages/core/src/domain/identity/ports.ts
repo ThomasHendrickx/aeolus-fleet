@@ -1,4 +1,4 @@
-import type { AccountId, AccountTokenClaims, ConsoleSessionId, CredentialId, FleetId, LeaseId, OperatorId, ShipId, Theme } from '@aeolus-fleet/common';
+import type { AccountId, AccountTokenClaims, ConsoleSessionId, CredentialId, FleetId, LeaseId, OperatorId, ShipId } from '@aeolus-fleet/common';
 
 import type { ShipCaller, Crew } from '../shared/caller.js';
 import type { ConsoleSession, ConsoleSessionEndReason } from './console-session.js';
@@ -69,7 +69,6 @@ export interface OperatorAccountRepository {
   changeLogin(change: { fleetId: FleetId; operatorId: OperatorId; email: string; passwordHash: string }): Promise<void>;
   /** The fleet's operator account, read without a lock. */
   findForFleet(fleetId: FleetId): Promise<OperatorAccount | undefined>;
-  setTheme(change: { fleetId: FleetId; operatorId: OperatorId; theme: Theme }): Promise<void>;
 }
 
 /** Outbound port: sign-in tickets, found by their hash before the fleet is known (ADR 0007). */

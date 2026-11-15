@@ -60,7 +60,6 @@ import { createResetOperatorPassword, type ResetOperatorPassword } from './domai
 import { createEndLeasesAfterRestore, type EndLeasesAfterRestore } from './domain/registry/end-leases-after-restore.js';
 import { createSetNotices, type SetNotices } from './domain/identity/set-notices.js';
 import { createSetOperatorLogin, type SetOperatorLogin } from './domain/identity/set-operator-login.js';
-import { createSetTheme, type SetTheme } from './domain/identity/set-theme.js';
 import { createSignIn, type SignIn } from './domain/identity/sign-in.js';
 import { createSignOut, type SignOut } from './domain/identity/sign-out.js';
 import { createAcknowledgeDelivery, type AcknowledgeDelivery } from './domain/messaging/acknowledge-delivery.js';
@@ -373,7 +372,6 @@ export interface UseCases {
   signOut: SignOut;
   readAccount: ReadAccount;
   readArgoSignIn: ReadArgoSignIn;
-  setTheme: SetTheme;
   setOperatorLogin: SetOperatorLogin;
   setNotices: SetNotices;
   getNotices: GetNotices;
@@ -676,7 +674,6 @@ export function createUseCases(options: {
     signOut: createSignOut({ uow, clock, ids }),
     readAccount: createReadAccount({ uow }),
     readArgoSignIn: createReadArgoSignIn({ uow, clock }),
-    setTheme: createSetTheme({ uow }),
     // Without pagasae's signatures core trusts no account, and argo's own sign-in is the way in.
     setOperatorLogin: createSetOperatorLogin({ uow, clock, ids, accounts: createPrismaOperatorAccountLookup(prisma), passwords: argon2idPasswordHasher, isSelfHosted: options.accountTokenSignatures === undefined }),
     resetOperatorPassword: createResetOperatorPassword({ uow, clock, ids, passwords: argon2idPasswordHasher }),

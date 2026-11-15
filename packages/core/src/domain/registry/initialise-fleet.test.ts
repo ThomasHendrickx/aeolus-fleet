@@ -48,7 +48,7 @@ describe('initialise fleet', () => {
     const { fleetId, operatorId } = unwrap(await initialiseFleet({ name: 'home fleet' }));
 
     expect(core.state.operatorAccounts).toEqual([
-      { id: operatorId, fleetId, email: null, passwordHash: null, theme: 'system', createdAt: new Date('2026-09-29T12:00:00.000Z') },
+      { id: operatorId, fleetId, email: null, passwordHash: null, createdAt: new Date('2026-09-29T12:00:00.000Z') },
     ]);
     expect(operatorId).toMatch(/^opr_/);
   });
