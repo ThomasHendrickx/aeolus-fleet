@@ -5,12 +5,13 @@ import { isShipHandle } from '@aeolus-fleet/common/rules';
 import { CircleCheck, CircleX, Tag, UserRound } from 'lucide-react';
 import { useId, useState } from 'react';
 
-import { Button, classNames, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, dialogSurface, DialogTitle, Input, Label, ScopePicker, Switch, InlineError } from '@aeolus-fleet/ui';
+import { Button, classNames, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, dialogSurface, DialogTitle, Input, Label, Switch, InlineError } from '@aeolus-fleet/ui';
 import { useConsoleConstants } from '../../../../lib/console-constants';
 import { promptBytes, settingsOf, withDefaultsFilled, workspaceProblems, type CrewSettingsValues, type HarnessOffer } from '../../../../lib/crew-settings-form';
 import type { MachineLabelsInput } from '../../../../lib/machine-labels';
 import type { SettingsCheck } from '../../../../lib/trierarch-plugin-schemas';
 import { asHandle, checkShipName, typeHint } from '../../../../lib/ship-name';
+import { PermissionChoices } from '../../../../components/molecules/permission-choices';
 import { Combobox } from '../../../../components/atoms/combobox';
 import { Textarea } from '../../../../components/atoms/textarea';
 import { CrewSettingsFields } from '../../../../components/molecules/crew-settings-fields';
@@ -100,7 +101,9 @@ function CommissionDialogBody({ types, taken, onTypedChange, isPending, error, s
   const ownerChoices = owner?.choices === undefined && pickedOwner == null ? undefined : [...(owner?.choices ?? []), ...(pickedOwner == null || owner?.choices?.some((choice) => choice.id === pickedOwner.id) === true ? [] : [pickedOwner])];
   const [grantedScopes, setGrantedScopes] = useState<readonly string[]>([]);
   // On by default while the trierarch plugin is connected, off otherwise (#245: Thomas's decision).
-  const [isCrewRequested, setIsCrewRequested] = useState(crewRequest !== undefined);
+  const [isCrewRequested, setIsCrewRequested] = useState((crewRequest?.offers.length ?? 0) > 0);
+  const [isExtraOpen, setIsExtraOpen] = useState(false);
+  const [permissionQuery, setPermissionQuery] = useState('');
   const [editedCrewValues, setCrewValues] = useState<CrewSettingsValues>();
   const offers = crewRequest?.offers ?? [];
   const crewValues = withDefaultsFilled(editedCrewValues, offers);
@@ -119,6 +122,9 @@ function CommissionDialogBody({ types, taken, onTypedChange, isPending, error, s
   const isTypeProblem = trimmedType !== '' && !isTypeValid;
   const isOwnerReady = owner === undefined || ownerShipId !== undefined;
   const canCommission = check.kind === 'available' && isTypeValid && shipLimit === undefined && isCrewReady && isOwnerReady;
+  const missing = [check.kind === 'available' ? null : 'name', isTypeValid ? null : 'type', isOwnerReady ? null : 'owner', isCrewReady ? null : 'crew settings'].filter((item) => item !== null);
+  const missingRequirements = shipLimit !== undefined ? 'The fleet is at its ship limit.' : missing.length === 2 && missing[0] === 'name' && missing[1] === 'type' ? 'Enter a name and type.' : missing.length === 2 && missing[0] === 'owner' && missing[1] === 'crew settings' ? 'Pick an owner and complete crew settings.' : `Complete ${missing.join(', ')}.`;
+  const missingHelp = shipLimit !== undefined ? 'View the limits or retire a ship before commissioning another.' : [check.kind === 'available' ? null : name === '' ? 'Enter a free ship name.' : check.message, isTypeValid ? null : 'Enter a type.', isOwnerReady ? null : owner.choices?.length === 0 ? 'Commission the person’s ship first.' : 'Pick the person who answers for this ship.', isCrewReady ? null : crewRequest.offers.length === 0 ? 'Connect a computer offering a harness, or turn off Request a crew.' : workspaceNote ?? 'Complete the crew settings, or turn off Request a crew.'].filter((item) => item !== null).join(' ');
   const hasCrewSettings = crewRequest !== undefined && isCrewRequested;
 
   return (
@@ -260,41 +266,29 @@ function CommissionDialogBody({ types, taken, onTypedChange, isPending, error, s
           }}
         />
       </div>
-      {scopeGroups === undefined ? (
-        <p className="text-meta text-muted-foreground" data-testid="commission-scopes-reading">
-          Reading the fleet&apos;s scopes.
-        </p>
-      ) : (
-        scopeGroups.map((group) => (
-          <div key={group.namespace ?? ''} className="flex flex-col gap-2" data-testid={`commission-scopes-${group.namespace ?? 'fleet'}`}>
-            <ScopePicker
-              label={
-                <>
-                  {group.title} {group.namespace === null ? null : <span className="font-mono text-id text-muted-foreground">{group.namespace}</span>}
-                </>
-              }
-              listed={group.scopes}
-              picked={grantedScopes.filter((scope) => group.scopes.some((each) => each.scope === scope))}
-              onPick={(picked) => {
-                setGrantedScopes((held) => [...held.filter((scope) => !group.scopes.some((each) => each.scope === scope)), ...picked]);
-              }}
-              isDisabled={isPending}
-            />
-            {group.namespace === null ? (
-              <p className="text-meta text-muted-foreground">Every ship sends and receives. Fleet access lets its session act as the console does; crew ships lets a trierarch start their sessions. It cannot be changed later.</p>
-            ) : null}
-          </div>
-        ))
-      )}
+      <section className="flex flex-col gap-1.5" aria-label="Permissions">
+        <h3 className="text-body font-semibold">Permissions</h3>
+        <p className="text-meta text-muted-foreground">Every ship sends and receives messages.</p>
+        <button type="button" className="flex items-center justify-between text-left text-body font-medium" aria-expanded={isExtraOpen} disabled={isPending} onClick={() => { setIsExtraOpen(!isExtraOpen); }} data-testid="commission-extra-permissions">
+          <span><span aria-hidden>{isExtraOpen ? '⌄' : '›'} </span><span>Extra permissions</span></span>
+          {grantedScopes.length === 0 ? null : <span className="text-meta text-muted-foreground">{grantedScopes.length} selected</span>}
+        </button>
+        {!isExtraOpen ? null : scopeGroups === undefined ? <p className="animate-pulse text-meta text-muted-foreground" data-testid="commission-scopes-reading">Reading the fleet&apos;s scopes.</p> : <>
+          <PermissionChoices choices={scopeGroups.flatMap((group) => group.scopes).filter(({ scope }) => scope !== 'messages:send' && scope !== 'messages:receive')} picked={grantedScopes} onPick={setGrantedScopes} query={permissionQuery} onQueryChange={setPermissionQuery} isDisabled={isPending} />
+          <p className="text-meta text-muted-foreground">Each choice grants one permission.</p>
+        </>}
+      </section>
       <div className="flex flex-col gap-3 border-t border-border pt-4">
         <div className="flex items-center justify-between gap-3">
           <Label htmlFor={crewId}>Request a crew</Label>
-          <Switch id={crewId} checked={isCrewRequested} onCheckedChange={setIsCrewRequested} data-testid="commission-request-crew" />
+          <Switch id={crewId} checked={isCrewRequested} onCheckedChange={setIsCrewRequested} disabled={isPending} data-testid="commission-request-crew" />
         </div>
         <p className="-mt-2 text-meta text-muted-foreground">
           {crewRequest === undefined
             ? `Puts ${name === '' ? 'the ship' : name} on your Needs crew list until you crew it by hand. You get its starting prompt next either way.`
-            : 'The trierarch plugin picks a trierarch that starts the session and keeps it crewed.'}
+            : crewRequest.offers.length === 0
+              ? isCrewRequested ? 'No computer can crew this ship right now. Turn this off to get the starting prompt.' : 'No computer can crew this ship right now. You get the starting prompt next. You can still request a crew.'
+              : 'The trierarch plugin picks a trierarch that starts the session and keeps it crewed.'}
         </p>
         {hasCrewSettings ? (
           <CrewSettingsFields
@@ -314,19 +308,12 @@ function CommissionDialogBody({ types, taken, onTypedChange, isPending, error, s
         ) : null}
       </div>
       {error === undefined ? null : <InlineError title="Not commissioned" description={error} />}
+      {isWaitingForMachine ? <p className="text-meta text-muted-foreground" data-testid="commission-crew-note">The request will wait for a machine with these labels.</p> : null}
       <DialogFooter className="items-center">
-        {crewRequest === undefined ? null : (
-          <span className="mr-auto text-meta text-muted-foreground" data-testid="commission-crew-note">
-            {!isCrewRequested
-              ? null
-              : (workspaceNote ??
-                (isWaitingForMachine
-                  ? 'The request will wait for a machine with these labels.'
-                  : crewRequest.check?.kind === 'noRoom'
-                    ? 'The request will wait for room.'
-                    : 'Uncheck Request a crew to get the starting prompt instead.'))}
-          </span>
-        )}
+        {!canCommission ? <div className="mr-auto flex min-w-0 flex-1 flex-col gap-1 text-meta" role="status" data-testid="commission-disabled-reason">
+          <span>{missingRequirements}</span>
+          <span className="text-muted-foreground">{missingHelp}</span>
+        </div> : !isCrewRequested ? null : <span className="mr-auto text-meta text-muted-foreground" >{isWaitingForMachine ? 'The request will wait for a machine with these labels.' : crewRequest?.check?.kind === 'noRoom' ? 'The request will wait for room.' : 'Turn off Request a crew to get the starting prompt instead.'}</span>}
         <DialogClose render={<Button type="button" disabled={isPending} />}>Cancel</DialogClose>
         <Button type="submit" variant="primary" isLoading={isPending} disabled={!canCommission} data-testid="commission-submit">
           {isPending ? 'Commissioning' : hasCrewSettings ? 'Commission and request crew' : 'Commission ship'}

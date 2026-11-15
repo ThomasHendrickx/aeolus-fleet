@@ -1,7 +1,7 @@
 import { CORE_SCOPE_DESCRIPTIONS, idSchema } from '@aeolus-fleet/common';
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { useEffect, useState, type ComponentProps } from 'react';
-import { expect, fn, screen, userEvent, waitFor, within } from 'storybook/test';
+import { expect, fn, screen, userEvent, waitFor } from 'storybook/test';
 
 import { CommissionDialog } from './commission-dialog';
 import { MACHINE_LABELS, OFFERS } from '../../../../lib/fixtures/machines.fixtures';
@@ -55,21 +55,19 @@ export const AtShipLimit: Story = { args: { shipLimit: 10, accountUrl: 'https://
 /** Fleet access: each scope the picker lists shows the description the fleet gives it (decision 0046), and a picked one shows as a chip. */
 export const FleetAccess: Story = {
   play: async () => {
-    const fleet = await screen.findByTestId('commission-scopes-fleet');
-    await userEvent.type(within(fleet).getByTestId('scope-picker-search'), 'fleet:read');
-    const option = await screen.findByTestId('scope-picker-option');
-    await expect(option).toHaveTextContent(CORE_SCOPE_DESCRIPTIONS['fleet:read']);
-    await userEvent.click(option);
-    await expect(within(fleet).getByTestId('scope-picker-chip')).toHaveTextContent('fleet:read');
+    await userEvent.click(await screen.findByTestId('commission-extra-permissions'));
+    await userEvent.type(screen.getByRole('textbox', { name: 'Find a permission' }), 'fleet:read');
+    await expect(screen.getByTestId('permissions-choices')).toHaveTextContent(CORE_SCOPE_DESCRIPTIONS['fleet:read']);
+    await userEvent.click(await screen.findByRole('checkbox', { name: /Read the fleet/ }));
+    await expect(screen.getByText('1 selected')).toBeVisible();
   },
 };
 /** A plugin's scopes, in their own picker under the name of the ship that declared them, each with its own description. */
 export const WithPluginScopes: Story = {
   args: { scopeGroups: [FLEET_ACCESS, SQUADRONS_SCOPES] },
   play: async () => {
-    const squadrons = await screen.findByTestId('commission-scopes-squadrons');
-    await userEvent.click(within(squadrons).getByTestId('scope-picker-search'));
-    await expect(await screen.findByText('Form a squadron by message')).toBeVisible();
+    await userEvent.click(await screen.findByTestId('commission-extra-permissions'));
+    await expect(screen.getByTestId('permissions-choices')).toHaveTextContent('Form a squadron by message');
   },
 };
 /** While the fleet's scopes are read: no picker yet. */
@@ -212,6 +210,7 @@ export const OffersArriveAfterOpening: Story = {
   play: async ({ args }) => {
     await typeNameAndType();
     window.dispatchEvent(new Event('deliver-offers'));
+    await userEvent.click(screen.getByTestId('commission-request-crew'));
     await waitFor(async () => {
       await expect(screen.getByTestId('crew-settings-harness')).toHaveTextContent('Claude Code');
       await expect(screen.getByTestId('crew-settings-workspace')).toHaveTextContent('aeolus-fleet');
@@ -226,6 +225,7 @@ export const OffersArriveAfterOpening: Story = {
 export const EditedBeforeOffersArrive: Story = {
   render: (args) => <CommissionWithDelayedOffers {...args} />,
   play: async () => {
+    await userEvent.click(await screen.findByTestId('commission-request-crew'));
     await userEvent.type(await screen.findByTestId('crew-settings-first-prompt'), 'Triage issues');
     window.dispatchEvent(new Event('deliver-offers'));
     await waitFor(async () => {
@@ -246,7 +246,7 @@ export const NoComputerCanCrew: Story = {
     await expect(crew).not.toBeChecked();
     await expect(screen.queryByRole('textbox', { name: 'Find a permission' })).toBeNull();
     // Then it explains both the default and what prevents commission.
-    await expect(screen.getByText('No computer can crew this ship right now. You get the starting prompt next. You can still request a crew.')).toBeVisible();
+    await waitFor(async () => { await expect(screen.getByText('No computer can crew this ship right now. You get the starting prompt next. You can still request a crew.')).toBeVisible(); });
     await expect(screen.getByTestId('commission-disabled-reason')).toHaveTextContent('Enter a name and type.');
     await userEvent.click(crew);
     await expect(crew).toBeChecked();
