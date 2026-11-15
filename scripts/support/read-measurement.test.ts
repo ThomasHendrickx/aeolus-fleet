@@ -81,7 +81,7 @@ describe('measuring a read', () => {
 });
 
 describe('the baseline', () => {
-  it('reads each read s p95, p99 and error rate by its name', () => {
+  it('reads the p95, p99 and error rate of each read by its name', () => {
     expect(baselineOf('{"fleet.health":{"p95Ms":2100,"p99Ms":3000,"errorRate":0}}')).toEqual({ 'fleet.health': { samples: 0, p95Ms: 2100, p99Ms: 3000, errorRate: 0 } });
   });
 
