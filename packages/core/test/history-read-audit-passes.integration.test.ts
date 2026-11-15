@@ -1,7 +1,7 @@
 /**
  * The background passes and the migrations on a fleet with a long history
  * (holding scale, decisions 4 and 5): each statement a pass task or step runs
- * on messages, deliveries or events, by plan. Migrations are planned, never run.
+ * on messages, deliveries or events, by plan. Migrations are read, never run.
  */
 import { readFileSync } from 'node:fs';
 
@@ -17,7 +17,7 @@ import { createPrismaFleetSealingRepository } from '../src/adapters/prisma/seali
 import { overdueDelivery } from '../src/domain/messaging/overdue.js';
 import { createPostgresCore, type PostgresCore } from './support/postgres-core.js';
 import { seedScaleHistory, type ScaleHistory } from './support/scale-history.js';
-import { plansOf, scansIn, sequentialScansOf } from './support/statement-plans.js';
+import { plansOf, scansIn } from './support/statement-plans.js';
 
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
@@ -62,28 +62,16 @@ async function rolledBack(client: PrismaClient, write: (tx: Db) => Promise<unkno
     });
 }
 
-/** The UPDATE statements of a migration, each as one statement without its comments. */
-function updatesOf(migration: string): string[] {
+/** The statements of a migration that read or write rows (UPDATE, INSERT, DELETE), each without its comments. */
+function rowStatementsOf(migration: string): string[] {
   const sql = readFileSync(new URL(`${migration}/migration.sql`, MIGRATIONS), 'utf8');
-  const statements = sql
+  return sql
     .split('\n')
     .filter((line) => !line.startsWith('--'))
     .join('\n')
     .split(/;\s*\n/)
     .map((statement) => statement.trim().replace(/;$/, ''))
-    .filter((statement) => /^UPDATE\b/i.test(statement));
-  expect(statements.length).toBeGreaterThan(0);
-  return statements;
-}
-
-/** The sequential scans of the history tables in the plans of the migration's UPDATE statements, never run. */
-async function migrationScans(migration: string): Promise<string[]> {
-  const scans: string[] = [];
-  for (const statement of updatesOf(migration)) {
-    const rows = await core.prisma.$queryRawUnsafe<{ 'QUERY PLAN': string }[]>('EXPLAIN ' + statement);
-    scans.push(...sequentialScansOf(rows.map((row) => row['QUERY PLAN']).join('\n')));
-  }
-  return scans;
+    .filter((statement) => /^(UPDATE|INSERT|DELETE)\b/i.test(statement));
 }
 
 describe('the maintenance pass on a fleet with 120,000 messages', () => {
@@ -181,19 +169,20 @@ describe('the maintenance pass on a fleet with 120,000 messages', () => {
     expect(await scansOf(({ useCases }) => useCases.closeHealthSnapshots((_, error) => { throw error; }))).toEqual([]);
   });
 
+  // A whole pass over the fixture's finished history takes 20 to 30 seconds on an idle machine: its plans are asserted, never its time.
   it('the pruning pass prunes the fleet\'s finished history through its indexes', async () => {
     expect(await scansOf(({ useCases }) => useCases.pruneHistory((_, error) => { throw error; }))).toEqual([]);
-  });
+  }, 120_000);
 });
 
 describe('the migrations not yet released on a fleet with 120,000 messages', () => {
-  // Scans the fleet's history (#1857): asserted until it is fixed. One scan of messages for each of its two UPDATE statements.
-  it('20261115090000_messages_asked_answered_question_id fills the question ids by scanning messages twice', async () => {
-    expect(await migrationScans('20261115090000_messages_asked_answered_question_id')).toEqual(['messages', 'messages']);
+  // The question ids are filled in batches after start (#1857), never while the migration holds start.
+  it('20261115090000_messages_asked_answered_question_id adds the columns and fills no question ids inside the migration', () => {
+    expect(rowStatementsOf('20261115090000_messages_asked_answered_question_id')).toEqual([]);
   });
 
-  // Scans the fleet's history (#1858): asserted until it is fixed.
-  it('20261115100000_unseen_plain_messages counts the unseen plain messages by scanning messages', async () => {
-    expect(await migrationScans('20261115100000_unseen_plain_messages')).toEqual(['messages']);
+  // The unseen plain message counts are filled in batches after start (#1858), never while the migration holds start.
+  it('20261115100000_unseen_plain_messages adds the column and counts no unseen plain messages inside the migration', () => {
+    expect(rowStatementsOf('20261115100000_unseen_plain_messages')).toEqual([]);
   });
 });
