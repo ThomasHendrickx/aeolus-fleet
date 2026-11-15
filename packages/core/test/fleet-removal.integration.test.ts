@@ -72,7 +72,7 @@ const rowsOfFleet = async (): Promise<number> => {
   return Number(row?.rows);
 };
 
-type Step = 'removeHistoryBatch' | 'removeRest';
+type Step = 'removeHistoryBatch' | 'removeRecordsBatch' | 'removeRest';
 /** The bulk unit of work, with the `at`th call of `step` failing as the database going away would. */
 function failing(step: Step, at: number): UnitOfWork<PrismaTx> {
   const bulk = createPrismaBulkUnitOfWork(core.prisma);
@@ -88,6 +88,13 @@ function failing(step: Step, at: number): UnitOfWork<PrismaTx> {
             removeHistoryBatch: async (...args) => {
               const batch = await tx.fleetRemoval.removeHistoryBatch(...args);
               if (fails('removeHistoryBatch')) {
+                throw new Error('the database went away');
+              }
+              return batch;
+            },
+            removeRecordsBatch: async (...args) => {
+              const batch = await tx.fleetRemoval.removeRecordsBatch(...args);
+              if (fails('removeRecordsBatch')) {
                 throw new Error('the database went away');
               }
               return batch;
@@ -156,6 +163,7 @@ describe('a removal that fails, then is taken up again by a restarted core', () 
   it.each([
     { when: 'at its first batch', step: 'removeHistoryBatch', at: 1 },
     { when: 'part way', step: 'removeHistoryBatch', at: 4 },
+    { when: 'during its records batches', step: 'removeRecordsBatch', at: 2 },
     { when: 'just before its last step', step: 'removeRest', at: 1 },
   ] as const)('ends with the fleet gone when it fails $when', async ({ step, at }) => {
     const failures: unknown[] = [];

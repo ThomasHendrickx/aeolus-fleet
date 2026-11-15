@@ -326,6 +326,7 @@ describe('the installation procedures on a hosting server', () => {
 
     await expect(installation().delete.mutate({ requestId: 'delete-doomed', fleetId: created.fleetId })).resolves.toEqual({});
 
+    await core.removeDeletedFleets();
     expect(Object.entries(await rowsOf(created.fleetId)).filter(([, count]) => count > 0)).toEqual([]);
     await expect(rowsOf(homeFleet)).resolves.toEqual(homeBefore);
     await expect(codeOf(installation().get.query({ fleetId: created.fleetId }))).resolves.toBe('NOT_FOUND');
@@ -343,26 +344,31 @@ describe('the installation procedures on a hosting server', () => {
 
     await expect(installation().delete.mutate({ requestId: newKey(), fleetId: created.fleetId })).resolves.toEqual({});
 
+    await core.removeDeletedFleets();
     expect(Object.entries(await rowsOf(created.fleetId)).filter(([, count]) => count > 0)).toEqual([]);
   });
 
   it('delete a fleet whose delete runs past a call\'s transaction time, within the bulk transaction time', { timeout: 60_000 }, async () => {
     const created = await installation().create.mutate({ requestId: newKey(), name: 'slow-to-delete', operatorEmail: 'slow-to-delete@example.com' });
 
-    const deleted = await whileFleetDeleteHeld(CALL_TRANSACTION_SECONDS + 1, () => installation().delete.mutate({ requestId: newKey(), fleetId: created.fleetId }));
+    const deleted = await installation().delete.mutate({ requestId: newKey(), fleetId: created.fleetId });
+    await whileFleetDeleteHeld(CALL_TRANSACTION_SECONDS + 1, () => core.removeDeletedFleets());
 
     expect(deleted).toEqual({});
     expect(Object.entries(await rowsOf(created.fleetId)).filter(([, count]) => count > 0)).toEqual([]);
   });
 
-  it('refuse a fleet delete as busy when it runs past the bulk transaction time, and keep the fleet', { timeout: 90_000 }, async () => {
+  it('takes up a removal again when its last step runs past the bulk transaction time', { timeout: 90_000 }, async () => {
     const created = await installation().create.mutate({ requestId: newKey(), name: 'too-slow-to-delete', operatorEmail: 'too-slow@example.com' });
-    const before = await rowsOf(created.fleetId);
+    await installation().delete.mutate({ requestId: newKey(), fleetId: created.fleetId });
+    const failures: unknown[] = [];
 
-    const refused = await whileFleetDeleteHeld(BULK_TRANSACTION_SECONDS + 1, () => codeOf(installation().delete.mutate({ requestId: newKey(), fleetId: created.fleetId })));
+    await whileFleetDeleteHeld(BULK_TRANSACTION_SECONDS + 1, () => core.removeDeletedFleets((_fleetId, error) => failures.push(error)));
 
-    expect(refused).toBe('SERVICE_UNAVAILABLE');
-    await expect(rowsOf(created.fleetId)).resolves.toEqual(before);
+    expect(failures).toHaveLength(1);
+    expect(await database.fleet.count({ where: { id: created.fleetId, deletedAt: { not: null } } })).toBe(1);
+    await core.removeDeletedFleets();
+    expect(Object.entries(await rowsOf(created.fleetId)).filter(([, count]) => count > 0)).toEqual([]);
   });
 
   it('are not served as REST', async () => {
