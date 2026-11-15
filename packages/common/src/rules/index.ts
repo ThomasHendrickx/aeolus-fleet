@@ -13,6 +13,7 @@ export * from './duration.js';
 export * from './harbour.js';
 export * from './label-handle.js';
 export * from './page-size.js';
+export * from './palette-across-apps.js';
 export * from './payload.js';
 export * from './plain-http.js';
 export * from './read-reach.js';

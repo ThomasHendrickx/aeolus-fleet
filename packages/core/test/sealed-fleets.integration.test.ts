@@ -848,6 +848,42 @@ describe('the sealing pass on Postgres and a LocalStack KMS (decision 0068, B5)'
     expect(await sealingPassOf(fleet.fleetId)).toEqual({ plainMessages: 0, plainSchedules: 0, state: 'sealed', sealedEvents: [{ actorKind: 'system' }] });
     expect(await prisma.message.count({ where: { fleetId: fleet.fleetId } })).toBeGreaterThanOrEqual(200);
   });
+
+  it('on a fleet that pruned, the payloads to seal count the messages it stored by day, pruned ones too, and the pass still leaves none plain', { timeout: 180_000 }, async () => {
+    const fleet = await aHostedFleet();
+    const scout = await aCrewedReviewer(fleet, 'scout');
+    const server = aServerAt('2026-10-29T12:00:00.000Z');
+    for (let index = 0; index < 20; index += 1) {
+      unwrap(await server.useCases.sendMessage(fleet.argo, aMessageTo(scout.shipId, `${PAYLOAD} #${index}`)));
+    }
+    for (let page = 0; page < 2; page += 1) {
+      for (const { deliveryId } of unwrap(await server.useCases.receiveDeliveries(scout, { max: 10 })).deliveries) {
+        unwrap(await server.useCases.acknowledgeDelivery(scout, { deliveryId }));
+      }
+    }
+    await prisma.$executeRaw`UPDATE fleets SET retention_set = true, retention_days = 1 WHERE id = ${fleet.fleetId}`;
+    server.clock.advance(2 * 24 * 60 * 60 * 1000);
+    await server.useCases.closeHealthSnapshots();
+    await server.useCases.pruneHistory((_, error) => {
+      throw error;
+    });
+    for (let index = 0; index < 2; index += 1) {
+      unwrap(await server.useCases.sendMessage(fleet.argo, aMessageTo(scout.shipId, `${PAYLOAD} kept #${index}`)));
+    }
+    const stored = await prisma.message.count({ where: { fleetId: fleet.fleetId } });
+
+    unwrap(await server.useCases.turnOnSealing(fleet.argo, { companyKey: await aKeyBoundTo(fleet.fleetId) }));
+    const turnedOn = await installationIn(fleet.fleetId).fleet.sealing.query();
+    await server.useCases.sealStoredPayloads((_, error) => {
+      throw error;
+    });
+
+    expect(stored).toBeLessThan(22);
+    expect(turnedOn).toMatchObject({ state: 'sealing', progress: { sealed: 0, total: 22 } });
+    expect(await sealingPassOf(fleet.fleetId)).toEqual({ plainMessages: 0, plainSchedules: 0, state: 'sealed', sealedEvents: [{ actorKind: 'system' }] });
+    const { payloadsToSeal, payloadsSealed } = await prisma.fleet.findUniqueOrThrow({ where: { id: fleet.fleetId } });
+    expect({ payloadsToSeal, payloadsSealed }).toEqual({ payloadsToSeal: 22, payloadsSealed: stored });
+  });
 });
 
 describe('data keys by age on Postgres and a LocalStack KMS (decision 0068, B13a)', () => {
