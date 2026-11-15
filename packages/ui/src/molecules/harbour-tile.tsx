@@ -48,7 +48,7 @@ const PLAIN = 'transition-[background-color,color,border-color] duration-180 eas
  * Reduced motion: nothing moves.
  */
 const LINK =
-  'group cursor-pointer [transition:background-color_180ms_ease-out,color_180ms_ease-out,border-color_180ms_ease-out,box-shadow_var(--duration-fast)_var(--default-transition-timing-function),transform_var(--duration-fast)_var(--default-transition-timing-function)] outline-none hover:-translate-y-px hover:shadow-[0_2px_8px_-2px_color-mix(in_oklch,var(--foreground)_18%,transparent)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring active:translate-y-0 active:shadow-none motion-reduce:hover:translate-y-0';
+  'group cursor-pointer [transition:background-color_180ms_ease-out,color_180ms_ease-out,border-color_180ms_ease-out,box-shadow_var(--duration-fast)_var(--default-transition-timing-function),transform_var(--duration-fast)_var(--default-transition-timing-function)] outline-none hover:-translate-y-px hover:shadow-[0_2px_8px_-2px_color-mix(in_oklch,var(--foreground)_18%,transparent)] focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring active:translate-y-0 active:shadow-none motion-reduce:hover:translate-y-0';
 
 export interface HarbourTileProps {
   ship: HarbourTileShip;
@@ -83,7 +83,7 @@ export function HarbourTile({ ship, kind, href, link, now }: HarbourTileProps) {
         <span className="min-w-0 pt-0.5 text-meta leading-4.5 font-semibold wrap-anywhere text-foreground">{name}</span>
       </span>
       {isLink ? (
-        <span className="absolute top-2.25 right-2.25 inline-flex text-muted-foreground opacity-0 transition-opacity duration-(--duration-fast) group-hover:opacity-100 group-focus-visible:opacity-100 motion-reduce:transition-none">
+        <span className="absolute top-2.25 right-2.25 inline-flex text-muted-foreground opacity-0 transition-opacity duration-(--duration-fast) group-hover:opacity-100 group-focus-visible:opacity-100 group-active:opacity-0 motion-reduce:transition-none">
           <ArrowUpRight aria-hidden className="size-3.5" />
         </span>
       ) : null}

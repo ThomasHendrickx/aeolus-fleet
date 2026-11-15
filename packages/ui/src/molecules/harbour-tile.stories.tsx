@@ -156,7 +156,7 @@ export const Pressed: Story = {
   play: async ({ canvasElement }) => {
     // Given a hovered linked tile whose arrow is visible.
     const tile = within(canvasElement).getByRole('link');
-    tile.addEventListener('click', (event) => event.preventDefault(), { once: true });
+    tile.addEventListener('click', (event) => { event.preventDefault(); }, { once: true });
     const arrow = tile.querySelector('span.absolute');
     if (arrow === null) throw new Error('the linked tile has no arrow');
     const { cdp } = await import('vitest/browser');
