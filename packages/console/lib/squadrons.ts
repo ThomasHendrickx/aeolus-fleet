@@ -9,7 +9,8 @@ import { dataFrom } from './plugin-answer';
 import type { ShownConnection } from './shown-connection';
 import { connectSquadrons } from './squadrons-actions';
 
-const QUERY_KEY = ['squadrons', 'connection'];
+/** squadrons' connection read's key. */
+export const SQUADRONS_CONNECTION_KEY = ['squadrons', 'connection'];
 
 /**
  * squadrons' connection as the browser may know it, read by the web app's
@@ -17,7 +18,7 @@ const QUERY_KEY = ['squadrons', 'connection'];
  */
 export function useSquadronsSettings() {
   return useConsoleRead({
-    queryKey: QUERY_KEY,
+    queryKey: SQUADRONS_CONNECTION_KEY,
     queryFn: () => fetchConsoleRead({ read: 'squadrons-connection' }),
   });
 }
@@ -28,7 +29,7 @@ export function useConnectSquadrons() {
   return useMutation({
     mutationFn: () => dataFrom(connectSquadrons, SQUADRONS_NO_ANSWER),
     onSuccess: (connection) => {
-      queryClient.setQueryData(QUERY_KEY, connection);
+      queryClient.setQueryData(SQUADRONS_CONNECTION_KEY, connection);
     },
   });
 }

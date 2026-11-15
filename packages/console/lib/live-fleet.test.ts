@@ -5,7 +5,10 @@ import { createTRPCClient, httpLink } from '@trpc/client';
 import { createTRPCOptionsProxy } from '@trpc/tanstack-react-query';
 import { describe, expect, it } from 'vitest';
 
+import { INBOX_KEY } from './inbox';
 import { uniqueById } from './paged-list';
+import { SQUADRONS_CONNECTION_KEY } from './squadrons';
+import { TRIERARCH_PLUGIN_CONNECTION_KEY } from './trierarch-plugin';
 import { createLiveFleetHandler, createLiveReloads, isAttentionChange, isBuiltInRulesChange, isDeclaredRulesChange, isFeatureFlagChange, isLabelChange, isNetworkRulesChange, isSealingChange, isShipChange, liveStateOf } from './live-fleet';
 
 describe('liveStateOf', () => {
@@ -309,6 +312,85 @@ function aLiveFleet(answers: Readonly<Record<string, (input: unknown) => unknown
 const settled = () => new Promise((resolve) => setTimeout(resolve, SETTLE_MS));
 
 describe('the live fleet (performance design, decision 3)', () => {
+  it("reads each of the page's reads once on its first load when nothing committed before the socket subscribed (#1169, #1127)", async () => {
+    const live = aLiveFleet({
+      'fleet.follow': () => ({ events: [], lastSeq: 7 }),
+      'fleet.list': () => new Promise((resolve) => setTimeout(() => { resolve([]); }, SETTLE_MS)),
+      'fleet.health': () => ({}),
+      'fleet.labels': () => [],
+    });
+    // The inbox and the plugins' connections are console reads (lib/console-reads.ts), each counted as the web app's server is asked it.
+    const consoleReads = new Map<string, number>();
+    const aConsoleRead = (queryKey: readonly unknown[], read: string) =>
+      new QueryObserver(live.queryClient, { queryKey, queryFn: () => { consoleReads.set(read, (consoleReads.get(read) ?? 0) + 1); return null; } });
+    live.show(new QueryObserver(live.queryClient, live.trpc.fleet.list.queryOptions()));
+    live.show(new QueryObserver(live.queryClient, live.trpc.fleet.health.queryOptions()));
+    live.show(new QueryObserver(live.queryClient, live.trpc.fleet.labels.queryOptions()));
+    live.show(aConsoleRead([...INBOX_KEY, 'open'], 'inbox'));
+    live.show(aConsoleRead(SQUADRONS_CONNECTION_KEY, 'squadrons-connection'));
+    live.show(aConsoleRead(TRIERARCH_PLUGIN_CONNECTION_KEY, 'trierarch-plugin-connection'));
+    await expect.poll(() => live.askedOf('fleet.list')).toBe(1);
+
+    live.onItem({ kind: 'resync' }, 7);
+    await settled();
+    await settled();
+
+    expect({ list: live.askedOf('fleet.list'), health: live.askedOf('fleet.health'), labels: live.askedOf('fleet.labels'), ...Object.fromEntries(consoleReads) }).toEqual({
+      list: 1,
+      health: 1,
+      labels: 1,
+      inbox: 1,
+      'squadrons-connection': 1,
+      'trierarch-plugin-connection': 1,
+    });
+    live.close();
+  });
+
+  it("shows a change committed between the page's first read and the socket subscribing (#1169)", async () => {
+    let labels = [{ name: 'team' }];
+    let inbox = ['first'];
+    const live = aLiveFleet({ 'fleet.follow': () => ({ events: [], lastSeq: 7 }), 'fleet.labels': () => labels });
+    const shownLabels = new QueryObserver(live.queryClient, live.trpc.fleet.labels.queryOptions());
+    const shownInbox = new QueryObserver(live.queryClient, { queryKey: [...INBOX_KEY, 'open'], queryFn: () => inbox });
+    live.show(shownLabels);
+    live.show(shownInbox);
+    await expect.poll(() => [shownLabels.getCurrentResult().data, shownInbox.getCurrentResult().data]).toEqual([[{ name: 'team' }], ['first']]);
+
+    labels = [{ name: 'team' }, { name: 'region' }];
+    inbox = ['second', 'first'];
+    live.onItem({ kind: 'resync' }, 8);
+
+    await expect.poll(() => [shownLabels.getCurrentResult().data, shownInbox.getCurrentResult().data]).toEqual([[{ name: 'team' }, { name: 'region' }], ['second', 'first']]);
+    live.close();
+  });
+
+  it('reloads a read the page kept from before it opened, on the resync sent as the socket opens', async () => {
+    const live = aLiveFleet({ 'fleet.follow': () => ({ events: [], lastSeq: 7 }), 'fleet.stuckCount': () => ({ count: 2, oldestSince: null }) });
+    live.queryClient.setQueryData(live.trpc.fleet.stuckCount.queryKey(), { count: 0, oldestSince: null }, { updatedAt: Date.now() - 60_000 });
+    const shown = new QueryObserver(live.queryClient, { ...live.trpc.fleet.stuckCount.queryOptions(), staleTime: Infinity });
+    live.show(shown);
+
+    live.onItem({ kind: 'resync' }, 7);
+
+    await expect.poll(() => shown.getCurrentResult().data).toEqual({ count: 2, oldestSince: null });
+    live.close();
+  });
+
+  it('reloads every fleet query on a resync after the first: the browser fell behind or reconnected', async () => {
+    const live = aLiveFleet({ 'fleet.follow': () => ({ events: [], lastSeq: 7 }), 'fleet.list': () => [], 'fleet.health': () => ({}) });
+    live.show(new QueryObserver(live.queryClient, live.trpc.fleet.list.queryOptions()));
+    live.show(new QueryObserver(live.queryClient, live.trpc.fleet.health.queryOptions()));
+    await expect.poll(() => live.askedOf('fleet.list') + live.askedOf('fleet.health')).toBe(2);
+    live.onItem({ kind: 'resync' }, 7);
+    await settled();
+
+    live.onItem({ kind: 'resync' }, 2007);
+    await settled();
+
+    expect({ list: live.askedOf('fleet.list'), health: live.askedOf('fleet.health') }).toEqual({ list: 2, health: 2 });
+    live.close();
+  });
+
   it('reloads neither fleet.list nor the full health for any event', async () => {
     const builder = aShip({});
     const live = aLiveFleet({ 'fleet.list': () => [builder], 'fleet.health': () => ({}), 'fleet.listedShip': () => builder, 'fleet.stuckCount': () => ({ count: 0, oldestSince: null }) });

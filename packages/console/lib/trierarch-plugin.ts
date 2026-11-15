@@ -24,12 +24,13 @@ import type { SettingsCheck } from './trierarch-plugin-schemas';
  * answer on the web app's server.
  */
 
-const CONNECTION_KEY = ['trierarch-plugin', 'connection'];
+/** The trierarch plugin's connection read's key. */
+export const TRIERARCH_PLUGIN_CONNECTION_KEY = ['trierarch-plugin', 'connection'];
 
 /** The trierarch plugin's connection as the browser may know it: `none` without the plugin or while it is off for this fleet. */
 export function useTrierarchPluginSettings() {
   return useConsoleRead({
-    queryKey: CONNECTION_KEY,
+    queryKey: TRIERARCH_PLUGIN_CONNECTION_KEY,
     queryFn: () => fetchConsoleRead({ read: 'trierarch-plugin-connection' }),
   });
 }
@@ -65,7 +66,7 @@ export function useConnectTrierarchPlugin() {
   return useMutation({
     mutationFn: () => dataFrom(connectTrierarchPlugin, TRIERARCH_PLUGIN_NO_ANSWER),
     onSuccess: (connection) => {
-      queryClient.setQueryData(CONNECTION_KEY, connection);
+      queryClient.setQueryData(TRIERARCH_PLUGIN_CONNECTION_KEY, connection);
       void renewUntilHolding({
         wanted: PLUGIN_SCOPES,
         retryAfterMs: CATALOGUE_WAIT_MS,
