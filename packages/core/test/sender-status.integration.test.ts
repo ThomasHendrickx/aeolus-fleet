@@ -143,7 +143,7 @@ describe('a retirement racing a pickup on Postgres', () => {
         },
       },
     }));
-    const receiving = createReceiveDeliveries({ sealing: unsealedFleetsOnly, uow, clock: core.clock, ids: newId, wakeups: noWakeups, waitMs: 0 })(scout, {});
+    const receiving = createReceiveDeliveries({ sealing: unsealedFleetsOnly, uow, clock: core.clock, ids: newId })(scout, {});
     await reached;
 
     // When the tender retires meanwhile, and the receive goes on.
@@ -211,8 +211,6 @@ describe('a retirement racing a pickup on Postgres', () => {
       })),
       clock: core.clock,
       ids: newId,
-      wakeups: noWakeups,
-      waitMs: 0,
     });
 
     // When scout and the lookout receive two each at once, while the tender retires.
@@ -343,8 +341,3 @@ describe('a sealed fleet on Postgres (decision 0068)', () => {
     expect(rereadRefused).toMatchObject({ isOk: false, error: { kind: 'KEY_UNAVAILABLE' } });
   });
 });
-
-/** Wake-ups for a receive that never waits: these tests hand it deliveries already there. */
-const noWakeups = {
-  watch: () => ({ next: () => Promise.resolve('timedOut' as const), stop: () => undefined }),
-};

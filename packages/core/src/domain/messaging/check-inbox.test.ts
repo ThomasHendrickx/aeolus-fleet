@@ -58,11 +58,11 @@ async function sendTo(selector: Selector, options: { isForced?: boolean } = {}):
 }
 
 async function waiting(crew: Crew): Promise<number> {
-  return unwrap(await useCases.checkInbox(crew, {})).waiting;
+  return unwrap(await useCases.checkInbox(crew)).waiting;
 }
 
 async function inboxOf(crew: Crew) {
-  return unwrap(await useCases.checkInbox(crew, {}));
+  return unwrap(await useCases.checkInbox(crew));
 }
 
 describe('checking the inbox', () => {
@@ -128,7 +128,7 @@ describe('checking the inbox', () => {
     );
     expect(ended).toEqual(ok(true));
 
-    await expect(useCases.checkInbox(scout, {})).resolves.toMatchObject({ isOk: false, error: { kind: 'LEASE_ENDED' } });
+    await expect(useCases.checkInbox(scout)).resolves.toMatchObject({ isOk: false, error: { kind: 'LEASE_ENDED' } });
   });
 });
 

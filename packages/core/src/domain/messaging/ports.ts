@@ -322,28 +322,11 @@ export interface DeliveryRepository {
   markUnread(read: { fleetId: FleetId; deliveryId: DeliveryId }): Promise<void>;
 }
 
-/** Where a waiting receive listens: its ship, and the queue of its type, in its fleet. */
+/** Where a wake stream listens: its ship, and the queue of its type, in its fleet. */
 export interface ReceiverAddress {
   fleetId: FleetId;
   shipId: ShipId;
   type: string;
-}
-
-/**
- * Outbound port: wakes a waiting receive when a delivery may be pending for its
- * ship or its type. A wake-up is a hint to look again, never a delivery: the
- * receive finds out in the database whether one is there for it.
- */
-export interface ReceiverWakeups {
-  /** Starts watching. A wake-up that comes before the next wait is kept for it. */
-  watch(address: ReceiverAddress): ReceiverWatch;
-}
-
-export interface ReceiverWatch {
-  /** Settles when the receive is woken, or once `waitMs` has passed. */
-  next(waitMs: number): Promise<'woken' | 'timedOut'>;
-  /** Stops watching. */
-  stop(): void;
 }
 
 /**

@@ -23,8 +23,6 @@ import { withOperatorLogin } from './support/operator-login.js';
 
 const newId = createIdGenerator();
 
-/** How long a receive waits on an empty inbox at this server: short, so an empty receive costs little. */
-const RECEIVE_WAIT_MS = 500;
 
 let databaseUrl: string;
 let database: PrismaClient;
@@ -40,7 +38,7 @@ beforeAll(async () => {
   argo = operatorCaller(
     unwrap(await withOperatorLogin(database, createUseCases({ prisma: database }).initialiseFleet({ name: 'home fleet' }))),
   );
-  server = createApp({ databaseUrl, publicUrl: FLEET_URL, logger: false, receiveWaitMs: RECEIVE_WAIT_MS });
+  server = createApp({ databaseUrl, publicUrl: FLEET_URL, logger: false });
   address = await server.listen({ host: '127.0.0.1', port: 0 });
 });
 

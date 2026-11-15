@@ -359,11 +359,8 @@ export function registryUseCases(core: InMemoryCore) {
     reportTurn: createReportTurn({ uow: core.uow, clock: core.clock, ids: core.ids }),
     reportLog: createReadReportLog({ leases: core.leases }),
     readFleetEvents: createReadFleetEvents({ feed: core.feed, history: core.history, readReach: readReachOf(core) }),
-    // Nothing wakes a follow here: it ends at its wait.
     followFleet: createFollowFleet({
       feed: core.feed,
-      clock: core.clock,
-      wakeups: { watch: () => ({ next: () => Promise.resolve('timedOut'), stop: () => undefined }) },
       history: core.history,
       readReach: readReachOf(core),
     }),
@@ -400,7 +397,7 @@ export function historyUseCases(core: InMemoryCore) {
   };
 }
 
-/** The messaging use cases, wired to the in-memory core; a receive waits on its scripted wake-ups. */
+/** The messaging use cases, wired to the in-memory core. */
 export function messagingUseCases(core: InMemoryCore) {
   const deps = { uow: core.uow, clock: core.clock, ids: core.ids };
   const { sealing } = core;
@@ -418,9 +415,9 @@ export function messagingUseCases(core: InMemoryCore) {
     changeMic: createChangeMic({ ...deps, hasher: core.hasher, sealing: core.sealing }),
     changeMeeting: createChangeMeeting({ ...deps, hasher: core.hasher, sealing: core.sealing }),
     addToMeeting: createAddToMeeting({ ...deps, hasher: core.hasher, sealing: core.sealing }),
-    receiveDeliveries: createReceiveDeliveries({ ...deps, sealing, wakeups: core.wakeups }),
-    receiveReply: createReceiveReply({ ...deps, sealing, wakeups: core.wakeups }),
-    pushReceiveDeliveries: createPushReceiveDeliveries({ ...deps, sealing, wakeups: core.wakeups }),
+    receiveDeliveries: createReceiveDeliveries({ ...deps, sealing }),
+    receiveReply: createReceiveReply({ ...deps, sealing }),
+    pushReceiveDeliveries: createPushReceiveDeliveries({ ...deps, sealing }),
     handOverDelivery: createHandOverDelivery(deps),
     reportHandled: createReportHandled(deps),
     readDelivery: createReadDelivery({ uow: core.uow, sealing }),
@@ -430,7 +427,7 @@ export function messagingUseCases(core: InMemoryCore) {
     reportNotHandled: createReportNotHandled(deps),
     acknowledgeDelivery: createAcknowledgeDelivery(deps),
     acknowledgeUpTo: createAcknowledgeUpTo(deps),
-    checkInbox: createCheckInbox({ ...deps, wakeups: core.wakeups, fleetNews: core.fleetNews }),
+    checkInbox: createCheckInbox({ uow: core.uow }),
     watchWakeups: createWatchWakeups({ uow: core.uow, wakeStreams: core.wakeStreams }),
     dismissDelivery: createDismissDelivery({ ...deps, readReach: readReachOf(core) }),
     markDone: createMarkDone(deps),

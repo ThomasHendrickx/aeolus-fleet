@@ -235,7 +235,7 @@ describe("the sender's status", () => {
     // Given the lookout sent scout a message, then retired.
     const deliveryId = await sendFromLookout();
     unwrap(await registryUseCases(core).retireShip(argo, { shipId: lookoutId }));
-    const waitingBefore = unwrap(await useCases.checkInbox(scout, {}));
+    const waitingBefore = unwrap(await useCases.checkInbox(scout));
 
     // When scout's computer side takes it by push, and acknowledges it.
     const { deliveries } = unwrap(await useCases.pushReceiveDeliveries(scout, {}));

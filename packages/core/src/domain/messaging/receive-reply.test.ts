@@ -25,7 +25,7 @@ beforeEach(async () => {
   ({ shipId: scoutId } = unwrap(await registryUseCases(core).commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' })));
   scout = crewAboard(core, { fleetId, shipId: scoutId });
   useCases = messagingUseCases(core);
-  receiveReply = createReceiveReply({ sealing: unsealedFleetsOnly, uow: core.uow, clock: core.clock, ids: core.ids, wakeups: core.wakeups });
+  receiveReply = createReceiveReply({ sealing: unsealedFleetsOnly, uow: core.uow, clock: core.clock, ids: core.ids });
   core.clock.advance(60_000);
 });
 

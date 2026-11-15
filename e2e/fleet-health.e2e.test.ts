@@ -28,8 +28,6 @@ import { withOperatorLogin } from '../packages/core/test/support/operator-login.
 const clock = createTestClock('2026-10-01T09:00:00.000Z');
 /** A live change shows within this. */
 const LIVE_TIMEOUT_MS = 20_000;
-/** A receive returns at once when it has deliveries; an empty one waits no longer than this. */
-const RECEIVE_WAIT_MS = 500;
 /** The attempt that makes a delivery never acknowledged undeliverable. */
 const UNDELIVERABLE_AT_ATTEMPT = 5;
 /** Sign-ins are rate limited per window; each test signs in after the window of the one before. */
@@ -57,7 +55,6 @@ beforeAll(async () => {
     consoleOrigin: webUrl,
     clock,
     logger: false,
-    receiveWaitMs: RECEIVE_WAIT_MS,
   });
   serverUrl = await server.listen({ host: '127.0.0.1', port: 0 });
   web = await startWeb({ url: webUrl, serverUrl });

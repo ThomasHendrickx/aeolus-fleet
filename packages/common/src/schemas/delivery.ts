@@ -204,20 +204,11 @@ export const ackOutputSchema = z.strictObject({});
 
 export type AckOutput = z.infer<typeof ackOutputSchema>;
 
-/** The longest an inbox check waits while nothing waits: as long as a receive. */
-export const INBOX_WAIT_MAX_SECONDS = 25;
-
 /**
- * Input of `ship.inbox`: how long to wait, 0 to 25 whole seconds, while
- * nothing waits for the crew, or with `knownWaiting` while the count is still
- * the one the crew knows. Without a wait, it answers at once.
+ * Input of `ship.inbox`: none. It answers at once (decision 0072), so a wait
+ * it is asked for, `waitSeconds` or `knownWaiting`, is refused as unknown input.
  */
-export const inboxInputSchema = z
-  .object({
-    waitSeconds: z.int().min(0).max(INBOX_WAIT_MAX_SECONDS).optional(),
-    knownWaiting: z.int().min(0).optional(),
-  })
-  .optional();
+export const inboxInputSchema = z.strictObject({}).optional();
 
 export type InboxInput = z.infer<typeof inboxInputSchema>;
 

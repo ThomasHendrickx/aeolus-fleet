@@ -22,8 +22,6 @@ import { withOperatorLogin } from './support/operator-login.js';
 // new starting prompt and receives the message again, and the conversation
 // goes on: nothing is lost, and the event log shows every step.
 
-/** How long a receive waits on an empty inbox at this server: short, so a session that keeps receiving turns often. */
-const RECEIVE_WAIT_MS = 1_000;
 /** How many receives a waiting session makes before the test gives up on an answer. */
 const RECEIVES_WHILE_WAITING = 10;
 
@@ -39,7 +37,7 @@ const clients: Client[] = [];
 beforeAll(async () => {
   const databaseUrl = await createMigratedDatabase();
   database = createPrismaClient(databaseUrl);
-  server = createApp({ databaseUrl, publicUrl: FLEET_URL, logger: false, receiveWaitMs: RECEIVE_WAIT_MS });
+  server = createApp({ databaseUrl, publicUrl: FLEET_URL, logger: false });
   address = await server.listen({ host: '127.0.0.1', port: 0 });
   operator = createUseCases({ prisma: database });
   argo = operatorCaller(unwrap(await withOperatorLogin(database, operator.initialiseFleet({ name: 'home fleet' }))));

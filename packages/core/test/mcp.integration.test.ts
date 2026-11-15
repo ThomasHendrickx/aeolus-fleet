@@ -24,8 +24,6 @@ import { withOperatorLogin } from './support/operator-login.js';
 
 const newId = createIdGenerator();
 
-/** How long a receive waits on an empty inbox at this server: short, so an empty receive costs little. */
-const RECEIVE_WAIT_MS = 500;
 
 /** The protocol revisions the SDK client speaks: the 2025-era handshake by default, 2026-07-28 when it negotiates. */
 const ERAS = ['2025 handshake', '2026-07-28 negotiation'] as const;
@@ -45,7 +43,7 @@ beforeAll(async () => {
   argo = operatorCaller(
     unwrap(await withOperatorLogin(database, createUseCases({ prisma: database }).initialiseFleet({ name: 'home fleet' }))),
   );
-  server = createApp({ databaseUrl, publicUrl: FLEET_URL, logger: false, receiveWaitMs: RECEIVE_WAIT_MS });
+  server = createApp({ databaseUrl, publicUrl: FLEET_URL, logger: false });
   address = await server.listen({ host: '127.0.0.1', port: 0 });
 });
 

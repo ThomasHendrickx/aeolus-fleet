@@ -26,8 +26,6 @@ import { withOperatorLogin } from './support/operator-login.js';
 const newId = createIdGenerator();
 const clock = createTestClock('2026-09-29T12:00:00.000Z');
 const SIGN_IN_RATE_LIMIT = { limit: 5, windowMs: 60_000 };
-/** How long a receive waits on an empty inbox at this server: short, so an empty receive costs little. */
-const RECEIVE_WAIT_MS = 500;
 /** Where the console runs: the fleet's own origin, as no other console origin is configured. */
 const CONSOLE = new URL(FLEET_URL).origin;
 
@@ -54,7 +52,6 @@ beforeAll(async () => {
     clock,
     logger: false,
     signInRateLimit: SIGN_IN_RATE_LIMIT,
-    receiveWaitMs: RECEIVE_WAIT_MS,
   });
   address = await server.listen({ host: '127.0.0.1', port: 0 });
 });

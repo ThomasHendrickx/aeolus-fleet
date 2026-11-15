@@ -2,9 +2,7 @@ import { createIdGenerator, idSchema, type DeliveryId, type MessageId } from '@a
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/client.js';
-import { listenForPendingDeliveries, type DeliveryListener } from '../src/adapters/prisma/delivery-notices.js';
-import { createReceiverWakeups, type ReceiverWakeupHub } from '../src/adapters/prisma/receiver-wakeups.js';
-import { createPrismaUnitOfWork, type PrismaTx } from '../src/adapters/prisma/unit-of-work.js';
+import type { PrismaTx } from '../src/adapters/prisma/unit-of-work.js';
 import { createReceiveReply } from '../src/domain/messaging/receive-reply.js';
 import type { ShipCaller, Crew } from '../src/domain/shared/caller.js';
 import type { Selector } from '../src/domain/shared/selector.js';
@@ -18,20 +16,15 @@ import { unwrap } from '../src/testing/result.js';
 import { withOperatorLogin } from './support/operator-login.js';
 import { unsealedFleetsOnly } from './support/sealing.js';
 
-// Receiving the reply to one message on a real Postgres, with the listener and
-// the wake-ups the server runs: the claim's filter in SQL, a reply in flight
-// handed again, concurrent receivers that never share a reply, and a
-// receiveReply that answers at once when no reply is there.
+// Receiving the reply to one message on a real Postgres: the claim's filter in
+// SQL, a reply in flight handed again, concurrent receivers that never share a
+// reply, and a receiveReply that answers at once when no reply is there.
 
 const newId = createIdGenerator();
-/** How long a receive waits on an empty inbox in these tests: short, so an empty receive costs little. */
-const WAIT_MS = 2_000;
 /** Well under any wait a call once had: an answer this soon did not wait. */
 const AT_ONCE_MS = 1_000;
 
 let prisma: PrismaClient;
-let wakeups: ReceiverWakeupHub;
-let listener: DeliveryListener;
 let useCases: UseCases;
 let argo: ShipCaller;
 let scout: Crew;
@@ -40,18 +33,7 @@ let lookout: Crew;
 beforeEach(async () => {
   const databaseUrl = await createMigratedDatabase();
   prisma = createPrismaClient(databaseUrl);
-  wakeups = createReceiverWakeups();
-  listener = listenForPendingDeliveries({
-    databaseUrl,
-    onNotice: (notice) => {
-      wakeups.deliveryPending(notice);
-    },
-    onListening: () => {
-      wakeups.wakeAll();
-    },
-  });
-  await listener.listening;
-  useCases = createUseCases({ prisma, clock: systemClock, wakeups, receiveWaitMs: WAIT_MS });
+  useCases = createUseCases({ prisma, clock: systemClock });
   const fleet = unwrap(await withOperatorLogin(prisma, useCases.initialiseFleet({ name: 'home fleet' })));
   argo = operatorCaller(fleet);
   scout = await crewedReviewer('scout');
@@ -59,7 +41,6 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
-  await listener.close();
   await prisma.$disconnect();
 });
 
@@ -106,12 +87,8 @@ async function receiveReplyTo(crew: Crew, messageId: MessageId): Promise<Deliver
   return deliveries.map((delivery) => delivery.deliveryId);
 }
 
-function receiveReplyWith(uow: UnitOfWork<PrismaTx>, waitMs = WAIT_MS) {
-  return createReceiveReply({ sealing: unsealedFleetsOnly, uow, clock: systemClock, ids: newId, wakeups, waitMs });
-}
-
-function pause(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+function receiveReplyWith(uow: UnitOfWork<PrismaTx>) {
+  return createReceiveReply({ sealing: unsealedFleetsOnly, uow, clock: systemClock, ids: newId });
 }
 
 describe('receiving the reply to one message on Postgres', () => {

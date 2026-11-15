@@ -46,13 +46,13 @@ export interface DeliveryListener {
 /**
  * Listens for pending deliveries on a connection of its own: LISTEN needs one
  * that no pool hands to another query, and it must be direct, not through a
- * transaction pooler. Waiting receives and live subscriptions are woken
+ * transaction pooler. Wake streams and live subscriptions are woken
  * through it. Returns at once.
  *
  * It never throws: a failed connect or a lost connection goes to `onError`,
  * and it tries again after a delay that doubles with each failure, up to 30
  * seconds. Notices sent while it did not listen are gone, so `onListening`
- * runs each time it starts listening, for the waiting receives to look again.
+ * runs each time it starts listening, for every wake stream's crew to look again.
  */
 export function listenForPendingDeliveries(options: {
   databaseUrl: string;

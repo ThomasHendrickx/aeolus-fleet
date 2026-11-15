@@ -6,7 +6,7 @@ import { createAccountTokenSignatures } from './adapters/crypto/account-token-si
 import { checkDatabase, createPrismaClient, latestMigration } from './adapters/prisma/client.js';
 import { listenForPendingDeliveries } from './adapters/prisma/delivery-notices.js';
 import { failureForLog } from './adapters/prisma/failure-log.js';
-import { createFleetEventWakeups, fleetEventWakeupsOf } from './adapters/prisma/fleet-event-wakeups.js';
+import { createFleetEventWakeups } from './adapters/prisma/fleet-event-wakeups.js';
 import { createPrismaMetadataFillIndexes } from './adapters/prisma/message-metadata-fill.js';
 import { createPrismaFleetRepository } from './adapters/prisma/registry.js';
 import { createPrismaUnitOfWork } from './adapters/prisma/unit-of-work.js';
@@ -37,8 +37,6 @@ export interface AppOptions {
    * Unset: the public URL's origin, for web and server behind one host.
    */
   consoleOrigin?: string;
-  /** How long a receive waits on an empty inbox; about 25 seconds unless a test says otherwise. */
-  receiveWaitMs?: number;
   /** The installation token that opens the installation procedures; unset, they are off. */
   installationToken?: string;
   /** How often the 10 and 60 minute clocks and the schedules' fallback pass run; every 30 seconds unless a test says otherwise. */
@@ -84,7 +82,7 @@ function accountTokenSignaturesOf(issuer: string | undefined, clock: Clock) {
 
 /**
  * Wires adapters to use cases and returns the HTTP server, not yet listening.
- * The delivery listener starts at once and wakes waiting receives and live
+ * The delivery listener starts at once and wakes the wake streams and live
  * subscriptions, and tells the schedule timer of new and advanced schedules;
  * the timer sends each schedule at its time (decision 0062). The 10 and 60
  * minute clocks, the stuck snapshot's close and the schedules' fallback
@@ -94,16 +92,13 @@ function accountTokenSignaturesOf(issuer: string | undefined, clock: Clock) {
 export function createApp(options: AppOptions): FastifyInstance {
   const prisma = createPrismaClient(options.databaseUrl);
   const clock = options.clock ?? systemClock;
-  const wakeups = createReceiverWakeups();
+  const wakeStreams = createReceiverWakeups();
   const fleetEvents = createFleetEventWakeups();
 
   const useCases = createUseCases({
     prisma,
     clock,
-    wakeups,
-    wakeStreams: wakeups,
-    fleetEventWakeups: fleetEventWakeupsOf(fleetEvents),
-    receiveWaitMs: options.receiveWaitMs,
+    wakeStreams,
     accountTokenSignatures: accountTokenSignaturesOf(options.accountTokenIssuer, clock),
     ...(options.keyVault === undefined ? {} : { keyVault: options.keyVault }),
     hasInstallation: options.installationToken !== undefined,
@@ -138,7 +133,7 @@ export function createApp(options: AppOptions): FastifyInstance {
   const listener = listenForPendingDeliveries({
     databaseUrl: options.databaseUrl,
     onNotice: (notice) => {
-      wakeups.deliveryPending(notice);
+      wakeStreams.deliveryPending(notice);
     },
     onFleetEvent: (notice) => {
       fleetEvents.eventCommitted(notice);
@@ -147,7 +142,7 @@ export function createApp(options: AppOptions): FastifyInstance {
       scheduleTimer.told(notice.attemptAt);
     },
     onListening: () => {
-      wakeups.wakeAll();
+      wakeStreams.wakeAll();
       fleetEvents.wakeAll();
     },
     onError: (error) => {
@@ -222,15 +217,14 @@ export function createApp(options: AppOptions): FastifyInstance {
   });
 
   // Before the server stops taking requests and waits for the ones it holds:
-  // a waiting receive answers no deliveries at once instead of holding it up,
-  // and a live subscription and every wake stream end.
+  // every wake stream and live subscription ends.
   // Connections idle at that moment close at once (Fastify's default); one
   // whose request ends later is told to close with its answer, or it would
   // stay open, idle, until its keep-alive timeout.
   let isStopping = false;
   server.addHook('preClose', (done) => {
     isStopping = true;
-    wakeups.endAll();
+    wakeStreams.endAll();
     fleetEvents.endAll();
     done();
   });

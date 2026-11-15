@@ -2,7 +2,6 @@ import { createIdGenerator, idSchema, type DeliveryId, type FleetId } from '@aeo
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/client.js';
-import { createReceiverWakeups } from '../src/adapters/prisma/receiver-wakeups.js';
 import { createPrismaUnitOfWork } from '../src/adapters/prisma/unit-of-work.js';
 import { createPushReceiveDeliveries } from '../src/domain/messaging/push-receive-deliveries.js';
 import type { Crew, ShipCaller } from '../src/domain/shared/caller.js';
@@ -23,8 +22,6 @@ import { unsealedFleetsOnly } from './support/sealing.js';
 // receives hold the delivery guarantees with held deliveries among them.
 
 const newId = createIdGenerator();
-/** How long a receive waits on an empty inbox in these tests: short, so an empty receive costs little. */
-const WAIT_MS = 500;
 /** The held deliveries Bridge received again on every look in #1646. */
 const HELD = 15;
 /** The most one push receive takes. */
@@ -42,7 +39,7 @@ let scout: Crew;
 beforeEach(async () => {
   databaseUrl = await createMigratedDatabase();
   prisma = createPrismaClient(databaseUrl);
-  useCases = createUseCases({ prisma, clock: systemClock, wakeups: createReceiverWakeups(), receiveWaitMs: WAIT_MS });
+  useCases = createUseCases({ prisma, clock: systemClock });
   const fleet = unwrap(await withOperatorLogin(prisma, useCases.initialiseFleet({ name: 'home fleet' })));
   ({ fleetId } = fleet);
   argo = operatorCaller(fleet);
@@ -179,8 +176,6 @@ describe('a crew receiving its held deliveries again while another ship of its t
       })),
       clock: systemClock,
       ids: newId,
-      wakeups: createReceiverWakeups(),
-      waitMs: WAIT_MS,
     });
 
     const [byScout, byLookout] = await Promise.all([racing(scout, { max: MAX }), racing(lookout, { max: MAX })]);
@@ -221,8 +216,6 @@ describe('a push receive that fails midway, holding deliveries', () => {
       },
       clock: systemClock,
       ids: newId,
-      wakeups: createReceiverWakeups(),
-      waitMs: WAIT_MS,
     });
 
     await expect(failing(scout, { max: MAX })).rejects.toThrow('disk full');
@@ -241,7 +234,7 @@ describe('a restart of the server, the crew holding deliveries', () => {
 
     const restarted = createPrismaClient(databaseUrl);
     try {
-      const afterRestart = createUseCases({ prisma: restarted, clock: systemClock, wakeups: createReceiverWakeups(), receiveWaitMs: WAIT_MS });
+      const afterRestart = createUseCases({ prisma: restarted, clock: systemClock });
       const first = unwrap(await afterRestart.pushReceiveDeliveries(scout, { max: MAX })).deliveries.map((delivery) => delivery.deliveryId);
       const rest = unwrap(await afterRestart.pushReceiveDeliveries(scout, { max: MAX, excluding: first })).deliveries.map((delivery) => delivery.deliveryId);
 

@@ -6,7 +6,7 @@ import { loadConfig, startupWarnings } from './config.js';
 
 /**
  * `aeolus-core start`: migrates the database, then serves the fleet until
- * SIGINT or SIGTERM. A stop ends waiting receives and closes idle
+ * SIGINT or SIGTERM. A stop ends the wake streams and closes idle
  * connections at once (see app.ts), then sends the telemetry still buffered.
  * Telemetry starts first, so the server's database client is traced too.
  */

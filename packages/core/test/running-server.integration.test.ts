@@ -17,16 +17,14 @@ import { unwrap } from '../src/testing/result.js';
 import { newKey } from '../src/testing/keys.js';
 import { withOperatorLogin } from './support/operator-login.js';
 
-// The server as it runs, from HTTP to Postgres: its listener wakes a waiting
-// receive as soon as a send commits, and a delivery survives a stop and a
+// The server as it runs, from HTTP to Postgres: its listener wakes an open
+// wake stream as soon as a send commits, and a delivery survives a stop and a
 // start against the same database.
 
 const newId = createIdGenerator();
-/** A receive that must end early: it proves a wake-up, not a timeout. */
-const LONG_WAIT_MS = 15_000;
-/** A stop that ends waits and connections at once, well before any receive wait or keep-alive timeout would. */
+/** A stop that ends streams and connections at once, well before any keep-alive timeout would. */
 const STOPS_AT_ONCE_MS = 2_000;
-/** Time for a receive to start waiting. */
+/** Time for a connection or session to settle before the server stops. */
 const SETTLE_MS = 300;
 
 let databaseUrl: string;
@@ -48,13 +46,9 @@ afterEach(async () => {
   await database.$disconnect();
 });
 
-/** Starts the server on the test database and returns its address. Its log lines go to `logLines` when given. */
-async function start(
-  receiveWaitMs = LONG_WAIT_MS,
-  logLines?: string[],
-): Promise<{ server: FastifyInstance; address: string }> {
-  const logger = logLines && { level: 'debug', stream: { write: (line: string) => void logLines.push(line) } };
-  const server = createApp({ databaseUrl, publicUrl: FLEET_URL, logger: logger ?? false, receiveWaitMs });
+/** Starts the server on the test database and returns its address. */
+async function start(): Promise<{ server: FastifyInstance; address: string }> {
+  const server = createApp({ databaseUrl, publicUrl: FLEET_URL, logger: false });
   running.push(server);
   return { server, address: await server.listen({ host: '127.0.0.1', port: 0 }) };
 }
@@ -92,10 +86,6 @@ function toShipNamed(name: string): SendInput {
   };
 }
 
-function pause(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 /** The next server-sent event of a stream read as a Node caller reads it, up to its blank line; undefined once it closed. */
 async function nextEvent(reader: ReadableStreamDefaultReader<string>, held: { read: string }): Promise<string | undefined> {
   while (!held.read.includes('\n\n')) {
@@ -117,6 +107,10 @@ async function openWakeStream(address: string, crewToken: string): Promise<{ nex
   const reader = (response.body ?? expect.unreachable('a stream has a body')).pipeThrough(new TextDecoderStream()).getReader();
   const held = { read: '' };
   return { next: () => nextEvent(reader, held) };
+}
+
+function pause(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 describe('the running server', () => {
@@ -143,20 +137,6 @@ describe('the running server', () => {
 
     await expect(stream.next()).resolves.toBeUndefined();
     expect(performance.now() - stoppingAt).toBeLessThan(STOPS_AT_ONCE_MS);
-  });
-
-  it('wakes a waiting receive as soon as a send commits', async () => {
-    const { address } = await start();
-    const sender = await crewed(address, 'harbour');
-    const receiver = await crewed(address, 'mooring');
-    const startedAt = performance.now();
-    const receiving = client(address, receiver.crewToken).ship.receive.mutate({});
-    await pause(SETTLE_MS);
-
-    const { messageId } = await client(address, sender.crewToken).ship.send.mutate(toShipNamed('mooring'));
-
-    await expect(receiving).resolves.toMatchObject({ deliveries: [{ messageId, attempts: 1 }] });
-    expect(performance.now() - startedAt).toBeLessThan(LONG_WAIT_MS / 2);
   });
 
   it('keeps a delivery across a restart: sent before the server stops, received after it starts again', async () => {
@@ -186,22 +166,6 @@ describe('the running server', () => {
     await expect(client(after.address, receiver.crewToken).ship.receive.mutate({})).resolves.toMatchObject({
       deliveries: [{ deliveryId: deliveries[0]?.deliveryId, attempts: 2 }],
     });
-  });
-
-  it('ends a waiting receive at once when it stops: the receive answers no deliveries', async () => {
-    const logLines: string[] = [];
-    const { server, address } = await start(LONG_WAIT_MS, logLines);
-    const receiver = await crewed(address, 'mooring');
-    const receiving = client(address, receiver.crewToken).ship.receive.mutate({});
-    // Stopped only once the receive reached the server: a request still on its way would meet a closing socket.
-    await expect.poll(() => logLines.some((line) => line.includes('ship.receive'))).toBe(true);
-    await pause(SETTLE_MS);
-    const stoppingAt = performance.now();
-
-    await stop(server);
-
-    expect(performance.now() - stoppingAt).toBeLessThan(STOPS_AT_ONCE_MS);
-    await expect(receiving).resolves.toEqual({ deliveries: [] });
   });
 
   it('closes an idle keep-alive connection at once when it stops', async () => {

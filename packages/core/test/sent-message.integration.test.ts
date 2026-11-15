@@ -2,7 +2,6 @@ import { idSchema, type MessageId } from '@aeolus-fleet/common';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/client.js';
-import { createReceiverWakeups } from '../src/adapters/prisma/receiver-wakeups.js';
 import type { ShipCaller, Crew } from '../src/domain/shared/caller.js';
 import { createUseCases, systemClock, type UseCases } from '../src/wiring.js';
 import { operatorCaller, secretOf } from './support/core-fixtures.js';
@@ -22,7 +21,7 @@ let lookout: Crew;
 
 beforeEach(async () => {
   prisma = createPrismaClient(await createMigratedDatabase());
-  useCases = createUseCases({ prisma, clock: systemClock, wakeups: createReceiverWakeups(), receiveWaitMs: 1_000 });
+  useCases = createUseCases({ prisma, clock: systemClock });
   const fleet = unwrap(await withOperatorLogin(prisma, useCases.initialiseFleet({ name: 'home fleet' })));
   argo = operatorCaller(fleet);
   scout = await crewedReviewer('scout');
