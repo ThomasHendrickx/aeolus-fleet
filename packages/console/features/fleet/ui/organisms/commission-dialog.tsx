@@ -103,8 +103,10 @@ function CommissionDialogBody({ types, taken, onTypedChange, isPending: isReques
   // What argo picked stays offered when a later search no longer finds it.
   const ownerChoices = owner?.choices === undefined && pickedOwner == null ? undefined : [...(owner?.choices ?? []), ...(pickedOwner == null || owner?.choices?.some((choice) => choice.id === pickedOwner.id) === true ? [] : [pickedOwner])];
   const [grantedScopes, setGrantedScopes] = useState<readonly string[]>([]);
-  // On by default while the trierarch plugin is connected, off otherwise (#245: Thomas's decision).
-  const [isCrewRequested, setIsCrewRequested] = useState((crewRequest?.offers.length ?? 0) > 0);
+  // The first available offers set the default; an explicit choice stays switchable and is kept.
+  const [pickedCrewRequest, setIsCrewRequested] = useState<boolean>();
+  const canComputerCrew = (crewRequest?.offers.length ?? 0) > 0 && crewRequest?.check?.kind !== 'noRoom';
+  const isCrewRequested = pickedCrewRequest ?? canComputerCrew;
   const [isExtraOpen, setIsExtraOpen] = useState(false);
   const [permissionQuery, setPermissionQuery] = useState('');
   const [editedCrewValues, setCrewValues] = useState<CrewSettingsValues>();
@@ -299,7 +301,7 @@ function CommissionDialogBody({ types, taken, onTypedChange, isPending: isReques
         <p className="-mt-2 text-meta text-muted-foreground">
           {crewRequest === undefined
             ? `Puts ${name === '' ? 'the ship' : name} on your Needs crew list until you crew it by hand. You get its starting prompt next either way.`
-            : crewRequest.offers.length === 0
+            : !canComputerCrew
               ? isCrewRequested ? 'No computer can crew this ship right now. Turn this off to get the starting prompt.' : 'No computer can crew this ship right now. You get the starting prompt next. You can still request a crew.'
               : 'The trierarch plugin picks a trierarch that starts the session and keeps it crewed.'}
         </p>
