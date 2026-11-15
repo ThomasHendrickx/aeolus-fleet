@@ -1,9 +1,12 @@
 'use client';
 
 import type { AppSwitcherModel } from '@aeolus-fleet/common/rules';
+import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
+import { useAppsList } from '../../../lib/app-switcher';
+import { fetchConsoleRead } from '../../../lib/fetch-console-read';
 import { lazyDialog } from '../../../lib/lazy-dialog';
 import { useAccess } from '../../../lib/access';
 import { allowedPaletteItems, paletteItemsOf } from '../services/command-palette';
@@ -20,14 +23,15 @@ interface ConsoleCommandsProps {
   onOpenChange: (isOpen: boolean) => void;
   /** Opens Compose on this page. */
   onCompose: () => void;
-  /** The header's switcher: its other apps join the palette. */
+  /** The header's switcher: the fleet in view, whose other apps' pages and actions join the palette. */
   switcher: AppSwitcherModel | undefined;
 }
 
 /**
  * The CommandPalette on every console page, with the ships that match what
  * is typed (the first 20, read as it is typed), the
- * actions, the pages and the other apps the account may open; Cmd+K
+ * actions, the pages, and the pages and actions of the other apps the
+ * account may open; Cmd+K
  * (Ctrl+K) opens it. A ship opens its page, a
  * page its route, Compose the page's Compose, Commission ship the fleet
  * overview with its CommissionDialog open, and with squadrons on, a squadron
@@ -42,6 +46,15 @@ export function ConsoleCommands({ isOpen, onOpenChange, onCompose, switcher }: C
   const squadrons = useSquadrons();
   const catalogue = useCatalogue();
   const access = useAccess();
+  const fleetId = switcher?.fleet.id;
+  // The other apps' pages and actions, read once a page by the web app's server, only for an account's own sign-in (header-across-apps A2).
+  const hasAppsList = useAppsList() !== undefined;
+  const otherApps = useQuery({
+    queryKey: ['palette-across-apps', fleetId],
+    queryFn: () => (fleetId === undefined ? Promise.resolve([]) : fetchConsoleRead({ read: 'palette-across-apps', input: { fleetId } })),
+    enabled: hasAppsList && fleetId !== undefined,
+    staleTime: Infinity,
+  });
 
   useEffect(() => {
     const openOnShortcut = (event: KeyboardEvent) => {
@@ -68,7 +81,7 @@ export function ConsoleCommands({ isOpen, onOpenChange, onCompose, switcher }: C
       }}
       isLoading={ships === undefined}
       onQueryChange={setQuery}
-      apps={(switcher?.apps ?? []).filter((app) => !app.isCurrent).map(({ label, url }) => ({ label, url }))}
+      otherApps={otherApps.data ?? []}
       items={allowedPaletteItems(
         paletteItemsOf(
           ships ?? [],

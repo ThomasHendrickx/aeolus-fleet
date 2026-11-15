@@ -1,6 +1,7 @@
 import { createIdGenerator } from '@aeolus-fleet/common';
+import type { AppPaletteGroup } from '@aeolus-fleet/common/rules';
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
-import { fn } from 'storybook/test';
+import { expect, fn, screen, waitFor } from 'storybook/test';
 
 import type { PaletteItem } from '../../services/command-palette';
 import { CommandPalette } from './command-palette';
@@ -65,8 +66,47 @@ export const SquadronsOn: Story = {
   },
 };
 
-/** With the other apps the account may open: they join as Apps, and open in place of the console. */
-export const WithApps: Story = { args: { apps: [{ label: 'Gateway', url: '#gateway' }, { label: 'Account', url: '#account' }] } };
+/** The other apps' pages and actions, as the web app's server hands them over (header-across-apps A2, A3, M2). */
+const OTHER_APPS: readonly AppPaletteGroup[] = [
+  {
+    app: 'gateway',
+    label: 'Gateway',
+    entries: [
+      { key: 'gateway:fleet', label: 'Your fleet', keywords: [], icon: 'lock', href: '#gateway-fleet' },
+      { key: 'gateway:mcp-address', label: 'Copy MCP address', keywords: ['mcp'], icon: 'copy', copyText: 'https://gateway.acme.example/mcp' },
+    ],
+  },
+  {
+    app: 'account',
+    label: 'Account',
+    entries: [
+      { key: 'account:home', label: 'Home', keywords: [], icon: 'home', href: '#account' },
+      { key: 'account:rights', label: 'Your rights', keywords: [], icon: 'shield', href: '#account-rights' },
+      { key: 'account:updates', label: 'Email updates', keywords: [], icon: 'mail', href: '#account-updates' },
+    ],
+  },
+];
+
+/** With the other apps the account may open: each under its name after the console's own groups, each row naming the app it opens (M2). */
+export const OtherApps: Story = { args: { otherApps: OTHER_APPS } };
+
+/** Typing "mcp": the gateway's Copy MCP address, which copies (A3). */
+export const OtherAppsMcp: Story = {
+  args: { otherApps: OTHER_APPS, initialQuery: 'mcp' },
+  play: async () => {
+    await waitFor(() => expect(screen.getByText('Copy MCP address')).toBeVisible());
+    await expect(screen.queryByText('Fleet overview')).toBeNull();
+  },
+};
+
+/** Typing "rights": Account's Your rights, found from the console (A2). */
+export const OtherAppsRights: Story = {
+  args: { otherApps: OTHER_APPS, initialQuery: 'rights' },
+  play: async () => {
+    await waitFor(() => expect(screen.getByText('Your rights')).toBeVisible());
+    await expect(screen.getByTestId('command-palette-item-app')).toHaveTextContent('Account');
+  },
+};
 
 /** While the ships load, rows in their shape stand in. */
 export const Loading: Story = { args: { items: [], isLoading: true } };

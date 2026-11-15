@@ -57,7 +57,7 @@ export function TrierarchsContainer() {
   const [typedName, setTypedName] = useState('');
   const isNameTaken = useIsShipNameTaken(isJoining ? typedName : '');
   const newLine = useNewSetupLine();
-  const [lineFor, setLineFor] = useState<Pick<Machine, 'shipId' | 'name'> | undefined>(undefined);
+  const [lineFor, setLineFor] = useState<Pick<Machine, 'shipId' | 'name' | 'status'> | undefined>(undefined);
   useSignInWhenSessionEnds([attention.error, liveFleet.error]);
   const canJoin = access.canManage && connection === 'connected';
   const openJoin = () => {
@@ -140,10 +140,10 @@ export function TrierarchsContainer() {
             }
           }}
           isPending={newLine.isPending}
-          error={newLine.error?.message}
+          error={newLine.error === null ? undefined : { reason: newLine.error.message, outcome: newLine.error.outcome }}
           setupLine={newLine.data?.setupLine}
           onConfirm={() => {
-            newLine.mutate(lineFor.shipId);
+            newLine.mutate(lineFor);
           }}
         />
       )}

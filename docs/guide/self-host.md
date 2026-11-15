@@ -109,7 +109,7 @@ npx aeolus-core migrate
 npx aeolus-core fleet:init --name "my fleet"
 ```
 
-`fleet:init` creates the fleet and its operator ship, [`argo`](words.md#argo), with no email and no password, and asks nothing. It prints a console link that signs you in as argo. The link works once and for 15 minutes. It refuses when the server already holds a fleet: one self-hosted server runs one fleet.
+`fleet:init` creates the fleet and its operator ship, [`argo`](words.md#argo), with no email and no password, and asks nothing. It prints a console link that signs you in as argo. The link works once and for 15 minutes. It refuses when the server already holds a fleet: one self-hosted server runs one fleet. That refusal exits with code 3, any other failure with 1 and wrong usage with 2, so a script can tell "already set up" from an error.
 
 ## 4. Start the server and the console
 
@@ -251,7 +251,7 @@ A [sealed fleet](words.md#sealed-fleet) needs an AWS KMS region on your server (
 | What you see | What to do |
 | --- | --- |
 | The server will not start and names a setting | A required setting is missing or wrong. Set it as step 2 shows. |
-| `fleet:init` refuses | The server already holds a fleet. Run `npx aeolus-core sign-in` for a new link instead. |
+| `fleet:init` refuses, exit code 3 | The server already holds a fleet. Run `npx aeolus-core sign-in` for a new link instead. |
 | The sign-in link does not work | It was used, or its 15 minutes passed. Run `npx aeolus-core sign-in` for a new one. |
 | Sign-in fails, and the page says sign-in needs https | You reach the console over plain http beyond localhost. Put a TLS proxy in front, as step 5 shows. |
 | The console stops at once at startup | `AEOLUS_CONSOLE_URL` is missing or no http(s) address. Set it to the console's own address. |
