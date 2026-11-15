@@ -1,11 +1,13 @@
-import type { FleetId } from '@aeolus-fleet/common';
+import { createIdGenerator, type FleetId } from '@aeolus-fleet/common';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { createPrismaClient } from '../src/adapters/prisma/client.js';
 import { createPrismaBulkUnitOfWork, type PrismaTx } from '../src/adapters/prisma/unit-of-work.js';
 import { createPrismaFleetRepository } from '../src/adapters/prisma/registry.js';
 import { createRemoveDeletedFleets } from '../src/domain/registry/remove-deleted-fleets.js';
 import type { Crew, ShipCaller } from '../src/domain/shared/caller.js';
 import type { UnitOfWork } from '../src/domain/shared/unit-of-work.js';
+import { createUseCases } from '../src/wiring.js';
 import { newKey } from '../src/testing/keys.js';
 import { unwrap } from '../src/testing/result.js';
 import { operatorCaller, secretOf } from './support/core-fixtures.js';
@@ -15,9 +17,11 @@ import { createPostgresCore, type PostgresCore } from './support/postgres-core.j
 // A deleted fleet's removal on a real Postgres (decision 0020): the delete marks
 // the fleet and it reads as gone at once; the removal pass takes its history
 // away in batches, and a pass that failed at its first batch, part way or just
-// before its last step is taken up again until the fleet is gone.
+// before its last step is taken up again, by a restarted core too, until the
+// fleet is gone.
 
 const MODEL = 'claude-opus-5-5';
+const newId = createIdGenerator();
 
 let core: PostgresCore;
 let argo: ShipCaller;
@@ -50,6 +54,10 @@ beforeEach(async () => {
       inReplyTo: previous,
     }),
   );
+  // A crew request a trierarch gave back goes with the mark; a data key is shredded by it.
+  await core.prisma.crewRequest.create({ data: { fleetId, shipId: scout.shipId, settings: {}, settingsVersion: 1, requestedAt: core.clock.now() } });
+  await core.prisma.crewRequestGiveBack.create({ data: { fleetId, shipId: scout.shipId, trierarchShipId: lookout.shipId, settingsVersion: 1, reason: 'no room', givenBackAt: core.clock.now() } });
+  await core.prisma.dataKey.create({ data: { id: newId('dataKey'), fleetId, wrappedByCompanyKey: new Uint8Array(32).fill(7), wrappedByRecoveryKey: new Uint8Array(32).fill(9), checkValue: new Uint8Array(8).fill(3), createdAt: core.clock.now(), isCurrent: true } });
   unwrap(await core.useCases.deleteFleet({ requestId: 'delete-home-fleet', fleetId }));
 });
 
@@ -102,6 +110,10 @@ describe('a deleted fleet', () => {
     expect(await createPrismaFleetRepository(core.prisma).count()).toBe(0);
     expect(await core.prisma.operator.count({ where: { fleetId } })).toBe(0);
     expect(await core.prisma.credential.count({ where: { fleetId } })).toBe(0);
+    expect(await core.prisma.crewRequest.count({ where: { fleetId } })).toBe(0);
+    expect(await core.prisma.crewRequestGiveBack.count({ where: { fleetId } })).toBe(0);
+    // Its data keys are shredded at once: no wrap of the key and no check value, so no sealed payload opens.
+    expect((await core.prisma.dataKey.findMany({ where: { fleetId } })).map(({ wrappedByCompanyKey, wrappedByRecoveryKey, checkValue }) => [wrappedByCompanyKey.length, wrappedByRecoveryKey, checkValue.length])).toEqual([[0, null, 0]]);
     expect(await rowsOfFleet()).toBeGreaterThan(0);
   });
 
@@ -111,9 +123,36 @@ describe('a deleted fleet', () => {
     expect(await rowsOfFleet()).toBe(0);
     expect(await core.prisma.installationRequest.count({ where: { fleetId } })).toBe(0);
   });
+
+  it('has its schedules, leases and ships batched away too: the last step finds none of them', async () => {
+    const bulk = createPrismaBulkUnitOfWork(core.prisma);
+    const atLastStep: number[] = [];
+    const watching: UnitOfWork<PrismaTx> = {
+      run: (work) =>
+        bulk.run((tx) =>
+          work({
+            ...tx,
+            fleetRemoval: {
+              ...tx.fleetRemoval,
+              removeRest: async (...args) => {
+                atLastStep.push(
+                  (await core.prisma.schedule.count({ where: { fleetId } })) + (await core.prisma.lease.count({ where: { fleetId } })) + (await core.prisma.ship.count({ where: { fleetId } })),
+                );
+                return tx.fleetRemoval.removeRest(...args);
+              },
+            },
+          }),
+        ),
+    };
+
+    await createRemoveDeletedFleets({ fleets: createPrismaFleetRepository(core.prisma), uow: watching, clock: core.clock, batch: 1 })();
+
+    expect(atLastStep).toEqual([0]);
+    expect(await rowsOfFleet()).toBe(0);
+  });
 });
 
-describe('a removal that fails, then is taken up again', () => {
+describe('a removal that fails, then is taken up again by a restarted core', () => {
   it.each([
     { when: 'at its first batch', step: 'removeHistoryBatch', at: 1 },
     { when: 'part way', step: 'removeHistoryBatch', at: 4 },
@@ -128,9 +167,13 @@ describe('a removal that fails, then is taken up again', () => {
     expect(await rowsOfFleet()).toBeGreaterThan(0);
     expect(await core.prisma.fleet.count({ where: { id: fleetId, deletedAt: { not: null } } })).toBe(1);
 
-    // The next pass, or a restarted server's: it starts from what is left.
+    // The server goes down; a new core on the surviving database starts from what is left.
+    await core.close();
+    const restarted = createPrismaClient(core.databaseUrl);
+    core = { ...core, prisma: restarted, useCases: createUseCases({ prisma: restarted, clock: core.clock }), close: () => restarted.$disconnect() };
     await core.useCases.removeDeletedFleets();
 
     expect(await rowsOfFleet()).toBe(0);
+    expect(await core.prisma.fleet.count({ where: { id: fleetId } })).toBe(0);
   });
 });
