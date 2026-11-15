@@ -38,7 +38,8 @@ function padded(prefix: string, i: number): string {
  * ship i + 7 with one delivery, received a minute after its send and dismissed
  * (one in 1,000 undeliverable) a minute later, but the newest 5,000, sent in
  * the last half hour and still pending (one in 5 received under the lease);
- * each step with its event as core writes it.
+ * each step with its event as core writes it, and its stuck snapshot closed
+ * up to the last of them.
  * Analysed, so its plans are those the fleet would use at the target.
  */
 export async function seedScaleHistory(core: PostgresCore): Promise<ScaleHistory> {
@@ -93,8 +94,11 @@ export async function seedScaleHistory(core: PostgresCore): Promise<ScaleHistory
       'msg_' || lpad(i::text, 26, '0'), 'dlv_' || lpad(i::text, 26, '0'), ${FIRST_SEQ}::bigint + 3 * i + step
     FROM scale_seed, generate_series(0, 2) step
     WHERE step = 0 OR NOT open OR (step = 1 AND i % ${RECEIVED_EVERY}::int = 0)`;
-  const lastSeq = BigInt(FIRST_SEQ + 3 * SCALE_MESSAGES);
+  const [last] = await core.prisma.$queryRaw<{ seq: bigint }[]>`SELECT max(seq) AS seq FROM events WHERE fleet_id = ${fleetId}`;
+  const lastSeq = last?.seq ?? 0n;
   await core.prisma.$executeRaw`UPDATE fleets SET last_event_seq = ${lastSeq} WHERE id = ${fleetId}`;
+  // The stuck snapshot the fleet was founded with, closed up to the last event, as the hourly close keeps it.
+  await core.prisma.$executeRaw`UPDATE health_snapshots SET seq = ${lastSeq} WHERE fleet_id = ${fleetId}`;
   await core.prisma.$executeRaw`DROP TABLE scale_seed`;
   await core.prisma.$executeRaw`ANALYZE`;
   return {
