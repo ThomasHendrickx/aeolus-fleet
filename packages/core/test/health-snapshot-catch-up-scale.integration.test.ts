@@ -1,7 +1,9 @@
 /** The snapshot close catches up a stale checkpoint on a fleet at staging's scale, looking up only the sent deliveries by key (#1301). */
 import { STUCK_TREND_HOURS, type FleetId } from '@aeolus-fleet/common';
+import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
+import { createApp } from '../src/app.js';
 import { Prisma } from '../src/adapters/prisma/generated/client.js';
 import { createPrismaClientTellingStatements } from '../src/adapters/prisma/client.js';
 import { createPrismaHealthSnapshots } from '../src/adapters/prisma/health-snapshots.js';
@@ -63,6 +65,36 @@ describe('the snapshot close on a fleet at staging scale', () => {
     // Then every history read uses an index, including events nested beneath the candidate aggregate.
     await assertIndexedPlan(core.prisma, statement);
   });
+
+  it('serves and bootstraps while its covering index waits, then finishes the index after start', async () => {
+    // Given a table lock that makes a concurrent index build wait, but permits reads and writes.
+    const blocker = new pg.Client({ connectionString: core.databaseUrl });
+    const server = createApp({ databaseUrl: core.databaseUrl, publicUrl: 'http://localhost', clock: core.clock, logger: false, overduePassMs: 600_000 });
+    await blocker.connect();
+    try {
+      await blocker.query('BEGIN');
+      await blocker.query('LOCK TABLE events IN SHARE UPDATE EXCLUSIVE MODE');
+
+      // When core starts listening before its index is ready.
+      await server.listen({ host: '127.0.0.1', port: 0 });
+
+      // Then it serves and reconstructs the empty oldest hour correctly while the build waits.
+      expect((await server.inject({ method: 'GET', url: '/health' })).statusCode).toBe(200);
+      const firstHour = new Date(core.clock.now().getTime() - CATCH_UP_HOURS * HOUR_MS);
+      expect((await createPrismaHealthSnapshots(core.prisma).baseAt(fleetId, firstHour)).deliveries).toEqual([]);
+      await blocker.query('COMMIT');
+      await expect.poll(async () => {
+        const [row] = await core.prisma.$queryRaw<{ ready: boolean }[]>`
+          SELECT EXISTS (SELECT 1 FROM pg_index WHERE indexrelid = to_regclass('events_delivery_bootstrap_idx') AND indisvalid) AS ready`;
+        return row?.ready;
+      }, { timeout: 30_000 }).toBe(true);
+      await assertIndexedPlan(core.prisma, baseDeliveriesStatement(fleetId, firstHour));
+    } finally {
+      await blocker.query('ROLLBACK');
+      await blocker.end();
+      await server.close();
+    }
+  }, 60_000);
 
   it('catches up a stale checkpoint hour by hour, each hour looking up its sends by key', async () => {
     // Given 3,000 ships, 150,000 finished messages and a checkpoint 168 hours old, with 1,000 sends in each hour since.
