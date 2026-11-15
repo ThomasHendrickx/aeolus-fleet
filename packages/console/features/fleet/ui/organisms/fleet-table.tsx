@@ -193,11 +193,11 @@ function ShipMetadata({ ship, squadron, labels }: { ship: ListedShip; squadron: 
 /**
  * The Report cell: the row's one next step, when it has one (a starting
  * prompt for a ship awaiting crew, a new crew line for a silent member), and
- * a crewed ship's report with its time in the title. Only an agent or plugin
+ * a crewed ship's report with its time in the title. An agent, plugin or trierarch
  * ship reports: argo and the viewer ship never do.
  */
 function ReportCell({ ship, now, viewerFleetId, next }: { ship: ListedShip; now: Date; viewerFleetId: FleetId | undefined; next: ReactNode }) {
-  const isReporting = (ship.kind === 'agent' || ship.kind === 'plugin') && ship.status === 'crewed';
+  const isReporting = (ship.kind === 'agent' || ship.kind === 'plugin' || ship.kind === 'trierarch') && ship.status === 'crewed';
   return (
     <span className="flex min-w-0 items-center gap-2 max-sm:flex-col max-sm:items-stretch [&:has(button)>[data-testid=fleet-report]]:hidden">
       {isReporting ? <ReportLine report={ship.report} now={now} variant="row" viewerFleetId={viewerFleetId} isTimeInTitle testId="fleet-report" /> : null}

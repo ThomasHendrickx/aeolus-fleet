@@ -259,7 +259,7 @@ export const fleetRouter = router({
         'valueIds gives it label values from the start, each a value of a label you defined or a value you carry yourself (decision 0053).',
         "ownerOf, which needs fleet:on-behalf, names the ship that asked it for this one: the new ship gets that ship's owner instead of yours.",
         'approval names a kept approvalId and matching subjectDigest. Only its permitted commissioner may use it, for a subset of its scopes, with ownerOf still naming requester ownership. Withdrawal stops new commissions and leaves completed retries unchanged.',
-        'kind is agent unless you state person, app or plugin: a person ship needs fleet:person instead and owns itself, an app ship needs fleet:on-behalf as well, and a plugin ship needs fleet:connect instead, which connects it (decision 0050).',
+        'kind is agent unless you state person, app, plugin or trierarch: a person ship needs fleet:person instead and owns itself, an app ship needs fleet:on-behalf as well, and a plugin ship needs fleet:connect instead, which connects it (decision 0050). A trierarch ship needs fleet:commission and crews its computer’s assigned ships.',
         "owner, which needs fleet:on-behalf and only for an app ship, names the owner argo picked for it: a person's ship or argo, never beside ownerOf.",
         'Answers its shipId, its first starting prompt, one crew line per harness (claude-code, codex, copilot) and its secret, shown only this once.',
         'idempotencyKey is a new unique string for every commission. Reuse one only to retry the same commission after an error or a lost answer:',

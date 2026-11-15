@@ -10,6 +10,17 @@ function aShip(ship: Partial<FilteredShip>): FilteredShip {
 }
 
 describe('matchesShipFilter', () => {
+  it('finds a kind-trierarch ship of another type, but not an agent of type trierarch', () => {
+    // Given a computer with a free type and an agent using the trierarch type.
+    const ships = [aShip({ kind: 'trierarch', type: 'computer' }), aShip({ kind: 'agent', type: 'trierarch' })];
+
+    // When the existing kind filter selects trierarchs for a live row.
+    const selected = ships.map((ship) => matchesShipFilter(ship, { filter: { kind: ['trierarch'] }, isInReach: true }));
+
+    // Then kind is proof and type alone is not.
+    expect(selected).toEqual([true, false]);
+  });
+
   it('selects a ship whose name or type holds the search, in any case', () => {
     expect([aShip({ name: 'Scout-1' }), aShip({ type: 'SCOUT' }), aShip({})].map((ship) => matchesShipFilter(ship, { filter: { query: ' scout ' }, isInReach: true }))).toEqual([true, true, false]);
   });

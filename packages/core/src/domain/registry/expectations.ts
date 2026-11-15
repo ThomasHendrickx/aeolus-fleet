@@ -65,6 +65,7 @@ export function setterOf(caller: Caller): ExpectationSetter {
     case 'person':
     case 'app':
     case 'plugin':
+    case 'trierarch':
       return { kind: 'ship', shipId: caller.shipId };
   }
 }

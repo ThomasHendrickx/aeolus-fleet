@@ -1,5 +1,5 @@
 import type { AlertOutput, FleetId, ShipDetail, ShipId } from '@aeolus-fleet/common';
-import { Archive, CircleAlert, Eye, Info, KeyRound, Plug, UserRound } from 'lucide-react';
+import { Archive, CircleAlert, Eye, Info, KeyRound, Monitor, Plug, UserRound } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
@@ -107,7 +107,7 @@ function MetaStrip({
             </time>
           )}
           <PingStatus ping={ship.ping} now={now} testId="ship-ping-status" />
-          {ship.kind !== 'agent' && ship.kind !== 'plugin' ? null : <ReportLine report={ship.report} now={now} variant="full" viewerFleetId={viewerFleetId} testId="ship-report" />}
+          {ship.kind !== 'agent' && ship.kind !== 'plugin' && ship.kind !== 'trierarch' ? null : <ReportLine report={ship.report} now={now} variant="full" viewerFleetId={viewerFleetId} testId="ship-report" />}
           <ActivityLine activity={ship.activity} now={now} variant="full" testId="ship-activity" />
         </span>
       </MetaCell>
@@ -293,7 +293,12 @@ export function ShipHeader({ ship, shipId, state, actions, permissions, crewRequ
                   </Badge>
                 ) : null}
                 <Badge variant="type">{ship.type}</Badge>
-
+                {ship.kind === 'trierarch' ? (
+                  <Badge variant="kind" data-testid="ship-kind">
+                    <Monitor aria-hidden />
+                    Kind: Trierarch
+                  </Badge>
+                ) : null}
               </>
             )}
             {ship.status === 'awaitingCrew' && ship.startingPrompt === null ? (
@@ -339,7 +344,7 @@ export function ShipHeader({ ship, shipId, state, actions, permissions, crewRequ
       ))}
       <MetaStrip ship={ship} now={now} viewerFleetId={viewerFleetId} labels={labels} owner={owner} way={way} />
       {permissions ?? (ship.kind === 'operator' || ship.kind === 'viewer' ? null : <div className="flex flex-col gap-3"><h2 className="text-section font-semibold">Permissions</h2><div className="flex flex-wrap gap-1.5">{ship.scopes.map((scope) => <Badge key={scope} variant="type" data-testid="ship-fleet-scope">{scope}</Badge>)}</div></div>)}
-      {(ship.kind === 'agent' || ship.kind === 'plugin') && ship.report?.details && ship.report.detailsBytes !== null ? (
+      {(ship.kind === 'agent' || ship.kind === 'plugin' || ship.kind === 'trierarch') && ship.report?.details && ship.report.detailsBytes !== null ? (
         <ReportDetails details={ship.report.details} bytes={ship.report.detailsBytes} version={ship.report.detailsVersion} testId="ship-report-details" />
       ) : null}
     </div>

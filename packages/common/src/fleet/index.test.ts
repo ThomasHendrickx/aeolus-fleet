@@ -119,8 +119,8 @@ describe('scopeSchema', () => {
 });
 
 describe('shipKindSchema', () => {
-  it('knows operator, agent, viewer, person, app and plugin, nothing else (decision 0050)', () => {
-    expect(shipKindSchema.options).toEqual(['operator', 'agent', 'viewer', 'person', 'app', 'plugin']);
+  it('knows operator, agent, viewer, person, app, plugin and trierarch, nothing else (decision 0050)', () => {
+    expect(shipKindSchema.options).toEqual(['operator', 'agent', 'viewer', 'person', 'app', 'plugin', 'trierarch']);
   });
 });
 

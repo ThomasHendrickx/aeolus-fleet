@@ -80,7 +80,7 @@ function HarbourError({ detail, onRetry }: { detail: string | undefined; onRetry
  * Harbour (docs/design/fleet-overview), the fleet overview the console and
  * Bridge share: the numbers on top, then what the app puts between (the
  * console's filter bar), then one tile per ship grouped People, Agents,
- * Plugins and Through the gateway. Props only: each app reads the fleet its
+ * Trierarchs, Plugins and Through the gateway. Props only: each app reads the fleet its
  * own way. It lays itself out by its own width, not the window's (a
  * container query), so the same part fits the console's page and Bridge's
  * column. While the fleet is read, the shape that is coming; when the read

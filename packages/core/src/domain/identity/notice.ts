@@ -36,6 +36,7 @@ export function consoleSignInOf(caller: Caller): ConsoleSignIn | undefined {
     case 'person':
     case 'app':
     case 'plugin':
+    case 'trierarch':
       return caller.consoleSessionId === undefined ? undefined : { kind: caller.kind, consoleSessionId: caller.consoleSessionId };
   }
 }

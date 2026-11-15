@@ -1,6 +1,6 @@
 # A trierarch ship's kind
 
-Purpose and decisions approved for [#1607](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1607). Screen mockups await Thomas's approval in [PR #1889](https://github.com/ThomasHendrickx/aeolus-fleet/pull/1889).
+Purpose and decisions approved for [#1607](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1607). Screen mockups approved by Thomas in [PR #1889](https://github.com/ThomasHendrickx/aeolus-fleet/pull/1889).
 
 ## Purpose
 

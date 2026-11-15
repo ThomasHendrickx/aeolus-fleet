@@ -177,7 +177,7 @@ export type AcceptRefusal = DomainError<'IN_REPLY_TO_NOT_FOUND' | 'MODEL_REQUIRE
  * its selector resolved to, and MessageAccepted, caused by the sender. A reply
  * names a message of the same fleet: `repliedTo` is that message as the fleet
  * holds it, if it does. Only an agent ship states the model its session
- * runs (decisions 0018 and 0044); argo, a person, an app and a plugin state none (decision 0050). A resend carries the
+ * runs (decisions 0018 and 0044); argo, a person, an app, a plugin and a trierarch state none (decision 0050). A resend carries the
  * original message's model as it was, so it is not asked again; a ping is the
  * fleet's question, not a session's message, so it carries none. A type
  * delivery the network rules limit to some ships of the type keeps them. A
@@ -269,7 +269,7 @@ export function checkModel(send: Pick<MessageToAccept, 'resendOf' | 'contentType
   if (isStated && send.senderKind === 'operator' && send.model !== undefined) {
     return refuse('MODEL_FROM_ARGO', 'argo states no model: send without one');
   }
-  if (isStated && (send.senderKind === 'person' || send.senderKind === 'app' || send.senderKind === 'plugin') && send.model !== undefined) {
+  if (isStated && (send.senderKind === 'person' || send.senderKind === 'app' || send.senderKind === 'plugin' || send.senderKind === 'trierarch') && send.model !== undefined) {
     return refuse('MODEL_FROM_PERSON_APP_OR_PLUGIN', `A ${send.senderKind} ship states no model: send without one`);
   }
   if (isStated && send.senderKind === 'agent' && send.model === undefined) {

@@ -24,6 +24,23 @@ describe("harbourGroupsOf: Harbour's groups from the tiles fleet.harbour answers
     ]);
   });
 
+  it('places computer trierarchs between agents and plugins, keeping the trierarch plugin in Plugins', () => {
+    // Given one ship of each kind, including the plugin and its computer.
+    const tiles = [aTile('trierarch-plugin', { kind: 'plugin' }), aTile('mac-studio', { kind: 'trierarch' }), aTile('builder'), aTile('argo', { kind: 'operator' }), aTile('sentry', { kind: 'app' })];
+
+    // When Harbour groups the server's tiles.
+    const groups = harbourGroupsOf(tiles).map(({ kind, tiles }) => ({ kind, names: tiles.map((tile) => tile.name) }));
+
+    // Then computers have their own group in the approved order.
+    expect(groups).toEqual([
+      { kind: 'people', names: ['argo'] },
+      { kind: 'agents', names: ['builder'] },
+      { kind: 'trierarchs', names: ['mac-studio'] },
+      { kind: 'plugins', names: ['trierarch-plugin'] },
+      { kind: 'gateway', names: ['sentry'] },
+    ]);
+  });
+
   // Thomas, #1605: state, then last activity newest first, then name; a ship that never did anything last in its state.
   it('orders a state by last activity, newest first, then by name, a ship that never did anything last', () => {
     const tiles = [

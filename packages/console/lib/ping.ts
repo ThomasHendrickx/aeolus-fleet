@@ -5,12 +5,12 @@ const MINUTE_MS = 60_000;
 const SECOND_MS = 1_000;
 
 /**
- * Whether the console offers Ping on the ship: a crewed agent or plugin ship,
+ * Whether the console offers Ping on the ship: a crewed agent, plugin or trierarch ship,
  * which answers with pong. Never argo, a ship awaiting crew or a retired one:
  * no session would answer.
  */
 export function canPing(ship: Pick<ListedShip, 'kind' | 'status'>): boolean {
-  return (ship.kind === 'agent' || ship.kind === 'plugin') && ship.status === 'crewed';
+  return (ship.kind === 'agent' || ship.kind === 'plugin' || ship.kind === 'trierarch') && ship.status === 'crewed';
 }
 
 /** How long the session took to answer: seconds under a minute ("4 s"), then as other durations. */

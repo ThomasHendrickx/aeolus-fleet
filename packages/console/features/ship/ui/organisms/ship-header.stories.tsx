@@ -395,3 +395,20 @@ export const ArgoHasNoOwnerRow: Story = {
     await expect(within(canvasElement).queryByTestId('ship-owner')).toBeNull();
   },
 };
+
+/** The approved detail mockup keeps the free type and adds the computer's kind. */
+export const Trierarch: Story = {
+  args: { ship: { ...CREWED_SHIP, name: 'mac-studio', type: 'trierarch', kind: 'trierarch', model: null, harness: null } },
+  play: async ({ canvasElement }) => {
+    // Given a computer's trierarch ship, with its existing addressing type.
+    const header = within(within(canvasElement).getByTestId('ship-header'));
+
+    // When its details render.
+    const kind = header.getByTestId('ship-kind');
+
+    // Then kind and type remain separately visible.
+    await expect(kind).toHaveTextContent('Kind: Trierarch');
+    await expect(header.getByTestId('ship-report')).toBeVisible();
+    await expect(header.getByText('trierarch', { exact: true })).toBeVisible();
+  },
+};
