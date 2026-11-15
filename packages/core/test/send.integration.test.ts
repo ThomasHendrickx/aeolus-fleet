@@ -132,6 +132,8 @@ describe('sending a message on Postgres', () => {
         sealedCiphertext: null,
         sealedPayloadBytes: null,
         questionId: null,
+        askedQuestionId: null,
+        answeredQuestionId: null,
         contentType: 'application/json',
         model: null,
         idempotencyKey: input.idempotencyKey,

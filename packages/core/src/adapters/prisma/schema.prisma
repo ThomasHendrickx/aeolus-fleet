@@ -794,6 +794,9 @@ model Message {
   sealedPayloadBytes Int?         @map("sealed_payload_bytes")
   /// The question uuid a withdrawal or a replacement names, read at send (decision 0068, B18).
   questionId         String?      @map("question_id")
+  /// The question uuid a question or a replacement asks, and the one an answer names, read at send (#1632).
+  askedQuestionId    String?      @map("asked_question_id")
+  answeredQuestionId String?      @map("answered_question_id")
   contentType        String       @map("content_type")
   /// The model the sender's session stated; none from argo and on messages from before models were stated.
   model              String?
@@ -834,6 +837,8 @@ model Message {
   @@index([fleetId, createdAt])
   /// A question's withdrawals and replacements, found by the question uuid they name (decisions 0038, 0068).
   @@index([fleetId, questionId], map: "messages_fleet_id_question_id_idx", where: { questionId: { not: null } })
+  /// The questions a ship asked, by message id: its open ones are selected along it when it retires (#1632).
+  @@index([fleetId, senderShipId, id], map: "messages_fleet_id_sender_ship_id_id_asked_idx", where: { askedQuestionId: { not: null } })
   /// A data key's sealed messages, for its foreign key.
   @@index([fleetId, sealedDataKeyId])
   /// Every foreign key has an index leading with its columns, so deleting a

@@ -2,6 +2,7 @@
 // part of it; adapters import them from their own modules.
 export { hasClockRunOut, NOT_CONFIRMED_MINUTES, type ClockedCrew, type OverdueClock, type WaitingState } from './overdue.js';
 export { leaveMeetingsOnRetire, lockMeetingsOf, type RetiredParticipantTx } from './retired-participant.js';
+export { withdrawQuestionsOnRetire, type RetiredAskerTx } from './retired-asker.js';
 export { cancelSchedulesOnRetire, lockSchedulesOf, type RetiredSchedulerTx } from './retired-scheduler.js';
 export type { FleetSealingRepository, RequestHasher } from './ports.js';
 export type { CompanyKeyUnavailableReason } from './fleet-sealing.js';

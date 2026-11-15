@@ -1,4 +1,4 @@
-import { isPingContentType, withdrawalOf, type AccountId, type DeliveryId, type DeliveryState, type FleetId, type LabelValueId, type LeaseId, type MeetingId, type MessageId, type ScheduleId, type ShipId, type ShipKind } from '@aeolus-fleet/common';
+import { answeredQuestionIdOf, askedQuestionIdOf, isPingContentType, withdrawalOf, type AccountId, type DeliveryId, type DeliveryState, type FleetId, type LabelValueId, type LeaseId, type MeetingId, type MessageId, type ScheduleId, type ShipId, type ShipKind } from '@aeolus-fleet/common';
 
 import { refuse, type DomainError } from '../shared/errors.js';
 import { shipActor, type Actor, type NewEvent } from '../shared/events.js';
@@ -30,6 +30,10 @@ export interface Message {
   requestHash: string;
   /** The uuid of the question a withdrawal or a replacement names, read at send (decision 0068, B18): metadata, so it is found in a sealed fleet too. */
   questionId: string | null;
+  /** The uuid of the question a question or a replacement asks, read at send as {@link questionId} is: so its open questions are found in a sealed fleet too (#1632). */
+  askedQuestionId: string | null;
+  /** The uuid of the question an answer names, read at send as {@link questionId} is. */
+  answeredQuestionId: string | null;
   /** The message of the same fleet this one replies to. */
   inReplyToMessageId: MessageId | null;
   /** The message this one resends: an undeliverable one the operator sent again. */
@@ -201,6 +205,8 @@ export function acceptMessage(
     selector: recipient,
     payload: send.payload,
     questionId: questionIdOf(send),
+    askedQuestionId: askedQuestionIdOf(send),
+    answeredQuestionId: answeredQuestionIdOf(send),
     contentType: send.contentType,
     model: send.model ?? null,
     idempotencyKey: send.idempotencyKey,
@@ -297,6 +303,8 @@ export function acceptContribution(send: ContributionToAccept): Result<{ message
     selector: { kind: 'meeting', meetingId },
     payload: send.payload,
     questionId: questionIdOf(send),
+    askedQuestionId: askedQuestionIdOf(send),
+    answeredQuestionId: answeredQuestionIdOf(send),
     contentType: send.contentType,
     model: send.model ?? null,
     idempotencyKey: send.idempotencyKey,
@@ -373,6 +381,8 @@ export function acceptLabelMessage(
     selector,
     payload: send.payload,
     questionId: questionIdOf(send),
+    askedQuestionId: askedQuestionIdOf(send),
+    answeredQuestionId: answeredQuestionIdOf(send),
     contentType: send.contentType,
     model: send.model ?? null,
     idempotencyKey: send.idempotencyKey,

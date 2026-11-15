@@ -7,10 +7,12 @@ import {
   lockMeetingsOf,
   lockSchedulesOf,
   withDataKeys,
+  withdrawQuestionsOnRetire,
   type AcceptRefusal,
   type DataKeysNeeded,
   type PayloadSealing,
   type RequestHasher,
+  type RetiredAskerTx,
   type RetiredParticipantTx,
   type RetiredSchedulerTx,
 } from '../messaging/public.js';
@@ -32,7 +34,7 @@ import { changeOwner, checkCanRetire, type RetireRefusal } from './ship.js';
 import { releaseWithDeclarer } from './scope-namespace.js';
 import { removeWithRetiredShip } from './verified-facts.js';
 
-export interface RetireShipTx extends LeaseTx, CredentialTx, RetiredParticipantTx, RetiredSchedulerTx, Omit<CheckManageTx, 'ships' | 'labels' | 'networkSettings' | 'declaredNetworkRules' | 'events'> {
+export interface RetireShipTx extends LeaseTx, CredentialTx, Omit<RetiredParticipantTx, 'messages'>, RetiredAskerTx, RetiredSchedulerTx, Omit<CheckManageTx, 'ships' | 'labels' | 'networkSettings' | 'declaredNetworkRules' | 'events'> {
   ships: ShipRepository;
   crewRequests: CrewRequestRepository;
   clearRequests: ClearRequestRepository;
@@ -78,6 +80,10 @@ export type RetireShip = (
  * mic, its moderatorship going to the owner, and a meeting it owns ends, the
  * others told (decision 0061, M15, M17): those meetings it locks before the
  * ship, as a contribution locks its meeting before its recipients.
+ * Every question it asked that is still open is withdrawn from the ship it
+ * asked, as its own withdraw would, so no answer is written to a ship never
+ * addressed again (decision 0038, #1632): an answer that holds the ship
+ * first lands and its question stays answered; one after is refused.
  * Its active and paused schedules are cancelled, one ScheduleCancelled each
  * (decision 0062, S11), locked before the ship too, as a send time locks its
  * schedule before the ship it sends to. Its open alerts clear, one
@@ -227,6 +233,10 @@ export function createRetireShip(deps: {
       const left = await leaveMeetingsOnRetire({ tx, ids: deps.ids, hasher: deps.hasher, held }, { meetings, shipId, actor, at });
       if (!left.isOk) {
         return left;
+      }
+      const questions = await withdrawQuestionsOnRetire({ tx, ids: deps.ids, hasher: deps.hasher, held }, { fleetId, shipId, actor, at });
+      if (!questions.isOk) {
+        return questions;
       }
       await cancelSchedulesOnRetire({ tx, ids: deps.ids }, { schedules, actor, at });
       for (const alert of await tx.alerts.listOpenOnShipForUpdate(fleetId, shipId)) {

@@ -729,6 +729,7 @@ The operator restarting a session is not a recovery step for messages: nothing w
 5. The labels it defined retire with it: every assignment of each goes (`LabelUnassigned`), then the label (`LabelRetired`), and its key is free. The label values it carries go too (`LabelUnassigned`). Releasing a ship keeps its labels (decision 0031).
 6. The ships it owns fall to argo (`OwnerChanged`). The network rules it declared are withdrawn (`NetworkRulesDeclared`), and the scope namespace it declared is released, its scopes taken from their holders (`ScopesChanged`). A plugin ship's read ends (`PluginDisconnected`).
 7. It leaves its meetings, and a meeting it owns ends (0061); its schedules are cancelled (`ScheduleCancelled`, 0062); the verified facts about it and by it go (`VerifiedFactsRemoved`).
+8. Every question it asked that is still open, not answered by the ship it asked nor withdrawn or replaced by itself, is withdrawn from that ship as its own `withdraw` would (`MessageAccepted`): the asked ship shows it as a withdrawn question (decision 0038). An answer that reached the fleet first stays the question's answer; one after is refused.
 
 All of it is one transaction with the retire.
 

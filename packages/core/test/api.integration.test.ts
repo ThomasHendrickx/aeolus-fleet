@@ -308,6 +308,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_crew_request_repositories$/),
       expect.stringMatching(/^\d{14}_shared_operator_email$/),
       expect.stringMatching(/^\d{14}_events_owner_set_index$/),
+      expect.stringMatching(/^\d{14}_messages_asked_answered_question_id$/),
     ]);
   });
 });
