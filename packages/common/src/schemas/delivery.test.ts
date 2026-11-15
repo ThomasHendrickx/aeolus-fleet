@@ -10,7 +10,6 @@ import {
   handedOutputSchema,
   handledInputSchema,
   handledOutputSchema,
-  INBOX_WAIT_MAX_SECONDS,
   inboxInputSchema,
   inboxOutputSchema,
   NOT_HANDLED_REASON_MAX_LENGTH,
@@ -294,19 +293,12 @@ describe('ackOutputSchema', () => {
 });
 
 describe('inboxInputSchema', () => {
-  it.each([undefined, {}, { waitSeconds: 0 }, { waitSeconds: INBOX_WAIT_MAX_SECONDS }])(
-    'accepts %j: no wait, or up to 25 seconds while the inbox is empty',
-    (input) => {
-      expect(inboxInputSchema.parse(input)).toEqual(input);
-    },
-  );
-
-  it.each([{ knownWaiting: 0 }, { waitSeconds: 25, knownWaiting: 3 }])('accepts %j: the count the crew knows, waiting while it is still that', (input) => {
+  it.each([undefined, {}])('accepts %j: an inbox check takes nothing', (input) => {
     expect(inboxInputSchema.parse(input)).toEqual(input);
   });
 
-  it.each([{ waitSeconds: -1 }, { waitSeconds: INBOX_WAIT_MAX_SECONDS + 1 }, { waitSeconds: 2.5 }, { knownWaiting: -1 }, { knownWaiting: 1.5 }])(
-    'rejects %j',
+  it.each([{ waitSeconds: 0 }, { waitSeconds: 25 }, { knownWaiting: 0 }, { waitSeconds: 25, knownWaiting: 3 }])(
+    'refuses %j as unknown input: no call waits (decision 0072)',
     (input) => {
       expect(inboxInputSchema.safeParse(input).success).toBe(false);
     },

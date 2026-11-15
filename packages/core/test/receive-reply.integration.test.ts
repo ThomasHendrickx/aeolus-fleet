@@ -20,16 +20,14 @@ import { unsealedFleetsOnly } from './support/sealing.js';
 
 // Receiving the reply to one message on a real Postgres, with the listener and
 // the wake-ups the server runs: the claim's filter in SQL, a reply in flight
-// handed again, concurrent receivers that never share a reply, and a waiting
-// receiveReply that wakes when the reply commits.
+// handed again, concurrent receivers that never share a reply, and a
+// receiveReply that answers at once when no reply is there.
 
 const newId = createIdGenerator();
 /** How long a receive waits on an empty inbox in these tests: short, so an empty receive costs little. */
 const WAIT_MS = 2_000;
-/** The wait of a receive that must end early: it proves a wake-up, not a timeout. */
-const LONG_WAIT_MS = 15_000;
-/** Time for a receive to start waiting before the test sends. */
-const SETTLE_MS = 300;
+/** Well under any wait a call once had: an answer this soon did not wait. */
+const AT_ONCE_MS = 1_000;
 
 let prisma: PrismaClient;
 let wakeups: ReceiverWakeupHub;
@@ -173,19 +171,15 @@ describe('concurrent receivers of replies to one message', () => {
   });
 });
 
-describe('a receiveReply waiting for its reply', () => {
-  it('returns as soon as the reply commits, and not for a delivery that is no reply to that message', async () => {
+describe('a receiveReply with no reply there yet (decision 0072)', () => {
+  it('answers at once with nothing, and hands the reply that commits later to the next look', async () => {
     const request = await ask();
     const startedAt = performance.now();
-    const receiving = receiveReplyWith(createPrismaUnitOfWork(prisma), LONG_WAIT_MS)(scout, { messageId: request });
-    await pause(SETTLE_MS);
 
-    const plain = await sendFromArgo(toScout());
-    await pause(SETTLE_MS);
+    await expect(useCases.receiveReply(scout, { messageId: request })).resolves.toEqual({ isOk: true, value: { deliveries: [] } });
+    expect(performance.now() - startedAt).toBeLessThan(AT_ONCE_MS);
     const reply = await sendFromArgo(toScout(), request);
 
-    expect(unwrap(await receiving).deliveries.map((delivery) => delivery.deliveryId)).toEqual([reply]);
-    expect(performance.now() - startedAt).toBeLessThan(LONG_WAIT_MS / 2);
-    await expect(prisma.delivery.findUniqueOrThrow({ where: { id: plain } })).resolves.toMatchObject({ state: 'pending' });
+    expect(unwrap(await useCases.receiveReply(scout, { messageId: request })).deliveries.map((delivery) => delivery.deliveryId)).toEqual([reply]);
   });
 });

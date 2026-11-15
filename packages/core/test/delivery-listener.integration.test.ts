@@ -8,31 +8,28 @@ import {
   type DeliveryListener,
 } from '../src/adapters/prisma/delivery-notices.js';
 import { createReceiverWakeups, type ReceiverWakeupHub } from '../src/adapters/prisma/receiver-wakeups.js';
+import type { WakeStreamItem } from '../src/domain/messaging/watch-wakeups.js';
 import type { ShipCaller, Crew } from '../src/domain/shared/caller.js';
 import { createUseCases, systemClock, type UseCases } from '../src/wiring.js';
 import { operatorCaller, secretOf } from './support/core-fixtures.js';
 import { createMigratedDatabase } from '../src/testing/database.js';
 import { unwrap } from '../src/testing/result.js';
 import { newKey } from '../src/testing/keys.js';
-import { waitingWakeups } from './support/waiting-wakeups.js';
 import { withOperatorLogin } from './support/operator-login.js';
 
 // The delivery listener losing its database connection: it never throws,
-// listens again, and wakes every waiting receive when it does, so a delivery
-// sent while it did not listen is still found at once. A receive waiting
-// meanwhile returns within its wait.
+// listens again, and wakes every open wake stream when it does, so a delivery
+// sent while it did not listen is still found at the look that wake starts.
 
 const newId = createIdGenerator();
 /** The listener's first retry comes this soon in these tests. */
 const RECONNECT_DELAY_MS = 200;
-/** A receive that must end early: it proves a wake-up, not a timeout. */
-const LONG_WAIT_MS = 15_000;
-/** A receive that must end at its wait. */
-const SHORT_WAIT_MS = 2_000;
 
 let databaseUrl: string;
 let prisma: PrismaClient;
 let wakeups: ReceiverWakeupHub;
+let useCases: UseCases;
+let closing: AbortController;
 let listener: DeliveryListener;
 let listens: number;
 let errors: Error[];
@@ -60,7 +57,8 @@ beforeEach(async () => {
     reconnectDelayMs: RECONNECT_DELAY_MS,
   });
   await listener.listening;
-  const useCases = wired(SHORT_WAIT_MS);
+  useCases = createUseCases({ prisma, clock: systemClock, wakeStreams: wakeups });
+  closing = new AbortController();
   const fleet = unwrap(await withOperatorLogin(prisma, useCases.initialiseFleet({ name: 'home fleet' })));
   argo = operatorCaller(fleet);
   const { shipId, secret } = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
@@ -69,13 +67,10 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  closing.abort();
   await listener.close();
   await prisma.$disconnect();
 });
-
-function wired(receiveWaitMs: number): UseCases {
-  return createUseCases({ prisma, clock: systemClock, wakeups, receiveWaitMs });
-}
 
 /** Ends the listener's database connection from the server side, as a restart of Postgres or a network cut would. */
 async function killListenerConnection(): Promise<void> {
@@ -91,7 +86,7 @@ async function killListenerConnection(): Promise<void> {
 
 async function sendToScout(): Promise<string> {
   const { messageId } = unwrap(
-    await wired(SHORT_WAIT_MS).sendMessage(argo, {
+    await useCases.sendMessage(argo, {
       selector: { kind: 'ship', shipId: scout.shipId },
       payload: 'Review https://github.com/ThomasHendrickx/aeolus-fleet/pull/25',
       contentType: 'text/plain',
@@ -105,15 +100,11 @@ function pause(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/**
- * A receive by scout that waits up to the given time on an empty inbox, and
- * `waiting`, which settles once it waits: a delivery or a wake-up before then
- * would only meet its first look, not the wait the test is about (#630).
- */
-function receiveWaiting(waitMs: number) {
-  const { wakeups: watched, waiting } = waitingWakeups(wakeups);
-  const answer = createUseCases({ prisma, clock: systemClock, wakeups: watched, receiveWaitMs: waitMs }).receiveDeliveries(scout, {});
-  return { answer, waiting };
+/** The scout's wake stream, its open wake read. */
+async function openedStream(): Promise<AsyncIterator<WakeStreamItem>> {
+  const stream = unwrap(await useCases.watchWakeups(scout, closing.signal))[Symbol.asyncIterator]();
+  await expect(stream.next()).resolves.toEqual({ done: false, value: { kind: 'wake', reason: 'open' } });
+  return stream;
 }
 
 describe('the delivery listener', () => {
@@ -129,7 +120,7 @@ describe('the delivery listener', () => {
     expect(errors.length).toBeGreaterThanOrEqual(1);
   });
 
-  it('wakes a waiting receive for a send once it listens again after its connection was killed', async () => {
+  it('wakes an open wake stream for a send once it listens again after its connection was killed', async () => {
     await killListenerConnection();
     await vi.waitFor(
       () => {
@@ -137,39 +128,24 @@ describe('the delivery listener', () => {
       },
       { timeout: 10_000 },
     );
-    const startedAt = performance.now();
-    const receiving = receiveWaiting(LONG_WAIT_MS);
-    await receiving.waiting;
+    const stream = await openedStream();
+    await expect(stream.next()).resolves.toEqual({ done: false, value: { kind: 'wake', reason: 'reconnect' } });
 
-    const deliveryId = await sendToScout();
+    await sendToScout();
 
-    expect(unwrap(await receiving.answer).deliveries.map((delivery) => delivery.deliveryId)).toEqual([deliveryId]);
-    expect(performance.now() - startedAt).toBeLessThan(LONG_WAIT_MS / 2);
+    await expect(stream.next()).resolves.toEqual({ done: false, value: { kind: 'wake', reason: 'notice' } });
   });
 
-  it('finds a delivery sent while it did not listen as soon as it listens again', async () => {
-    const startedAt = performance.now();
-    const receiving = receiveWaiting(LONG_WAIT_MS);
-    await receiving.waiting;
+  it('wakes an open wake stream once it listens again, and the look finds a delivery sent while it did not listen', async () => {
+    const stream = await openedStream();
     await killListenerConnection();
     await expect.poll(() => errors.length).toBeGreaterThanOrEqual(1);
 
     const deliveryId = await sendToScout();
 
-    expect(unwrap(await receiving.answer).deliveries.map((delivery) => delivery.deliveryId)).toEqual([deliveryId]);
-    expect(performance.now() - startedAt).toBeLessThan(LONG_WAIT_MS / 2);
+    await expect(stream.next()).resolves.toEqual({ done: false, value: { kind: 'wake', reason: 'reconnect' } });
+    expect(unwrap(await useCases.receiveDeliveries(scout, {})).deliveries.map((delivery) => delivery.deliveryId)).toEqual([deliveryId]);
     expect(listens).toBe(2);
-  });
-
-  it('lets a receive waiting while it reconnects return within its wait', async () => {
-    const startedAt = performance.now();
-    const receiving = receiveWaiting(SHORT_WAIT_MS);
-    await receiving.waiting;
-
-    await killListenerConnection();
-
-    await expect(receiving.answer).resolves.toEqual({ isOk: true, value: { deliveries: [] } });
-    expect(performance.now() - startedAt).toBeLessThan(SHORT_WAIT_MS + 1_000);
   });
 
   it('keeps trying, without throwing, while the database cannot be reached, and stops once closed', async () => {

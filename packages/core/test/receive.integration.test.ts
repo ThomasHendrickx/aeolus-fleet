@@ -29,10 +29,8 @@ import { unsealedFleetsOnly } from './support/sealing.js';
 const newId = createIdGenerator();
 /** How long a receive waits on an empty inbox in these tests: short, so an empty receive costs little. */
 const WAIT_MS = 2_000;
-/** The wait of a receive that must end early: it proves a wake-up, not a timeout. */
-const LONG_WAIT_MS = 15_000;
-/** Time for a receive to start waiting before the test sends. */
-const SETTLE_MS = 300;
+/** Well under any wait a call once had: an answer this soon did not wait. */
+const AT_ONCE_MS = 1_000;
 
 let databaseUrl: string;
 let prisma: PrismaClient;
@@ -115,10 +113,6 @@ async function endLeaseOf(crew: Crew): Promise<void> {
 
 function stored(deliveryId: DeliveryId) {
   return prisma.delivery.findUniqueOrThrow({ where: { id: deliveryId } });
-}
-
-function pause(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 describe('receiving on Postgres', () => {
@@ -280,65 +274,12 @@ describe('concurrent receivers of one type', () => {
   });
 });
 
-describe('a receive waiting on an empty inbox', () => {
-  it('returns as soon as a send to its ship commits', async () => {
+describe('a receive on an empty inbox (decision 0072)', () => {
+  it('answers at once with nothing: a receive never waits', async () => {
     const startedAt = performance.now();
-    const receiving = receiveWith(createPrismaUnitOfWork(prisma), LONG_WAIT_MS)(scout, {});
-    await pause(SETTLE_MS);
 
-    const deliveryId = await sendTo(toShip(scout));
-
-    expect(unwrap(await receiving).deliveries.map((delivery) => delivery.deliveryId)).toEqual([deliveryId]);
-    expect(performance.now() - startedAt).toBeLessThan(LONG_WAIT_MS / 2);
-  });
-
-  it('returns as soon as a send to its type commits', async () => {
-    const startedAt = performance.now();
-    const receiving = receiveWith(createPrismaUnitOfWork(prisma), LONG_WAIT_MS)(scout, {});
-    await pause(SETTLE_MS);
-
-    const deliveryId = await sendTo(toReviewers);
-
-    expect(unwrap(await receiving).deliveries.map((delivery) => delivery.deliveryId)).toEqual([deliveryId]);
-    expect(performance.now() - startedAt).toBeLessThan(LONG_WAIT_MS / 2);
-  });
-
-  it('never returns for a send that rolls back: it waits out its wait, empty', async () => {
-    const failingSend = createSendMessage({ sealing: unsealedFleetsOnly,
-      uow: {
-        run: (work) =>
-          createPrismaUnitOfWork(prisma).run((tx) =>
-            work({
-              ...tx,
-              notifier: {
-                deliveryPending: async (notice) => {
-                  await tx.notifier.deliveryPending(notice);
-                  throw new Error('disk full');
-                },
-              },
-            }),
-          ),
-      },
-      clock: systemClock,
-      ids: newId,
-      hasher: sha256Hasher,
-    });
-    const startedAt = performance.now();
-    const receiving = useCases.receiveDeliveries(scout, {});
-    await pause(SETTLE_MS);
-
-    await expect(
-      failingSend(argo, {
-        selector: toShip(scout),
-        payload: 'never stored',
-        contentType: 'text/plain',
-        idempotencyKey: 'rolled-back',
-      }),
-    ).rejects.toThrow('disk full');
-
-    await expect(receiving).resolves.toEqual({ isOk: true, value: { deliveries: [] } });
-    expect(performance.now() - startedAt).toBeGreaterThanOrEqual(WAIT_MS - 50);
-    await expect(prisma.delivery.count()).resolves.toBe(0);
+    await expect(useCases.receiveDeliveries(scout, {})).resolves.toEqual({ isOk: true, value: { deliveries: [] } });
+    expect(performance.now() - startedAt).toBeLessThan(AT_ONCE_MS);
   });
 });
 
@@ -415,17 +356,6 @@ describe('checking the inbox on Postgres', () => {
     await expect(stored(pending)).resolves.toMatchObject({ state: 'pending', attempts: 0 });
     await expect(stored(queued)).resolves.toMatchObject({ state: 'pending', attempts: 0 });
     await expect(stored(inFlight)).resolves.toMatchObject({ state: 'handed', attempts: 1 });
-  });
-
-  it('waits while nothing waits, and answers as soon as a delivery is sent', async () => {
-    const startedAt = Date.now();
-    const checking = useCases.checkInbox(scout, { waitSeconds: 15 });
-    await pause(SETTLE_MS);
-
-    await sendTo(toReviewers);
-
-    await expect(checking).resolves.toEqual({ isOk: true, value: { waiting: 1, forced: 0 } });
-    expect(Date.now() - startedAt).toBeLessThan(LONG_WAIT_MS);
   });
 });
 

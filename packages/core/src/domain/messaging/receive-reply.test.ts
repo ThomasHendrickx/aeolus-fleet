@@ -165,34 +165,20 @@ describe('receiving the reply to one message', () => {
   });
 });
 
-describe('waiting for the reply', () => {
-  it('waits about 25 seconds when no reply is there, then returns nothing', async () => {
+describe('no reply there yet (decision 0072)', () => {
+  it('answers at once with nothing: it never waits for the reply', async () => {
     const request = await ask();
+    const startedAt = core.clock.now().getTime();
 
     expect(await receiveReplyTo(request)).toEqual([]);
-    expect(core.wakeups.waits).toEqual([25_000]);
+    expect(core.clock.now().getTime()).toBe(startedAt);
   });
 
-  it('returns the reply sent while it waits, as soon as it is woken', async () => {
+  it('hands the reply sent after it answered to the next look', async () => {
     const request = await ask();
-    const sent: DeliveryId[] = [];
-    core.wakeups.nextWaits.push(async () => {
-      sent.push(await sendScout(request));
-      return 'woken';
-    });
-
-    expect(await receiveReplyTo(request)).toEqual(sent);
-  });
-
-  it('waits on when a wake-up brings a delivery that is no reply to that message', async () => {
-    const request = await ask();
-    core.wakeups.nextWaits.push(async () => {
-      core.clock.advance(9_000);
-      await sendScout();
-      return 'woken';
-    });
-
     expect(await receiveReplyTo(request)).toEqual([]);
-    expect(core.wakeups.waits).toEqual([25_000, 15_000]);
+    const reply = await sendScout(request);
+
+    expect(await receiveReplyTo(request)).toEqual([reply]);
   });
 });

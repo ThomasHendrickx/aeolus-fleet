@@ -57,8 +57,8 @@ async function sendTo(selector: Selector, options: { isForced?: boolean } = {}):
   return deliveryIdOf(core, messageId);
 }
 
-async function waiting(crew: Crew, input: { waitSeconds?: number; knownWaiting?: number } = {}): Promise<number> {
-  return unwrap(await useCases.checkInbox(crew, input)).waiting;
+async function waiting(crew: Crew): Promise<number> {
+  return unwrap(await useCases.checkInbox(crew, {})).waiting;
 }
 
 async function inboxOf(crew: Crew) {
@@ -110,44 +110,11 @@ describe('checking the inbox', () => {
     expect(unwrap(await useCases.receiveDeliveries(scout, {})).deliveries).toMatchObject([{ deliveryId, attempts: 1 }]);
   });
 
-  it('answers 0 at once without a wait', async () => {
-    await expect(waiting(scout)).resolves.toBe(0);
-    expect(core.wakeups.waits).toEqual([]);
-  });
-
-  it('waits for the seconds asked while nothing waits, then answers 0', async () => {
+  it('answers at once: an inbox check never waits (decision 0072)', async () => {
     const startedAt = core.clock.now().getTime();
 
-    await expect(waiting(scout, { waitSeconds: 25 })).resolves.toBe(0);
-    expect(core.wakeups.waits).toEqual([25_000]);
-    expect(core.clock.now().getTime() - startedAt).toBe(25_000);
-    expect(core.wakeups.watched).toEqual([{ fleetId, shipId: scoutId, type: 'reviewer' }]);
-    expect(core.wakeups.watching()).toBe(0);
-  });
-
-  it('answers as soon as a delivery arrives while it waits', async () => {
-    core.wakeups.nextWaits.push(async () => {
-      core.clock.advance(3_000);
-      await sendTo(toReviewers);
-      return 'woken';
-    });
-
-    await expect(waiting(scout, { waitSeconds: 25 })).resolves.toBe(1);
-    expect(core.wakeups.waits).toEqual([25_000]);
-  });
-
-  it('does not wait when something already waits', async () => {
-    await sendTo(toScout());
-
-    await expect(waiting(scout, { waitSeconds: 25 })).resolves.toBe(1);
-    expect(core.wakeups.waits).toEqual([]);
-  });
-
-  it.each([-1, 26, 2.5])('refuses a wait of %j seconds: 0 to 25 whole seconds', async (waitSeconds) => {
-    await expect(useCases.checkInbox(scout, { waitSeconds })).resolves.toMatchObject({
-      isOk: false,
-      error: { kind: 'INVALID_INBOX_WAIT' },
-    });
+    await expect(waiting(scout)).resolves.toBe(0);
+    expect(core.clock.now().getTime()).toBe(startedAt);
   });
 
   it('refuses a crew whose lease has ended', async () => {
@@ -162,99 +129,6 @@ describe('checking the inbox', () => {
     expect(ended).toEqual(ok(true));
 
     await expect(useCases.checkInbox(scout, {})).resolves.toMatchObject({ isOk: false, error: { kind: 'LEASE_ENDED' } });
-  });
-});
-
-describe('checking the inbox with the count the crew knows (W5)', () => {
-  it('waits for the seconds asked while the count is still the one it knows, then answers it', async () => {
-    await sendTo(toScout());
-    await sendTo(toScout());
-    const startedAt = core.clock.now().getTime();
-
-    await expect(waiting(scout, { waitSeconds: 25, knownWaiting: 2 })).resolves.toBe(2);
-    expect(core.fleetNews.waits).toEqual([25_000]);
-    expect(core.clock.now().getTime() - startedAt).toBe(25_000);
-    expect(core.fleetNews.watched).toEqual([fleetId]);
-    expect(core.fleetNews.watching()).toBe(0);
-  });
-
-  it.each([
-    { known: 0, sent: 1 },
-    { known: 3, sent: 1 },
-  ])('answers $sent at once when the crew knows $known', async ({ known, sent }) => {
-    for (let index = 0; index < sent; index += 1) {
-      await sendTo(toScout());
-    }
-
-    await expect(waiting(scout, { waitSeconds: 25, knownWaiting: known })).resolves.toBe(sent);
-    expect(core.fleetNews.waits).toEqual([]);
-  });
-
-  it('answers as soon as a delivery arrives while it waits', async () => {
-    await sendTo(toScout());
-    core.fleetNews.nextWaits.push(async () => {
-      core.clock.advance(3_000);
-      await sendTo(toReviewers);
-      return 'woken';
-    });
-
-    await expect(waiting(scout, { waitSeconds: 25, knownWaiting: 1 })).resolves.toBe(2);
-    expect(core.fleetNews.waits).toEqual([25_000]);
-  });
-
-  it('answers as soon as the count goes down while it waits: the crew acknowledged one', async () => {
-    const deliveryId = await sendTo(toScout());
-    unwrap(await useCases.receiveDeliveries(scout, {}));
-    core.fleetNews.nextWaits.push(async () => {
-      core.clock.advance(3_000);
-      unwrap(await useCases.acknowledgeDelivery(scout, { deliveryId }));
-      return 'woken';
-    });
-
-    await expect(waiting(scout, { waitSeconds: 25, knownWaiting: 1 })).resolves.toBe(0);
-  });
-
-  it('goes on waiting for the rest of its wait on news that leaves the count as it knows it', async () => {
-    await sendTo(toScout());
-    core.fleetNews.nextWaits.push(async () => {
-      core.clock.advance(5_000);
-      await sendTo(toBuilders);
-      return 'woken';
-    });
-
-    await expect(waiting(scout, { waitSeconds: 25, knownWaiting: 1 })).resolves.toBe(1);
-    expect(core.fleetNews.waits).toEqual([25_000, 20_000]);
-  });
-
-  it('answers the forced count of its last look when the wait passes', async () => {
-    await sendTo(toScout(), { isForced: true });
-
-    await expect(useCases.checkInbox(scout, { waitSeconds: 25, knownWaiting: 1 })).resolves.toEqual(ok({ waiting: 1, forced: 1 }));
-  });
-
-  it('refuses as soon as the lease ends while it waits', async () => {
-    core.fleetNews.nextWaits.push(async () => {
-      await core.uow.run(async (tx) =>
-        ok(
-          await endLease(
-            { tx, ids: core.ids },
-            { fleetId, leaseId: scout.leaseId, actor: shipActor(argo.shipId), at: core.clock.now(), reason: 'released' },
-          ),
-        ),
-      );
-      return 'woken';
-    });
-
-    await expect(useCases.checkInbox(scout, { waitSeconds: 25, knownWaiting: 0 })).resolves.toMatchObject({
-      isOk: false,
-      error: { kind: 'LEASE_ENDED' },
-    });
-  });
-
-  it('watches only the ship and its type without a known count, as before', async () => {
-    await waiting(scout, { waitSeconds: 25 });
-
-    expect(core.fleetNews.watched).toEqual([]);
   });
 });
 

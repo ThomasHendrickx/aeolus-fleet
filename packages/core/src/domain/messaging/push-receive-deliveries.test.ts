@@ -18,7 +18,6 @@ import type { ShipCaller, Crew } from '../shared/caller.js';
 import { shipActor } from '../shared/events.js';
 import { ok } from '../shared/result.js';
 import type { Selector } from '../shared/selector.js';
-import { RECEIVE_WAIT_MS } from './receive-deliveries.js';
 
 let core: InMemoryCore;
 let useCases: ReturnType<typeof messagingUseCases>;
@@ -215,11 +214,11 @@ describe('a push receive', () => {
     expect(stored(deliveryId)?.state).toBe('pending');
   });
 
-  it('waits about 25 seconds on an empty inbox, then returns nothing', async () => {
+  it('answers at once with nothing on an empty inbox: a push receive never waits (decision 0072)', async () => {
     const startedAt = core.clock.now().getTime();
 
     expect(await pushReceive(scout)).toEqual([]);
-    expect(core.clock.now().getTime() - startedAt).toBe(RECEIVE_WAIT_MS);
+    expect(core.clock.now().getTime()).toBe(startedAt);
   });
 });
 
