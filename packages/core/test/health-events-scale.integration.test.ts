@@ -1,7 +1,6 @@
 /** Health reads and snapshot closes look up only the newly sent deliveries, not a fleet's message history (#1301). */
 import type { FleetId } from '@aeolus-fleet/common';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { z } from 'zod';
 
 import { createPrismaClientTellingStatements } from '../src/adapters/prisma/client.js';
 import { createPrismaHealthSnapshots } from '../src/adapters/prisma/health-snapshots.js';
@@ -9,6 +8,8 @@ import type { ShipCaller } from '../src/domain/shared/caller.js';
 import { operatorCaller } from '../src/testing/fleet.js';
 import { unwrap } from '../src/testing/result.js';
 import { createPostgresCore, type PostgresCore } from './support/postgres-core.js';
+import { assertIndexedPlan } from './support/assert-indexed-plan.js';
+import { seedScaleFleet } from './support/scale-fleet.js';
 
 const EVENTS = 120_000;
 const SENT = 5_000;
@@ -22,35 +23,8 @@ let argo: ShipCaller;
 
 beforeAll(async () => {
   core = await createPostgresCore();
-  argo = operatorCaller(unwrap(await core.useCases.initialiseFleet({ name: 'busy fleet' })));
+  argo = operatorCaller(await seedScaleFleet(core));
   ({ fleetId } = argo);
-  await core.prisma.$executeRaw`
-    INSERT INTO ships (id, fleet_id, name, type, created_at, kind, scopes)
-    SELECT 'shp_' || lpad(i::text, 26, '0'), ${fleetId}, 'agent-' || i, 'agent', ${core.clock.now()}::timestamptz - interval '90 days', 'agent', '{}'
-    FROM generate_series(1, ${SHIPS - 1}::int) i`;
-  await core.prisma.$executeRaw`
-    INSERT INTO messages (id, fleet_id, sender_ship_id, selector_kind, selector_ship_id, payload, content_type, idempotency_key, request_hash, created_at)
-    SELECT 'msg_' || lpad(i::text, 26, '0'), s.fleet_id, s.id, 'ship', 'shp_' || lpad((1 + i % ${SHIPS - 1}::int)::text, 26, '0'), 'hello', 'text/plain', 'seed-' || i, 'hash',
-      ${core.clock.now()}::timestamptz - CASE WHEN i <= ${EVENTS - SENT}::int THEN interval '90 days' ELSE interval '30 minutes' END
-    FROM ships s, generate_series(1, ${EVENTS}::int) i
-    WHERE s.fleet_id = ${fleetId} AND s.name = 'argo'`;
-  await core.prisma.$executeRaw`
-    INSERT INTO deliveries (id, fleet_id, message_id, sender_ship_id, recipient_ship_id, state, created_at)
-    SELECT 'dlv_' || lpad(i::text, 26, '0'), s.fleet_id, 'msg_' || lpad(i::text, 26, '0'), s.id, 'shp_' || lpad((1 + i % ${SHIPS - 1}::int)::text, 26, '0'),
-      (CASE WHEN i <= ${EVENTS - SENT}::int THEN 'dismissed' ELSE 'pending' END)::delivery_state,
-      ${core.clock.now()}::timestamptz - CASE WHEN i <= ${EVENTS - SENT}::int THEN interval '90 days' ELSE interval '30 minutes' END
-    FROM ships s, generate_series(1, ${EVENTS}::int) i
-    WHERE s.fleet_id = ${fleetId} AND s.name = 'argo'`;
-  await core.prisma.$executeRaw`
-    INSERT INTO events (id, fleet_id, type, occurred_at, actor_kind, details, delivery_id, seq)
-    SELECT 'evt_' || lpad((2 * i + step)::text, 26, '0'), ${fleetId},
-      (ARRAY['MessageAccepted', 'DeliveryDismissed'])[step + 1],
-      ${core.clock.now()}::timestamptz - CASE WHEN i <= ${EVENTS - SENT}::int THEN interval '90 days' ELSE interval '30 minutes' END,
-      'system', '{}', 'dlv_' || lpad(i::text, 26, '0'), 1000000 + 2 * i + step
-    FROM generate_series(1, ${EVENTS}::int) i, generate_series(0, 1) step
-    WHERE step = 0 OR i <= ${EVENTS - SENT}::int`;
-  await core.prisma.$executeRaw`UPDATE fleets SET last_event_seq = ${LAST_SEQ} WHERE id = ${fleetId}`;
-  await core.prisma.$executeRaw`ANALYZE`;
 }, 300_000);
 
 afterAll(async () => {
@@ -74,14 +48,10 @@ describe('health event replay on a busy fleet', () => {
       expect(after.events.at(-1)?.seq).toBe(LAST_SEQ);
       expect(after.sent).toHaveLength(SENT);
       expect(new Set(after.sent.map((delivery) => delivery.deliveryId)).size).toBe(SENT);
-      const reads = statements.filter(({ query }) => query.includes('d.message_id') && query.includes('m.sender_ship_id'));
+      const reads = statements.filter(({ query }) => query.includes('SELECT DISTINCT unnest(') && query.includes('m.sender_ship_id'));
       expect(reads.length).toBeGreaterThan(0);
       for (const { query, params } of reads) {
-        const values = z.array(z.union([z.string(), z.number(), z.null(), z.array(z.string())])).parse(JSON.parse(params));
-        // The statement and parameters come only from this client's query log.
-        const plan = (await core.prisma.$queryRawUnsafe<{ 'QUERY PLAN': string }[]>('EXPLAIN ' + query, ...values))
-          .map((row) => row['QUERY PLAN']).join('\n');
-        expect(plan.match(/Seq Scan on (deliveries|messages)/g)).toBeNull();
+        await assertIndexedPlan(core.prisma, { query, params });
       }
     } finally {
       await client.$disconnect();
