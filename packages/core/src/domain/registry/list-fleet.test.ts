@@ -740,7 +740,7 @@ describe('selecting the ships of a page by what the overview filters (decision 4
     ['codex', ['tester']],
     ['other', ['builder', 'scout']],
   ] as const)('selects the ships whose agent kind is %s', async (kind, names) => {
-    await shipWithScopes({ registry: useCases, argo }, { name: 'mac-mini', type: 'trierarch', scopes: ['crew:run'] });
+    unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'mac-mini', type: 'computer', kind: 'trierarch', scopes: ['crew:run'] }));
     crewShip(core, { fleetId, shipId: testerId, harness: 'codex' });
 
     await expect(namesSelected({ kind: [kind] })).resolves.toEqual(names);
