@@ -971,6 +971,7 @@ export const shipRouter = router({
       description: [
         'Needs messages:receive. Lists the ships your person ship exchanged messages with, newest exchange first: each other ship by id with its name, type and kind,',
         'unacknowledged, how many of its messages to you are not yet acknowledged (of any content type), and the newest message between you, whole.',
+        'unseenPlainMessages counts only its plain messages to you not yet acknowledged (pending, received or handed), excluding questions, steps, alerts, notices and their replies, replacements and withdrawals, as ackUpTo does. Meeting messages and pings belong to no exchange.',
         'Retired ships are left out; read an exchange with one by id with exchange. Only a person ship has a list: any other ship\'s is empty.',
         `At most ${String(RECORD_PAGE_SIZE_MAX)} per page, ${String(RECORD_PAGE_SIZE_DEFAULT)} unless you pass limit; pass the nextCursor it answers as cursor for the next page, null on the last.`,
         'It changes nothing.',

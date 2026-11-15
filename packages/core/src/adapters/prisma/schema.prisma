@@ -733,11 +733,12 @@ model MessageDay {
 /// exchanged with, the newest message between them and how many of the other ship's deliveries to it are
 /// not yet acknowledged. Written in the transactions that make and change deliveries, never counted from history.
 model Exchange {
-  fleetId         String @map("fleet_id")
-  shipId          String @map("ship_id")
-  otherShipId     String @map("other_ship_id")
-  newestMessageId String @map("newest_message_id")
-  unacknowledged  Int    @default(0)
+  fleetId             String @map("fleet_id")
+  shipId              String @map("ship_id")
+  otherShipId         String @map("other_ship_id")
+  newestMessageId     String @map("newest_message_id")
+  unacknowledged      Int    @default(0)
+  unseenPlainMessages Int    @default(0) @map("unseen_plain_messages")
 
   fleet         Fleet   @relation(fields: [fleetId], references: [id])
   ship          Ship    @relation("ExchangeShip", fields: [fleetId, shipId], references: [fleetId, id], onDelete: Restrict)

@@ -89,6 +89,8 @@ export const exchangesEntrySchema = z.object({
   otherShipType: z.string(),
   otherShipKind: shipKindSchema,
   unacknowledged: z.int().min(0),
+  /** Unacknowledged plain messages from the other ship: excludes conventions, like ackUpTo. */
+  unseenPlainMessages: z.int().min(0),
   newestMessage: z.object({
     messageId: idSchema('message'),
     senderShipId: idSchema('ship'),
