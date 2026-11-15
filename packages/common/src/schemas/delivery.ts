@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { deliveryStateSchema, shipStatusSchema } from '../fleet/index.js';
 import { idSchema } from '../ids/index.js';
 import { leaseWakerSchema, partySchema } from './history.js';
-import { pageOutputOf } from './page.js';
+import { pageInputOf, pageOutputOf } from './page.js';
 import { RECORD_PAGE_SIZE_MAX } from '../rules/page-size.js';
 import { isOneLine } from './report.js';
 
@@ -270,7 +270,7 @@ export const recordOutputSchema = pageOutputOf(recordEntrySchema, idSchema('deli
 export type RecordOutput = z.infer<typeof recordOutputSchema>;
 
 /** Input of `ship.sentMessage`: a message the caller sent. */
-export const sentMessageInputSchema = z.object({ messageId: idSchema('message') });
+export const sentMessageInputSchema = z.object({ messageId: idSchema('message') }).extend(pageInputOf(idSchema('delivery')).shape);
 
 export type SentMessageInput = z.infer<typeof sentMessageInputSchema>;
 
@@ -290,9 +290,10 @@ export const sentMessageOutputSchema = z.object({
     z.object({ kind: z.literal('meeting'), meetingId: idSchema('meeting') }),
     z.object({ kind: z.literal('label'), valueIds: z.array(idSchema('labelValue')).readonly() }),
   ]),
-  deliveries: z.array(
-    z.object({ deliveryId: idSchema('delivery'), ship: partySchema.nullable(), state: deliveryStateSchema, since: z.iso.datetime() }),
+  items: z.array(
+    z.object({ id: idSchema('delivery'), ship: partySchema.nullable(), state: deliveryStateSchema, since: z.iso.datetime() }),
   ),
+  nextCursor: idSchema('delivery').nullable(),
 });
 
 export type SentMessageOutput = z.infer<typeof sentMessageOutputSchema>;

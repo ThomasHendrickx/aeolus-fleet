@@ -100,7 +100,8 @@ describe('sentMessageOutputSchema', () => {
       messageId: newId('message'),
       sentAt: '2026-10-18T12:00:00.000Z',
       recipient: { kind: 'ship', ship: scout },
-      deliveries: [{ deliveryId: newId('delivery'), ship: scout, state: 'handed', since: '2026-10-18T12:00:05.000Z' }],
+      items: [{ id: newId('delivery'), ship: scout, state: 'handed', since: '2026-10-18T12:00:05.000Z' }],
+      nextCursor: null,
     };
 
     expect(sentMessageOutputSchema.parse(answer)).toEqual(answer);
@@ -108,10 +109,10 @@ describe('sentMessageOutputSchema', () => {
   });
 
   it('answers a delivery no ship of the type claimed yet with no ship', () => {
-    const delivery = { deliveryId: newId('delivery'), ship: null, state: 'pending', since: '2026-10-18T12:00:00.000Z' };
+    const delivery = { id: newId('delivery'), ship: null, state: 'pending', since: '2026-10-18T12:00:00.000Z' };
 
     expect(
-      sentMessageOutputSchema.parse({ messageId: newId('message'), sentAt: '2026-10-18T12:00:00.000Z', recipient: { kind: 'type', type: 'reviewer' }, deliveries: [delivery] }).deliveries,
+      sentMessageOutputSchema.parse({ messageId: newId('message'), sentAt: '2026-10-18T12:00:00.000Z', recipient: { kind: 'type', type: 'reviewer' }, items: [delivery], nextCursor: null }).items,
     ).toEqual([delivery]);
   });
 
@@ -120,7 +121,8 @@ describe('sentMessageOutputSchema', () => {
       messageId: newId('message'),
       sentAt: '2026-10-18T12:00:00.000Z',
       recipient: { kind: 'type', type: 'reviewer' },
-      deliveries: [{ deliveryId: newId('delivery'), ship: null, state: 'lost', since: '2026-10-18T12:00:05.000Z' }],
+      items: [{ id: newId('delivery'), ship: null, state: 'lost', since: '2026-10-18T12:00:05.000Z' }],
+      nextCursor: null,
     };
 
     expect(sentMessageOutputSchema.safeParse(answer).success).toBe(false);

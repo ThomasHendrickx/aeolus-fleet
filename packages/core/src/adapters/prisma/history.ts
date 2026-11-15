@@ -18,6 +18,7 @@ import {
   type FleetId,
   type LabelValueId,
   type LeaseId,
+  type MessageId,
   type ShipId,
 } from '@aeolus-fleet/common';
 import { z } from 'zod';
@@ -140,6 +141,23 @@ function onlyDelivery(row: { id: string; deliveries: unknown[] }): DeliveryNow {
 }
 
 const DELIVERY_SELECT = { id: true, state: true, attempts: true, claimedByShipId: true, handOverNumber: true } as const;
+
+/** One indexed delivery lookup per message, in delivery id order. */
+export function firstDeliveriesStatement(fleetId: FleetId, messageIds: readonly MessageId[]): Prisma.Sql {
+  return Prisma.sql`
+    SELECT first.id FROM unnest(ARRAY[${Prisma.join(messageIds)}]::text[]) AS requested(message_id)
+    CROSS JOIN LATERAL (
+      SELECT d.id FROM deliveries d
+      WHERE d.fleet_id = ${fleetId} AND d.message_id = requested.message_id
+      ORDER BY d.id ASC LIMIT 1
+    ) first`;
+}
+
+async function firstDeliveryIds(db: Db, { fleetId, messageIds }: { fleetId: FleetId; messageIds: readonly MessageId[] }): Promise<DeliveryId[]> {
+  if (messageIds.length === 0) return [];
+  const rows = z.array(z.object({ id: idSchema('delivery') })).parse(await db.$queryRaw(firstDeliveriesStatement(fleetId, messageIds)));
+  return rows.map((row) => row.id);
+}
 
 /**
  * The deliveries to the ship of the messages that withdraw or replace the
@@ -311,9 +329,11 @@ export function createPrismaShipHistory(db: Db): ShipHistory {
       const rows = await db.message.findMany({
         where: { fleetId, id: { in: page.items }, selectorKind: { not: 'meeting' } },
         orderBy: { id: 'desc' },
-        include: { deliveries: { select: DELIVERY_SELECT } },
       });
-      const found = rows.map((row) => ({ message: toMessage(row), delivery: onlyDelivery(row) }));
+      const deliveryIds = await firstDeliveryIds(db, { fleetId, messageIds: page.items });
+      const deliveries = await db.delivery.findMany({ where: { fleetId, id: { in: deliveryIds } }, select: { ...DELIVERY_SELECT, messageId: true } });
+      const byMessage = new Map(deliveries.map((delivery) => [delivery.messageId, delivery]));
+      const found = rows.map((row) => ({ message: toMessage(row), delivery: onlyDelivery({ id: row.id, deliveries: [byMessage.get(row.id)] }) }));
       const party = await partiesOf(db, {
         fleetId,
         shipIds: found.flatMap(({ message, delivery }) => [
@@ -417,9 +437,9 @@ export function createPrismaShipHistory(db: Db): ShipHistory {
     },
 
     messageParties: async (fleetId, messageIds) => {
+      const deliveryIds = await firstDeliveryIds(db, { fleetId, messageIds });
       const rows = await db.delivery.findMany({
-        where: { fleetId, messageId: { in: [...messageIds] } },
-        orderBy: { id: 'desc' },
+        where: { fleetId, id: { in: deliveryIds } },
         select: { messageId: true, recipientShipId: true, recipientType: true, claimedByShipId: true, message: { select: { senderShipId: true } } },
       });
       return new Map(
