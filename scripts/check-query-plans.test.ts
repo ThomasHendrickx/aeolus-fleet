@@ -20,7 +20,7 @@ describe('the fleet query plan check', () => {
     const base = repository.commit('base');
     repository.write(module, `export const list = () => ${query};\n`);
     const head = repository.commit('query');
-    expect(queryPlanProblems(repository.path, { base, head }, '')).toEqual([
+    expect(queryPlanProblems(repository.path, { range: { base, head }, body: '' })).toEqual([
       expect.stringMatching(/history\.ts.*plan test.*assertIndexedPlan/),
     ]);
   });
@@ -30,7 +30,7 @@ describe('the fleet query plan check', () => {
     repository.write(module, 'export const list = () => db.message.findMany({});\n');
     repository.write(test, plan);
     const head = repository.commit('query and plan');
-    expect(queryPlanProblems(repository.path, { base, head }, '')).toEqual([]);
+    expect(queryPlanProblems(repository.path, { range: { base, head }, body: '' })).toEqual([]);
   });
 
   it('refuses an unchanged plan test', () => {
@@ -39,7 +39,7 @@ describe('the fleet query plan check', () => {
     const base = repository.commit('base');
     repository.write(module, 'export const list = () => db.message.findMany({ take: 5 });\n');
     const head = repository.commit('change');
-    expect(queryPlanProblems(repository.path, { base, head }, '')).toHaveLength(1);
+    expect(queryPlanProblems(repository.path, { range: { base, head }, body: '' })).toHaveLength(1);
   });
 
   it('refuses an unrelated plan test', () => {
@@ -47,20 +47,20 @@ describe('the fleet query plan check', () => {
     repository.write(module, 'export const list = () => db.message.findMany({});\n');
     repository.write(test, plan.replace('prisma/history.js', 'prisma/other.js'));
     const head = repository.commit('change');
-    expect(queryPlanProblems(repository.path, { base, head }, '')).toHaveLength(1);
+    expect(queryPlanProblems(repository.path, { range: { base, head }, body: '' })).toHaveLength(1);
   });
 
   it('accepts a Plans section explaining that no query changed', () => {
     const base = repository.commit('base');
     repository.write(module, 'export const list = () => db.message.findMany({});\n');
     const head = repository.commit('refactor');
-    expect(queryPlanProblems(repository.path, { base, head }, '## Plans\n\nNone: This only renames a local variable.\n')).toEqual([]);
+    expect(queryPlanProblems(repository.path, { range: { base, head }, body: '## Plans\n\nNone: This only renames a local variable.\n' })).toEqual([]);
   });
 
   it('does not accept an empty Plans reason', () => {
     const base = repository.commit('base');
     repository.write(module, 'export const list = () => db.message.findMany({});\n');
     const head = repository.commit('refactor');
-    expect(queryPlanProblems(repository.path, { base, head }, '## Plans\n\nNone: \n')).toHaveLength(1);
+    expect(queryPlanProblems(repository.path, { range: { base, head }, body: '## Plans\n\nNone: \n' })).toHaveLength(1);
   });
 });
