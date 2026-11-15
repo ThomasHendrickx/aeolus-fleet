@@ -8,13 +8,16 @@ import { SIGN_IN_LINK_NOTE, signInLinkOf } from './sign-in-link.js';
 
 const NOTHING_CREATED = 'Nothing was created.';
 
+/** Exit code when the fleet already exists, so a start script can tell "already set up" from a failure. */
+const FLEET_EXISTS_EXIT_CODE = 3;
+
 const USAGE = 'Usage: aeolus-core fleet:init --name "<fleet name>"';
 
 /**
  * `fleet:init --name <name>`: creates the fleet, its operator ship argo and
  * argo's own sign-in, asking nothing, and prints a one-use console link that
  * signs in as argo (accounts design, A1). An email and password come later,
- * from Settings. Refuses when a fleet already exists; the use case checks
+ * from Settings. Refuses with exit code 3 when a fleet already exists; the use case checks
  * again under its lock, for two runs at once.
  */
 export async function fleetInit(
@@ -42,13 +45,13 @@ export async function fleetInit(
 
   if ((await deps.listFleets()).length > 0) {
     io.err(`A fleet already exists: a fleet is initialised only once. ${NOTHING_CREATED}`);
-    return 1;
+    return FLEET_EXISTS_EXIT_CODE;
   }
 
   const initialised = await deps.initialiseFleet({ name });
   if (!initialised.isOk) {
     io.err(initialised.error.message);
-    return 1;
+    return initialised.error.kind === 'FLEET_ALREADY_EXISTS' ? FLEET_EXISTS_EXIT_CODE : 1;
   }
 
   const { fleetId, operatorShipId, operatorId } = initialised.value;

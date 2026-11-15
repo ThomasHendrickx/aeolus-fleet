@@ -5,6 +5,7 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 
 import { AvatarMenu, type AvatarMenuProps, Badge } from '@aeolus-fleet/ui';
+import { CONSOLE_NAVIGATION } from '../../lib/console-navigation';
 import { BrandLogo } from '../atoms/brand-logo';
 import { NavLinkIcon } from '../molecules/nav-link-icon';
 
@@ -35,6 +36,19 @@ interface SidebarProps {
   /** The fleet in view, under the name in the foot; undefined until the session is read. */
   fleetName?: string;
 }
+
+/** Each destination's icon. */
+const NAV_ICONS: Record<SidebarDestination, ReactNode> = {
+  overview: <Ship aria-hidden />,
+  health: <Activity aria-hidden />,
+  'needs-crew': <Users aria-hidden />,
+  squadrons: <Shapes aria-hidden />,
+  trierarchs: <ShipWheel aria-hidden />,
+  usage: <ChartColumn aria-hidden />,
+  inbox: <Inbox aria-hidden />,
+  network: <Network aria-hidden />,
+  settings: <Settings2 aria-hidden />,
+};
 
 const ITEM =
   'relative flex h-7.5 items-center gap-2.5 rounded-md px-2.5 text-body text-foreground transition-colors duration-(--duration-fast) hover:bg-accent aria-[current=page]:bg-accent aria-[current=page]:font-medium aria-[current=page]:[&_svg]:text-primary max-lg:justify-center max-lg:px-0 [&_svg]:size-(--size-icon) [&_svg]:shrink-0';
@@ -119,7 +133,7 @@ function AttentionCount({ count, testId, words }: { count: number | undefined; t
 
 /**
  * Desktop navigation (docs/design/fleet-overview/console-desktop.html): the
- * mark and "Aeolus", then the destinations in one list. 256 px from 1024 px; a
+ * mark and "Aeolus", then the destinations in one list, CONSOLE_NAVIGATION's. 256 px from 1024 px; a
  * 64 px rail from 640 to 1023 px, labels kept for assistive technology and
  * dots instead of numbers. Destinations: Fleet overview; Health, which counts
  * the stuck deliveries in the attention tone (#304); Needs crew, which counts
@@ -132,6 +146,13 @@ function AttentionCount({ count, testId, words }: { count: number | undefined; t
  * and the fleet in view.
  */
 export function Sidebar({ active, inboxCount, stuckCount, needsCrewCount, hasSquadrons = false, hasTrierarchs = false, trierarchsCount, hasNetwork = false, hasSettings = false, account, fleetName }: SidebarProps) {
+  const shown: Partial<Record<SidebarDestination, boolean>> = { squadrons: hasSquadrons, trierarchs: hasTrierarchs, usage: hasTrierarchs, network: hasNetwork, settings: hasSettings };
+  const counts: Partial<Record<SidebarDestination, ReactNode>> = {
+    health: <AttentionCount count={stuckCount} testId="nav-health-count" words="stuck" />,
+    'needs-crew': <NeedsCrewCount count={needsCrewCount} />,
+    trierarchs: <AttentionCount count={trierarchsCount} testId="nav-trierarchs-count" words="silent" />,
+    inbox: <InboxCount count={inboxCount} />,
+  };
   return (
     <aside
       data-slot="sidebar"
@@ -146,53 +167,17 @@ export function Sidebar({ active, inboxCount, stuckCount, needsCrewCount, hasSqu
         </span>
       </div>
       <nav aria-label="Console" className="flex grow flex-col gap-0.5">
-        <NavItem
-          href="/"
-          label="Fleet overview"
-          icon={<Ship aria-hidden />}
-          isActive={active === 'overview'}
-          testId="nav-overview"
-        />
-        <NavItem
-          href="/fleet-health"
-          label="Health"
-          icon={<Activity aria-hidden />}
-          isActive={active === 'health'}
-          testId="nav-health"
-          count={<AttentionCount count={stuckCount} testId="nav-health-count" words="stuck" />}
-        />
-        <NavItem
-          href="/needs-crew"
-          label="Needs crew"
-          icon={<Users aria-hidden />}
-          isActive={active === 'needs-crew'}
-          testId="nav-needs-crew"
-          count={<NeedsCrewCount count={needsCrewCount} />}
-        />
-        {hasSquadrons && (
-          <NavItem href="/squadrons" label="Squadrons" icon={<Shapes aria-hidden />} isActive={active === 'squadrons'} testId="nav-squadrons" />
-        )}
-        {hasTrierarchs && (
+        {CONSOLE_NAVIGATION.filter((page) => shown[page.destination] ?? true).map((page) => (
           <NavItem
-            href="/trierarchs"
-            label="Trierarchs"
-            icon={<ShipWheel aria-hidden />}
-            isActive={active === 'trierarchs'}
-            testId="nav-trierarchs"
-            count={<AttentionCount count={trierarchsCount} testId="nav-trierarchs-count" words="silent" />}
+            key={page.destination}
+            href={page.path}
+            label={page.label}
+            icon={NAV_ICONS[page.destination]}
+            isActive={active === page.destination}
+            testId={`nav-${page.destination}`}
+            count={counts[page.destination]}
           />
-        )}
-        {hasTrierarchs && <NavItem href="/usage" label="Usage" icon={<ChartColumn aria-hidden />} isActive={active === 'usage'} testId="nav-usage" />}
-        <NavItem
-          href="/inbox"
-          label="Operator inbox"
-          icon={<Inbox aria-hidden />}
-          isActive={active === 'inbox'}
-          testId="nav-inbox"
-          count={<InboxCount count={inboxCount} />}
-        />
-        {hasNetwork && <NavItem href="/network" label="Network" icon={<Network aria-hidden />} isActive={active === 'network'} testId="nav-network" />}
-        {hasSettings && <NavItem href="/settings" label="Settings" icon={<Settings2 aria-hidden />} isActive={active === 'settings'} testId="nav-settings" />}
+        ))}
       </nav>
       {account === undefined ? null : (
         <div className="border-t border-border pt-2">

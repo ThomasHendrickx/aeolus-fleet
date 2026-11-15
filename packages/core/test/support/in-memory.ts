@@ -562,9 +562,9 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
           state.messages.some((held) => held.fleetId === fleetId && typeof held.payload === 'string') ||
             state.schedules.some((held) => held.fleetId === fleetId && typeof held.send.payload === 'string'),
         ),
-      plainPayloadCount: (fleetId) =>
+      payloadsToSeal: (fleetId) =>
         Promise.resolve(
-          state.messages.filter((held) => held.fleetId === fleetId && typeof held.payload === 'string').length +
+          state.messages.filter((held) => held.fleetId === fleetId).length +
             state.schedules.filter((held) => held.fleetId === fleetId && typeof held.send.payload === 'string').length,
         ),
       turnOn: (sealing, firstKey) => {
