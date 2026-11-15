@@ -17,6 +17,9 @@ import { Textarea } from '../../../../components/atoms/textarea';
 import { CrewSettingsFields } from '../../../../components/molecules/crew-settings-fields';
 import { LimitNotice } from '../../../../components/molecules/limit-notice';
 import { shipLimitNotice } from '../../../../lib/limits';
+import type { Result } from '../../../../lib/result';
+
+type CommissionOutcome = void | Result<void, { kind: 'crewRefused'; message: string }>;
 
 /** The scopes offered under one heading: the fleet scopes, or one plugin's under its ship's name, each with the fleet's description. */
 interface OfferedScopes {
@@ -77,7 +80,7 @@ interface CommissionDialogProps {
   scopeGroups?: readonly OfferedScopes[];
   scopeFailure?: { message: string; onRetry: () => void; isRetrying?: boolean };
   /** The ship, and the crew request to write once it is commissioned: none when Request a crew is off. */
-  onSubmit: (ship: { name: string; type: string; note?: string; scopes?: string[]; owner?: ShipId }, request: { settings: CrewSettings | Record<string, never> } | undefined) => void | Promise<void>;
+  onSubmit: (ship: { name: string; type: string; note?: string; scopes?: string[]; owner?: ShipId }, request: { settings: CrewSettings | Record<string, never> } | undefined) => CommissionOutcome | Promise<CommissionOutcome>;
 }
 
 /** The open dialog's fields: they start empty each time it opens. */
@@ -152,7 +155,10 @@ function CommissionDialogBody({ types, taken, onTypedChange, isPending: isReques
           };
           // Without the trierarch plugin a request holds no settings: the ship waits on Needs crew, crewed by hand.
           try {
-            await onSubmit(ship, !isCrewRequested ? undefined : crewRequest === undefined ? { settings: {} } : crewSettings === undefined ? undefined : { settings: crewSettings });
+            const outcome = await onSubmit(ship, !isCrewRequested ? undefined : crewRequest === undefined ? { settings: {} } : crewSettings === undefined ? undefined : { settings: crewSettings });
+            if (outcome !== undefined && !outcome.isOk) {
+              setSubmitError(outcome.error.message);
+            }
           } catch (failure) {
             setSubmitError(failure instanceof Error ? failure.message : 'Couldn’t commission the ship. Nothing you typed is lost. Try again.');
           } finally {
@@ -367,7 +373,7 @@ export function CommissionDialog(props: CommissionDialogProps) {
       <DialogContent size="md" data-testid="commission-dialog" className={`${dialogSurface.phoneFullScreen} max-sm:pb-60 max-sm:max-h-dvh`}>
         <CommissionDialogBody {...props} onSubmit={async (ship, request) => {
           setIsSubmitting(true);
-          try { await props.onSubmit(ship, request); } finally { setIsSubmitting(false); }
+          try { return await props.onSubmit(ship, request); } finally { setIsSubmitting(false); }
         }} />
       </DialogContent>
     </Dialog>

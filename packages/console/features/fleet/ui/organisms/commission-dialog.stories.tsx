@@ -247,6 +247,7 @@ export const NoComputerCanCrew: Story = {
     await step('Given a connected plugin without a computer that can crew', async () => {
       await expect(await screen.findByTestId('commission-request-crew')).not.toBeChecked();
       await expect(screen.queryByRole('textbox', { name: 'Find a permission' })).toBeNull();
+      await expect(screen.getByTestId('commission-disabled-reason')).toHaveTextContent('Enter a name and type.');
       await waitFor(async () => { await expect(screen.getByText('No computer can crew this ship right now. You get the starting prompt next. You can still request a crew.')).toBeVisible(); });
     });
     await step('When the person requests a crew anyway', async () => {
@@ -255,7 +256,7 @@ export const NoComputerCanCrew: Story = {
     await step('Then the switch stays selectable and the missing requirements stay visible', async () => {
       await expect(screen.getByTestId('commission-request-crew')).toBeChecked();
       await expect(screen.getByTestId('crew-settings-harness')).toBeVisible();
-      await expect(screen.getByTestId('commission-disabled-reason')).toHaveTextContent('Enter a name and type.');
+      await expect(screen.getByTestId('commission-submit')).toBeDisabled();
     });
   },
 };
@@ -361,7 +362,7 @@ export const PhoneActions: Story = {
     const initial = { width: window.innerWidth, height: window.innerHeight };
     try {
       await step('Given the approved commission form is open', async () => {
-        await expect(await screen.findByTestId('commission-dialog')).toBeVisible();
+        await waitFor(async () => { await expect(screen.getByTestId('commission-dialog')).toBeVisible(); });
       });
       await step('When the window is phone sized', async () => {
         await page.viewport(375, 1000);

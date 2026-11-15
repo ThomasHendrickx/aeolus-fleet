@@ -138,14 +138,15 @@ export function CommissionShip({ isOpen, onOpenChange }: { isOpen: boolean; onOp
           const commissioned = { ...ship, idempotencyKey: crypto.randomUUID() };
           if (!hasTrierarchs || request === undefined) {
             commissionThenRequest(commissioned, request);
-            return;
+            return { isOk: true, value: undefined };
           }
           // Asked afresh before anything is commissioned: a refusal commissions nothing, and its field shows why.
           const checked = await check.checkNow();
           if (checked.kind === 'refused') {
-            throw new Error(`${checked.reason} Nothing was commissioned. Update the crew settings and try again.`);
+            return { isOk: false, error: { kind: 'crewRefused', message: `${checked.reason} Nothing was commissioned. Update the crew settings and try again.` } };
           }
           commissionThenRequest(commissioned, request);
+          return { isOk: true, value: undefined };
         }}
       />
       <StartingPromptDialog
