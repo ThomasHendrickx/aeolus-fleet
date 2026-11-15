@@ -64,4 +64,18 @@ describe("the sweep of a test run", () => {
       sweep(runtime, { run: "run", timing: TIMING }),
     ).resolves.toBeUndefined();
   });
+
+  it("does not wait after the last list it takes", async () => {
+    const runtime = new FakeRuntime([["a"]]);
+
+    const outcome = await Promise.race([
+      sweep(runtime, {
+        run: "run",
+        timing: { delayMs: 60_000, maxLists: 1 },
+      }).then(() => "done"),
+      new Promise((resolve) => setTimeout(() => resolve("waiting"), 100)),
+    ]);
+
+    expect(outcome).toBe("done");
+  });
 });
