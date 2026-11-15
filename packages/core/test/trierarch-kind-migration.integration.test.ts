@@ -22,7 +22,7 @@ beforeEach(async () => {
 
 afterEach(async () => { await core.close(); });
 
-async function computer(name: string, kind: 'agent' | 'app', type = 'trierarch') {
+async function computer(name: string, { kind, type = 'trierarch' }: { kind: 'agent' | 'app'; type?: string }) {
   return unwrap(await core.useCases.commissionShip(plugin, { idempotencyKey: name, name, type, kind, scopes: ['crew:run'] }));
 }
 
@@ -40,10 +40,10 @@ async function relationships() {
 
 it('migrates agent and app computers proven by commissioning or owned labels, preserving ids, inboxes, leases and crew requests', async () => {
   // Given old agent and app computers, an ordinary same-type ship, and the distinct plugin.
-  const agent = await computer('mac-studio', 'agent');
-  const app = await computer('mac-mini', 'app');
-  const labelled = await computer('labelled-computer', 'agent', 'computer');
-  const helper = await computer('plugin-helper', 'agent', 'helper');
+  const agent = await computer('mac-studio', { kind: 'agent' });
+  const app = await computer('mac-mini', { kind: 'app' });
+  const labelled = await computer('labelled-computer', { kind: 'agent', type: 'computer' });
+  const helper = await computer('plugin-helper', { kind: 'agent', type: 'helper' });
   const lookalike = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: 'lookalike', name: 'lookalike', type: 'trierarch' }));
   const label = unwrap(await core.useCases.defineLabel(plugin, { key: 'trierarch', values: ['machine', 'plugin'] }));
   const machineValue = label.values.find((value) => value.value === 'machine');
@@ -60,7 +60,8 @@ it('migrates agent and app computers proven by commissioning or owned labels, pr
   unwrap(await core.useCases.sendMessage(argo, { selector: { kind: 'ship', shipId: agent.shipId }, contentType: 'text/plain', payload: 'Keep this inbox', idempotencyKey: 'inbox' }));
   unwrap(await core.useCases.requestCrew(argo, { shipId: helper.shipId, settings: aCrewSettings() }));
   unwrap(await core.useCases.assignCrew(plugin, { shipId: helper.shipId, trierarchShipId: agent.shipId }));
-  const otherArgo = operatorCaller(unwrap(await core.useCases.createFleet({ requestId: 'another-fleet', name: 'another fleet', operatorEmail: 'another@example.com' })));
+  const otherFleet = unwrap(await core.useCases.createFleet({ requestId: 'another-fleet', name: 'another fleet', operatorEmail: 'another@example.com' }));
+  const otherArgo: ShipCaller = { ...argo, fleetId: otherFleet.fleetId, shipId: otherFleet.operatorShipId };
   const impostorId = unwrap(await core.useCases.commissionShip(otherArgo, { idempotencyKey: 'impostor', name: 'another-plugin', type: 'another-plugin', kind: 'plugin', scopes: ['fleet:commission', 'labels:define', 'labels:assign'] })).shipId;
   const impostor: ShipCaller = { fleetId: otherArgo.fleetId, shipId: impostorId, kind: 'plugin', scopes: ['fleet:commission', 'labels:define', 'labels:assign'] };
   const unrelated = unwrap(await core.useCases.commissionShip(impostor, { idempotencyKey: 'unrelated', name: 'unrelated', type: 'trierarch' }));

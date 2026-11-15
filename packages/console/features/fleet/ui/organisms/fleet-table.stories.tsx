@@ -742,3 +742,18 @@ export const ShipStates: Story = {
 };
 export const ShipStatesDark: Story = { ...ShipStates, globals: { theme: 'dark' } };
 export const ShipStatesPhone: Story = { ...ShipStates, play: undefined, globals: { viewport: { value: 'mobile1' } } };
+
+/** A computer keeps its existing report when its durable kind changes. */
+export const TrierarchReport: Story = {
+  args: { ships: [ship('h8aa', { name: 'mac-studio', type: 'trierarch', kind: 'trierarch', model: null, report: { state: 'working', note: 'Crewing 4 ships', task: null, step: null, reportedAt: NOW.toISOString(), reportChangedAt: NOW.toISOString(), detailsVersion: 0 } })] },
+  play: async ({ canvasElement }) => {
+    // Given a crewed computer whose lease already holds its report.
+    const row = within(canvasElement).getByTestId('fleet-row-mac-studio');
+
+    // When its row renders with kind trierarch.
+    const report = within(row).getByTestId('fleet-report');
+
+    // Then the existing report remains visible.
+    await expect(report).toHaveTextContent('Crewing 4 ships');
+  },
+};

@@ -753,3 +753,19 @@ describe('selecting the ships of a page by what the overview filters (decision 4
     await expect(namesSelected({ kind: ['trierarch'], pluginShipIds: [pluginShip.shipId] })).resolves.toEqual([]);
   });
 });
+
+it('keeps a computer’s existing report in the Report sort after its kind changes to trierarch', async () => {
+  // Given two reported ships, with the computer’s report alphabetically first.
+  const computer = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'mac-studio', type: 'trierarch', kind: 'trierarch' }));
+  for (const [shipId, note] of [[computer.shipId, 'A computer crewing ships'], [scoutId, 'Z reviewing the fleet']] as const) {
+    const secret = shipId === scoutId ? scoutSecret : secretOf(computer.secret);
+    const { crewToken } = unwrap(await useCases.claimShip({ shipId, secret, location: { kind: 'SERVER' } }));
+    unwrap(await useCases.report(unwrap(await identityUseCases(core).authenticate.byCrewToken(crewToken)), { state: 'working', note }));
+  }
+
+  // When the fleet sorts the existing reports.
+  const listed = await useCases.listFleet(argo, { sort: { column: 'report', direction: 'ascending' } });
+
+  // Then the computer sorts by its report, before the agent and the empty argo cell.
+  expect(listed.ships.map((ship) => ship.name)).toEqual(['mac-studio', 'scout', 'argo']);
+});

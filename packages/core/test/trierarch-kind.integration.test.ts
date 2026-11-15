@@ -1,6 +1,8 @@
 import { commissionShipInputSchema, discoverOutputSchema, fleetListInputSchema } from '@aeolus-fleet/common';
 import { afterEach, beforeEach, expect, it } from 'vitest';
 
+import { fleetListingStatement } from '../src/adapters/prisma/registry.js';
+import { assertIndexedPlan } from './support/assert-indexed-plan.js';
 import type { ShipCaller } from '../src/domain/shared/caller.js';
 import { unwrap } from '../src/testing/result.js';
 import { operatorCaller, secretOf } from './support/core-fixtures.js';
@@ -47,4 +49,25 @@ it('lets a trierarch send without a model and refuses a stated model because onl
   // Then only the send without a model is accepted.
   expect(unstated.isOk).toBe(true);
   expect(stated).toMatchObject({ isOk: false, error: { message: 'A trierarch ship states no model: send without one' } });
+});
+
+it('keeps a trierarch report in the existing Report sort and indexed fleet listing', async () => {
+  // Given a computer and an agent whose existing lease reports sort in that order.
+  for (const input of [
+    { idempotencyKey: 'computer', name: 'mac-studio', type: 'trierarch', kind: 'trierarch', note: 'A computer crewing ships' },
+    { idempotencyKey: 'agent', name: 'builder', type: 'builder', kind: 'agent', note: 'Z building the fleet' },
+  ] as const) {
+    const { note, ...ship } = input;
+    const commissioned = unwrap(await core.useCases.commissionShip(argo, ship));
+    const { crewToken } = unwrap(await core.useCases.claimShip({ shipId: commissioned.shipId, secret: secretOf(commissioned.secret), location: { kind: 'SERVER' } }));
+    unwrap(await core.useCases.report(unwrap(await core.useCases.authenticate.byCrewToken(crewToken)), { state: 'working', note }));
+  }
+
+  // When the existing API sorts by the reports that survived the kind change.
+  const sort = { column: 'report', direction: 'ascending' } as const;
+  const listed = await core.useCases.listFleet(argo, { sort });
+
+  // Then the computer report is not treated as empty and the hot read keeps indexed history access.
+  expect(listed.ships.map((ship) => ship.name)).toEqual(['mac-studio', 'builder', 'argo']);
+  await assertIndexedPlan(core.prisma, fleetListingStatement(argo.fleetId, { limit: 20, filter: { status: ['crewed', 'awaitingCrew'] }, sort, reach: { kind: 'every' } }));
 });

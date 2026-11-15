@@ -140,7 +140,7 @@ describe('the approved trierarch-kind screens', () => {
     await page.goto('/');
     const groups = page.getByTestId('harbour-groups');
     await page.getByTestId('harbour-group-trierarchs').waitFor();
-    expect(await groups.evaluate("element => [...element.children].map(section => section.getAttribute('aria-label'))")).toEqual(['People', 'Agents', 'Trierarchs', 'Plugins']);
+    expect(await Promise.all((await groups.locator(':scope > section').all()).map((section) => section.getAttribute('aria-label')))).toEqual(['People', 'Agents', 'Trierarchs', 'Plugins']);
     expect(await page.getByTestId('harbour-group-trierarchs').getByText('mac-studio', { exact: true }).count()).toBe(1);
     expect(await page.getByTestId('harbour-group-plugins').getByText('trierarch-plugin', { exact: true }).count()).toBe(1);
     for (const width of [375, 1440, 1920]) {
