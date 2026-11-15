@@ -357,3 +357,18 @@ export const PhoneActions: Story = {
     }
   },
 };
+
+/** The approved field hints describe type addressing and who receives the ship's questions. */
+export const ApprovedFieldHints: Story = {
+  args: ApprovedFirstState.args,
+  play: async () => {
+    // Given the first commission state.
+    await expect(await screen.findByText('Ships of the same type share a type address.')).toBeVisible();
+    await expect(screen.getByText('Its questions, gates and trouble go to this person’s ship.')).toBeVisible();
+    await expect(screen.getByTestId('commission-disabled-reason')).toHaveTextContent('Complete the two fields above to commission this ship.');
+    // When an existing type is entered.
+    await typeNameAndType();
+    // Then its count describes the active ships of that type.
+    await expect(screen.getByText('2 active ships have this type.')).toBeVisible();
+  },
+};
