@@ -208,8 +208,13 @@ export const OffersArriveAfterOpening: Story = {
   args: { onSubmit: fn() },
   render: (args) => <CommissionWithDelayedOffers {...args} />,
   play: async ({ args }) => {
+    // Given a shown switch before any computer offers arrive.
     await typeNameAndType();
+    // When computers become available after editing.
     window.dispatchEvent(new Event('deliver-offers'));
+    // Then the existing choice stays off and may be turned on explicitly.
+    await expect(screen.getByTestId('commission-request-crew')).not.toBeChecked();
+    await userEvent.click(screen.getByTestId('commission-request-crew'));
     await waitFor(async () => {
       await expect(screen.getByTestId('crew-settings-harness')).toHaveTextContent('Claude Code');
       await expect(screen.getByTestId('crew-settings-workspace')).toHaveTextContent('aeolus-fleet');
@@ -383,5 +388,46 @@ export const PermissionsReadFailed: Story = {
     await userEvent.click(screen.getByRole('button', { name: /Try again/ }));
     await expect(args.scopeFailure?.onRetry).toHaveBeenCalledOnce();
     await expect(screen.getByTestId('commission-name')).toHaveValue('reviewer-03');
+  },
+};
+
+/** A live placement check may change while the open form belongs to its editor. */
+function CommissionWithLiveCrewCheck(args: ComponentProps<typeof CommissionDialog>) {
+  const [hasRoom, setHasRoom] = useState(true);
+  useEffect(() => {
+    const noRoom = () => { setHasRoom(false); };
+    window.addEventListener('commission-no-room', noRoom);
+    return () => { window.removeEventListener('commission-no-room', noRoom); };
+  }, []);
+  return <CommissionDialog {...args} crewRequest={{ offers: OFFERS, check: hasRoom ? undefined : { kind: 'noRoom', reason: 'All computers are full.' }, onSettingsChange: () => { setHasRoom(false); } }} />;
+}
+
+export const LiveCrewCheckKeepsEditedFields: Story = {
+  render: (args) => <CommissionWithLiveCrewCheck {...args} />,
+  play: async () => {
+    // Given a visible crew request with an offered computer.
+    const crew = await screen.findByTestId('commission-request-crew');
+    await expect(crew).toBeChecked();
+    // When editing the prompt triggers a live check that finds no room.
+    await userEvent.type(screen.getByTestId('crew-settings-first-prompt'), 'Review the change');
+    // Then the request stays on and its filled fields stay visible.
+    await expect(crew).toBeChecked();
+    await expect(screen.getByTestId('crew-settings-first-prompt')).toHaveValue('Review the change');
+  },
+};
+
+export const LiveCrewCheckKeepsShownSwitch: Story = {
+  render: (args) => <CommissionWithLiveCrewCheck {...args} />,
+  play: async () => {
+    // Given the person has already seen Request a crew on.
+    const crew = await screen.findByTestId('commission-request-crew');
+    await expect(crew).toBeChecked();
+    // When a later live check finds no room.
+    window.dispatchEvent(new Event('commission-no-room'));
+    // Then the shown switch stays on and remains switchable.
+    await waitFor(async () => { await expect(screen.getByText('No computer can crew this ship right now. Turn this off to get the starting prompt.')).toBeVisible(); });
+    await expect(crew).toBeChecked();
+    await userEvent.click(crew);
+    await expect(crew).not.toBeChecked();
   },
 };
