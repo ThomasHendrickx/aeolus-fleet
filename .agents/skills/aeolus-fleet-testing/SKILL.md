@@ -14,3 +14,5 @@ Load with `behaviour-driven-development`.
 - Boundaries include the 256 KB payload.
 
 Enforced by lint/CI (`eslint.config.js`, `scripts/`): a `feat` or `fix` commit touching production code comes right after a `(red)` commit with only tests (every other commit type passes), a test beside every use case, every test in a Vitest project, no `vi.mock`, no `vi.fn` or `vi.spyOn` in core and common.
+
+- Changed Prisma modules need a changed plan test importing the module and calling `assertIndexedPlan`; `scripts/check-query-plans.ts` checks this. For a change without a query, explain it as `None: <reason>` under `## Plans` in the PR.
