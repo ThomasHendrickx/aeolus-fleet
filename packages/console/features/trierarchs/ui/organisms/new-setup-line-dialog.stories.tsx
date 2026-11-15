@@ -40,7 +40,40 @@ export const Confirm: Story = {
   },
 };
 export const Getting: Story = { args: { isPending: true } };
-export const Failed: Story = { args: { error: 'This call needs the fleet:manage or crew:run scope.' } };
+const REASON = 'This call needs the fleet:manage or crew:run scope.';
+
+/** Nothing went through: the confirm says so, and the old line still works. */
+export const Failed: Story = {
+  args: { error: { reason: REASON, outcome: 'unchanged' } },
+  play: async () => {
+    await expect(await screen.findByText('Couldn’t get a new setup line')).toBeVisible();
+    await expect(screen.getByText(`${REASON} Nothing changed.`)).toBeVisible();
+  },
+};
+
+/** The release went through, the new line did not (trierarch#260): the confirm says the ship was released and to get a new line again. */
+export const FailedAfterRelease: Story = {
+  args: { error: { reason: REASON, outcome: 'released' } },
+  play: async () => {
+    await expect(await screen.findByText('Couldn’t get a new setup line')).toBeVisible();
+    await expect(
+      screen.getByText(`${REASON} trierarch-mac was released, but has no new setup line yet: its old line stopped working and its trierarch lost its crew. Get a new setup line again, here or on its card, and run it on the machine.`),
+    ).toBeVisible();
+    await expect(screen.getByTestId('new-setup-line-dialog')).not.toHaveTextContent('Nothing changed');
+  },
+};
+
+/** Whether the release went through could not be read again: the confirm says it may have, and what to do. */
+export const FailedMaybeReleased: Story = {
+  args: { error: { reason: REASON, outcome: 'unsure' } },
+  play: async () => {
+    await expect(await screen.findByText('Couldn’t get a new setup line')).toBeVisible();
+    await expect(
+      screen.getByText(`${REASON} trierarch-mac may have been released: if so, its old line stopped working and its trierarch lost its crew. Get a new setup line again, here or on its card, and run it on the machine.`),
+    ).toBeVisible();
+    await expect(screen.getByTestId('new-setup-line-dialog')).not.toHaveTextContent('Nothing changed');
+  },
+};
 
 /** The new line, shown once, as the join dialog shows a joined machine's. */
 export const Line: Story = {
