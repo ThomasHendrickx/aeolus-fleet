@@ -80,7 +80,11 @@ function showToast(content: ToastContent): void {
   );
 }
 
-/** Desktop bottom right, 24 px in; phone 12 px from the edges, above the TabBar. */
+/**
+ * Desktop bottom right, 24 px in; phone 12 px from the edges. A page that
+ * shows a TabBar sets --tab-bar-clearance to its height, and the phone's
+ * toasts sit above it; elsewhere the clearance is 0.
+ */
 function Toaster({ className }: { className?: string }) {
   return (
     <SonnerToaster
@@ -89,7 +93,7 @@ function Toaster({ className }: { className?: string }) {
       mobileOffset={{
         left: 'calc(var(--spacing) * 3)',
         right: 'calc(var(--spacing) * 3)',
-        bottom: 'calc(var(--size-tabbar) + var(--spacing) * 3)',
+        bottom: 'calc(var(--spacing) * 3 + var(--tab-bar-clearance, 0px))',
       }}
       toastOptions={{ unstyled: true }}
       className={classNames('toaster', className)}

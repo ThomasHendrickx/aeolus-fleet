@@ -12,7 +12,7 @@ export type Db = PrismaClient | Prisma.TransactionClient;
  * outside one (such as the crew-token lookup), before it is refused as busy
  * (fleet-busy.ts). The pool keeps pg's default size.
  */
-const CONNECTION_WAIT_MS = 10_000;
+export const CONNECTION_WAIT_MS = 10_000;
 
 /**
  * How long a call's transaction may run before Prisma rolls it back; the

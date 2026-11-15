@@ -9,6 +9,7 @@ import { failureForLog } from './adapters/prisma/failure-log.js';
 import { createFleetEventWakeups, fleetEventWakeupsOf } from './adapters/prisma/fleet-event-wakeups.js';
 import { ensureMessagesPlainPayloadIndex } from './adapters/prisma/messages-plain-payload-index.js';
 import { createReceiverWakeups } from './adapters/prisma/receiver-wakeups.js';
+import { ensureHealthBootstrapIndex } from './adapters/prisma/health-bootstrap-index.js';
 import type { Clock } from './domain/shared/clock.js';
 import { startMaintenancePass } from './maintenance-pass.js';
 import { repeatPass, type RepeatingPass } from './repeating-pass.js';
@@ -46,6 +47,7 @@ export interface AppOptions {
 
 /** How often core runs the 10 and 60 minute clocks: argo hears of an overdue delivery within this of its clock running out. */
 const OVERDUE_PASS_MS = 30_000;
+const BOOTSTRAP_INDEX_RETRY_MS = 1_000;
 const PLAIN_PAYLOAD_INDEX_RETRY_MS = 1_000;
 
 /** How long core waits for pagasae's key set before it goes on with the keys it holds. */
@@ -165,6 +167,22 @@ export function createApp(options: AppOptions): FastifyInstance {
     done();
   });
 
+  // Closing aborts the build, so a stop never waits for it; the next start builds it again.
+  const bootstrapIndexBuild = new AbortController();
+  let bootstrapIndex: RepeatingPass | undefined;
+  server.addHook('onListen', (done) => {
+    bootstrapIndex = repeatPass({
+      pass: async () => {
+        if (await ensureHealthBootstrapIndex(options.databaseUrl, bootstrapIndexBuild.signal)) {
+          void bootstrapIndex?.stop();
+        }
+      },
+      everyMs: BOOTSTRAP_INDEX_RETRY_MS,
+      onError: (error) => { server.log.warn(failureForLog(error), 'snapshot bootstrap index build failed: retrying while serving'); },
+    });
+    done();
+  });
+
   // Before the server stops taking requests and waits for the ones it holds:
   // a waiting receive answers no deliveries at once instead of holding it up,
   // and a live subscription and every wake stream end.
@@ -185,6 +203,8 @@ export function createApp(options: AppOptions): FastifyInstance {
   });
 
   server.addHook('onClose', async () => {
+    bootstrapIndexBuild.abort();
+    await bootstrapIndex?.stop();
     await plainPayloadIndex?.stop();
     await overduePasses.stop();
     await scheduleTimer.stop();

@@ -1,6 +1,6 @@
 'use client';
 
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useState, type ReactNode } from 'react';
 
 import { ConsoleFrame } from '../../components/organisms/console-frame';
@@ -22,7 +22,7 @@ import { usePluginNav } from '../../lib/plugin-nav';
 /**
  * The signed-in route layout's client part: the ConsoleFrame with the
  * navigation and its counts, the operator's account, Compose (sending as
- * argo, while the session may send) and the CommandPalette. Each page shows
+ * argo, while the session may send, also from ?compose=new) and the CommandPalette. Each page shows
  * its own ListPage or DetailPage inside, with what this hands it.
  */
 export function SignedInLayout({ children }: { children: ReactNode }) {
@@ -35,6 +35,11 @@ export function SignedInLayout({ children }: { children: ReactNode }) {
   const pluginNav = usePluginNav();
   const active = destinationOf(usePathname());
   const [isComposing, setIsComposing] = useState(false);
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  // Another app's palette opens Compose with ?compose=new (header design H4); it opens only while the session may send.
+  const isComposeAsked = searchParams.get('compose') === 'new' && access.canSend;
   const [isSearching, setIsSearching] = useState(false);
   const compose = () => {
     setIsComposing(true);
@@ -62,7 +67,17 @@ export function SignedInLayout({ children }: { children: ReactNode }) {
       <ConsoleFrame nav={{ active, inboxCount, stuckCount, ...pluginNav }} account={account} {...(switcher === undefined ? {} : { fleetName: switcher.fleet.name })}>
         {children}
       </ConsoleFrame>
-      <ComposeMessage isOpen={isComposing} onOpenChange={setIsComposing} />
+      <ComposeMessage
+        isOpen={isComposing || isComposeAsked}
+        onOpenChange={(isOpen) => {
+          setIsComposing(isOpen);
+          if (!isOpen && isComposeAsked) {
+            const kept = new URLSearchParams(searchParams);
+            kept.delete('compose');
+            router.replace(kept.size === 0 ? pathname : `${pathname}?${kept.toString()}`);
+          }
+        }}
+      />
       <ConsoleCommands isOpen={isSearching} onOpenChange={setIsSearching} onCompose={compose} switcher={switcher} />
     </ConsoleFrameContext>
   );
