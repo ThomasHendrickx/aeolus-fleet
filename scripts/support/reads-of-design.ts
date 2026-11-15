@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 import type { Read } from './read.ts';
 
 const CREDENTIALS = ['fleet', 'installation', 'session'] as const;
@@ -22,7 +24,7 @@ export function readsOfDesign(markdown: string): Read[] {
     if (name === undefined || name === '' || found === undefined) {
       throw new Error(`A row of the table of reads is not a read and a credential: ${line}`);
     }
-    reads.push({ name, procedure: name, ...(input ? { input: JSON.parse(input) as unknown } : {}), credential: found });
+    reads.push({ name, procedure: name, ...(input ? { input: z.unknown().parse(JSON.parse(input)) } : {}), credential: found });
   }
   return reads;
 }

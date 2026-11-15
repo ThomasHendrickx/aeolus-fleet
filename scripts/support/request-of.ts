@@ -2,7 +2,8 @@ import type { Read } from './read.ts';
 import type { Target } from './target.ts';
 
 /** The GET of a read on tRPC's plain JSON wire: its input in the query (placeholders filled), its credential in the headers. */
-export function requestOf(read: Read, target: Target, found: Readonly<Record<string, string>> = {}): { url: string; headers: Record<string, string> } {
+export function requestOf(options: { read: Read; target: Target; found?: Readonly<Record<string, string>> }): { url: string; headers: Record<string, string> } {
+  const { read, target, found = {} } = options;
   const base = `${target.url.replace(/\/+$/, '')}/trpc/${read.procedure}`;
   const values: Record<string, string> = { ...found, '<fleet id>': target.fleetId };
   const input = read.input === undefined ? undefined : Object.entries(values).reduce((json, [placeholder, value]) => json.replaceAll(placeholder, value), JSON.stringify(read.input));

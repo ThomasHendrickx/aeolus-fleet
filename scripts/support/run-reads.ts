@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 import type { Baseline } from './baseline.ts';
 import { measureRead } from './measure-read.ts';
 import type { Read } from './read.ts';
@@ -18,10 +20,11 @@ interface Answer {
 const SHIP = '<ship id>';
 const MESSAGE = '<message id>';
 
+const PAGED_ANSWER = z.object({ result: z.object({ data: z.object({ items: z.array(z.object({ id: z.unknown() })) }) }) });
+
 /** The id of the first item of a paged answer in tRPC's JSON wire, if it has one. */
 function firstIdOf(body: unknown): string | undefined {
-  const items = (body as { result?: { data?: { items?: { id?: unknown }[] } } } | null)?.result?.data?.items;
-  const id = items?.[0]?.id;
+  const id = PAGED_ANSWER.safeParse(body).data?.result.data.items[0]?.id;
   return typeof id === 'string' ? id : undefined;
 }
 
@@ -43,11 +46,11 @@ export async function runReads(run: {
   const found: Record<string, string> = {};
   const needs = (read: Read, placeholder: string): boolean => JSON.stringify(read.input ?? null).includes(placeholder);
   if (run.reads.some((read) => needs(read, SHIP) || needs(read, MESSAGE))) {
-    const ship = firstIdOf((await fetcher(requestOf({ name: 'fleet.list', procedure: 'fleet.list', input: { limit: 1 }, credential: 'fleet' }, target)).catch(() => undefined))?.body);
+    const ship = firstIdOf((await fetcher(requestOf({ read: { name: 'fleet.list', procedure: 'fleet.list', input: { limit: 1 }, credential: 'fleet' }, target })).catch(() => undefined))?.body);
     if (ship !== undefined) {
       found[SHIP] = ship;
       const message = firstIdOf(
-        (await fetcher(requestOf({ name: 'fleet.shipMessages', procedure: 'fleet.shipMessages', input: { shipId: SHIP, limit: 1 }, credential: 'fleet' }, target, found)).catch(() => undefined))?.body,
+        (await fetcher(requestOf({ read: { name: 'fleet.shipMessages', procedure: 'fleet.shipMessages', input: { shipId: SHIP, limit: 1 }, credential: 'fleet' }, target, found })).catch(() => undefined))?.body,
       );
       if (message !== undefined) {
         found[MESSAGE] = message;
@@ -64,7 +67,7 @@ export async function runReads(run: {
       rows.push({ name: read.name, measured: { notMeasured: 'the ship has no message to read' } });
       continue;
     }
-    const request = requestOf(read, target, found);
+    const request = requestOf({ read, target, found });
     const measured = await measureRead({ samples: run.samples, warmup: run.warmup, clock: run.clock, call: () => fetcher(request) });
     rows.push({ name: read.name, measured });
   }

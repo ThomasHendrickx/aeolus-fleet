@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
 
 import { runReads } from './run-reads.ts';
 
@@ -16,7 +17,10 @@ function fakeFleet(milliseconds: Record<string, number>, ships: string[] = ['shp
     const { pathname, searchParams } = new URL(request.url);
     const procedure = pathname.replace('/trpc/', '');
     now += milliseconds[procedure] ?? 10;
-    const input = JSON.parse(searchParams.get('input') ?? 'null') as { shipId?: string; fleetId?: string } | null;
+    const input = z
+      .object({ shipId: z.string().optional(), fleetId: z.string().optional() })
+      .nullable()
+      .parse(JSON.parse(searchParams.get('input') ?? 'null'));
     if (procedure === 'fleet.list') {
       return Promise.resolve({ isOk: true, body: { result: { data: { items: ships.map((id) => ({ id })), nextCursor: null } } } });
     }
