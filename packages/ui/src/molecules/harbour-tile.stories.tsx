@@ -441,7 +441,8 @@ export const InterruptedSettleSurvivesReinsertion: Story = {
 
     // Then the new settle continues from the displayed colour to the latest state.
     const next = colourTransitionsOf(tile).find((transition) => transition.transitionProperty === 'background-color');
-    await expect(next?.effect?.getKeyframes()[0]?.backgroundColor).toBe(interrupted);
+    const effect = next?.effect;
+    await expect(effect instanceof KeyframeEffect ? effect.getKeyframes()[0]?.backgroundColor : undefined).toBe(interrupted);
     await expect(next?.effect?.getTiming()).toMatchObject({ duration: 180, easing: 'ease-out' });
     await expect(within(tile).getByTestId('ship-state')).toHaveTextContent('Idle');
     await expect(within(tile).queryByTestId('harbour-tile-live')).toBeNull();
