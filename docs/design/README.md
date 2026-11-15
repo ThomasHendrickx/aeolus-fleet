@@ -41,6 +41,7 @@ Feature designs, one folder each; the status of each is at its top:
 | [network-io](network-io/README.md) | Network rules: export and import |
 | [oauth-servers](oauth-servers/oauth-servers.md) | Outside MCP servers that take only an OAuth sign-in |
 | [on-behalf-scopes](on-behalf-scopes/on-behalf-scopes.md) | Scopes granted on behalf of the asking ship |
+| [one-line-setup](one-line-setup.md) | Self-hosting: `npm create aeolus-fleet`, then one start command, for a configured fleet signed in on localhost |
 | [performance](performance/performance.md) | Performance at scale: paged reads and their limits |
 | [re-read-delivery](re-read-delivery/README.md) | A crew re-reads an acknowledged delivery |
 | [retention](retention/retention.md) | What a fleet keeps, and for how long |
