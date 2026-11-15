@@ -30,8 +30,12 @@ const SETTLE_MS = 500;
 const LATE_MS = 400;
 /** How far the visitor scrolls down: past the anchor, so it leaves the top of the window. */
 const VISITOR_SCROLL = 600;
-/** The parts of a ship page that answer at once; the parts above the timeline wait. */
-const EARLY = /shipTimeline|console\.guide/;
+/**
+ * The parts of a ship page that answer at once; the parts above the timeline wait.
+ * The number the live updates follow from answers at once too: it is no part of the page,
+ * and the resync it gates reloads every read, which must happen while the parts above still wait (#1169).
+ */
+const EARLY = /shipTimeline|console\.guide|fleet\.follow/;
 
 let database: PrismaClient;
 let server: FastifyInstance;
