@@ -21,10 +21,10 @@ describe('the percentile of a run', () => {
 describe('summarising a read', () => {
   it('counts a failed call as a sample, slow or not, and as an error', () => {
     const summary = summarise([
-      { ms: 10, ok: true },
-      { ms: 20, ok: true },
-      { ms: 900, ok: false },
-      { ms: 30, ok: true },
+      { ms: 10, isOk: true },
+      { ms: 20, isOk: true },
+      { ms: 900, isOk: false },
+      { ms: 30, isOk: true },
     ]);
     expect(summary).toEqual({ samples: 4, p95Ms: 900, p99Ms: 900, errorRate: 0.25 });
   });
@@ -32,11 +32,11 @@ describe('summarising a read', () => {
 
 describe('the budget', () => {
   it('holds a read with p95 under 100 ms, p99 under 500 ms and errors under 1%', () => {
-    expect(verdictOf({ samples: 200, p95Ms: 99, p99Ms: 499, errorRate: 0.0099 })).toEqual({ within: true, over: [] });
+    expect(verdictOf({ samples: 200, p95Ms: 99, p99Ms: 499, errorRate: 0.0099 })).toEqual({ isWithin: true, over: [] });
   });
 
   it('names each limit a read reaches or passes', () => {
-    expect(verdictOf({ samples: 200, p95Ms: 100, p99Ms: 600, errorRate: 0.01 })).toEqual({ within: false, over: ['p95', 'p99', 'errors'] });
+    expect(verdictOf({ samples: 200, p95Ms: 100, p99Ms: 600, errorRate: 0.01 })).toEqual({ isWithin: false, over: ['p95', 'p99', 'errors'] });
   });
 
   it('is the one the performance skill states', () => {
@@ -57,7 +57,7 @@ describe('measuring a read', () => {
       clock: () => now,
       call: () => {
         now += durations[call++] ?? 0;
-        return Promise.resolve({ ok: true });
+        return Promise.resolve({ isOk: true });
       },
     });
     expect(call).toBe(5);
@@ -72,7 +72,7 @@ describe('measuring a read', () => {
       clock: () => 0,
       call: () => {
         calls += 1;
-        return calls === 2 ? Promise.reject(new Error('socket hang up')) : Promise.resolve({ ok: true });
+        return calls === 2 ? Promise.reject(new Error('socket hang up')) : Promise.resolve({ isOk: true });
       },
     });
     expect(measurement.errorRate).toBe(0.25);

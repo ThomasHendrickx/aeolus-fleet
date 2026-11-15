@@ -37,18 +37,18 @@ export function percentile(samples: readonly number[], percent: number): number 
 }
 
 /** A failed call is a sample too, slow or not, and an error. */
-export function summarise(calls: readonly { ms: number; ok: boolean }[]): Measurement {
+export function summarise(calls: readonly { ms: number; isOk: boolean }[]): Measurement {
   const ms = calls.map((call) => call.ms);
   return {
     samples: calls.length,
     p95Ms: percentile(ms, 95),
     p99Ms: percentile(ms, 99),
-    errorRate: calls.filter((call) => !call.ok).length / calls.length,
+    errorRate: calls.filter((call) => !call.isOk).length / calls.length,
   };
 }
 
 /** Which limits of the budget a read reaches or passes: a read within it is under all three. */
-export function verdictOf(measured: Measurement): { within: boolean; over: ('p95' | 'p99' | 'errors')[] } {
+export function verdictOf(measured: Measurement): { isWithin: boolean; over: ('p95' | 'p99' | 'errors')[] } {
   const over: ('p95' | 'p99' | 'errors')[] = [];
   if (measured.p95Ms >= BUDGET.p95Ms) {
     over.push('p95');
@@ -59,25 +59,25 @@ export function verdictOf(measured: Measurement): { within: boolean; over: ('p95
   if (measured.errorRate >= BUDGET.errorRate) {
     over.push('errors');
   }
-  return { within: over.length === 0, over };
+  return { isWithin: over.length === 0, over };
 }
 
 /** Calls a read `warmup` times, uncounted, then `samples` times, timing each with the clock; a call that throws is an error. */
 export async function measureRead(
   _read: Read,
-  run: { samples: number; warmup: number; clock: () => number; call: () => Promise<{ ok: boolean }> },
+  run: { samples: number; warmup: number; clock: () => number; call: () => Promise<{ isOk: boolean }> },
 ): Promise<Measurement> {
   for (let index = 0; index < run.warmup; index += 1) {
     await run.call().catch(() => undefined);
   }
-  const calls: { ms: number; ok: boolean }[] = [];
+  const calls: { ms: number; isOk: boolean }[] = [];
   for (let index = 0; index < run.samples; index += 1) {
     const start = run.clock();
-    const ok = await run.call().then(
-      (answer) => answer.ok,
+    const isOk = await run.call().then(
+      (answer) => answer.isOk,
       () => false,
     );
-    calls.push({ ms: run.clock() - start, ok });
+    calls.push({ ms: run.clock() - start, isOk });
   }
   return summarise(calls);
 }
@@ -106,12 +106,12 @@ export function reportOf(rows: readonly ReadReport[], baseline: Baseline): strin
   ];
   for (const { name, measured } of rows) {
     const before = baseline[name];
-    const { within, over } = verdictOf(measured);
+    const { isWithin, over } = verdictOf(measured);
     lines.push(
-      `| ${name} | ${beside(before && msOf(before.p95Ms), msOf(measured.p95Ms))} | ${beside(before && msOf(before.p99Ms), msOf(measured.p99Ms))} | ${beside(before && percentOf(before.errorRate), percentOf(measured.errorRate))} | ${within ? 'within' : `over: ${over.join(', ')}`} |`,
+      `| ${name} | ${beside(before && msOf(before.p95Ms), msOf(measured.p95Ms))} | ${beside(before && msOf(before.p99Ms), msOf(measured.p99Ms))} | ${beside(before && percentOf(before.errorRate), percentOf(measured.errorRate))} | ${isWithin ? 'within' : `over: ${over.join(', ')}`} |`,
     );
   }
-  const overCount = rows.filter((row) => !verdictOf(row.measured).within).length;
+  const overCount = rows.filter((row) => !verdictOf(row.measured).isWithin).length;
   lines.push('', `${String(overCount)} of ${String(rows.length)} reads are over the budget.`);
   return lines.join('\n');
 }
