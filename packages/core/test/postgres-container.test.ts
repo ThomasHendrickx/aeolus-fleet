@@ -11,6 +11,10 @@ class CreatedTestPostgres extends TestPostgres {
     return this.createOpts.Healthcheck?.Test;
   }
 
+  createdLabels(): Record<string, string> | undefined {
+    return this.createOpts.Labels;
+  }
+
   createdCommand(): string[] | undefined {
     return this.createOpts.Cmd;
   }
@@ -30,5 +34,15 @@ describe('the Postgres test container', () => {
     const container = new CreatedTestPostgres(POSTGRES_IMAGE, 'test-run');
 
     expect(container.createdCommand()).toEqual(['postgres', '-c', 'fsync=off']);
+  });
+
+  // The sweepers find a leaked container by these: the repository for the stale ones, the run for its own.
+  it('is created with the labels of its repository and its run', () => {
+    const container = new CreatedTestPostgres(POSTGRES_IMAGE, 'test-run');
+
+    expect(container.createdLabels()).toMatchObject({
+      'aeolus-fleet.repository': 'aeolus-fleet',
+      'aeolus-fleet.test-run': 'test-run',
+    });
   });
 });

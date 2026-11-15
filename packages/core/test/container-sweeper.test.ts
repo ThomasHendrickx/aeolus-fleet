@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { type SweepRuntime, sweep } from "../src/testing/container-sweeper.js";
+import {
+  type StaleSweepRuntime,
+  type SweepRuntime,
+  removeStaleContainers,
+  sweep,
+  testContainerLabels,
+} from "../src/testing/container-sweeper.js";
 
 const TIMING = { delayMs: 1, maxLists: 5 };
 
@@ -77,5 +83,55 @@ describe("the sweep of a test run", () => {
     ]);
 
     expect(outcome).toBe("done");
+  });
+});
+
+const HOUR_MS = 3_600_000;
+const NOW = new Date("2026-11-16T12:00:00.000Z");
+
+/** The containers of this repository's test runs, each created some hours before now. */
+class FakeRepositoryRuntime implements StaleSweepRuntime {
+  readonly removed: string[] = [];
+
+  constructor(private readonly ageHours: Record<string, number>) {}
+
+  listRepositoryContainers(): Promise<{ id: string; createdAt: Date }[]> {
+    return Promise.resolve(
+      Object.entries(this.ageHours).map(([id, hours]) => ({
+        id,
+        createdAt: new Date(NOW.getTime() - hours * HOUR_MS),
+      })),
+    );
+  }
+
+  removeContainer(id: string): Promise<void> {
+    this.removed.push(id);
+    return Promise.resolve();
+  }
+}
+
+describe("the removal of stale test containers", () => {
+  it("removes the containers older than 24 hours and keeps the others", async () => {
+    const runtime = new FakeRepositoryRuntime({ old: 25, week: 168, recent: 23, fresh: 0 });
+
+    await removeStaleContainers(runtime, { now: NOW });
+
+    expect(runtime.removed).toEqual(["old", "week"]);
+  });
+
+  it("goes on when a container is already gone", async () => {
+    const runtime = new FakeRepositoryRuntime({ a: 30, b: 30 });
+    runtime.removeContainer = () => Promise.reject(new Error("not found"));
+
+    await expect(removeStaleContainers(runtime, { now: NOW })).resolves.toBeUndefined();
+  });
+});
+
+describe("the labels of a test container", () => {
+  it("name the repository and the run", () => {
+    expect(testContainerLabels("run-1")).toEqual({
+      "aeolus-fleet.repository": "aeolus-fleet",
+      "aeolus-fleet.test-run": "run-1",
+    });
   });
 });
