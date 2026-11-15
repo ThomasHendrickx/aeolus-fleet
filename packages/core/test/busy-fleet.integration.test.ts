@@ -90,6 +90,9 @@ async function slowMessageInserts(database: PrismaClient): Promise<void> {
 /** The indexes core builds concurrently after it listens, each by its own pass. */
 const INDEXES_BUILT_AFTER_START = ['messages_plain_payload_idx', 'events_delivery_bootstrap_idx', 'messages_unfilled_questions_idx', 'deliveries_open_exchange_idx'];
 
+/** How often untilBuiltAfterStart checks the indexes and the metadata fill again, in milliseconds. */
+const BUILT_AFTER_START_POLL_INTERVAL_MS = 100;
+
 /**
  * Waits until every index core builds after start is valid and the metadata
  * fill has done every fleet. A test's own DDL on a table, such as a trigger
@@ -107,7 +110,7 @@ async function untilBuiltAfterStart(database: PrismaClient): Promise<void> {
     if (row !== undefined && Number(row.valid) === INDEXES_BUILT_AFTER_START.length && row.incomplete === 0n) {
       return;
     }
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await new Promise((resolve) => setTimeout(resolve, BUILT_AFTER_START_POLL_INTERVAL_MS));
   }
 }
 
