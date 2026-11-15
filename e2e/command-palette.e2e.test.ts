@@ -132,6 +132,17 @@ describe('the CommandPalette', () => {
     expect(page.url()).toBe(`${web.url}/?commission=new`);
   });
 
+  it("opens Compose from a deep link, as another app's palette links to it (header design H4)", async () => {
+    // Given argo signed in
+    const page = await signedInPage();
+
+    // When a palette in another app sends it to Compose
+    await page.goto('/?compose=new');
+
+    // Then Compose opens
+    await page.getByTestId('compose-dialog').waitFor();
+  });
+
   it('opens full screen from the TopBar on phone and goes to a page', async () => {
     const page = await signedInPage({ isPhone: true });
     // The fleet overview's TopBar reads "Fleet" without the search icon (docs/design/fleet-overview); the inbox's has it.

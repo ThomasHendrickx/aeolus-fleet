@@ -1,7 +1,8 @@
 'use client';
 
-import { Avatar, CommandPalette as SharedCommandPalette, type CommandGroup, StatusBadge } from '@aeolus-fleet/ui';
-import { Activity, AppWindow, DraftingCompass, Inbox, Plus, Shapes, Ship, SquarePen, UserPlus, Waves, type LucideIcon } from 'lucide-react';
+import { paletteEntryMatches, type AppPaletteGroup } from '@aeolus-fleet/common/rules';
+import { appPaletteGroupOf, Avatar, CommandPalette as SharedCommandPalette, type CommandGroup, StatusBadge } from '@aeolus-fleet/ui';
+import { Activity, DraftingCompass, Inbox, Plus, Shapes, Ship, SquarePen, UserPlus, Waves, type LucideIcon } from 'lucide-react';
 
 import { paletteGroups, paletteKeyOf, type PaletteItem } from '../../services/command-palette';
 
@@ -13,8 +14,8 @@ interface CommandPaletteProps {
   /** Every item, before filtering; the palette filters by the query it owns. */
   items: readonly PaletteItem[];
   onSelect: (item: PaletteItem) => void;
-  /** The other apps the account may open, from the header's switcher. */
-  apps?: readonly PaletteApp[];
+  /** The pages and actions of the other apps the account may open, under each app's name (header-across-apps A2). */
+  otherApps?: readonly AppPaletteGroup[];
   /** While the ships load. */
   isLoading?: boolean;
   /** What the search starts with when it opens; empty when not given. For stories. */
@@ -82,59 +83,37 @@ function ItemContent({ item }: { item: PaletteItem }) {
   );
 }
 
-/** An app the palette opens (header design): another Aeolus app the account may open in this fleet, or outside any. */
-export interface PaletteApp {
-  label: string;
-  url: string;
-}
-
-/** The palette's groups for a query, each item an entry whose content it shows; then the apps that match, which open in place of this one. */
-function groupsOf({ items, apps, query }: { items: readonly PaletteItem[]; apps: readonly PaletteApp[]; query: string }): CommandGroup[] {
-  const wanted = query.trim().toLowerCase();
+/** The palette's groups for a query: the console's own first, then each other app's entries that match, under its name (M2). */
+function groupsOf({ items, otherApps, query }: { items: readonly PaletteItem[]; otherApps: readonly AppPaletteGroup[]; query: string }): CommandGroup[] {
   const groups: CommandGroup[] = paletteGroups(items, query).map((group) => ({
     key: group.key,
     label: group.label,
     entries: group.items.map((item) => ({ key: paletteKeyOf(item), content: <ItemContent item={item} /> })),
   }));
-  const matching = apps.filter((app) => app.label.toLowerCase().includes(wanted));
-  return matching.length === 0
-    ? groups
-    : [
-        ...groups,
-        {
-          key: 'apps',
-          label: 'Apps',
-          entries: matching.map((app) => ({
-            key: `app:${app.label}`,
-            href: app.url,
-            name: app.label,
-            content: (
-              <>
-                <AppWindow aria-hidden className="size-(--size-icon) shrink-0 text-muted-foreground" />
-                <span className="min-w-0 truncate">{app.label}</span>
-              </>
-            ),
-          })),
-        },
-      ];
+  const others = otherApps
+    .map((group) => ({ ...group, entries: group.entries.filter((entry) => paletteEntryMatches(entry, query)) }))
+    .filter((group) => group.entries.length > 0)
+    .map(appPaletteGroupOf);
+  return [...groups, ...others];
 }
 
 /**
  * The CommandPalette (docs/design/png/CommandPalette.png), on the palette
  * every Aeolus app shows (@aeolus-fleet/ui): search ships or jump
- * to an action, a page or another app. Actions, Ships (with their
- * StatusBadge, never argo), Go to and Apps, filtered as the operator types.
+ * to an action, a page, or another app's page or action. Actions, Ships
+ * (with their StatusBadge, never argo), Go to, then each other app under its
+ * name, filtered as the operator types.
  * While the ships load, rows in their shape stand in. Desktop: a dialog near
  * the top, opened with ⌘K or the Header's search. Phone: the TopBar's search
  * icon opens it full screen.
  */
-export function CommandPalette({ items, apps = [], onSelect, isLoading = false, ...props }: CommandPaletteProps) {
+export function CommandPalette({ items, otherApps = [], onSelect, isLoading = false, ...props }: CommandPaletteProps) {
   return (
     <SharedCommandPalette
       {...props}
       label="Search ships or jump to"
       isLoading={isLoading}
-      groupsOf={(query) => groupsOf({ items, apps, query })}
+      groupsOf={(query) => groupsOf({ items, otherApps, query })}
       emptyMessage={(query) => `Nothing matches “${query}”. Ships are found by name or type; retired ships are not listed.`}
       onSelect={(key) => {
         const chosen = items.find((item) => paletteKeyOf(item) === key);
