@@ -5,6 +5,7 @@ import type { FleetSealing, KeyAvailability, StoredDataKey } from '../../domain/
 import type { FleetSealingRepository } from '../../domain/messaging/ports.js';
 import type { Db } from './client.js';
 import { Prisma } from './generated/client.js';
+import { fillMessageQuestionIdsStatement } from './fill-message-question-ids.js';
 import { payloadColumnsOf, toMessage } from './rows.js';
 import { toSchedule } from './schedules.js';
 
@@ -196,6 +197,11 @@ export function createPrismaFleetSealingRepository(db: Db): FleetSealingReposito
       return { messages: messages.map(toMessage), schedules: schedules.map(toSchedule) };
     },
     sealPayloads: async (fleetId, sealed) => {
+      // The metadata pass may not have reached these plain messages yet.
+      // Preserve their uuids before replacing the payload, in this transaction.
+      if (sealed.messages.length > 0) {
+        await db.$executeRaw(fillMessageQuestionIdsStatement({ fleetId, ids: sealed.messages.map((message) => message.id) }));
+      }
       for (const { id, payload, requestHash } of sealed.messages) {
         await db.message.updateMany({ where: { fleetId, id }, data: { ...payloadColumnsOf(payload), requestHash } });
       }

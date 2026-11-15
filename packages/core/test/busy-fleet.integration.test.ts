@@ -442,13 +442,14 @@ describe('a fleet whose database is too busy for a send', () => {
     const password = randomBytes(12).toString('hex');
     // A member of the owner role reaches every table as the owner does, but
     // is no superuser, so Postgres holds it to its connection limit: one for
-    // the delivery listener and one more.
+    // the delivery listener and one more. The metadata fill takes no batch
+    // within the test, so it opens no connection of its own.
     // The role and password are generated above, never outside input.
     await database.$executeRawUnsafe(`CREATE ROLE ${role} LOGIN PASSWORD '${password}' CONNECTION LIMIT 2 IN ROLE "${owner}"`);
     const limitedUrl = new URL(databaseUrl);
     limitedUrl.username = role;
     limitedUrl.password = password;
-    const crowded = createApp({ databaseUrl: limitedUrl.toString(), publicUrl: FLEET_URL, logger: false });
+    const crowded = createApp({ databaseUrl: limitedUrl.toString(), publicUrl: FLEET_URL, logger: false, metadataFillPassMs: 10 * 60_000 });
     const crowdedAddress = await crowded.listen({ host: '127.0.0.1', port: 0 });
     await untilListenerConnected(database, role);
     // Its one query leaves the role's last connection open, idle in its pool.

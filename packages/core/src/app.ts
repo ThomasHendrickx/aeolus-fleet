@@ -7,6 +7,10 @@ import { checkDatabase, createPrismaClient, latestMigration } from './adapters/p
 import { listenForPendingDeliveries } from './adapters/prisma/delivery-notices.js';
 import { failureForLog } from './adapters/prisma/failure-log.js';
 import { createFleetEventWakeups, fleetEventWakeupsOf } from './adapters/prisma/fleet-event-wakeups.js';
+import { createPrismaMetadataFillIndexes } from './adapters/prisma/message-metadata-fill.js';
+import { createPrismaFleetRepository } from './adapters/prisma/registry.js';
+import { createPrismaUnitOfWork } from './adapters/prisma/unit-of-work.js';
+import { createFillMessageMetadata } from './domain/messaging/fill-message-metadata.js';
 import { ensureIndexAfterStart } from './adapters/prisma/index-after-start.js';
 import { createReceiverWakeups } from './adapters/prisma/receiver-wakeups.js';
 import { ensureHealthBootstrapIndex } from './adapters/prisma/health-bootstrap-index.js';
@@ -39,6 +43,8 @@ export interface AppOptions {
   installationToken?: string;
   /** How often the 10 and 60 minute clocks and the schedules' fallback pass run; every 30 seconds unless a test says otherwise. */
   overduePassMs?: number;
+  /** How long after listening, and after each batch, the metadata fill takes its next batch; 100 ms unless a test says otherwise. */
+  metadataFillPassMs?: number;
   /** Whether the maintenance pass runs at all: false, only what a test calls runs passes (#1836). Unset, it runs. */
   hasMaintenancePass?: boolean;
   /** pagasae's URL, the issuer whose account tokens core trusts (decision 0058); unset, it trusts none. */
@@ -49,6 +55,8 @@ export interface AppOptions {
 
 /** How often core runs the 10 and 60 minute clocks: argo hears of an overdue delivery within this of its clock running out. */
 const OVERDUE_PASS_MS = 30_000;
+/** How often core takes the metadata fill's next batches, until every fleet's fill is complete (docs/architecture.md, Backfills). */
+const METADATA_FILL_PASS_MS = 100;
 const BOOTSTRAP_INDEX_RETRY_MS = 1_000;
 const PLAIN_PAYLOAD_INDEX_RETRY_MS = 1_000;
 
@@ -155,8 +163,31 @@ export function createApp(options: AppOptions): FastifyInstance {
     everyMs: options.overduePassMs ?? OVERDUE_PASS_MS,
   });
 
-  // Closing aborts both builds, so a stop never waits for them; the next start builds them again.
+  // Closing aborts index builds, so a stop never waits for them; the next start builds them again.
   const indexBuild = new AbortController();
+  const fillMessageMetadata = createFillMessageMetadata({ fleets: createPrismaFleetRepository(prisma), indexes: createPrismaMetadataFillIndexes(options.databaseUrl, indexBuild.signal), uow: createPrismaUnitOfWork(prisma) });
+
+  // After listening, so no fill holds start: one batch of each fleet per
+  // pass, until every fleet's fill is complete.
+  let metadataFill: RepeatingPass | undefined;
+  server.addHook('onListen', (done) => {
+    metadataFill = repeatPass({
+      pass: async () => {
+        const { isComplete } = await fillMessageMetadata((fleetId, error) => {
+          server.log.warn({ ...failureForLog(error), fleetId }, 'the metadata fill failed for a fleet: taking its batch again next pass');
+        });
+        if (isComplete) {
+          void metadataFill?.stop();
+        }
+      },
+      everyMs: options.metadataFillPassMs ?? METADATA_FILL_PASS_MS,
+      onError: (error) => {
+        server.log.warn(failureForLog(error), 'the metadata fill failed: passing again shortly');
+      },
+    });
+    done();
+  });
+
   let plainPayloadIndex: RepeatingPass | undefined;
   server.addHook('onListen', (done) => {
     plainPayloadIndex = repeatPass({
@@ -211,6 +242,7 @@ export function createApp(options: AppOptions): FastifyInstance {
 
   server.addHook('onClose', async () => {
     indexBuild.abort();
+    await metadataFill?.stop();
     await bootstrapIndex?.stop();
     await plainPayloadIndex?.stop();
     await overduePasses?.stop();

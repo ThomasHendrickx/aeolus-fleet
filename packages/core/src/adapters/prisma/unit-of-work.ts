@@ -7,7 +7,7 @@ import type {
   OperatorAccountRepository,
   SignInTicketRepository,
 } from '../../domain/identity/ports.js';
-import type { DeliveryRepository, ExchangeList, FleetSealingRepository, MeetingRepository, OverdueDeliveryRepository, PrunedExchanges, ScheduleNotifier, ScheduleRepository } from '../../domain/messaging/ports.js';
+import type { DeliveryRepository, ExchangeList, FleetSealingRepository, MeetingRepository, MessageMetadataFill, OverdueDeliveryRepository, PrunedExchanges, ScheduleNotifier, ScheduleRepository } from '../../domain/messaging/ports.js';
 import type {
   ClearRequestRepository,
   CrewRequestRepository,
@@ -43,6 +43,7 @@ import { createPrismaPrunedExchanges } from './pruned-exchanges.js';
 import { createPrismaHealthSnapshots } from './health-snapshots.js';
 import { createPrismaFleetRemoval } from './fleet-removal.js';
 import { createPrismaHistoryPruner } from './history-pruner.js';
+import { createPrismaMessageMetadataFill } from './message-metadata-fill.js';
 import {
   createPrismaCallerLookup,
   createPrismaConsoleSessionRepository,
@@ -114,6 +115,7 @@ export interface PrismaTx {
   installationSettings: InstallationSettingsRepository;
   healthSnapshots: HealthSnapshotWriter;
   historyPruner: HistoryPruner;
+  messageMetadataFill: MessageMetadataFill;
   fleetRemoval: FleetRemoval;
 }
 
@@ -158,6 +160,7 @@ export function createPrismaTx(db: Db): PrismaTx {
     scheduleNotifier: createPrismaScheduleNotifier(db),
     healthSnapshots: createPrismaHealthSnapshots(db),
     historyPruner: createPrismaHistoryPruner(db),
+    messageMetadataFill: createPrismaMessageMetadataFill(db),
     fleetRemoval: createPrismaFleetRemoval(db),
   };
 }

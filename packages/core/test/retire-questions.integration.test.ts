@@ -11,7 +11,9 @@ import { aQuestion } from './support/formatted-message-fixtures.js';
 import { createPostgresCore, heldUnitOfWork, type PostgresCore } from './support/postgres-core.js';
 import { unwrap } from '../src/testing/result.js';
 import { newKey } from '../src/testing/keys.js';
+import { fillUntilComplete, metadataFillOf } from './support/metadata-fill.js';
 import { withOperatorLogin } from './support/operator-login.js';
+import { createInMemoryKeyVault } from './support/in-memory-key-vault.js';
 import { unsealedFleetsOnly } from './support/sealing.js';
 
 // Retiring a ship withdraws its open questions on a real Postgres (#1632):
@@ -24,12 +26,14 @@ const SCOUT_MODEL = 'claude-opus-5-5';
 const QUESTION_ID = '11111111-1111-4111-8111-111111111111';
 
 let core: PostgresCore;
+let vault = createInMemoryKeyVault();
 let operator: ShipCaller;
 let argo: Crew;
 let scout: ShipCaller;
 
 beforeEach(async () => {
-  core = await createPostgresCore();
+  vault = createInMemoryKeyVault();
+  core = await createPostgresCore({ keyVault: vault.vault });
   const fleet = unwrap(await withOperatorLogin(core.prisma, core.useCases.initialiseFleet({ name: 'home fleet' })));
   operator = operatorCaller(fleet);
   const { shipId } = unwrap(await core.useCases.commissionShip(operator, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
@@ -71,6 +75,8 @@ function storedWithdrawals() {
 describe('retiring a ship with an open question on Postgres', () => {
   it("withdraws it from argo in the retire's transaction: argo's inbox finds the withdrawal by the question's uuid", async () => {
     await askedArgo();
+    // Given an upgrade has not yet filled the old question's metadata.
+    await core.prisma.message.updateMany({ data: { askedQuestionId: null, answeredQuestionId: null } });
 
     unwrap(await core.useCases.retireShip(operator, { shipId: scout.shipId }));
 
@@ -78,6 +84,26 @@ describe('retiring a ship with an open question on Postgres', () => {
     expect(found.items.map(({ message, state }) => ({ sender: message.sender.id, contentType: message.contentType, state }))).toEqual([
       { sender: scout.shipId, contentType: WITHDRAWAL_CONTENT_TYPE, state: 'pending' },
     ]);
+  });
+
+  it('keeps an unfilled question withdrawable when sealing reaches it before the metadata batch', async () => {
+    // Given a plain question left by an upgrade and not yet visited by the fill.
+    const question = await askedArgo();
+    const answeredId = '22222222-2222-4222-8222-222222222222';
+    const answered = await askedArgo(answeredId);
+    unwrap(await core.useCases.replyToMessage(argo, answerTo(answered.deliveryId, answeredId)));
+    await core.prisma.message.updateMany({ data: { askedQuestionId: null, answeredQuestionId: null } });
+
+    // When the fleet seals its payload before the metadata pass and retires its sender.
+    const companyKey = await vault.aCompanyKey();
+    await vault.bindToFleet(companyKey, operator.fleetId);
+    unwrap(await core.useCases.turnOnSealing(operator, { companyKey }));
+    await core.useCases.sealStoredPayloads();
+    unwrap(await core.useCases.retireShip(operator, { shipId: scout.shipId }));
+
+    // Then sealing preserved the uuid and retirement withdrew the sealed question.
+    await expect(core.prisma.message.findUniqueOrThrow({ where: { id: question.messageId } })).resolves.toMatchObject({ payload: null, askedQuestionId: QUESTION_ID });
+    await expect(storedWithdrawals()).resolves.toEqual([{ senderShipId: scout.shipId, selectorShipId: argo.shipId, questionId: QUESTION_ID }]);
   });
 
   it('stores no withdrawal when the retire fails after it, and leaves the ship active', async () => {
@@ -102,7 +128,7 @@ describe("the open questions of a ship, as Postgres selects them", () => {
   const ANSWERED_ELSEWHERE = '66666666-6666-4666-8666-666666666666';
   const OPEN = '77777777-7777-4777-8777-777777777777';
 
-  it('leaves out the answered, the withdrawn and the replaced, keeps an open replacement and a question whose reply names another, and pages by message id', async () => {
+  it.each(['unfilled', 'partial', 'filled'])('leaves out the answered, withdrawn and replaced and pages the open questions while metadata is %s', async (state) => {
     const answered = await askedArgo(ANSWERED);
     unwrap(await core.useCases.replyToMessage(argo, answerTo(answered.deliveryId, ANSWERED)));
     await askedArgo(WITHDRAWN);
@@ -120,6 +146,15 @@ describe("the open questions of a ship, as Postgres selects them", () => {
         idempotencyKey: newKey(),
       }),
     );
+    // Given old questions and answers whose uuids have not yet been filled.
+    await core.prisma.message.updateMany({ data: { askedQuestionId: null, answeredQuestionId: null } });
+    if (state === 'partial') {
+      await metadataFillOf(core, 1)();
+    }
+    if (state === 'filled') {
+      await fillUntilComplete(core, 1);
+      await expect(core.prisma.message.findUniqueOrThrow({ where: { id: answered.messageId } })).resolves.toMatchObject({ askedQuestionId: ANSWERED });
+    }
     const messages = createPrismaMessageRepository(core.prisma);
 
     const first = await messages.listOpenQuestionsOf(scout.fleetId, { shipId: scout.shipId, limit: 2 });
