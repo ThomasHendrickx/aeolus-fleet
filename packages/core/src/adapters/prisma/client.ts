@@ -37,17 +37,17 @@ export function createPrismaClient(databaseUrl: string): PrismaClient {
 
 /**
  * A client as createPrismaClient makes, that also hands each statement it
- * runs to `onStatement`: for a scale test that counts the statements a read
+ * runs and its parameters to `onStatement`: for a scale test that counts the statements a read
  * runs, which a time would not show without flaking.
  */
-export function createPrismaClientTellingStatements(databaseUrl: string, onStatement: (statement: string) => void): PrismaClient {
+export function createPrismaClientTellingStatements(databaseUrl: string, onStatement: (statement: string, params: string) => void): PrismaClient {
   const client = new PrismaClient({
     adapter: new PrismaPg({ connectionString: databaseUrl, connectionTimeoutMillis: CONNECTION_WAIT_MS }),
     transactionOptions: { maxWait: CONNECTION_WAIT_MS, timeout: TRANSACTION_TIME_MS },
     log: [{ emit: 'event', level: 'query' }],
   });
   client.$on('query', (event) => {
-    onStatement(event.query);
+    onStatement(event.query, event.params);
   });
   return client;
 }

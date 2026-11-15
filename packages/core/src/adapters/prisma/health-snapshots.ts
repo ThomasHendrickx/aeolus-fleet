@@ -216,13 +216,16 @@ export function createPrismaHealthSnapshots(db: Db): HealthSnapshotWriter {
     eventsAfter: async (fleetId, { seq, limit }) => {
       const events = (await db.event.findMany({ where: { fleetId, seq: { gt: BigInt(seq) } }, orderBy: { seq: 'asc' }, ...(limit === undefined ? {} : { take: limit }) })).map(toSequencedEvent);
       const sentIds = events.flatMap((event) => (event.type === 'MessageAccepted' && event.deliveryId !== undefined ? [event.deliveryId] : []));
+      // As in the bootstrap replay, LIMIT 1 keeps each join a lookup by key:
+      // an ANY list joined directly can scan the fleet's whole message history.
       const sent = z.array(deliveryRow).parse(
         sentIds.length === 0
           ? []
           : await db.$queryRaw`
-              SELECT d.id, d.message_id, m.sender_ship_id, d.recipient_ship_id, d.recipient_type, NULL AS claimed_by_ship_id, d.reachable_ship_ids, d.created_at FROM deliveries d
-              JOIN messages m ON m.fleet_id = d.fleet_id AND m.id = d.message_id
-              WHERE d.fleet_id = ${fleetId} AND d.id = ANY(${sentIds}::text[])`,
+              SELECT d.id, d.message_id, m.sender_ship_id, d.recipient_ship_id, d.recipient_type, NULL AS claimed_by_ship_id, d.reachable_ship_ids, d.created_at
+              FROM (SELECT DISTINCT unnest(${sentIds}::text[]) AS id) c
+              CROSS JOIN LATERAL (SELECT * FROM deliveries d WHERE d.fleet_id = ${fleetId} AND d.id = c.id LIMIT 1) d
+              CROSS JOIN LATERAL (SELECT m.sender_ship_id FROM messages m WHERE m.fleet_id = ${fleetId} AND m.id = d.message_id LIMIT 1) m`,
       );
       return { events, sent: sent.map((row) => deliveryRecordOf(row, [])) };
     },

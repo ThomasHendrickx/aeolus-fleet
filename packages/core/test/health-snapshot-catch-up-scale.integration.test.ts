@@ -1,0 +1,122 @@
+/** The snapshot close catches up a stale checkpoint on a fleet at staging's scale, looking up only the sent deliveries by key (#1301). */
+import { STUCK_TREND_HOURS, type FleetId } from '@aeolus-fleet/common';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { z } from 'zod';
+
+import { createPrismaClientTellingStatements } from '../src/adapters/prisma/client.js';
+import { createPrismaHealthSnapshots } from '../src/adapters/prisma/health-snapshots.js';
+import { createPrismaFleetRepository } from '../src/adapters/prisma/registry.js';
+import { createPrismaSnapshotUnitOfWork } from '../src/adapters/prisma/unit-of-work.js';
+import { createCloseHealthSnapshots } from '../src/domain/shared/close-health-snapshots.js';
+import type { ShipCaller } from '../src/domain/shared/caller.js';
+import { operatorCaller } from '../src/testing/fleet.js';
+import { unwrap } from '../src/testing/result.js';
+import { createPostgresCore, type PostgresCore } from './support/postgres-core.js';
+
+const SHIPS = 3_000;
+/** Messages finished long before the checkpoint: the fleet's history. */
+const HISTORY = 150_000;
+/** The hours the close catches up after its first one, each with its sends. */
+const CATCH_UP_HOURS = STUCK_TREND_HOURS - 1;
+const SENDS_PER_HOUR = 1_000;
+const SENDS = CATCH_UP_HOURS * SENDS_PER_HOUR;
+/** One send in this many is never dismissed and still waits at the end. */
+const WAITING_EVERY = 100;
+const WAITING = SENDS / WAITING_EVERY;
+const FIRST_SEQ = 1_000_000;
+/** The last send still waits, so its MessageAccepted is the last event. */
+const LAST_SEQ = FIRST_SEQ + 2 * (HISTORY + SENDS);
+const HOUR_MS = 60 * 60 * 1000;
+let core: PostgresCore;
+let fleetId: FleetId;
+let argo: ShipCaller;
+
+beforeAll(async () => {
+  core = await createPostgresCore();
+  argo = operatorCaller(unwrap(await core.useCases.initialiseFleet({ name: 'staging fleet' })));
+  ({ fleetId } = argo);
+  // The close's first hour: the oldest of the 168, as a stale checkpoint restarts at.
+  const firstHour = new Date(core.clock.now().getTime() - CATCH_UP_HOURS * HOUR_MS);
+  await core.prisma.$executeRaw`
+    INSERT INTO ships (id, fleet_id, name, type, created_at, kind, scopes)
+    SELECT 'shp_' || lpad(i::text, 26, '0'), ${fleetId}, 'agent-' || i, 'agent', ${core.clock.now()}::timestamptz - interval '90 days', 'agent', '{}'
+    FROM generate_series(1, ${SHIPS - 1}::int) i`;
+  // Message i: history up to HISTORY, 90 days old; after it, send j of catch-up hour k, j * 3 seconds into the hour.
+  await core.prisma.$executeRaw`
+    CREATE TEMPORARY TABLE seeded AS
+    SELECT i, 'shp_' || lpad((1 + i % ${SHIPS - 1}::int)::text, 26, '0') AS recipient,
+      CASE WHEN i <= ${HISTORY}::int THEN ${core.clock.now()}::timestamptz - interval '90 days'
+        ELSE ${firstHour}::timestamptz + ((i - ${HISTORY}::int - 1) / ${SENDS_PER_HOUR}::int) * interval '1 hour'
+          + (1 + (i - ${HISTORY}::int - 1) % ${SENDS_PER_HOUR}::int) * interval '3 seconds' END AS sent_at,
+      i > ${HISTORY}::int AND (i - ${HISTORY}::int) % ${WAITING_EVERY}::int = 0 AS waiting
+    FROM generate_series(1, ${HISTORY + SENDS}::int) i`;
+  await core.prisma.$executeRaw`
+    INSERT INTO messages (id, fleet_id, sender_ship_id, selector_kind, selector_ship_id, payload, content_type, idempotency_key, request_hash, created_at)
+    SELECT 'msg_' || lpad(x.i::text, 26, '0'), s.fleet_id, s.id, 'ship', x.recipient, 'hello', 'text/plain', 'seed-' || x.i, 'hash', x.sent_at
+    FROM ships s, seeded x WHERE s.fleet_id = ${fleetId} AND s.name = 'argo'`;
+  await core.prisma.$executeRaw`
+    INSERT INTO deliveries (id, fleet_id, message_id, sender_ship_id, recipient_ship_id, state, created_at)
+    SELECT 'dlv_' || lpad(x.i::text, 26, '0'), s.fleet_id, 'msg_' || lpad(x.i::text, 26, '0'), s.id, x.recipient,
+      (CASE WHEN x.waiting THEN 'pending' ELSE 'dismissed' END)::delivery_state, x.sent_at
+    FROM ships s, seeded x WHERE s.fleet_id = ${fleetId} AND s.name = 'argo'`;
+  // Each send's MessageAccepted, and a second later its DeliveryDismissed unless it still waits.
+  await core.prisma.$executeRaw`
+    INSERT INTO events (id, fleet_id, type, occurred_at, actor_kind, details, delivery_id, seq)
+    SELECT 'evt_' || lpad((2 * x.i + step)::text, 26, '0'), ${fleetId}, (ARRAY['MessageAccepted', 'DeliveryDismissed'])[step + 1],
+      x.sent_at + step * interval '1 second', 'system', '{}', 'dlv_' || lpad(x.i::text, 26, '0'), ${FIRST_SEQ}::bigint + 2 * x.i + step
+    FROM seeded x, generate_series(0, 1) step
+    WHERE step = 0 OR NOT x.waiting`;
+  await core.prisma.$executeRaw`UPDATE fleets SET last_event_seq = ${LAST_SEQ} WHERE id = ${fleetId}`;
+  await core.prisma.$executeRaw`ANALYZE`;
+}, 600_000);
+
+afterAll(async () => {
+  await core.close();
+});
+
+describe('the snapshot close on a fleet at staging scale', () => {
+  it('catches up a stale checkpoint hour by hour, each hour looking up its sends by key', async () => {
+    // Given 3,000 ships, 150,000 finished messages and a checkpoint 168 hours old, with 1,000 sends in each hour since.
+    const snapshots = createPrismaHealthSnapshots(core.prisma);
+    await core.prisma.healthSnapshot.deleteMany({ where: { fleetId } });
+    await snapshots.write(fleetId, {
+      hours: [{ hour: new Date(core.clock.now().getTime() - STUCK_TREND_HOURS * HOUR_MS), stuck: [], acknowledged: [] }],
+      fold: { seq: FIRST_SEQ, deliveries: [], turns: [] },
+    });
+    const statements: { query: string; params: string }[] = [];
+    const client = createPrismaClientTellingStatements(core.databaseUrl, (query, params) => {
+      statements.push({ query, params });
+    });
+    try {
+      // When the scheduled close starts again at the oldest of the 168 hours and closes each hour after it.
+      const errors: unknown[] = [];
+      await createCloseHealthSnapshots({ fleets: createPrismaFleetRepository(client), uow: createPrismaSnapshotUnitOfWork(client), clock: core.clock })(
+        (_fleetId, error) => {
+          errors.push(error);
+        },
+      );
+
+      // Then every hour closes inside its transaction and the checkpoint is current, counting the deliveries that still wait.
+      expect(errors).toEqual([]);
+      const latest = await snapshots.latest(fleetId);
+      expect(latest?.hour).toEqual(core.clock.now());
+      expect(latest?.fold.seq).toBe(LAST_SEQ);
+      expect(latest?.fold.deliveries).toHaveLength(WAITING);
+      expect((await core.useCases.readHealth(argo)).stuckPerHour.at(-1)?.count).toBe(WAITING);
+
+      // And no lookup of the sent deliveries scans the fleet's deliveries or messages.
+      const reads = statements.filter(({ query }) => query.includes('d.message_id') && query.includes('m.sender_ship_id'));
+      expect(reads.length).toBeGreaterThanOrEqual(CATCH_UP_HOURS);
+      const scanning: string[] = [];
+      for (const { query, params } of reads) {
+        const values = z.array(z.union([z.string(), z.number(), z.null(), z.array(z.string())])).parse(JSON.parse(params));
+        // The statement and parameters come only from this client's query log.
+        const plan = (await core.prisma.$queryRawUnsafe<{ 'QUERY PLAN': string }[]>('EXPLAIN ' + query, ...values)).map((row) => row['QUERY PLAN']).join('\n');
+        scanning.push(...(plan.match(/Seq Scan on (deliveries|messages)/g) ?? []));
+      }
+      expect(scanning).toEqual([]);
+    } finally {
+      await client.$disconnect();
+    }
+  }, 600_000);
+});
