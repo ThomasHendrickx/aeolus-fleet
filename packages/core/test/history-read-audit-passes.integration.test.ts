@@ -149,7 +149,7 @@ describe('the maintenance pass on a fleet with 120,000 messages', () => {
 
   // Scans the fleet's history (#1855): asserted until it is fixed.
   it('fleet.turnOnSealing counts the fleet\'s plain payloads by scanning messages', async () => {
-    expect(await scansOf(({ client }) => createPrismaFleetSealingRepository(client).plainPayloadCount(scale.fleetId))).toEqual(['messages']);
+    expect(await scansOf(({ client }) => createPrismaFleetSealingRepository(client).payloadsToSeal(scale.fleetId))).toEqual(['messages']);
   });
 
   it('the sealing pass reads a batch of plain payloads through its indexes', async () => {

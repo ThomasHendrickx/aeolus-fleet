@@ -87,7 +87,7 @@ export function createPrismaFleetSealingRepository(db: Db): FleetSealingReposito
       ]);
       return message !== null || schedule !== null;
     },
-    plainPayloadCount: async (fleetId) => {
+    payloadsToSeal: async (fleetId) => {
       const [messages, schedules] = await Promise.all([
         db.message.count({ where: { fleetId, payload: { not: null } } }),
         db.schedule.count({ where: { fleetId, payload: { not: null } } }),

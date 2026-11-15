@@ -91,7 +91,7 @@ export function createTurnOnSealing(deps: {
     const checkValue = deps.sealer.checkValue(made.value.unwrapped);
     const wrappedByRecoveryKey = recoveryKey === null ? null : await deps.recoveryKeys.wrap(recoveryKey, made.value.unwrapped);
     // Counted outside the unit of work, so a fleet with a long history keeps its sends going while it counts.
-    const toSeal = await deps.sealings.plainPayloadCount(fleetId);
+    const toSeal = await deps.sealings.payloadsToSeal(fleetId);
     const turnedOn: Pick<SealingTurnedOn, 'companyKey' | 'recoveryKeyFingerprint'> = recoveryKey === null ? { companyKey } : { companyKey, recoveryKeyFingerprint: recoveryKey.fingerprint };
 
     return deps.uow.run(async (tx): Promise<Result<SealingTurnedOn, TurnOnSealingRefusal>> => {

@@ -436,7 +436,7 @@ export interface FleetSealingRepository {
   /** Whether the fleet stores a payload plain: a message's or a schedule's. */
   storesPlainPayload(fleetId: FleetId): Promise<boolean>;
   /** How many payloads the fleet stores plain: its messages' and its schedules'. */
-  plainPayloadCount(fleetId: FleetId): Promise<number>;
+  payloadsToSeal(fleetId: FleetId): Promise<number>;
   /** Marks the fleet sealing or sealed under its company key, with its first data key, current. */
   turnOn(sealing: FleetSealing, firstKey: StoredDataKey): Promise<void>;
   /** The fleet's data keys, oldest first, each with when it was made and whether it is current: never a wrap. */
