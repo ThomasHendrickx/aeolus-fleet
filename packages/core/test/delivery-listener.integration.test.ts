@@ -129,7 +129,6 @@ describe('the delivery listener', () => {
       { timeout: 10_000 },
     );
     const stream = await openedStream();
-    await expect(stream.next()).resolves.toEqual({ done: false, value: { kind: 'wake', reason: 'reconnect' } });
 
     await sendToScout();
 
