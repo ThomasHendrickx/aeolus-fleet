@@ -44,7 +44,7 @@ export const ErrorWithRetry: Story = {
 
 /** How far from the bottom edge the Toaster sets a phone's toasts, in px. */
 async function phoneBottomOffsetOf(canvasElement: HTMLElement): Promise<string> {
-  await userEvent.click(within(canvasElement).getByRole('button', { name: 'Show toast' }));
+  await userEvent.click(within(canvasElement).getByTestId('show-toast'));
   await within(canvasElement).findAllByText('reviewer-01 released');
   const toaster = canvasElement.querySelector<HTMLElement>('[data-sonner-toaster]');
   if (toaster === null) {
@@ -62,6 +62,7 @@ function ShowToast() {
   return (
     <>
       <Button
+        data-testid="show-toast"
         onClick={() => {
           showToast({ title: 'reviewer-01 released', description: 'Its old secret no longer works.' });
         }}
