@@ -285,3 +285,32 @@ export const DisabledReason: Story = {
     await expect(screen.getByTestId('commission-submit')).toBeDisabled();
   },
 };
+
+/** The approved first state with argo's last owner, in either theme. */
+export const ApprovedFirstState: Story = { args: { owner: { choices: PERSON_SHIPS, lastPicked: CHARLOTTE }, crewRequest: { offers: [], onSettingsChange: () => undefined }, scopeGroups: [{ title: 'Core', namespace: null, scopes: [{ scope: 'meetings:open', description: 'Invite ships to a meeting.' }, { scope: 'fleet:read', description: 'Read ships, timelines and messages.' }] }, SQUADRONS_SCOPES, { title: 'CRM', namespace: 'crm', scopes: [{ scope: 'crm:read-leads', description: 'Read leads in the CRM.' }] }] } };
+export const ApprovedExtras: Story = {
+  args: ApprovedFirstState.args,
+  play: async () => {
+    await typeNameAndType();
+    await userEvent.click(screen.getByTestId('commission-extra-permissions'));
+    await userEvent.click(screen.getByRole('checkbox', { name: /Open a meeting/ }));
+  },
+};
+
+/** The crew check is part of submit: pending starts before its answer, and a failure keeps the form. */
+export const PendingCrewCheck: Story = {
+  args: { onSubmit: () => new Promise<void>((_resolve, reject) => {
+    window.addEventListener('refuse-commission-check', () => { reject(new Error('Couldn’t check crew settings. Nothing was commissioned. Try again.')); }, { once: true });
+  }) },
+  play: async () => {
+    // Given a valid form awaiting a crew check.
+    await typeNameAndType();
+    // When it is submitted, before any server answer.
+    await userEvent.click(screen.getByTestId('commission-submit'));
+    // Then it is busy immediately, and a failed check is visible with inputs kept.
+    await expect(screen.getByTestId('commission-submit')).toHaveAttribute('data-loading');
+    window.dispatchEvent(new Event('refuse-commission-check'));
+    await expect(await screen.findByText('Couldn’t check crew settings. Nothing was commissioned. Try again.')).toBeVisible();
+    await expect(screen.getByTestId('commission-name')).toHaveValue('reviewer-03');
+  },
+};
