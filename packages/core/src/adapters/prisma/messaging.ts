@@ -5,6 +5,7 @@ import { isInExchange } from '../../domain/messaging/exchange.js';
 import type { Delivery, Message } from '../../domain/messaging/message.js';
 import type { ClaimableDeliveries, DeliveryRepository, MessageRepository } from '../../domain/messaging/ports.js';
 import type { Db } from './client.js';
+import { answeredQuestionIdIn, askedQuestionIdIn, isAnswerContentType, isAskingContentType } from './content-type-sql.js';
 import { addChangedDelivery, type ExchangeRollups } from './exchange-rollups.js';
 import { Prisma } from './generated/client.js';
 import { payloadColumnsOf, toDeliveryFromSql, toMessage } from './rows.js';
@@ -37,18 +38,28 @@ interface CountedMessage {
  * the cursor, at most limit: along messages_fleet_id_sender_ship_id_id_asked_idx,
  * each question's answer looked up by the replies index and its withdrawal or
  * replacement by the question id index, by the uuids stored at send, so a
- * sealed fleet's are found too and no payload is read. Only an answer from
+ * sealed fleet's are found too. Until the after-start fill visits a plain
+ * question or answer, its payload supplies that uuid through an indexed
+ * sender range or a reply lookup. Only an answer from
  * the asked ship, and a withdrawal or replacement from the ship itself to it,
  * settles a question; a ship that is retired is never asked again.
  */
 export function openQuestionsStatement(fleetId: FleetId, { shipId, after, limit }: { shipId: ShipId; after?: MessageId; limit: number }): Prisma.Sql {
   return Prisma.sql`
-    SELECT q.id AS "messageId", q.selector_ship_id AS "askedShipId", q.asked_question_id AS "questionId"
-    FROM messages q
+    SELECT q.id AS "messageId", q.selector_ship_id AS "askedShipId", q.effective_question_id AS "questionId"
+    FROM (
+      SELECT m.*, m.asked_question_id AS effective_question_id FROM messages m
+      WHERE m.fleet_id = ${fleetId} AND m.sender_ship_id = ${shipId} AND m.asked_question_id IS NOT NULL
+      UNION ALL
+      SELECT m.*, ${askedQuestionIdIn('m.payload')} AS effective_question_id FROM messages m
+      WHERE m.fleet_id = ${fleetId} AND m.sender_ship_id = ${shipId}
+        AND m.asked_question_id IS NULL AND m.payload IS NOT NULL
+        AND ${isAskingContentType('m.content_type')}
+    ) q
     JOIN ships s ON s.fleet_id = q.fleet_id AND s.id = q.selector_ship_id
     WHERE q.fleet_id = ${fleetId}
       AND q.sender_ship_id = ${shipId}
-      AND q.asked_question_id IS NOT NULL
+      AND q.effective_question_id IS NOT NULL
       AND q.selector_kind = 'ship'
       AND q.selector_ship_id <> ${shipId}
       AND s.retired_at IS NULL
@@ -58,11 +69,13 @@ export function openQuestionsStatement(fleetId: FleetId, { shipId, after, limit 
         WHERE a.fleet_id = q.fleet_id
           AND a.in_reply_to_message_id = q.id
           AND a.sender_ship_id = q.selector_ship_id
-          AND a.answered_question_id = q.asked_question_id)
+          AND COALESCE(a.answered_question_id,
+            CASE WHEN ${isAnswerContentType('a.content_type')}
+              THEN ${answeredQuestionIdIn('a.payload')} END) = q.effective_question_id)
       AND NOT EXISTS (
         SELECT 1 FROM messages w
         WHERE w.fleet_id = q.fleet_id
-          AND w.question_id = q.asked_question_id
+          AND w.question_id = q.effective_question_id
           AND w.sender_ship_id = q.sender_ship_id
           AND w.selector_kind = 'ship'
           AND w.selector_ship_id = q.selector_ship_id)
