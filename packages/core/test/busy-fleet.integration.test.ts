@@ -87,6 +87,33 @@ async function slowMessageInserts(database: PrismaClient): Promise<void> {
   );
 }
 
+/** The indexes core builds concurrently after it listens, each by its own pass. */
+const INDEXES_BUILT_AFTER_START = ['messages_plain_payload_idx', 'events_delivery_bootstrap_idx', 'messages_unfilled_questions_idx', 'deliveries_open_exchange_idx'];
+
+/** How often untilBuiltAfterStart checks the indexes and the metadata fill again, in milliseconds. */
+const BUILT_AFTER_START_POLL_INTERVAL_MS = 100;
+
+/**
+ * Waits until every index core builds after start is valid and the metadata
+ * fill has done every fleet. A test's own DDL on a table, such as a trigger
+ * dropped once its send answered, waits behind a concurrent build of an index
+ * on it while the build waits for the DDL's transaction: Postgres ends that
+ * as a deadlock. A send never waits on such a build.
+ */
+async function untilBuiltAfterStart(database: PrismaClient): Promise<void> {
+  for (;;) {
+    const [row] = await database.$queryRaw<{ valid: bigint; incomplete: bigint }[]>`
+      SELECT
+        (SELECT count(*) FROM pg_index WHERE indisvalid AND indexrelid = ANY(ARRAY(SELECT to_regclass(name) FROM unnest(${INDEXES_BUILT_AFTER_START}::text[]) AS name))) AS valid,
+        (SELECT count(*) FROM fleets f WHERE NOT EXISTS (
+          SELECT 1 FROM message_metadata_backfills b WHERE b.fleet_id = f.id AND b.is_complete)) AS incomplete`;
+    if (row !== undefined && Number(row.valid) === INDEXES_BUILT_AFTER_START.length && row.incomplete === 0n) {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, BUILT_AFTER_START_POLL_INTERVAL_MS));
+  }
+}
+
 describe('a fleet whose connections are all in use', () => {
   let database: PrismaClient;
   let argo: ShipCaller;
@@ -101,6 +128,7 @@ describe('a fleet whose connections are all in use', () => {
     );
     server = createApp({ databaseUrl, publicUrl: FLEET_URL, logger: false });
     address = await server.listen({ host: '127.0.0.1', port: 0 });
+    await untilBuiltAfterStart(database);
   });
 
   afterAll(async () => {
@@ -202,6 +230,7 @@ describe('a fleet whose connections are all in use when a console session is loo
     );
     server = createApp({ databaseUrl, publicUrl: FLEET_URL, logger: false });
     address = await server.listen({ host: '127.0.0.1', port: 0 });
+    await untilBuiltAfterStart(database);
   });
 
   afterAll(async () => {
@@ -364,6 +393,7 @@ describe('a fleet whose database is too busy for a send', () => {
     );
     server = createApp({ databaseUrl, publicUrl: FLEET_URL, logger: false });
     address = await server.listen({ host: '127.0.0.1', port: 0 });
+    await untilBuiltAfterStart(database);
   });
 
   afterAll(async () => {
