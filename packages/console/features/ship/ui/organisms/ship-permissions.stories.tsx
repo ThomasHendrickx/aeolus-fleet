@@ -32,8 +32,8 @@ export const Editing: Story = {
     await userEvent.click(screen.getByRole('checkbox', { name: /Open a meeting/ }));
     // Then the changes and the locked permission are explicit.
     await expect(screen.getByText('1 permission added · 1 removed')).toBeVisible();
-    await expect(screen.getByRole('checkbox', { name: /Read leads/ })).toBeDisabled();
-    await expect(screen.getByRole('checkbox', { name: /Send messages/ })).toBeDisabled();
+    await expect(screen.getByRole('checkbox', { name: /Read leads/ })).toHaveAttribute('data-disabled');
+    await expect(screen.getByRole('checkbox', { name: /Send messages/ })).toHaveAttribute('data-disabled');
   },
 };
 export const Save: Story = {
@@ -71,7 +71,7 @@ export const PressShowsPending: Story = {
     await userEvent.click(screen.getByTestId('ship-permissions-change'));
     await userEvent.click(screen.getByRole('checkbox', { name: /Open a meeting/ }));
     await userEvent.click(screen.getByTestId('ship-permissions-save'));
-    await waitFor(async () => { await expect(screen.getByTestId('ship-permissions-save')).toBeDisabled(); });
+    await waitFor(async () => { await expect(screen.getByTestId('ship-permissions-save')).toHaveAttribute('data-disabled'); });
     await expect(screen.getByTestId('ship-permissions-save')).toHaveTextContent('Saving permissions');
   },
 };

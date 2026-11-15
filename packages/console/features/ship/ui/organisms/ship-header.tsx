@@ -29,6 +29,7 @@ interface ShipHeaderProps {
   state: 'ready' | 'loading' | 'not-found';
   /** The ship's actions, as its state allows: Get starting prompt, Release. None for argo or a retired ship. */
   actions?: ReactNode;
+  permissions?: ReactNode;
   /** The ship's crew request card, between its head and its meta strip (canvas CrShipA). */
   crewRequest?: ReactNode;
   /** The time "Crewed since" is measured to. */
@@ -221,7 +222,7 @@ function GatewayMark({ reader }: { reader: GatewayReader }) {
  * id, with its side of the way (#756), its owner (decision 0045), its statement (decision 0047) and its labels at its foot (#102), then its crew's report details, folded, when it has any. Its crew
  * request card, when given, sits above the meta strip, and its open alerts below that (decision 0071). argo says it is the operator's ship; a retired ship is read-only. In a sealed fleet a ship the gateway reads says so, naming the gateway's ship.
  */
-export function ShipHeader({ ship, shipId, state, actions, crewRequest, now, viewerFleetId, backHref = '/', labels, owner, isPluginShip = false, way, gatewayReader }: ShipHeaderProps) {
+export function ShipHeader({ ship, shipId, state, actions, permissions, crewRequest, now, viewerFleetId, backHref = '/', labels, owner, isPluginShip = false, way, gatewayReader }: ShipHeaderProps) {
   if (state === 'loading' || (state === 'ready' && ship === undefined)) {
     return (
       <div aria-busy data-testid="ship-header" className="flex flex-col gap-4">
@@ -292,11 +293,7 @@ export function ShipHeader({ ship, shipId, state, actions, crewRequest, now, vie
                   </Badge>
                 ) : null}
                 <Badge variant="type">{ship.type}</Badge>
-                {ship.scopes.map((scope) => (
-                  <Badge key={scope} variant="kind" data-testid="ship-fleet-scope">
-                    {scope}
-                  </Badge>
-                ))}
+
               </>
             )}
             {ship.status === 'awaitingCrew' && ship.startingPrompt === null ? (
@@ -341,6 +338,7 @@ export function ShipHeader({ ship, shipId, state, actions, crewRequest, now, vie
         <ShipOpenAlert key={alert.id} alert={alert} now={now} />
       ))}
       <MetaStrip ship={ship} now={now} viewerFleetId={viewerFleetId} labels={labels} owner={owner} way={way} />
+      {permissions ?? (ship.kind === 'operator' || ship.kind === 'viewer' ? null : <div className="flex flex-col gap-3"><h2 className="text-section font-semibold">Permissions</h2><div className="flex flex-wrap gap-1.5">{ship.scopes.map((scope) => <Badge key={scope} variant="kind" data-testid="ship-fleet-scope">{scope}</Badge>)}</div></div>)}
       {(ship.kind === 'agent' || ship.kind === 'plugin') && ship.report?.details && ship.report.detailsBytes !== null ? (
         <ReportDetails details={ship.report.details} bytes={ship.report.detailsBytes} version={ship.report.detailsVersion} testId="ship-report-details" />
       ) : null}
