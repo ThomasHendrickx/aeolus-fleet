@@ -1,7 +1,7 @@
 import { CORE_SCOPE_DESCRIPTIONS, idSchema } from '@aeolus-fleet/common';
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { useEffect, useState, type ComponentProps } from 'react';
-import { expect, fn, screen, userEvent, waitFor, within } from 'storybook/test';
+import { expect, fn, screen, userEvent, waitFor } from 'storybook/test';
 
 import { CommissionDialog } from './commission-dialog';
 import { MACHINE_LABELS, OFFERS } from '../../../../lib/fixtures/machines.fixtures';
@@ -32,7 +32,7 @@ const meta = {
     onOpenChange: () => undefined,
     isPending: false,
     scopeGroups: [FLEET_ACCESS],
-    onSubmit: () => undefined,
+    onSubmit: (): ReturnType<ComponentProps<typeof CommissionDialog>['onSubmit']> => undefined,
   },
   decorators: [
     (Story) => (
@@ -55,21 +55,19 @@ export const AtShipLimit: Story = { args: { shipLimit: 10, accountUrl: 'https://
 /** Fleet access: each scope the picker lists shows the description the fleet gives it (decision 0046), and a picked one shows as a chip. */
 export const FleetAccess: Story = {
   play: async () => {
-    const fleet = await screen.findByTestId('commission-scopes-fleet');
-    await userEvent.type(within(fleet).getByTestId('scope-picker-search'), 'fleet:read');
-    const option = await screen.findByTestId('scope-picker-option');
-    await expect(option).toHaveTextContent(CORE_SCOPE_DESCRIPTIONS['fleet:read']);
-    await userEvent.click(option);
-    await expect(within(fleet).getByTestId('scope-picker-chip')).toHaveTextContent('fleet:read');
+    await userEvent.click(await screen.findByTestId('commission-extra-permissions'));
+    await userEvent.type(screen.getByRole('textbox', { name: 'Find a permission' }), 'fleet:read');
+    await expect(screen.getByTestId('permissions-choices')).toHaveTextContent(CORE_SCOPE_DESCRIPTIONS['fleet:read']);
+    await userEvent.click(await screen.findByRole('checkbox', { name: /Read the fleet/ }));
+    await expect(screen.getByText('1 selected')).toBeVisible();
   },
 };
 /** A plugin's scopes, in their own picker under the name of the ship that declared them, each with its own description. */
 export const WithPluginScopes: Story = {
   args: { scopeGroups: [FLEET_ACCESS, SQUADRONS_SCOPES] },
   play: async () => {
-    const squadrons = await screen.findByTestId('commission-scopes-squadrons');
-    await userEvent.click(within(squadrons).getByTestId('scope-picker-search'));
-    await expect(await screen.findByText('Form a squadron by message')).toBeVisible();
+    await userEvent.click(await screen.findByTestId('commission-extra-permissions'));
+    await expect(screen.getByTestId('permissions-choices')).toHaveTextContent('Form a squadron by message');
   },
 };
 /** While the fleet's scopes are read: no picker yet. */
@@ -125,7 +123,7 @@ export const OwnerNothingPicked: Story = {
   play: async () => {
     await typeNameAndType();
     await expect(screen.getByTestId('commission-submit')).toBeDisabled();
-    await expect(screen.getByText('The person who answers for reviewer-03: its questions, gates and trouble go to their ship.')).toBeVisible();
+    await expect(screen.getByText('Its questions, gates and trouble go to this person’s ship.')).toBeVisible();
   },
 };
 /** Signed in as argo, the owner argo named last preselected: Commission ship commissions it with that owner. */
@@ -210,8 +208,13 @@ export const OffersArriveAfterOpening: Story = {
   args: { onSubmit: fn() },
   render: (args) => <CommissionWithDelayedOffers {...args} />,
   play: async ({ args }) => {
+    // Given a shown switch before any computer offers arrive.
     await typeNameAndType();
+    // When computers become available after editing.
     window.dispatchEvent(new Event('deliver-offers'));
+    // Then the existing choice stays off and may be turned on explicitly.
+    await expect(screen.getByTestId('commission-request-crew')).not.toBeChecked();
+    await userEvent.click(screen.getByTestId('commission-request-crew'));
     await waitFor(async () => {
       await expect(screen.getByTestId('crew-settings-harness')).toHaveTextContent('Claude Code');
       await expect(screen.getByTestId('crew-settings-workspace')).toHaveTextContent('aeolus-fleet');
@@ -226,6 +229,7 @@ export const OffersArriveAfterOpening: Story = {
 export const EditedBeforeOffersArrive: Story = {
   render: (args) => <CommissionWithDelayedOffers {...args} />,
   play: async () => {
+    await userEvent.click(await screen.findByTestId('commission-request-crew'));
     await userEvent.type(await screen.findByTestId('crew-settings-first-prompt'), 'Triage issues');
     window.dispatchEvent(new Event('deliver-offers'));
     await waitFor(async () => {
@@ -233,5 +237,274 @@ export const EditedBeforeOffersArrive: Story = {
       await expect(screen.getByTestId('crew-settings-workspace')).toHaveTextContent('aeolus-fleet');
     }, { timeout: 4000 });
     await expect(screen.getByTestId('crew-settings-first-prompt')).toHaveValue('Triage issues');
+  },
+};
+
+/** Approved first state: no computer can crew, and extras stay out of the way. */
+export const NoComputerCanCrew: Story = {
+  args: { crewRequest: { offers: [], onSettingsChange: () => undefined } },
+  play: async ({ step }) => {
+    await step('Given a connected plugin without a computer that can crew', async () => {
+      await expect(await screen.findByTestId('commission-request-crew')).not.toBeChecked();
+      await expect(screen.queryByRole('textbox', { name: 'Find a permission' })).toBeNull();
+      await expect(screen.getByTestId('commission-disabled-reason')).toHaveTextContent('Enter a name and type.');
+      await waitFor(async () => { await expect(screen.getByText('No computer can crew this ship right now. You get the starting prompt next. You can still request a crew.')).toBeVisible(); });
+    });
+    await step('When the person requests a crew anyway', async () => {
+      await userEvent.click(screen.getByTestId('commission-request-crew'));
+    });
+    await step('Then the switch stays selectable and the missing requirements stay visible', async () => {
+      await expect(screen.getByTestId('commission-request-crew')).toBeChecked();
+      await expect(screen.getByTestId('crew-settings-harness')).toBeVisible();
+      await expect(screen.getByTestId('commission-submit')).toBeDisabled();
+    });
+  },
+};
+
+/** Each extra is one permission, with plain words and its scope beside it. */
+export const ExtraPermissions: Story = {
+  args: { scopeGroups: [FLEET_ACCESS, SQUADRONS_SCOPES], onSubmit: fn() },
+  play: async ({ args }) => {
+    // Given a ship that needs one extra permission.
+    await typeNameAndType();
+    // When its commissioner opens and searches the extras.
+    await userEvent.click(screen.getByText('Extra permissions'));
+    await userEvent.type(screen.getByRole('textbox', { name: 'Find a permission' }), 'Read the fleet');
+    await userEvent.click(screen.getByRole('checkbox', { name: /Read the fleet/ }));
+    // Then exactly that permission is granted.
+    await expect(screen.getByText('1 selected')).toBeVisible();
+    await userEvent.click(screen.getByTestId('commission-submit'));
+    await expect(args.onSubmit).toHaveBeenCalledWith({ name: 'reviewer-03', type: 'reviewer', scopes: ['fleet:read'] }, undefined);
+  },
+};
+
+/** The footer names every missing requirement, alongside the field hints. */
+export const DisabledReason: Story = {
+  args: { owner: { choices: [] }, crewRequest: { offers: [], onSettingsChange: () => undefined } },
+  play: async () => {
+    // Given a name and type but no owner or computer.
+    await typeNameAndType();
+    // When a crew is requested anyway.
+    await userEvent.click(screen.getByTestId('commission-request-crew'));
+    // Then the button's reason says what to complete and how.
+    await expect(screen.getByTestId('commission-disabled-reason')).toHaveTextContent('Pick an owner and complete crew settings.');
+    await expect(screen.getByTestId('commission-disabled-reason')).toHaveTextContent('Commission the person’s ship first.');
+    await expect(screen.getByTestId('commission-submit')).toBeDisabled();
+  },
+};
+
+/** The approved first state with argo's last owner, in either theme. */
+export const ApprovedFirstState: Story = { args: { owner: { choices: PERSON_SHIPS, lastPicked: PERSON_SHIPS.find((person) => person.name === 'thomas')?.id }, crewRequest: { offers: [], onSettingsChange: () => undefined }, scopeGroups: [{ title: 'Core', namespace: null, scopes: [{ scope: 'meetings:open', description: 'Invite ships to a meeting.' }, { scope: 'fleet:read', description: 'Read ships, timelines and messages.' }] }, SQUADRONS_SCOPES, { title: 'CRM', namespace: 'crm', scopes: [{ scope: 'crm:read-leads', description: 'Read leads in the CRM.' }] }] } };
+export const ApprovedExtras: Story = {
+  args: ApprovedFirstState.args,
+  play: async () => {
+    await typeNameAndType();
+    await userEvent.click(screen.getByTestId('commission-extra-permissions'));
+    await userEvent.click(screen.getByRole('checkbox', { name: /Open a meeting/ }));
+  },
+};
+
+/** The crew check is part of submit: pending starts before its answer, and a failure keeps the form. */
+export const PendingCrewCheck: Story = {
+  args: { onSubmit: () => new Promise<void>((_resolve, reject) => {
+    window.addEventListener('refuse-commission-check', () => { reject(new Error('Couldn’t check crew settings. Nothing was commissioned. Try again.')); }, { once: true });
+  }) },
+  play: async () => {
+    // Given a valid form awaiting a crew check.
+    await typeNameAndType();
+    // When it is submitted, before any server answer.
+    await userEvent.click(screen.getByTestId('commission-submit'));
+    // Then it is busy immediately, and a failed check is visible with inputs kept.
+    await expect(screen.getByTestId('commission-submit')).toHaveAttribute('data-loading');
+    window.dispatchEvent(new Event('refuse-commission-check'));
+    await expect(await screen.findByText('Couldn’t check crew settings. Nothing was commissioned. Try again.')).toBeVisible();
+    await expect(screen.getByTestId('commission-name')).toHaveValue('reviewer-03');
+  },
+};
+
+/** The approved disabled state still shows a workspace and repository without an offered harness. */
+export const NoHarnessOffered: Story = {
+  args: NoComputerCanCrew.args,
+  play: async () => {
+    // Given no computer offers a harness.
+    await userEvent.click(await screen.findByTestId('commission-request-crew'));
+    // When the request is on.
+    // Then the fields explain the empty choices and keep the repository visible.
+    await expect(screen.getByTestId('crew-settings-harness')).toHaveTextContent('No harness offered');
+    await expect(screen.getByTestId('crew-settings-workspace-kind')).toHaveTextContent('Repository');
+    await expect(screen.getByTestId('crew-settings-workspace')).toHaveTextContent('Choose...');
+    await waitFor(async () => { await expect(screen.getByText('Connect a computer that offers a harness, or turn off Request a crew.')).toBeVisible(); });
+  },
+};
+
+/** With computers full, requesting a crew stays available but starts off. */
+export const NoComputerWithRoom: Story = {
+  args: WithTrierarchPluginNoRoom.args,
+  play: async ({ step }) => {
+    await step('Given all computers are full and Request a crew starts off', async () => {
+      await expect(await screen.findByTestId('commission-request-crew')).not.toBeChecked();
+    });
+    await step('When the person requests a crew anyway', async () => {
+      await userEvent.click(screen.getByTestId('commission-request-crew'));
+    });
+    await step('Then the switch turns on', async () => {
+      await expect(screen.getByTestId('commission-request-crew')).toBeChecked();
+    });
+  },
+};
+
+/** The phone form keeps its action full width and pinned above the bottom edge. */
+export const PhoneActions: Story = {
+  args: ApprovedFirstState.args,
+  play: async ({ step }) => {
+    if (!('__vitest_browser__' in window)) return;
+    const { page } = await import('vitest/browser');
+    const initial = { width: window.innerWidth, height: window.innerHeight };
+    try {
+      await step('Given the approved commission form is open', async () => {
+        await waitFor(async () => { await expect(screen.getByTestId('commission-dialog')).toBeVisible(); });
+      });
+      await step('When the window is phone sized', async () => {
+        await page.viewport(375, 1000);
+      });
+      await step('Then the action is full width and pinned above the bottom edge', async () => {
+        const submit = screen.getByTestId('commission-submit');
+        const footer = submit.closest('[data-slot="dialog-footer"]');
+        await expect(submit.getBoundingClientRect().width).toBeGreaterThan(300);
+        await waitFor(async () => { await expect(footer?.getBoundingClientRect().bottom).toBeGreaterThan(950); });
+      });
+    } finally {
+      await page.viewport(initial.width, initial.height);
+    }
+  },
+};
+
+/** The approved field hints describe type addressing and who receives the ship's questions. */
+export const ApprovedFieldHints: Story = {
+  args: ApprovedFirstState.args,
+  play: async () => {
+    // Given the first commission state.
+    await waitFor(async () => { await expect(await screen.findByText('Ships of the same type share a type address.')).toBeVisible(); });
+    await expect(screen.getByText('Its questions, gates and trouble go to this person’s ship.')).toBeVisible();
+    await expect(screen.getByTestId('commission-disabled-reason')).toHaveTextContent('Complete the two fields above to commission this ship.');
+    // When an existing type is entered.
+    await typeNameAndType();
+    // Then its count describes the active ships of that type.
+    await expect(screen.getByText('2 active ships have this type.')).toBeVisible();
+  },
+};
+
+/** A failed permission read keeps the form and offers a visible retry. */
+export const PermissionsReadFailed: Story = {
+  args: { scopeGroups: undefined, scopeFailure: { message: 'Network request failed. Nothing you typed is lost.', onRetry: fn() } },
+  play: async ({ args, step }) => {
+    await step('Given an edited form and a failed permissions read', async () => {
+      await typeNameAndType();
+      await userEvent.click(screen.getByTestId('commission-extra-permissions'));
+      await expect(await screen.findByText('Couldn’t read permissions')).toBeVisible();
+    });
+    await step('When the person retries the read', async () => {
+      await userEvent.click(screen.getByRole('button', { name: /Try again/ }));
+    });
+    await step('Then the read is retried and the input is kept', async () => {
+      await expect(args.scopeFailure?.onRetry).toHaveBeenCalledOnce();
+      await expect(screen.getByTestId('commission-name')).toHaveValue('reviewer-03');
+    });
+  },
+};
+
+/** A live placement check may change while the open form belongs to its editor. */
+function CommissionWithLiveCrewCheck(args: ComponentProps<typeof CommissionDialog>) {
+  const [hasRoom, setHasRoom] = useState(true);
+  useEffect(() => {
+    const noRoom = () => { setHasRoom(false); };
+    window.addEventListener('commission-no-room', noRoom);
+    return () => { window.removeEventListener('commission-no-room', noRoom); };
+  }, []);
+  return <CommissionDialog {...args} crewRequest={{ offers: OFFERS, check: hasRoom ? undefined : { kind: 'noRoom', reason: 'All computers are full.' }, onSettingsChange: () => { setHasRoom(false); } }} />;
+}
+
+export const LiveCrewCheckKeepsEditedFields: Story = {
+  render: (args) => <CommissionWithLiveCrewCheck {...args} />,
+  play: async () => {
+    // Given a visible crew request with an offered computer.
+    const crew = await screen.findByTestId('commission-request-crew');
+    await expect(crew).toBeChecked();
+    // When editing the prompt triggers a live check that finds no room.
+    await userEvent.type(screen.getByTestId('crew-settings-first-prompt'), 'Review the change');
+    // Then the request stays on and its filled fields stay visible.
+    await expect(crew).toBeChecked();
+    await expect(screen.getByTestId('crew-settings-first-prompt')).toHaveValue('Review the change');
+  },
+};
+
+export const LiveCrewCheckKeepsShownSwitch: Story = {
+  render: (args) => <CommissionWithLiveCrewCheck {...args} />,
+  play: async () => {
+    // Given the person has already seen Request a crew on.
+    const crew = await screen.findByTestId('commission-request-crew');
+    await expect(crew).toBeChecked();
+    // When a later live check finds no room.
+    window.dispatchEvent(new Event('commission-no-room'));
+    // Then the shown switch stays on and remains switchable.
+    await waitFor(async () => { await expect(screen.getByText('No computer can crew this ship right now. Turn this off to get the starting prompt.')).toBeVisible(); });
+    await expect(crew).toBeChecked();
+    await userEvent.click(crew);
+    await expect(crew).not.toBeChecked();
+  },
+};
+
+function RetryingCommissionReads(args: ComponentProps<typeof CommissionDialog>) {
+  const [isRetrying, setIsRetrying] = useState(false);
+  const failure = { message: 'The read failed. Nothing you typed is lost.', isRetrying, onRetry: () => { setIsRetrying(true); } };
+  return <CommissionDialog {...args} scopeGroups={undefined} scopeFailure={failure} owner={args.owner === undefined ? undefined : { ...args.owner, failure }} />;
+}
+
+export const PermissionRetryShowsPending: Story = {
+  render: (args) => <RetryingCommissionReads {...args} />,
+  play: async () => {
+    // Given a failed permission read and an edited commission form.
+    await typeNameAndType();
+    await userEvent.click(screen.getByTestId('commission-extra-permissions'));
+    // When retry is pressed before its read answers.
+    await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    // Then the button shows pending and the form keeps its input.
+    const retry = await screen.findByRole('button', { name: /Trying again/ });
+    await expect(retry).toHaveAttribute('data-loading');
+    await expect(retry).toHaveAttribute('data-disabled');
+    await expect(screen.getByTestId('commission-name')).toHaveValue('reviewer-03');
+  },
+};
+export const OwnerRetryShowsPending: Story = {
+  args: { owner: { choices: undefined } },
+  render: (args) => <RetryingCommissionReads {...args} />,
+  play: async () => {
+    // Given a failed owner read and an edited commission form.
+    await typeNameAndType();
+    // When retry is pressed before its read answers.
+    await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    // Then the button shows pending and the form keeps its input.
+    const retry = await screen.findByRole('button', { name: /Trying again/ });
+    await expect(retry).toHaveAttribute('data-loading');
+    await expect(retry).toHaveAttribute('data-disabled');
+    await expect(screen.getByTestId('commission-name')).toHaveValue('reviewer-03');
+  },
+};
+
+export const CrewCheckRefusalIsReturned: Story = {
+  args: {
+    ...WithTrierarchPlugin.args,
+    onSubmit: () => ({ isOk: false, error: { kind: 'crewRefused', message: 'This model is disabled. Nothing was commissioned. Update the crew settings and try again.' } }),
+  },
+  play: async () => {
+    // Given a completed form whose fresh crew check refuses the settings.
+    await typeNameAndType();
+    await userEvent.type(screen.getByTestId('crew-settings-first-prompt'), 'Review the change');
+    // When the refusal is returned as the submission outcome.
+    await userEvent.click(screen.getByTestId('commission-submit'));
+    // Then the reason is visible and both ship and crew inputs are kept.
+    await expect(await screen.findByText('This model is disabled. Nothing was commissioned. Update the crew settings and try again.')).toBeVisible();
+    await expect(screen.getByTestId('commission-name')).toHaveValue('reviewer-03');
+    await expect(screen.getByTestId('crew-settings-first-prompt')).toHaveValue('Review the change');
   },
 };
