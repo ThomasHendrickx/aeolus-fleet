@@ -113,6 +113,7 @@ describe('declaring scopes on Postgres', () => {
     unwrap(await core.useCases.declareScopes(squadrons, { namespace: 'squadrons', scopes: [FORM] }));
 
     unwrap(await core.useCases.deleteFleet({ requestId: 'delete-home-fleet', fleetId }));
+    await core.useCases.removeDeletedFleets();
 
     await expect(core.prisma.scopeNamespace.count()).resolves.toBe(0);
   });
@@ -334,6 +335,7 @@ describe("the fleet's own scopes on Postgres (design gateway-scopes, 4.1)", () =
     unwrap(await core.useCases.defineScope(argo(), READ_LEADS));
 
     unwrap(await core.useCases.deleteFleet({ requestId: 'delete-home-fleet', fleetId }));
+    await core.useCases.removeDeletedFleets();
 
     await expect(core.prisma.definedScope.count()).resolves.toBe(0);
   });

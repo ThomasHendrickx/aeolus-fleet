@@ -53,12 +53,12 @@ export function createPrismaFleetRepository(db: Db): FleetRepository {
       // A transaction-level advisory lock on one fixed key: released at commit or rollback.
       await db.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('aeolus:fleet-initialisation'))`;
     },
-    count: () => db.fleet.count(),
+    count: () => db.fleet.count({ where: { deletedAt: null } }),
     find: async (fleetId) => {
-      const row = await db.fleet.findUnique({ where: { id: fleetId } });
+      const row = await db.fleet.findFirst({ where: { id: fleetId, deletedAt: null } });
       return row ? toFleet(row) : undefined;
     },
-    list: async () => (await db.fleet.findMany({ orderBy: { id: 'asc' } })).map(toFleet),
+    list: async () => (await db.fleet.findMany({ where: { deletedAt: null }, orderBy: { id: 'asc' } })).map(toFleet),
     create: async (fleet) => {
       await db.fleet.create({ data: fleet });
     },
@@ -99,63 +99,26 @@ export function createPrismaFleetRepository(db: Db): FleetRepository {
     },
     findForUpdate: async (fleetId) => {
       const [row] = await db.$queryRaw<unknown[]>`
-        SELECT id, name, created_at AS "createdAt" FROM fleets WHERE id = ${fleetId} FOR UPDATE`;
+        SELECT id, name, created_at AS "createdAt" FROM fleets WHERE id = ${fleetId} AND deleted_at IS NULL FOR UPDATE`;
       return row === undefined ? undefined : toFleet(row);
     },
-    delete: async (fleetId) => {
-      // Events are append-only; naming the fleet for this transaction alone lets
-      // its events go with it, and no other fleet's (decision 0020).
-      await db.$queryRaw`SELECT set_config('aeolus.deleting_fleet', ${fleetId}, true)`;
-      // Children first: every foreign key restricts deletes. A message may answer
-      // or resend another of the fleet, so those links go before the messages.
-      await db.$executeRaw`DELETE FROM health_snapshot_deliveries WHERE fleet_id = ${fleetId}`;
-      await db.$executeRaw`DELETE FROM health_snapshots WHERE fleet_id = ${fleetId}`;
-      await db.$executeRaw`DELETE FROM events WHERE fleet_id = ${fleetId}`;
-      await db.$executeRaw`DELETE FROM commission_approvals WHERE fleet_id = ${fleetId}`;
-      await db.$executeRaw`DELETE FROM overdue_deliveries WHERE fleet_id = ${fleetId}`;
-      await db.$executeRaw`DELETE FROM exchanges WHERE fleet_id = ${fleetId}`;
-      await db.$executeRaw`DELETE FROM pruned_exchanges WHERE fleet_id = ${fleetId}`;
-      await db.$executeRaw`DELETE FROM deliveries WHERE fleet_id = ${fleetId}`;
-      // A schedule names the messages it replies to and sent, and a message the schedule it was sent for.
-      await db.$executeRaw`UPDATE messages SET in_reply_to_message_id = NULL, resend_of_message_id = NULL, schedule_id = NULL, send_time = NULL WHERE fleet_id = ${fleetId}`;
-      await db.$executeRaw`DELETE FROM schedules WHERE fleet_id = ${fleetId}`;
-      await db.$executeRaw`DELETE FROM messages WHERE fleet_id = ${fleetId}`;
-      await db.$executeRaw`DELETE FROM data_keys WHERE fleet_id = ${fleetId}`;
-      await db.$executeRaw`DELETE FROM fleet_feature_flags WHERE fleet_id = ${fleetId}`;
-      await db.$executeRaw`DELETE FROM meeting_mic_requests WHERE fleet_id = ${fleetId}`;
-      await db.$executeRaw`DELETE FROM meeting_participants WHERE fleet_id = ${fleetId}`;
-      await db.$executeRaw`DELETE FROM meetings WHERE fleet_id = ${fleetId}`;
-      await db.$executeRaw`DELETE FROM message_days WHERE fleet_id = ${fleetId}`;
+    markDeleted: async (fleetId, at) => {
+      await db.$executeRaw`UPDATE fleets SET deleted_at = ${at} WHERE id = ${fleetId}`;
+      // What signs in to the fleet and its crew requests end with the mark; everything else waits for the removal pass.
+      await db.$executeRaw`DELETE FROM credentials WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM notice_dismissals WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM guide_progress WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM account_notice_dismissals WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM account_guide_progress WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM console_sessions WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM sign_in_tickets WHERE fleet_id = ${fleetId}`;
-      await db.$executeRaw`DELETE FROM credentials WHERE fleet_id = ${fleetId}`;
+      await db.$executeRaw`DELETE FROM operators WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM crew_request_give_backs WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM crew_requests WHERE fleet_id = ${fleetId}`;
-      await db.$executeRaw`DELETE FROM worktree_clear_requests WHERE fleet_id = ${fleetId}`;
-      await db.$executeRaw`DELETE FROM network_settings WHERE fleet_id = ${fleetId}`;
-      await db.$executeRaw`DELETE FROM network_rules_drafts WHERE fleet_id = ${fleetId}`;
-      await db.$executeRaw`DELETE FROM reach_refusals WHERE fleet_id = ${fleetId}`;
-      await db.$executeRaw`DELETE FROM declared_network_rules WHERE fleet_id = ${fleetId}`;
-      await db.$executeRaw`DELETE FROM installation_declared_network_rules WHERE fleet_id = ${fleetId}`;
-      await db.$executeRaw`DELETE FROM scope_namespaces WHERE fleet_id = ${fleetId}`;
-      await db.$executeRaw`DELETE FROM defined_scopes WHERE fleet_id = ${fleetId}`;
-      await db.$executeRaw`DELETE FROM verified_facts WHERE fleet_id = ${fleetId}`;
-      await db.$executeRaw`DELETE FROM alerts WHERE fleet_id = ${fleetId}`;
-      await db.$executeRaw`DELETE FROM ship_expectations WHERE fleet_id = ${fleetId}`;
-      await db.$executeRaw`DELETE FROM ship_labels WHERE fleet_id = ${fleetId}`;
-      await db.$executeRaw`DELETE FROM label_values WHERE fleet_id = ${fleetId}`;
-      await db.$executeRaw`DELETE FROM labels WHERE fleet_id = ${fleetId}`;
-      await db.$executeRaw`DELETE FROM leases WHERE fleet_id = ${fleetId}`;
-      await db.$executeRaw`DELETE FROM ships WHERE fleet_id = ${fleetId}`;
-      await db.$executeRaw`DELETE FROM operators WHERE fleet_id = ${fleetId}`;
-      // The request that created the fleet names it, so it goes too; a delete's record names nothing of it.
-      await db.$executeRaw`DELETE FROM installation_requests WHERE fleet_id = ${fleetId}`;
-      await db.$executeRaw`DELETE FROM fleets WHERE id = ${fleetId}`;
+      // Its data keys are shredded, so nothing it sealed opens again; the rows stay until the batches, as every message and schedule sealed under one restricts its delete.
+      await db.$executeRaw`UPDATE data_keys SET wrapped_by_company_key = ''::bytea, wrapped_by_recovery_key = NULL, check_value = ''::bytea WHERE fleet_id = ${fleetId}`;
     },
+    listDeleted: async () => (await db.fleet.findMany({ where: { deletedAt: { not: null } }, orderBy: { deletedAt: 'asc' } })).map(toFleet),
   };
 }
 

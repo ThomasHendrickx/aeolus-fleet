@@ -187,7 +187,7 @@ export function installationFleetsStatement(fleetId: FleetId | null, window: Ins
           f.sealing_state IS NOT NULL AS "isSealing"
         FROM fleets f
         LEFT JOIN operators o ON o.fleet_id = f.id
-        WHERE ${fleetId}::text IS NULL OR f.id = ${fleetId}
+        WHERE f.deleted_at IS NULL AND (${fleetId}::text IS NULL OR f.id = ${fleetId})
         ORDER BY f.created_at, f.id`;
 }
 

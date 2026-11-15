@@ -53,6 +53,8 @@ model Fleet {
   retentionDays              Int?          @map("retention_days")
   /// When its last pruning pass ran, and from when it keeps its finished
   /// history, as its last finished pass left it (decision 0066); null before any.
+  /// When the installation deleted it (decision 0020): the fleet reads as gone from then, and the removal pass takes its rows away in batches, the fleet last; null while it stands.
+  deletedAt                  DateTime?     @map("deleted_at") @db.Timestamptz(3)
   prunedAt                   DateTime?     @map("pruned_at") @db.Timestamptz(3)
   keptFrom                   DateTime?     @map("kept_from") @db.Timestamptz(3)
   /// Its sealing (decision 0068): null while it is not sealed; then sealing until no payload is stored plain, and sealed. The company key that wraps its data keys, by its reference.

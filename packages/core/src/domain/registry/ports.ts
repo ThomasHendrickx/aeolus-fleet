@@ -47,20 +47,39 @@ export interface FleetRepository {
   count(): Promise<number>;
   list(): Promise<Fleet[]>;
   create(fleet: Fleet): Promise<void>;
-  /** The fleet, read without a lock. */
+  /** The fleet, read without a lock; undefined when there is none or it is marked deleted. */
   find(fleetId: FleetId): Promise<Fleet | undefined>;
   /** The fleet, locked until the unit of work ends, so two deletes of it never both run. */
   findForUpdate(fleetId: FleetId): Promise<Fleet | undefined>;
   /**
-   * Deletes the fleet and every record in it, for good: its ships, leases,
-   * secrets, operator account, console sessions and sign-in tickets, messages, deliveries,
-   * events, and the installation's record of the request that created it
-   * (decision 0020).
+   * Marks the fleet deleted (decision 0020): from then it reads as gone (find,
+   * findForUpdate, list and count skip it) and what signs in to it ends with
+   * it, its secrets, operator account, console sessions and sign-in tickets,
+   * with its crew requests; its data keys are shredded, so nothing it sealed
+   * opens. Its other records, the shredded keys' rows included, stay for the
+   * removal pass.
    */
-  delete(fleetId: FleetId): Promise<void>;
+  markDeleted(fleetId: FleetId, at: Date): Promise<void>;
+  /** The fleets marked deleted whose removal is not finished, the oldest first. */
+  listDeleted(): Promise<Fleet[]>;
   /** How the fleet's limits are set; undefined when there is no such fleet. */
   limitSettings(fleetId: FleetId): Promise<FleetLimitSettings | undefined>;
   setLimitSettings(fleetId: FleetId, settings: FleetLimitSettings): Promise<void>;
+}
+
+/** What one batch of a deleted fleet's removal did: more history may be left, or none is. */
+export type RemovalBatch = 'more' | 'empty';
+
+/** Outbound port: the removal of a fleet marked deleted (decision 0020), a step each unit of work. */
+export interface FleetRemoval {
+  /** Takes the fleet's removal lock until the unit of work ends; false when another server holds it. */
+  tryLock(fleetId: FleetId): Promise<boolean>;
+  /** Removes at most `limit` rows of the fleet's history, children first, and answers `empty` once none is left. */
+  removeHistoryBatch(fleetId: FleetId, limit: number): Promise<RemovalBatch>;
+  /** After the history: removes at most `limit` rows of the first kind of the fleet's other records with rows left, its schedules, leases, ships and the rest, children first, and answers `empty` once none is left. */
+  removeRecordsBatch(fleetId: FleetId, limit: number): Promise<RemovalBatch>;
+  /** The last step: removes the fleet itself and the installation's record of the request that created it. */
+  removeRest(fleetId: FleetId): Promise<void>;
 }
 
 /** Outbound port: the installation's settings, one set for the whole installation, not scoped to a fleet (decision 0020). */

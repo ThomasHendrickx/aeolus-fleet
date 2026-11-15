@@ -575,6 +575,7 @@ describe('a pruning pass racing', () => {
     await held.reached;
     const deleting = core.useCases.deleteFleet({ requestId: 'delete-home-fleet', fleetId: argo.fleetId });
     await Promise.allSettled([passing, deleting]);
+    await core.useCases.removeDeletedFleets();
 
     expect(await core.prisma.fleet.count({ where: { id: argo.fleetId } })).toBe(0);
   });
