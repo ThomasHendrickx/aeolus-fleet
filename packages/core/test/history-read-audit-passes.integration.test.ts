@@ -142,9 +142,10 @@ describe('the maintenance pass on a fleet with 120,000 messages', () => {
     expect(await scansOf(({ client }) => rolledBack(client, (tx) => createPrismaHistoryPruner(tx).go(scale.fleetId, set)))).toEqual([]);
   });
 
-  // Scans the fleet's history (#1854): asserted until it is fixed.
-  it('fleet.turnOnSealing asks whether the fleet stores a plain payload by scanning messages', async () => {
-    expect(await scansOf(({ client }) => createPrismaFleetSealingRepository(client).storesPlainPayload(scale.fleetId))).toEqual(['messages']);
+  it('fleet.turnOnSealing and the sealing pass ask whether the fleet stores a plain payload through the plain payloads\' index', async () => {
+    const plans = await plansOf(core, ({ client }) => createPrismaFleetSealingRepository(client).storesPlainPayload(scale.fleetId));
+    expect(scansIn(plans)).toEqual([]);
+    expect(plans.map(({ plan }) => plan.includes('messages_plain_payload_idx'))).toEqual([true]);
   });
 
   // Scans the fleet's history (#1855): asserted until it is fixed.
