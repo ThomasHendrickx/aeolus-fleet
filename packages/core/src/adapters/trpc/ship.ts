@@ -897,7 +897,8 @@ export const shipRouter = router({
       description: [
         'Needs messages:send. For a message you sent, by its messageId: where each of its deliveries stands (its state: pending, received, handed, acknowledged,',
         'handled, notHandled, undeliverable, dismissed or abandoned), since when and the ship it went to (null while no ship of a type claimed it):',
-        'one delivery for a ship or a type, one per ship for a label. Its recipient by name, type or the value ids you sent to. No payload comes back.',
+        'one delivery for a ship or a type, one per ship for a label. Deliveries are a page of items by id; pass cursor and limit to read more,',
+        'using nextCursor from the previous page. Its recipient by name, type or the value ids you sent to. No payload comes back.',
         'A message another ship sent, or one the fleet does not have, is refused as MESSAGE_NOT_FOUND.',
       ].join(' '),
     })
@@ -905,7 +906,7 @@ export const shipRouter = router({
     .output(sentMessageOutputSchema)
     .query(async ({ ctx, input }) => {
       const sent = okOrThrow(await ctx.useCases.sentMessage(ctx.caller, input));
-      return { ...sent, sentAt: sent.sentAt.toISOString(), deliveries: sent.deliveries.map((delivery) => ({ ...delivery, since: delivery.since.toISOString() })) };
+      return { ...sent, sentAt: sent.sentAt.toISOString(), items: sent.items.map((delivery) => ({ ...delivery, since: delivery.since.toISOString() })) };
     }),
 
   /**

@@ -61,7 +61,7 @@ describe('a sender reading its sent message on Postgres', () => {
     expect(unwrap(await useCases.sentMessage(scout, { messageId }))).toMatchObject({
       messageId,
       recipient: { kind: 'ship', ship: { id: lookout.shipId, name: 'lookout' } },
-      deliveries: [{ ship: { id: lookout.shipId, name: 'lookout' }, state: 'handed', since: handed.occurredAt }],
+      items: [{ ship: { id: lookout.shipId, name: 'lookout' }, state: 'handed', since: handed.occurredAt }],
     });
   });
 
@@ -87,7 +87,7 @@ describe('a sender reading its sent message on Postgres', () => {
 
     expect(unwrap(await useCases.sentMessage(argo, { messageId }))).toMatchObject({
       recipient: { kind: 'label', valueIds: [teamA] },
-      deliveries: [
+      items: [
         { ship: { id: scout.shipId, name: 'scout' }, state: 'pending', since: accepted.occurredAt },
         { ship: { id: lookout.shipId, name: 'lookout' }, state: 'handed', since: await at('DeliveryHanded', lookout.shipId) },
         { ship: { id: watcher.shipId, name: 'watcher' }, state: 'acknowledged', since: await at('DeliveryAcknowledged', watcher.shipId) },

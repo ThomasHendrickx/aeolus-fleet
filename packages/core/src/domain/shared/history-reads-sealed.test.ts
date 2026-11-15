@@ -104,6 +104,6 @@ describe('the history reads in a sealed fleet (decision 0068, B9)', () => {
 
     const sent = unwrap(await history.sentMessage(tester, { messageId }));
 
-    expect(sent).toMatchObject({ messageId, deliveries: [{ ship: { id: argoId }, state: 'pending' }] });
+    expect(sent).toMatchObject({ messageId, items: [{ ship: { id: argoId }, state: 'pending' }] });
   });
 });

@@ -25,7 +25,8 @@ describe('a sender reading the delivery of a message it sent', () => {
       messageId,
       sentAt,
       recipient: { kind: 'ship', ship: { id: scene.scout.shipId, name: 'scout' } },
-      deliveries: [{ deliveryId, ship: { id: scene.scout.shipId, name: 'scout' }, state: 'pending', since: sentAt }],
+      items: [{ id: deliveryId, ship: { id: scene.scout.shipId, name: 'scout' }, state: 'pending', since: sentAt }],
+      nextCursor: null,
     });
   });
 
@@ -34,7 +35,7 @@ describe('a sender reading the delivery of a message it sent', () => {
     await scene.receive(scene.scout);
     const receivedAt = scene.core.clock.now();
 
-    expect(unwrap(await sentMessage(scene.planner, { messageId })).deliveries).toMatchObject([{ state: 'handed', since: receivedAt }]);
+    expect(unwrap(await sentMessage(scene.planner, { messageId })).items).toMatchObject([{ state: 'handed', since: receivedAt }]);
   });
 
   it('gives it acknowledged since the ack', async () => {
@@ -43,7 +44,7 @@ describe('a sender reading the delivery of a message it sent', () => {
     await scene.ack(scene.scout, messageId);
     const ackedAt = scene.core.clock.now();
 
-    expect(unwrap(await sentMessage(scene.planner, { messageId })).deliveries).toMatchObject([{ state: 'acknowledged', since: ackedAt }]);
+    expect(unwrap(await sentMessage(scene.planner, { messageId })).items).toMatchObject([{ state: 'acknowledged', since: ackedAt }]);
   });
 
   it('gives it pending again since its return, when the lease that held it ended', async () => {
@@ -55,7 +56,7 @@ describe('a sender reading the delivery of a message it sent', () => {
 
     expect(unwrap(await sentMessage(scene.planner, { messageId }))).toMatchObject({
       recipient: { kind: 'type', type: 'reviewer' },
-      deliveries: [{ ship: null, state: 'pending', since: returnedAt }],
+      items: [{ ship: null, state: 'pending', since: returnedAt }],
     });
   });
 
@@ -63,7 +64,7 @@ describe('a sender reading the delivery of a message it sent', () => {
     const messageId = await scene.send(scene.planner, { to: { kind: 'type', type: 'reviewer' } });
     await scene.receive(scene.scout);
 
-    expect(unwrap(await sentMessage(scene.planner, { messageId })).deliveries).toMatchObject([{ ship: { id: scene.scout.shipId, name: 'scout' }, state: 'handed' }]);
+    expect(unwrap(await sentMessage(scene.planner, { messageId })).items).toMatchObject([{ ship: { id: scene.scout.shipId, name: 'scout' }, state: 'handed' }]);
   });
 
   it('gives every delivery of a send to a label, each with its ship and where it stands, and the selection as sent (decision 0065)', async () => {
@@ -86,11 +87,12 @@ describe('a sender reading the delivery of a message it sent', () => {
       messageId,
       sentAt,
       recipient: { kind: 'label', valueIds: [teamA] },
-      deliveries: [
-        { deliveryId: deliveryTo(scene.scout), ship: { id: scene.scout.shipId, name: 'scout' }, state: 'handed', since: handedAt },
-        { deliveryId: deliveryTo(scene.lookout), ship: { id: scene.lookout.shipId, name: 'lookout' }, state: 'acknowledged', since: ackedAt },
-        { deliveryId: deliveryTo(scene.planner), ship: { id: scene.planner.shipId, name: 'planner' }, state: 'pending', since: sentAt },
+      items: [
+        { id: deliveryTo(scene.scout), ship: { id: scene.scout.shipId, name: 'scout' }, state: 'handed', since: handedAt },
+        { id: deliveryTo(scene.lookout), ship: { id: scene.lookout.shipId, name: 'lookout' }, state: 'acknowledged', since: ackedAt },
+        { id: deliveryTo(scene.planner), ship: { id: scene.planner.shipId, name: 'planner' }, state: 'pending', since: sentAt },
       ],
+      nextCursor: null,
     });
   });
 

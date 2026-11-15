@@ -239,7 +239,13 @@ describe('reading a send to a label on Postgres', () => {
     expect(read.items.map(({ ship, state }) => ({ shipId: ship?.id, state }))).toEqual(byId(alpha, bravo, charlie).map((shipId) => ({ shipId, state: 'pending' })));
     expect(unwrap(await core.useCases.readMessage(argo, { messageId })).deliveryCount).toBe(3);
     expect(sent.recipient).toEqual({ kind: 'label', valueIds: [teamA] });
-    expect(sent.deliveries.map(({ deliveryId }) => deliveryId)).toEqual(read.items.map(({ id }) => id));
+    expect(sent.items.map(({ id }) => id)).toEqual(read.items.map(({ id }) => id));
+    const first = unwrap(await core.useCases.sentMessage(lead, { messageId, limit: 2 }));
+    const second = unwrap(await core.useCases.sentMessage(lead, { messageId, limit: 2, cursor: first.nextCursor ?? undefined }));
+    expect(first.items.map(({ id }) => id)).toEqual(read.items.slice(0, 2).map(({ id }) => id));
+    expect(first.nextCursor).toBe(first.items[1]?.id);
+    expect(second.items.map(({ id }) => id)).toEqual(read.items.slice(2).map(({ id }) => id));
+    expect(second.nextCursor).toBeNull();
   });
 
   it('pages the deliveries by id in the database, each page after the cursor the last one answered', async () => {
