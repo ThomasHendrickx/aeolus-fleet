@@ -119,38 +119,43 @@ async function capture(page: Page, { screen, theme }: { screen: string; theme: s
 
 describe('the approved trierarch-kind screens', () => {
   it.each(['light', 'dark'] as const)('shows Trierarchs between Agents and Plugins and a separate kind on details in %s', async (theme) => {
-    // Given the same computer before or after the in-place kind migration.
-    await database.$executeRaw`UPDATE ships SET kind = 'agent' WHERE id = ${computerId}`;
-    if (process.env.TRIERARCH_CAPTURE_PHASE !== 'before') {
-      await database.$executeRaw`UPDATE ships SET kind = 'trierarch' WHERE id = ${computerId}`;
-    }
+    // Given the computer after its in-place kind migration.
+    await database.$executeRaw`UPDATE ships SET kind = 'trierarch' WHERE id = ${computerId}`;
     const page = await signedIn({ viewport: { width: 1440, height: 1100 }, colorScheme: theme });
-    await tileOf(page, 'mac-studio').waitFor();
+    await page.getByRole('region', { name: 'Trierarchs', exact: true }).waitFor();
     await page.evaluate("document.documentElement.classList.toggle('dark', " + String(theme === 'dark') + ')');
+
+    // When the operator opens the computer at each approved viewport.
     await capture(page, { screen: 'harbour', theme });
-
-    // When its tile opens the built ship-details screen.
-    await tileOf(page, 'mac-studio').click();
-    await page.getByTestId('ship-header').getByText('mac-studio', { exact: true }).waitFor();
-    await capture(page, { screen: 'details', theme });
-
-    // Then its kind is distinct from its type, and Harbour keeps the plugin separate.
-    expect(await page.getByTestId('ship-kind').innerText()).toBe('Kind: Trierarch');
-    expect(await page.getByTestId('ship-header').getByText('trierarch', { exact: true }).count()).toBe(1);
-    await page.goto('/');
-    const groups = page.getByTestId('harbour-groups');
-    await page.getByTestId('harbour-group-trierarchs').waitFor();
-    expect(await Promise.all((await groups.locator(':scope > section').all()).map((section) => section.getAttribute('aria-label')))).toEqual(['People', 'Agents', 'Trierarchs', 'Plugins']);
-    expect(await page.getByTestId('harbour-group-trierarchs').getByText('mac-studio', { exact: true }).count()).toBe(1);
-    expect(await page.getByTestId('harbour-group-plugins').getByText('trierarch-plugin', { exact: true }).count()).toBe(1);
+    const harbour = page.getByRole('region', { name: 'Harbour', exact: true });
+    const groupNames = await harbour.getByRole('region').evaluateAll((groups) => groups.map((group) => group.getAttribute('aria-label')));
+    const computers = await page.getByRole('region', { name: 'Trierarchs', exact: true }).getByText('mac-studio', { exact: true }).count();
+    const plugins = await page.getByRole('region', { name: 'Plugins', exact: true }).getByText('trierarch-plugin', { exact: true }).count();
+    const viewports = [];
     for (const width of [375, 1440, 1920]) {
       await page.setViewportSize({ width, height: 1100 });
-      expect(await page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')).toBe(true);
+      const doesHarbourFit = await page.evaluate('document.documentElement.scrollWidth <= window.innerWidth');
       await tileOf(page, 'mac-studio').click();
-      await page.getByTestId('ship-kind').waitFor();
-      expect(await page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')).toBe(true);
+      await page.getByRole('heading', { name: 'mac-studio', exact: true }).waitFor();
+      viewports.push({
+        width,
+        doesHarbourFit,
+        doDetailsFit: await page.evaluate('document.documentElement.scrollWidth <= window.innerWidth'),
+        kind: await page.getByText('Kind: Trierarch', { exact: true }).innerText(),
+        type: await page.getByText('trierarch', { exact: true }).count(),
+        crewRequest: await page.getByText('No crew requested', { exact: true }).count(),
+        ping: await page.getByRole('button', { name: 'Ping', exact: true }).count(),
+        delivery: await page.getByText('Delivery', { exact: true }).count(),
+      });
+      if (width === 1440) await capture(page, { screen: 'details', theme });
       await page.goto('/');
-      await tileOf(page, 'mac-studio').waitFor();
+      await page.getByRole('region', { name: 'Trierarchs', exact: true }).waitFor();
     }
+
+    // Then the approved group, kind, crew request, Ping and Delivery survive at every width.
+    expect(groupNames).toEqual(['People', 'Agents', 'Trierarchs', 'Plugins']);
+    expect(computers).toBe(1);
+    expect(plugins).toBe(1);
+    expect(viewports).toEqual([375, 1440, 1920].map((width) => ({ width, doesHarbourFit: true, doDetailsFit: true, kind: 'Kind: Trierarch', type: 1, crewRequest: 1, ping: 1, delivery: 1 })));
   });
 });

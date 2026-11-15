@@ -6,6 +6,17 @@ const NOW = new Date('2026-10-02T09:10:00.000Z');
 const minutesAgo = (minutes: number) => new Date(NOW.getTime() - minutes * 60_000).toISOString();
 
 describe('canPing', () => {
+  it('offers Ping on a crewed trierarch as the approved details screen shows', () => {
+    // Given a crewed computer.
+    const ship = { kind: 'trierarch', status: 'crewed' } as const;
+
+    // When its details screen offers actions.
+    const isOffered = canPing(ship);
+
+    // Then it keeps Ping after its kind changes.
+    expect(isOffered).toBe(true);
+  });
+
   it('offers Ping on a crewed agent ship', () => {
     expect(canPing({ kind: 'agent', status: 'crewed' })).toBe(true);
   });

@@ -71,3 +71,17 @@ it('keeps a trierarch report in the existing Report sort and indexed fleet listi
   expect(listed.ships.map((ship) => ship.name)).toEqual(['mac-studio', 'builder', 'argo']);
   await assertIndexedPlan(core.prisma, fleetListingStatement(argo.fleetId, { limit: 20, filter: { status: ['crewed', 'awaitingCrew'] }, sort, reach: { kind: 'every' } }));
 });
+
+it('finds a kind-trierarch ship of another type, but not an agent of type trierarch', async () => {
+  // Given a computer with a free type and an unrelated same-type agent.
+  const computer = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: 'computer', name: 'mac-studio', type: 'computer', kind: 'trierarch' }));
+  unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: 'lookalike', name: 'lookalike', type: 'trierarch', kind: 'agent' }));
+  const filter = { kind: ['trierarch'] } as const;
+
+  // When fleet.list selects by the existing kind filter.
+  const listed = await core.useCases.listFleet(argo, filter);
+
+  // Then it finds the computer, excludes the agent, and keeps indexed access.
+  expect(listed.ships.map((ship) => ship.id)).toEqual([computer.shipId]);
+  await assertIndexedPlan(core.prisma, fleetListingStatement(argo.fleetId, { limit: 20, filter, reach: { kind: 'every' } }));
+});

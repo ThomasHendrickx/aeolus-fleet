@@ -48,9 +48,7 @@ it('migrates agent and app computers proven by commissioning or owned labels, pr
   const label = unwrap(await core.useCases.defineLabel(plugin, { key: 'trierarch', values: ['machine', 'plugin'] }));
   const machineValue = label.values.find((value) => value.value === 'machine');
   const pluginValue = label.values.find((value) => value.value === 'plugin');
-  expect(machineValue).toBeDefined();
-  expect(pluginValue).toBeDefined();
-  if (machineValue === undefined || pluginValue === undefined) return;
+  if (machineValue === undefined || pluginValue === undefined) throw new Error('The computer fixture needs machine and plugin label values');
   for (const shipId of [agent.shipId, labelled.shipId]) {
     unwrap(await core.useCases.assignLabel(plugin, { shipId, valueId: machineValue.id }));
   }
@@ -67,8 +65,7 @@ it('migrates agent and app computers proven by commissioning or owned labels, pr
   const unrelated = unwrap(await core.useCases.commissionShip(impostor, { idempotencyKey: 'unrelated', name: 'unrelated', type: 'trierarch' }));
   const unrelatedLabel = unwrap(await core.useCases.defineLabel(impostor, { key: 'trierarch', values: ['machine'] }));
   const unrelatedValue = unrelatedLabel.values[0];
-  expect(unrelatedValue).toBeDefined();
-  if (unrelatedValue === undefined) return;
+  if (unrelatedValue === undefined) throw new Error('The unrelated fixture needs a machine label value');
   unwrap(await core.useCases.assignLabel(impostor, { shipId: unrelated.shipId, valueId: unrelatedValue.id }));
   const shipsBefore = await core.prisma.ship.findMany({ orderBy: { id: 'asc' } });
   const relationshipsBefore = await relationships();
