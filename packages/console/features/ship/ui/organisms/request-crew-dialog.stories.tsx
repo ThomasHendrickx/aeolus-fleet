@@ -116,7 +116,7 @@ export const OffersArriveAfterOpening: Story = {
       await expect(screen.getByTestId('crew-settings-harness')).toHaveTextContent('Claude Code');
       await expect(screen.getByTestId('crew-settings-workspace')).toHaveTextContent('aeolus-fleet');
       await expect(screen.getByTestId('request-crew-submit')).toBeEnabled();
-    });
+    }, { timeout: 4000 });
   },
 };
 

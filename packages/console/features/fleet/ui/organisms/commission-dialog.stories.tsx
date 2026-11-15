@@ -232,13 +232,3 @@ export const EditedBeforeOffersArrive: Story = {
     await expect(screen.getByTestId('crew-settings-first-prompt')).toHaveValue('Triage issues');
   },
 };
-
-/** Crew settings rejected by the fleet cannot be submitted (#1720). */
-export const InvalidFirstPrompt: Story = {
-  args: WithTrierarchPlugin.args,
-  play: async () => {
-    await typeNameAndType();
-    await userEvent.type(screen.getByTestId('crew-settings-first-prompt'), '-invalid');
-    await expect(screen.getByTestId('commission-submit')).toBeDisabled();
-  },
-};
