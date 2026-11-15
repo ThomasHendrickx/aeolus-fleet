@@ -1,12 +1,12 @@
 /** The snapshot close catches up a stale checkpoint on a fleet at staging's scale, looking up only the sent deliveries by key (#1301). */
 import { STUCK_TREND_HOURS, type FleetId } from '@aeolus-fleet/common';
-import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { createApp } from '../src/app.js';
 import { Prisma } from '../src/adapters/prisma/generated/client.js';
 import { createPrismaClientTellingStatements } from '../src/adapters/prisma/client.js';
 import { createPrismaHealthSnapshots } from '../src/adapters/prisma/health-snapshots.js';
+import { ensureHealthBootstrapIndex } from '../src/adapters/prisma/health-bootstrap-index.js';
 import { baseDeliveriesStatement } from '../src/adapters/prisma/health.js';
 import { createPrismaFleetRepository } from '../src/adapters/prisma/registry.js';
 import { createPrismaSnapshotUnitOfWork } from '../src/adapters/prisma/unit-of-work.js';
@@ -58,40 +58,54 @@ describe('the snapshot close on a fleet at staging scale', () => {
   it('bootstraps the oldest catch-up hour without scanning message, delivery or event history', async () => {
     // Given 3,000 ships, 150,000 finished historical messages and 167 hourly batches of 1,000 sends.
     const firstHour = new Date(core.clock.now().getTime() - CATCH_UP_HOURS * HOUR_MS);
+    await ensureHealthBootstrapIndex(core.databaseUrl);
 
     // When the first snapshot reads the deliveries open at the oldest catch-up hour.
     const statement = baseDeliveriesStatement(fleetId, firstHour);
 
     // Then every history read uses an index, including events nested beneath the candidate aggregate.
-    await assertIndexedPlan(core.prisma, statement);
+    expect(await assertIndexedPlan(core.prisma, statement)).toContain('events_delivery_bootstrap_idx');
   });
 
-  it('serves and bootstraps while its covering index waits, then finishes the index after start', async () => {
+  it('serves and bootstraps while its time-range index waits, then finishes the index after start', async () => {
     // Given a table lock that makes a concurrent index build wait, but permits reads and writes.
-    const blocker = new pg.Client({ connectionString: core.databaseUrl });
+    await core.prisma.$executeRaw`DROP INDEX CONCURRENTLY IF EXISTS events_delivery_bootstrap_idx`;
+    const reached = Promise.withResolvers<undefined>();
+    const released = Promise.withResolvers<undefined>();
+    const blocker = core.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`LOCK TABLE events IN SHARE UPDATE EXCLUSIVE MODE`;
+      reached.resolve(undefined);
+      await released.promise;
+    }, { timeout: 60_000 });
+    void blocker.catch(reached.reject);
     const server = createApp({ databaseUrl: core.databaseUrl, publicUrl: 'http://localhost', clock: core.clock, logger: false, overduePassMs: 600_000 });
-    await blocker.connect();
+    await reached.promise;
     try {
-      await blocker.query('BEGIN');
-      await blocker.query('LOCK TABLE events IN SHARE UPDATE EXCLUSIVE MODE');
-
       // When core starts listening before its index is ready.
       await server.listen({ host: '127.0.0.1', port: 0 });
+      await expect.poll(async () => {
+        const [row] = await core.prisma.$queryRaw<{ isWaiting: boolean }[]>`
+          SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE datname = current_database()
+            AND query LIKE '%CREATE INDEX CONCURRENTLY IF NOT EXISTS events_delivery_bootstrap_idx%'
+            AND wait_event_type = 'Lock') AS "isWaiting"`;
+        return row?.isWaiting;
+      }).toBe(true);
 
       // Then it serves and reconstructs the empty oldest hour correctly while the build waits.
       expect((await server.inject({ method: 'GET', url: '/health' })).statusCode).toBe(200);
       const firstHour = new Date(core.clock.now().getTime() - CATCH_UP_HOURS * HOUR_MS);
       expect((await createPrismaHealthSnapshots(core.prisma).baseAt(fleetId, firstHour)).deliveries).toEqual([]);
-      await blocker.query('COMMIT');
+      released.resolve(undefined);
+      await blocker;
       await expect.poll(async () => {
-        const [row] = await core.prisma.$queryRaw<{ ready: boolean }[]>`
-          SELECT EXISTS (SELECT 1 FROM pg_index WHERE indexrelid = to_regclass('events_delivery_bootstrap_idx') AND indisvalid) AS ready`;
-        return row?.ready;
+        const [row] = await core.prisma.$queryRaw<{ isReady: boolean }[]>`
+          SELECT EXISTS (SELECT 1 FROM pg_index WHERE indexrelid = to_regclass('events_delivery_bootstrap_idx') AND indisvalid) AS "isReady"`;
+        return row?.isReady;
       }, { timeout: 30_000 }).toBe(true);
       await assertIndexedPlan(core.prisma, baseDeliveriesStatement(fleetId, firstHour));
     } finally {
-      await blocker.query('ROLLBACK');
-      await blocker.end();
+      released.resolve(undefined);
+      await blocker;
       await server.close();
     }
   }, 60_000);
