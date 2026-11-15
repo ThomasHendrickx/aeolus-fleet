@@ -174,9 +174,9 @@ describe("the labels of a test container", () => {
   });
 
   it("name the pid and the start of the process of the run", () => {
-    expect(testContainerLabels("run-1")).toMatchObject({
-      "aeolus-fleet.test-run-pid": String(process.pid),
-      "aeolus-fleet.test-run-started": expect.any(String),
-    });
+    const labels = testContainerLabels("run-1");
+
+    expect(labels["aeolus-fleet.test-run-pid"]).toBe(String(process.pid));
+    expect(labels["aeolus-fleet.test-run-started"]).toBeTruthy();
   });
 });

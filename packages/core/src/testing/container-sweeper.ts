@@ -126,7 +126,7 @@ export async function removeStaleTestContainers(): Promise<void> {
       });
       // Created is in seconds.
       return containers.map((container) => {
-        const labels = container.Labels as Record<string, string | undefined>;
+        const labels: Record<string, string | undefined> = container.Labels;
         const pid = Number(labels[RUN_PID_LABEL]);
         const startedAt = labels[RUN_STARTED_LABEL];
         return {
