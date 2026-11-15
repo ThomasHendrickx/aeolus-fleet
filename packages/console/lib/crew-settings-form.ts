@@ -268,6 +268,15 @@ export function defaultValues(offers: readonly HarnessOffer[]): CrewSettingsValu
   return { harness: offer?.harness ?? '', workspace: firstWorkspace(offer), options: defaultOptions(offer), firstPrompt: '', squadron: '', machineLabels: [], mcpServers: [] };
 }
 
+/** Fill defaults that were unavailable when the form was edited. */
+export function withDefaultsFilled(edited: CrewSettingsValues | undefined, offers: readonly HarnessOffer[]): CrewSettingsValues {
+  const defaults = defaultValues(offers);
+  if (edited === undefined) return defaults;
+  if (edited.harness === '' && defaults.harness !== '') return withHarness(edited, { harness: defaults.harness, offers });
+  if (edited.workspace === undefined) return { ...edited, workspace: firstWorkspace(offers.find((offer) => offer.harness === edited.harness)) };
+  return edited;
+}
+
 /** The form after picking a harness: its workspace kept while that harness offers it, its options back at their defaults. */
 export function withHarness(values: CrewSettingsValues, pick: { harness: string; offers: readonly HarnessOffer[] }): CrewSettingsValues {
   const { harness, offers } = pick;

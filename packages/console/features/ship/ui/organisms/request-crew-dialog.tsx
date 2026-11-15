@@ -5,7 +5,7 @@ import { CircleX, Clock, LoaderCircle, RotateCw, ShipWheel } from 'lucide-react'
 import { useState, type ReactNode } from 'react';
 
 import { useConsoleConstants } from '../../../../lib/console-constants';
-import { defaultValues, promptBytes, settingsOf, valuesOf, workspaceProblems, type CrewSettingsValues, type HarnessOffer } from '../../../../lib/crew-settings-form';
+import { promptBytes, settingsOf, valuesOf, withDefaultsFilled, workspaceProblems, type CrewSettingsValues, type HarnessOffer } from '../../../../lib/crew-settings-form';
 import type { MachineLabelsInput } from '../../../../lib/machine-labels';
 import { secondsTime } from '../../../../lib/relative-time';
 import type { SettingsCheck } from '../../../../lib/trierarch-plugin-schemas';
@@ -83,7 +83,8 @@ function RequestCrewForm(props: Omit<RequestCrewDialogProps, 'isOpen' | 'onOpenC
   const { firstPromptMaxBytes } = useConsoleConstants();
   const { shipName, mode, offers, enabledModels, heldSettings, squadrons, machineLabels, check, refusedAt, error, isPending, onSettingsChange, onSubmit } = props;
   const words = WORDS[mode];
-  const [values, setValues] = useState<CrewSettingsValues>(() => (mode === 'edit' ? valuesOf(heldSettings, { offers, enabledModels }) : defaultValues(offers)));
+  const [editedValues, setValues] = useState<CrewSettingsValues>();
+  const values = withDefaultsFilled(editedValues ?? (mode === 'edit' ? valuesOf(heldSettings, { offers, enabledModels }) : undefined), offers);
   const settings = settingsOf(values);
   const refusal = check?.kind === 'refused' ? check : undefined;
   const isPromptTooLong = promptBytes(values.firstPrompt) > firstPromptMaxBytes;

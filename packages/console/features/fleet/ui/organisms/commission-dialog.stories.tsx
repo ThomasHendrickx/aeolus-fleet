@@ -1,5 +1,6 @@
 import { CORE_SCOPE_DESCRIPTIONS, idSchema } from '@aeolus-fleet/common';
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
+import { useEffect, useState, type ComponentProps } from 'react';
 import { expect, fn, screen, userEvent, waitFor, within } from 'storybook/test';
 
 import { CommissionDialog } from './commission-dialog';
@@ -191,5 +192,46 @@ export const SignedInAsAccount: Story = {
     await typeNameAndType();
     await expect(screen.queryByTestId('commission-owner')).toBeNull();
     await expect(screen.getByTestId('commission-submit')).toBeEnabled();
+  },
+};
+
+function CommissionWithDelayedOffers(args: ComponentProps<typeof CommissionDialog>) {
+  const [offers, setOffers] = useState<typeof OFFERS>([]);
+  useEffect(() => {
+    const deliverOffers = () => { setOffers(OFFERS); };
+    window.addEventListener('deliver-offers', deliverOffers);
+    return () => { window.removeEventListener('deliver-offers', deliverOffers); };
+  }, []);
+  return <CommissionDialog {...args} crewRequest={{ offers, onSettingsChange: () => undefined }} />;
+}
+
+/** Options arrive after the commission dialog opens (#1720). */
+export const OffersArriveAfterOpening: Story = {
+  args: { onSubmit: fn() },
+  render: (args) => <CommissionWithDelayedOffers {...args} />,
+  play: async ({ args }) => {
+    await typeNameAndType();
+    window.dispatchEvent(new Event('deliver-offers'));
+    await waitFor(async () => {
+      await expect(screen.getByTestId('crew-settings-harness')).toHaveTextContent('Claude Code');
+      await expect(screen.getByTestId('crew-settings-workspace')).toHaveTextContent('aeolus-fleet');
+      await expect(screen.getByTestId('commission-submit')).toBeEnabled();
+    });
+    await userEvent.click(screen.getByTestId('commission-submit'));
+    await expect(args.onSubmit).toHaveBeenCalledOnce();
+  },
+};
+
+/** An edited first prompt is kept when the options arrive (#1720). */
+export const EditedBeforeOffersArrive: Story = {
+  render: (args) => <CommissionWithDelayedOffers {...args} />,
+  play: async () => {
+    await userEvent.type(await screen.findByTestId('crew-settings-first-prompt'), 'Triage issues');
+    window.dispatchEvent(new Event('deliver-offers'));
+    await waitFor(async () => {
+      await expect(screen.getByTestId('crew-settings-harness')).toHaveTextContent('Claude Code');
+      await expect(screen.getByTestId('crew-settings-workspace')).toHaveTextContent('aeolus-fleet');
+    }, { timeout: 4000 });
+    await expect(screen.getByTestId('crew-settings-first-prompt')).toHaveValue('Triage issues');
   },
 };
