@@ -1,0 +1,34 @@
+[
+  {
+    "phase": "after",
+    "theme": "light",
+    "state": "focus",
+    "style": "solid",
+    "width": "2px",
+    "offset": "2px",
+    "color": "oklch(0.56 0.12 257)"
+  },
+  {
+    "phase": "after",
+    "theme": "light",
+    "state": "pressed",
+    "active": true,
+    "arrowOpacity": "0"
+  },
+  {
+    "phase": "after",
+    "theme": "dark",
+    "state": "focus",
+    "style": "solid",
+    "width": "2px",
+    "offset": "2px",
+    "color": "oklch(0.7 0.1 252)"
+  },
+  {
+    "phase": "after",
+    "theme": "dark",
+    "state": "pressed",
+    "active": true,
+    "arrowOpacity": "0"
+  }
+]
