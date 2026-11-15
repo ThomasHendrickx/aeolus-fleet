@@ -151,7 +151,11 @@ export const CurrentArgo: Story = {
   },
 };
 
-/** A search is cleared when a chosen owner list is reopened. */
+/**
+ * A search is cleared when a chosen owner list is reopened. The list is
+ * reopened once the pick has closed it: a press while it still closes only
+ * closes it again.
+ */
 export const ReopeningAfterSearch: Story = {
   args: { onQueryChange: fn() },
   play: async ({ args }) => {
@@ -159,7 +163,14 @@ export const ReopeningAfterSearch: Story = {
     await userEvent.clear(field);
     await userEvent.type(field, 'bur');
     await userEvent.click(await screen.findByRole('option', { name: /burak/ }));
+    await waitFor(async () => {
+      await expect(screen.queryByRole('listbox')).toBeNull();
+    });
     await userEvent.click(screen.getByRole('button', { name: 'Show the choices' }));
+    const list = await screen.findByRole('listbox');
+    await waitFor(async () => {
+      await expect(list).toBeVisible();
+    });
     await expect(args.onQueryChange).toHaveBeenLastCalledWith('');
   },
 };
