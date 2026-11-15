@@ -493,3 +493,19 @@ describe('handedOutputSchema', () => {
     expect(handedOutputSchema.safeParse({ state: 'pending' }).success).toBe(false);
   });
 });
+
+describe('no call waits (decision 0072)', () => {
+  const asks = [{ waitSeconds: 0 }, { waitSeconds: 25 }, { knownWaiting: 0 }];
+
+  it.each(asks)('receive refuses %j as unknown input', (input) => {
+    expect(receiveInputSchema.safeParse(input).success).toBe(false);
+  });
+
+  it.each(asks)('pushReceive refuses %j as unknown input', (input) => {
+    expect(pushReceiveInputSchema.safeParse(input).success).toBe(false);
+  });
+
+  it.each(asks)('receiveReply refuses %j as unknown input', (input) => {
+    expect(receiveReplyInputSchema.safeParse({ messageId: newId('message'), ...input }).success).toBe(false);
+  });
+});
