@@ -27,6 +27,14 @@ beforeAll(async () => {
     INSERT INTO deliveries (id, fleet_id, message_id, sender_ship_id, recipient_ship_id, state, created_at)
     SELECT 'dlv_' || lpad(i::text, 26, '0'), ${fleetId}, ${messageId}, ${argoId}, 'shp_' || lpad(i::text, 26, '0'), 'pending', now()
     FROM generate_series(1, ${SHIPS}::int) i`;
+  await core.prisma.$executeRaw`
+    INSERT INTO messages (id, fleet_id, sender_ship_id, selector_kind, selector_ship_id, payload, content_type, idempotency_key, request_hash, created_at)
+    SELECT 'msg_other' || lpad(i::text, 20, '0'), ${fleetId}, ${argoId}, 'ship', ${argoId}, 'hello', 'text/plain', 'other-' || i, 'h', now()
+    FROM generate_series(1, ${SHIPS}::int) i`;
+  await core.prisma.$executeRaw`
+    INSERT INTO deliveries (id, fleet_id, message_id, sender_ship_id, recipient_ship_id, state, created_at)
+    SELECT 'dlv_other' || lpad(i::text, 20, '0'), ${fleetId}, 'msg_other' || lpad(i::text, 20, '0'), ${argoId}, ${argoId}, 'pending', now()
+    FROM generate_series(1, ${SHIPS}::int) i`;
   await core.prisma.$executeRaw`ANALYZE`;
 }, 120_000);
 
@@ -38,10 +46,10 @@ describe('history of a label send to 3,000 ships', () => {
     const firstId = idSchema('delivery').parse('dlv_00000000000000000000000001');
     const firstShip = idSchema('ship').parse('shp_00000000000000000000000001');
 
-    const page = await history.messages(fleetId, { shipId: argoId, limit: 20 });
+    const page = await history.messages(fleetId, { shipId: argoId, limit: 20, cursor: idSchema('message').parse('msg_10000000000000000000000000') });
     const parties = await history.messageParties(fleetId, [messageId]);
 
-    expect(page?.items[0]?.delivery.id).toBe(firstId);
+    expect(page?.items.find((item) => item.id === messageId)?.delivery.id).toBe(firstId);
     expect(parties.get(messageId)?.recipient).toEqual({ kind: 'ship', shipId: firstShip });
   });
 
