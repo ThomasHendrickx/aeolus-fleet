@@ -28,7 +28,7 @@ it('commissions a trierarch with its own kind and discovers and filters it witho
   const discovered = discoverOutputSchema.parse(unwrap(await core.useCases.discover(argo)));
 
   // Then its kind is durable, its type stays free, and it is separate from agents.
-  expect(listed.ships.map(({ id, kind, type }) => ({ id, kind, type }))).toEqual([{ id: shipId, kind: 'trierarch', type: 'computer' }]);
+  expect(listed.ships.map((ship) => ({ id: ship.id, kind: 'kind' in ship ? ship.kind : undefined, type: ship.type }))).toEqual([{ id: shipId, kind: 'trierarch', type: 'computer' }]);
   expect(discovered.ships.find((ship) => ship.id === shipId)).toMatchObject({ kind: 'trierarch', type: 'computer' });
   await expect(core.prisma.ship.findUnique({ where: { id: shipId } })).resolves.toMatchObject({ kind: 'trierarch', type: 'computer', ownerShipId: argo.shipId });
 });

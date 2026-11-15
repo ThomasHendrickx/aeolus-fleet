@@ -19,11 +19,7 @@ import { newKey } from '../packages/core/src/testing/keys.js';
 import { unwrap } from '../packages/core/src/testing/result.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 
-// Harbour on the fleet overview, end to end (docs/design/fleet-overview): a
-// fleet of argo, builder crewed and working, reviewer-1 awaiting crew,
-// builder-gateway with an open alert, and old retired. The numbers count the
-// four active ships by state, the tiles group them by kind, a tap shows
-// what a ship is doing, and a tile follows its ship live.
+// Approved trierarch-kind screens, through the running console and a real database.
 
 const INSTALLATION_TOKEN = 'aeolus_installation_test_0123456789abcdef';
 
@@ -114,7 +110,7 @@ function tileOf(page: Page, name: string) {
 }
 
 /** Optional screenshot evidence uses the same running screens as this acceptance test. */
-async function capture(page: Page, screen: string, theme: string): Promise<void> {
+async function capture(page: Page, { screen, theme }: { screen: string; theme: string }): Promise<void> {
   const directory = process.env.TRIERARCH_SCREENSHOTS;
   if (directory === undefined) return;
   await mkdir(directory, { recursive: true });
@@ -130,13 +126,13 @@ describe('the approved trierarch-kind screens', () => {
     }
     const page = await signedIn({ viewport: { width: 1440, height: 1100 }, colorScheme: theme });
     await tileOf(page, 'mac-studio').waitFor();
-    await page.evaluate((isDark) => document.documentElement.classList.toggle('dark', isDark), theme === 'dark');
-    await capture(page, 'harbour', theme);
+    await page.evaluate("document.documentElement.classList.toggle('dark', " + String(theme === 'dark') + ')');
+    await capture(page, { screen: 'harbour', theme });
 
     // When its tile opens the built ship-details screen.
     await tileOf(page, 'mac-studio').click();
     await page.getByTestId('ship-header').getByText('mac-studio', { exact: true }).waitFor();
-    await capture(page, 'details', theme);
+    await capture(page, { screen: 'details', theme });
 
     // Then its kind is distinct from its type, and Harbour keeps the plugin separate.
     expect(await page.getByTestId('ship-kind').innerText()).toBe('Kind: Trierarch');
@@ -144,15 +140,15 @@ describe('the approved trierarch-kind screens', () => {
     await page.goto('/');
     const groups = page.getByTestId('harbour-groups');
     await page.getByTestId('harbour-group-trierarchs').waitFor();
-    expect(await groups.locator(':scope > section').evaluateAll((sections) => sections.map((section) => section.getAttribute('aria-label')))).toEqual(['People', 'Agents', 'Trierarchs', 'Plugins']);
+    expect(await groups.evaluate("element => [...element.children].map(section => section.getAttribute('aria-label'))")).toEqual(['People', 'Agents', 'Trierarchs', 'Plugins']);
     expect(await page.getByTestId('harbour-group-trierarchs').getByText('mac-studio', { exact: true }).count()).toBe(1);
     expect(await page.getByTestId('harbour-group-plugins').getByText('trierarch-plugin', { exact: true }).count()).toBe(1);
     for (const width of [375, 1440, 1920]) {
       await page.setViewportSize({ width, height: 1100 });
-      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      expect(await page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')).toBe(true);
       await tileOf(page, 'mac-studio').click();
       await page.getByTestId('ship-kind').waitFor();
-      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      expect(await page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')).toBe(true);
       await page.goto('/');
       await tileOf(page, 'mac-studio').waitFor();
     }
