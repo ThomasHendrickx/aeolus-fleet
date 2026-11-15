@@ -1,7 +1,8 @@
-import { ANSWER_CONTENT_TYPE, createIdGenerator, idSchema, WITHDRAWAL_CONTENT_TYPE, type DeliveryId, type MessageId } from '@aeolus-fleet/common';
+import { ANSWER_CONTENT_TYPE, createIdGenerator, REPLACEMENT_CONTENT_TYPE, idSchema, WITHDRAWAL_CONTENT_TYPE, type DeliveryId, type MessageId } from '@aeolus-fleet/common';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { sha256Hasher } from '../src/adapters/crypto/secrets.js';
+import { createPrismaMessageRepository } from '../src/adapters/prisma/messaging.js';
 import { createReplyToMessage } from '../src/domain/messaging/reply-to-message.js';
 import { createRetireShip } from '../src/domain/registry/retire-ship.js';
 import { isCrew, type Crew, type ShipCaller } from '../src/domain/shared/caller.js';
@@ -46,11 +47,11 @@ afterEach(async () => {
 });
 
 /** Scout asks argo one question: its message and argo's delivery of it. */
-async function askedArgo(): Promise<{ messageId: MessageId; deliveryId: DeliveryId }> {
+async function askedArgo(questionId = QUESTION_ID): Promise<{ messageId: MessageId; deliveryId: DeliveryId }> {
   const { messageId } = unwrap(
     await core.useCases.sendFormattedMessage(scout, {
       selector: { kind: 'ship', name: 'argo' },
-      message: { kind: 'question', question: aQuestion({ id: QUESTION_ID }) },
+      message: { kind: 'question', question: aQuestion({ id: questionId }) },
       model: SCOUT_MODEL,
       idempotencyKey: newKey(),
     }),
@@ -59,8 +60,8 @@ async function askedArgo(): Promise<{ messageId: MessageId; deliveryId: Delivery
   return { messageId, deliveryId: idSchema('delivery').parse(id) };
 }
 
-function answerTo(deliveryId: DeliveryId) {
-  return { deliveryId, contentType: ANSWER_CONTENT_TYPE, payload: JSON.stringify({ questionId: QUESTION_ID, option: 2 }), idempotencyKey: 'answer' };
+function answerTo(deliveryId: DeliveryId, questionId = QUESTION_ID) {
+  return { deliveryId, contentType: ANSWER_CONTENT_TYPE, payload: JSON.stringify({ questionId, option: 2 }), idempotencyKey: `answer-${deliveryId}` };
 }
 
 function storedWithdrawals() {
@@ -90,6 +91,47 @@ describe('retiring a ship with an open question on Postgres', () => {
 
     await expect(storedWithdrawals()).resolves.toEqual([]);
     await expect(core.prisma.ship.findUniqueOrThrow({ where: { id: scout.shipId } })).resolves.toMatchObject({ retiredAt: null });
+  });
+});
+
+describe("the open questions of a ship, as Postgres selects them", () => {
+  const ANSWERED = '22222222-2222-4222-8222-222222222222';
+  const WITHDRAWN = '33333333-3333-4333-8333-333333333333';
+  const REPLACED = '44444444-4444-4444-8444-444444444444';
+  const REPLACEMENT = '55555555-5555-4555-8555-555555555555';
+  const ANSWERED_ELSEWHERE = '66666666-6666-4666-8666-666666666666';
+  const OPEN = '77777777-7777-4777-8777-777777777777';
+
+  it('leaves out the answered, the withdrawn and the replaced, keeps an open replacement and a question whose reply names another, and pages by message id', async () => {
+    const answered = await askedArgo(ANSWERED);
+    unwrap(await core.useCases.replyToMessage(argo, answerTo(answered.deliveryId, ANSWERED)));
+    await askedArgo(WITHDRAWN);
+    await askedArgo(REPLACED);
+    const elsewhere = await askedArgo(ANSWERED_ELSEWHERE);
+    unwrap(await core.useCases.replyToMessage(argo, answerTo(elsewhere.deliveryId, OPEN)));
+    const open = await askedArgo(OPEN);
+    unwrap(await core.useCases.sendFormattedMessage(scout, { selector: { kind: 'ship', name: 'argo' }, message: { kind: 'withdrawal', target: { kind: 'question', questionId: WITHDRAWN } }, model: SCOUT_MODEL, idempotencyKey: newKey() }));
+    const { messageId: replacement } = unwrap(
+      await core.useCases.sendMessage(scout, {
+        selector: { kind: 'ship', name: 'argo' },
+        contentType: REPLACEMENT_CONTENT_TYPE,
+        payload: JSON.stringify({ questionId: REPLACED, question: aQuestion({ id: REPLACEMENT }) }),
+        model: SCOUT_MODEL,
+        idempotencyKey: newKey(),
+      }),
+    );
+    const messages = createPrismaMessageRepository(core.prisma);
+
+    const first = await messages.listOpenQuestionsOf(scout.fleetId, scout.shipId, { limit: 2 });
+    const next = await messages.listOpenQuestionsOf(scout.fleetId, scout.shipId, { after: open.messageId, limit: 2 });
+
+    expect([first, next]).toEqual([
+      [
+        { messageId: elsewhere.messageId, askedShipId: argo.shipId, questionId: ANSWERED_ELSEWHERE },
+        { messageId: open.messageId, askedShipId: argo.shipId, questionId: OPEN },
+      ],
+      [{ messageId: replacement, askedShipId: argo.shipId, questionId: REPLACEMENT }],
+    ]);
   });
 });
 

@@ -7,6 +7,7 @@ import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-
 import { newKey } from '../../testing/keys.js';
 import { unwrap } from '../../testing/result.js';
 import { isSealedPayload } from '../messaging/public.js';
+import { createRotateDataKeys } from '../messaging/rotate-data-keys.js';
 import type { Crew, ShipCaller } from '../shared/caller.js';
 
 /**
@@ -30,6 +31,7 @@ let lookout: ShipCaller;
 const FIRST_QUESTION = '11111111-1111-4111-8111-111111111111';
 const SECOND_QUESTION = '33333333-3333-4333-8333-333333333333';
 const NEW_QUESTION = '44444444-4444-4444-8444-444444444444';
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 beforeEach(async () => {
   core = createInMemoryCore('2026-11-15T09:00:00.000Z');
@@ -157,5 +159,34 @@ describe('retiring a ship with an open question in a sealed fleet (decision 0068
       core.state.messages.filter((message) => !isSealedPayload(message.payload)).length,
       deliveries.filter(({ contentType }) => contentType === WITHDRAWAL_CONTENT_TYPE).map(({ payload }) => payload),
     ]).toEqual([0, [JSON.stringify({ questionId: FIRST_QUESTION })]]);
+  });
+});
+
+describe('retiring a ship whose question history spans data key rotations (decision 0068, B13a)', () => {
+  /** A question per data key: one asked of lookout and left open, one asked of argo and answered. */
+  const OPEN = ['a1a1a1a1-0000-4000-8000-000000000001', 'a1a1a1a1-0000-4000-8000-000000000002', 'a1a1a1a1-0000-4000-8000-000000000003'];
+  const ANSWERED = ['b2b2b2b2-0000-4000-8000-000000000001', 'b2b2b2b2-0000-4000-8000-000000000002', 'b2b2b2b2-0000-4000-8000-000000000003'];
+
+  it('withdraws every open question, its questions and replies sealed under three data keys and the withdrawals under the current one', async () => {
+    await sealFleet(core, fleetId);
+    const rotate = createRotateDataKeys({ sealings: core.sealings, uow: core.uow, clock: core.clock, ids: core.ids, dataKeys: core.sealing.dataKeys });
+    for (const [index, open] of OPEN.entries()) {
+      if (index > 0) {
+        core.clock.advance(30 * DAY_MS);
+        await rotate();
+      }
+      await asked(scout, { to: lookout.shipId, question: aQuestion({ id: open }) });
+      const answered = await asked(scout, { to: argoId, question: aQuestion({ id: ANSWERED[index] }) });
+      unwrap(await messaging.replyToMessage(argo, { deliveryId: answered.deliveryId, contentType: ANSWER_CONTENT_TYPE, payload: JSON.stringify({ questionId: ANSWERED[index], option: 2 }), idempotencyKey: newKey() }));
+    }
+    core.clock.advance(30 * DAY_MS);
+    await rotate();
+
+    await retired(scout);
+
+    expect([
+      new Set(core.state.messages.flatMap(({ payload }) => (isSealedPayload(payload) ? [payload.sealed.dataKeyId] : []))).size,
+      core.state.messages.filter(({ contentType }) => contentType === WITHDRAWAL_CONTENT_TYPE).map(({ senderShipId, selector, questionId }) => ({ senderShipId, selector, questionId })),
+    ]).toEqual([4, OPEN.map((questionId) => ({ senderShipId: scout.shipId, selector: { kind: 'ship', shipId: lookout.shipId }, questionId }))]);
   });
 });
