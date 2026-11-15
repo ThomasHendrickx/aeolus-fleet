@@ -338,7 +338,7 @@ export function ShipHeader({ ship, shipId, state, actions, permissions, crewRequ
         <ShipOpenAlert key={alert.id} alert={alert} now={now} />
       ))}
       <MetaStrip ship={ship} now={now} viewerFleetId={viewerFleetId} labels={labels} owner={owner} way={way} />
-      {permissions ?? (ship.kind === 'operator' || ship.kind === 'viewer' ? null : <div className="flex flex-col gap-3"><h2 className="text-section font-semibold">Permissions</h2><div className="flex flex-wrap gap-1.5">{ship.scopes.map((scope) => <Badge key={scope} variant="kind" data-testid="ship-fleet-scope">{scope}</Badge>)}</div></div>)}
+      {permissions ?? (ship.kind === 'operator' || ship.kind === 'viewer' ? null : <div className="flex flex-col gap-3"><h2 className="text-section font-semibold">Permissions</h2><div className="flex flex-wrap gap-1.5">{ship.scopes.map((scope) => <Badge key={scope} variant="type" data-testid="ship-fleet-scope">{scope}</Badge>)}</div></div>)}
       {(ship.kind === 'agent' || ship.kind === 'plugin') && ship.report?.details && ship.report.detailsBytes !== null ? (
         <ReportDetails details={ship.report.details} bytes={ship.report.detailsBytes} version={ship.report.detailsVersion} testId="ship-report-details" />
       ) : null}

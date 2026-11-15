@@ -305,6 +305,7 @@ function CommissionDialogBody({ types, taken, onTypedChange, isPending: isReques
         </p>
         {hasCrewSettings ? (
           <CrewSettingsFields
+            isCommission
             shipName={name.trim() === '' ? 'this ship' : name.trim()}
             offers={crewRequest.offers}
             values={crewValues}
