@@ -478,3 +478,42 @@ export interface FleetSealingRepository {
   /** Names the fleet's new recovery key and stores each data key's wrap to it. */
   changeRecoveryKey(fleetId: FleetId, change: { recoveryKey: RecoveryKey; dataKeys: readonly { id: DataKeyId; wrappedByRecoveryKey: WrappedDataKey }[] }): Promise<void>;
 }
+
+/** An exchange's key in its fleet: the person ship and the ship it exchanged with. */
+export interface ExchangeKey {
+  shipId: ShipId;
+  otherShipId: ShipId;
+}
+
+/**
+ * Where a fleet's metadata fill stands (docs/architecture.md, Backfills): the
+ * last message it visited by id, the last exchange it visited by key, and
+ * whether both walks reached the end.
+ */
+export interface MetadataFillCursor {
+  afterMessageId: MessageId | null;
+  afterExchange: ExchangeKey | null;
+  isComplete: boolean;
+}
+
+/**
+ * Outbound port: the fill after start of what the question id and unseen
+ * plain message migrations left empty, always within one fleet. A message
+ * stored since then holds its question ids and an exchange made since then
+ * its count, so each walk ends.
+ */
+export interface MessageMetadataFill {
+  /** The fleet's cursor, held for update until the unit of work ends; a fleet never visited starts at the beginning. */
+  lockCursor(fleetId: FleetId): Promise<MetadataFillCursor>;
+  /** Fills the question ids of the next messages by id after `after`, at most limit; the ids it visited, in order. */
+  fillQuestionIds(fleetId: FleetId, query: { after: MessageId | null; limit: number }): Promise<MessageId[]>;
+  /** Counts the unseen plain messages of each of the next exchanges by key after `after` that holds none, at most limit; the keys it visited, in order. */
+  fillUnseenPlainMessages(fleetId: FleetId, query: { after: ExchangeKey | null; limit: number }): Promise<ExchangeKey[]>;
+  saveCursor(fleetId: FleetId, cursor: MetadataFillCursor): Promise<void>;
+}
+
+/** Outbound port: the indexes the fill and the reads of what it has not filled yet use, built while core serves, without holding writes. */
+export interface MetadataFillIndexes {
+  /** Builds each one that is not there or not valid; settles once all are valid. */
+  build(): Promise<void>;
+}

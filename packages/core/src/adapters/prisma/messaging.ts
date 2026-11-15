@@ -5,6 +5,7 @@ import { isInExchange } from '../../domain/messaging/exchange.js';
 import type { Delivery, Message } from '../../domain/messaging/message.js';
 import type { ClaimableDeliveries, DeliveryRepository, MessageRepository } from '../../domain/messaging/ports.js';
 import type { Db } from './client.js';
+import { answeredQuestionIdIn, askedQuestionIdIn, isAnswerContentType, isAskingContentType } from './content-type-sql.js';
 import { addChangedDelivery, type ExchangeRollups } from './exchange-rollups.js';
 import { Prisma } from './generated/client.js';
 import { payloadColumnsOf, toDeliveryFromSql, toMessage } from './rows.js';
@@ -50,10 +51,10 @@ export function openQuestionsStatement(fleetId: FleetId, { shipId, after, limit 
       SELECT m.*, m.asked_question_id AS effective_question_id FROM messages m
       WHERE m.fleet_id = ${fleetId} AND m.sender_ship_id = ${shipId} AND m.asked_question_id IS NOT NULL
       UNION ALL
-      SELECT m.*, substring(m.payload from '"id"\\s*:\\s*"([^"]*)"') AS effective_question_id FROM messages m
+      SELECT m.*, ${askedQuestionIdIn('m.payload')} AS effective_question_id FROM messages m
       WHERE m.fleet_id = ${fleetId} AND m.sender_ship_id = ${shipId}
         AND m.asked_question_id IS NULL AND m.payload IS NOT NULL
-        AND lower(btrim(split_part(m.content_type, ';', 1))) IN ('application/vnd.aeolus.question+json', 'application/vnd.aeolus.question-replacement+json')
+        AND ${isAskingContentType('m.content_type')}
     ) q
     JOIN ships s ON s.fleet_id = q.fleet_id AND s.id = q.selector_ship_id
     WHERE q.fleet_id = ${fleetId}
@@ -69,8 +70,8 @@ export function openQuestionsStatement(fleetId: FleetId, { shipId, after, limit 
           AND a.in_reply_to_message_id = q.id
           AND a.sender_ship_id = q.selector_ship_id
           AND COALESCE(a.answered_question_id,
-            CASE WHEN lower(btrim(split_part(a.content_type, ';', 1))) = 'application/vnd.aeolus.answer+json'
-              THEN substring(a.payload from '"questionId"\\s*:\\s*"([^"]*)"') END) = q.effective_question_id)
+            CASE WHEN ${isAnswerContentType('a.content_type')}
+              THEN ${answeredQuestionIdIn('a.payload')} END) = q.effective_question_id)
       AND NOT EXISTS (
         SELECT 1 FROM messages w
         WHERE w.fleet_id = q.fleet_id

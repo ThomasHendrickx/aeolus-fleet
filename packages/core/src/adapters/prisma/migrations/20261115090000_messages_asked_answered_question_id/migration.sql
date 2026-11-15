@@ -8,14 +8,13 @@ ADD COLUMN "answered_question_id" TEXT;
 -- CreateIndex
 CREATE INDEX "messages_fleet_id_sender_ship_id_id_asked_idx" ON "messages"("fleet_id", "sender_ship_id", "id") WHERE ("asked_question_id" IS NOT NULL);
 
--- Unfilled plain questions remain readable through the same sender/id range.
-CREATE INDEX "messages_unfilled_questions_idx" ON "messages" ("fleet_id", "sender_ship_id", "id")
-WHERE asked_question_id IS NULL AND payload IS NOT NULL
-  AND lower(btrim(split_part(content_type, ';', 1))) IN ('application/vnd.aeolus.question+json', 'application/vnd.aeolus.question-replacement+json');
-
--- One durable cursor per fleet, committed with each batch after core listens.
+-- One cursor per fleet for the fill after start (docs/architecture.md,
+-- Backfills): the last message it visited by id and the last exchange by key,
+-- committed with each batch. Core builds the fill's indexes after start too.
 CREATE TABLE message_metadata_backfills (
   fleet_id TEXT PRIMARY KEY REFERENCES fleets(id) ON DELETE CASCADE ON UPDATE CASCADE,
-  after_message_id TEXT NOT NULL DEFAULT '',
+  after_message_id TEXT,
+  after_ship_id TEXT,
+  after_other_ship_id TEXT,
   is_complete BOOLEAN NOT NULL DEFAULT false
 );

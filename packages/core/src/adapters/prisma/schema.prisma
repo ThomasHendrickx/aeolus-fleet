@@ -730,12 +730,15 @@ model MessageDay {
   @@map("message_days")
 }
 
-/// The after-start metadata pass commits its message id cursor with each batch.
+/// A fleet's cursor of the fill after start (docs/architecture.md, Backfills): the last message it visited
+/// by id and the last exchange by key, committed with each batch.
 model MessageMetadataBackfill {
-  fleetId        String  @id @map("fleet_id")
-  afterMessageId String  @default("") @map("after_message_id")
-  isComplete     Boolean @default(false) @map("is_complete")
-  fleet          Fleet   @relation(fields: [fleetId], references: [id], onDelete: Cascade)
+  fleetId          String  @id @map("fleet_id")
+  afterMessageId   String? @map("after_message_id")
+  afterShipId      String? @map("after_ship_id")
+  afterOtherShipId String? @map("after_other_ship_id")
+  isComplete       Boolean @default(false) @map("is_complete")
+  fleet            Fleet   @relation(fields: [fleetId], references: [id], onDelete: Cascade)
 
   @@map("message_metadata_backfills")
 }
@@ -851,7 +854,6 @@ model Message {
   @@index([fleetId, questionId], map: "messages_fleet_id_question_id_idx", where: { questionId: { not: null } })
   /// The questions a ship asked, by message id: its open ones are selected along it when it retires (#1632).
   @@index([fleetId, senderShipId, id], map: "messages_fleet_id_sender_ship_id_id_asked_idx", where: { askedQuestionId: { not: null } })
-  @@index([fleetId, senderShipId, id], map: "messages_unfilled_questions_idx", where: raw("((asked_question_id IS NULL) AND (payload IS NOT NULL) AND (lower(btrim(split_part(content_type, ';'::text, 1))) = ANY (ARRAY['application/vnd.aeolus.question+json'::text, 'application/vnd.aeolus.question-replacement+json'::text])))"))
   /// A data key's sealed messages, for its foreign key.
   @@index([fleetId, sealedDataKeyId])
   /// Every foreign key has an index leading with its columns, so deleting a
@@ -1140,8 +1142,6 @@ model Delivery {
   @@index([fleetId, claimedByShipId, id], map: "deliveries_in_flight_claimed_idx", where: raw("((recipient_type IS NOT NULL) AND (state = ANY (ARRAY['received'::delivery_state, 'handed'::delivery_state])))"))
   /// One exchange page is two range scans, one per direction (docs/design/exchange-read, E3). Partial, so a foreign key check never picks it.
   @@index([fleetId, reachedShipId, senderShipId, id], map: "deliveries_exchange_idx", where: raw("is_in_exchange"))
-  /// The partial metadata fill and its fallback count only the open part of an exchange.
-  @@index([fleetId, reachedShipId, senderShipId, id], map: "deliveries_open_exchange_idx", where: raw("(is_in_exchange AND (state = ANY (ARRAY['pending'::delivery_state, 'received'::delivery_state, 'handed'::delivery_state])))"))
   /// Every foreign key has an index leading with its columns, so deleting a
   /// referenced row checks it with an index, not a scan (#331).
   @@index([fleetId, messageId, id])

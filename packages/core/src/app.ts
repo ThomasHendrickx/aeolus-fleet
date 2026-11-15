@@ -9,7 +9,6 @@ import { failureForLog } from './adapters/prisma/failure-log.js';
 import { createFleetEventWakeups, fleetEventWakeupsOf } from './adapters/prisma/fleet-event-wakeups.js';
 import { createReceiverWakeups } from './adapters/prisma/receiver-wakeups.js';
 import type { Clock } from './domain/shared/clock.js';
-import { backfillMessageMetadata } from './adapters/prisma/message-metadata-backfill.js';
 import { repeatPass, type RepeatingPass } from './repeating-pass.js';
 import { startMaintenancePass } from './maintenance-pass.js';
 import { startScheduleTimer } from './schedule-timer.js';
@@ -38,6 +37,8 @@ export interface AppOptions {
   installationToken?: string;
   /** How often the 10 and 60 minute clocks and the schedules' fallback pass run; every 30 seconds unless a test says otherwise. */
   overduePassMs?: number;
+  /** How long after listening, and after each batch, the metadata fill takes its next batch; 100 ms unless a test says otherwise. */
+  metadataFillPassMs?: number;
   /** pagasae's URL, the issuer whose account tokens core trusts (decision 0058); unset, it trusts none. */
   accountTokenIssuer?: string;
   /** The installation's KMS for sealed fleets (decision 0068); unset, no fleet can be sealed. */
@@ -46,7 +47,8 @@ export interface AppOptions {
 
 /** How often core runs the 10 and 60 minute clocks: argo hears of an overdue delivery within this of its clock running out. */
 const OVERDUE_PASS_MS = 30_000;
-const MESSAGE_METADATA_BATCH_INTERVAL_MS = 100;
+/** How often core takes the metadata fill's next batches, until every fleet's fill is complete (docs/architecture.md, Backfills). */
+const METADATA_FILL_PASS_MS = 100;
 
 /** How long core waits for pagasae's key set before it goes on with the keys it holds. */
 const KEY_SET_FETCH_TIMEOUT_MS = 5_000;
@@ -151,17 +153,23 @@ export function createApp(options: AppOptions): FastifyInstance {
     everyMs: options.overduePassMs ?? OVERDUE_PASS_MS,
   });
 
-  let metadataBackfill: RepeatingPass | undefined;
+  // After listening, so no fill holds start: one batch of each fleet per
+  // pass, until every fleet's fill is complete.
+  let metadataFill: RepeatingPass | undefined;
   server.addHook('onListen', (done) => {
-    metadataBackfill = repeatPass({
+    metadataFill = repeatPass({
       pass: async () => {
-        if (await backfillMessageMetadata(prisma) === 0) {
-          // Stop scheduling once every durable cursor is complete.
-          void metadataBackfill?.stop();
+        const { isComplete } = await useCases.fillMessageMetadata((fleetId, error) => {
+          server.log.warn({ ...failureForLog(error), fleetId }, 'the metadata fill failed for a fleet: taking its batch again next pass');
+        });
+        if (isComplete) {
+          void metadataFill?.stop();
         }
       },
-      everyMs: MESSAGE_METADATA_BATCH_INTERVAL_MS,
-      onError: (error) => { server.log.warn(failureForLog(error), 'message metadata backfill failed: retrying its batch'); },
+      everyMs: options.metadataFillPassMs ?? METADATA_FILL_PASS_MS,
+      onError: (error) => {
+        server.log.warn(failureForLog(error), 'the metadata fill failed: passing again shortly');
+      },
     });
     done();
   });
@@ -186,7 +194,7 @@ export function createApp(options: AppOptions): FastifyInstance {
   });
 
   server.addHook('onClose', async () => {
-    await metadataBackfill?.stop();
+    await metadataFill?.stop();
     await overduePasses.stop();
     await scheduleTimer.stop();
     await listener.close();
