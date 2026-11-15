@@ -325,7 +325,7 @@ export const NoHarnessOffered: Story = {
     await expect(screen.getByTestId('crew-settings-harness')).toHaveTextContent('No harness offered');
     await expect(screen.getByTestId('crew-settings-workspace-kind')).toHaveTextContent('Repository');
     await expect(screen.getByTestId('crew-settings-workspace')).toHaveTextContent('Choose...');
-    await expect(screen.getByText('Connect a computer that offers a harness, or turn off Request a crew.')).toBeVisible();
+    await waitFor(async () => { await expect(screen.getByText('Connect a computer that offers a harness, or turn off Request a crew.')).toBeVisible(); });
   },
 };
 

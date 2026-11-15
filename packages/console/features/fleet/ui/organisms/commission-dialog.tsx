@@ -75,12 +75,13 @@ interface CommissionDialogProps {
   };
   /** What commissioning may grant, as the fleet describes it (decision 0046); undefined while it is read. */
   scopeGroups?: readonly OfferedScopes[];
+  scopeFailure?: { message: string; onRetry: () => void };
   /** The ship, and the crew request to write once it is commissioned: none when Request a crew is off. */
   onSubmit: (ship: { name: string; type: string; note?: string; scopes?: string[]; owner?: ShipId }, request: { settings: CrewSettings | Record<string, never> } | undefined) => void | Promise<void>;
 }
 
 /** The open dialog's fields: they start empty each time it opens. */
-function CommissionDialogBody({ types, taken, onTypedChange, isPending: isRequestPending, error, shipLimit, accountUrl, crewRequest, owner, scopeGroups, onSubmit }: Omit<CommissionDialogProps, 'isOpen' | 'onOpenChange'>) {
+function CommissionDialogBody({ types, taken, onTypedChange, isPending: isRequestPending, error, shipLimit, accountUrl, crewRequest, owner, scopeGroups, scopeFailure, onSubmit }: Omit<CommissionDialogProps, 'isOpen' | 'onOpenChange'>) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string>();
   const isPending = isRequestPending || isSubmitting;
@@ -287,7 +288,7 @@ function CommissionDialogBody({ types, taken, onTypedChange, isPending: isReques
           <span><span aria-hidden>{isExtraOpen ? '⌄' : '›'} </span><span>Extra permissions</span></span>
           {grantedScopes.length === 0 ? null : <span className="text-meta text-muted-foreground">{grantedScopes.length} selected</span>}
         </button>
-        {!isExtraOpen ? null : scopeGroups === undefined ? <p className="animate-pulse text-meta text-muted-foreground" data-testid="commission-scopes-reading">Reading the fleet&apos;s scopes.</p> : <>
+        {!isExtraOpen ? null : scopeFailure !== undefined ? <InlineError title="Couldn’t read permissions" description={scopeFailure.message} onRetry={scopeFailure.onRetry} /> : scopeGroups === undefined ? <p className="animate-pulse text-meta text-muted-foreground" data-testid="commission-scopes-reading">Reading the fleet&apos;s scopes.</p> : <>
           <PermissionChoices choices={scopeGroups.flatMap((group) => group.scopes).filter(({ scope }) => scope !== 'messages:send' && scope !== 'messages:receive')} picked={grantedScopes} onPick={setGrantedScopes} query={permissionQuery} onQueryChange={setPermissionQuery} isDisabled={isPending} />
           <p className="text-meta text-muted-foreground">Each choice grants one permission.</p>
         </>}

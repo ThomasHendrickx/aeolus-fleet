@@ -11,5 +11,9 @@ export function useCommissionScopes() {
   const trpc = useTRPC();
   const session = useQuery(trpc.console.session.queryOptions());
   const catalogue = useFleetScopes();
-  return catalogue.data === undefined || session.data === undefined ? undefined : grantableScopes(catalogue.data, session.data.kind === 'operator' ? undefined : session.data.scopes);
+  const failure = catalogue.error ?? session.error;
+  return {
+    scopeGroups: catalogue.data === undefined || session.data === undefined ? undefined : grantableScopes(catalogue.data, session.data.kind === 'operator' ? undefined : session.data.scopes),
+    scopeFailure: failure === null ? undefined : { message: `${failure.message} Nothing you typed is lost. Try again.`, onRetry: () => { void catalogue.refetch(); void session.refetch(); } },
+  };
 }

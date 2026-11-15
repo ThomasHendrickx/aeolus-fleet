@@ -52,7 +52,7 @@ export function CommissionShip({ isOpen, onOpenChange }: { isOpen: boolean; onOp
   const offers = offersOf(machines.data ?? [], enabledModels.data ?? []);
   const labelContext = useLabelContext(machines.data?.map((machine) => machine.shipId));
   const { shipLabelsMax } = useConsoleConstants();
-  const scopeGroups = useCommissionScopes();
+  const permissions = useCommissionScopes();
   const machineLabels = labelContext === undefined || machines.data === undefined ? undefined : machineLabelsInputOf(labelContext, { machines: machines.data, shipLabelsMax });
   const check = useCrewSettingsCheck(isOpen && hasTrierarchs ? (crewSettings === null ? settingsOf(defaultValues(offers)) : crewSettings) : undefined);
   const types = useShipTypes(false);
@@ -121,7 +121,7 @@ export function CommissionShip({ isOpen, onOpenChange }: { isOpen: boolean; onOp
         shipLimit={shipLimitReached(limits.data)}
         accountUrl={accountUrl}
         {...(owner === undefined ? {} : { owner })}
-        scopeGroups={scopeGroups}
+        {...permissions}
         {...(hasTrierarchs
           ? {
               crewRequest: {
