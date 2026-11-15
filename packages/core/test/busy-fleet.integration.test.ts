@@ -290,9 +290,6 @@ describe('a fleet whose connections are all in use when a console session is loo
 // new connection when it holds too many, and a new connection can take longer
 // than the 10 s a call waits. Each stores nothing, so each is refused as busy.
 
-/** How long a call's transaction may run before it is rolled back. */
-const TRANSACTION_TIME_SECONDS = 5;
-
 /**
  * Stands between a fleet server and Postgres. While it holds, a new
  * connection is accepted but never reaches Postgres, as when Postgres is too
@@ -403,14 +400,37 @@ describe('a fleet whose database is too busy for a send', () => {
   it('refuses a send as busy when its transaction runs past its time, and stores nothing', { timeout: 60_000 }, async () => {
     const token = await crewToken('slow-sender');
     await database.$executeRawUnsafe(
-      `CREATE FUNCTION hold_message_past_time() RETURNS trigger AS $$ BEGIN PERFORM pg_sleep(${TRANSACTION_TIME_SECONDS + 1}); RETURN NEW; END $$ LANGUAGE plpgsql`,
+      'CREATE FUNCTION hold_message_past_time() RETURNS trigger AS $$ BEGIN PERFORM pg_advisory_xact_lock(1879); RETURN NEW; END $$ LANGUAGE plpgsql',
     );
     await database.$executeRawUnsafe(
       'CREATE TRIGGER hold_message_past_time BEFORE INSERT ON messages FOR EACH ROW EXECUTE FUNCTION hold_message_past_time()',
     );
+    let release = (): void => undefined;
+    let locked = (): void => undefined;
+    const lockAcquired = new Promise<void>((resolve) => (locked = resolve));
+    const holding = database.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(1879)`;
+      locked();
+      await new Promise<void>((resolve) => (release = resolve));
+    }, { timeout: 60_000 });
+    await lockAcquired;
 
-    const sent = await sendThrough(address, token);
-
+    const sending = sendThrough(address, token);
+    try {
+      // Start the wait only after the insert is blocked inside the transaction.
+      for (;;) {
+        const [row] = await database.$queryRaw<{ waiting: bigint }[]>`
+          SELECT count(*) AS waiting FROM pg_locks WHERE locktype = 'advisory' AND NOT granted AND objid = 1879`;
+        if (row !== undefined && row.waiting > 0n) break;
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+      // The transaction's five-second timer is already running on this event loop.
+      await new Promise((resolve) => setTimeout(resolve, 6_000));
+    } finally {
+      release();
+      await holding;
+    }
+    const sent = await sending;
     await database.$executeRawUnsafe('DROP TRIGGER hold_message_past_time ON messages');
     expect(sent).toEqual({ answer: { status: 503, body: BUSY_REFUSAL }, stored: [] });
   });
