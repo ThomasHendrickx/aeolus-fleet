@@ -625,6 +625,8 @@ const messageRow = z.object({
   fleetId: idSchema('fleet'),
   senderShipId: idSchema('ship'),
   questionId: z.string().nullable(),
+  askedQuestionId: z.string().nullable(),
+  answeredQuestionId: z.string().nullable(),
   contentType: z.string(),
   model: z.string().nullable(),
   idempotencyKey: z.string(),

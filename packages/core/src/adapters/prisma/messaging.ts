@@ -1,4 +1,4 @@
-import { idSchema, PING_CONTENT_TYPE, QUESTION_CONTENT_TYPE, REPLACEMENT_CONTENT_TYPE, WITHDRAWAL_CONTENT_TYPE, type DeliveryId, type FleetId, type ShipId } from '@aeolus-fleet/common';
+import { idSchema, PING_CONTENT_TYPE, type DeliveryId, type FleetId, type MessageId, type ShipId } from '@aeolus-fleet/common';
 import { z } from 'zod';
 
 import { isInExchange } from '../../domain/messaging/exchange.js';
@@ -32,6 +32,44 @@ interface CountedMessage {
  * held only until commit, and always after the fleet's lock for its event
  * numbers, so the two locks are taken in one order and never deadlock.
  */
+/**
+ * The ship's open questions (#1632, decision 0038), by message id from after
+ * the cursor, at most limit: along messages_fleet_id_sender_ship_id_id_asked_idx,
+ * each question's answer looked up by the replies index and its withdrawal or
+ * replacement by the question id index, by the uuids stored at send, so a
+ * sealed fleet's are found too and no payload is read. Only an answer from
+ * the asked ship, and a withdrawal or replacement from the ship itself to it,
+ * settles a question; a ship that is retired is never asked again.
+ */
+export function openQuestionsStatement(fleetId: FleetId, { shipId, after, limit }: { shipId: ShipId; after?: MessageId; limit: number }): Prisma.Sql {
+  return Prisma.sql`
+    SELECT q.id AS "messageId", q.selector_ship_id AS "askedShipId", q.asked_question_id AS "questionId"
+    FROM messages q
+    JOIN ships s ON s.fleet_id = q.fleet_id AND s.id = q.selector_ship_id
+    WHERE q.fleet_id = ${fleetId}
+      AND q.sender_ship_id = ${shipId}
+      AND q.asked_question_id IS NOT NULL
+      AND q.selector_kind = 'ship'
+      AND q.selector_ship_id <> ${shipId}
+      AND s.retired_at IS NULL
+      ${after === undefined ? Prisma.empty : Prisma.sql`AND q.id > ${after}`}
+      AND NOT EXISTS (
+        SELECT 1 FROM messages a
+        WHERE a.fleet_id = q.fleet_id
+          AND a.in_reply_to_message_id = q.id
+          AND a.sender_ship_id = q.selector_ship_id
+          AND a.answered_question_id = q.asked_question_id)
+      AND NOT EXISTS (
+        SELECT 1 FROM messages w
+        WHERE w.fleet_id = q.fleet_id
+          AND w.question_id = q.asked_question_id
+          AND w.sender_ship_id = q.sender_ship_id
+          AND w.selector_kind = 'ship'
+          AND w.selector_ship_id = q.selector_ship_id)
+    ORDER BY q.id ASC
+    LIMIT ${limit}`;
+}
+
 export function createPrismaMessageRepository(db: Db): BufferedMessageRepository {
   const counted: CountedMessage[] = [];
 
@@ -67,6 +105,8 @@ export function createPrismaMessageRepository(db: Db): BufferedMessageRepository
           selectorValueIds: selector.kind === 'label' ? [...selector.valueIds] : [],
           ...payloadColumnsOf(message.payload),
           questionId: message.questionId,
+          askedQuestionId: message.askedQuestionId,
+          answeredQuestionId: message.answeredQuestionId,
           contentType: message.contentType,
           model: message.model,
           idempotencyKey: message.idempotencyKey,
@@ -96,30 +136,10 @@ export function createPrismaMessageRepository(db: Db): BufferedMessageRepository
       const row = await db.message.findFirst({ where: { fleetId, id: messageId } });
       return row ? toMessage(row) : undefined;
     },
-    listQuestionMessagesOf: async (fleetId, shipId) => {
-      // By the sender's index (fleet_id, sender_ship_id, id); the content type
-      // compared by its essence, as the domain compares it.
-      const ids = z.array(z.object({ id: idSchema('message') })).parse(
-        await db.$queryRaw`
-          SELECT m.id FROM messages m
-          JOIN ships s ON s.fleet_id = m.fleet_id AND s.id = m.selector_ship_id
-          WHERE m.fleet_id = ${fleetId}
-            AND m.sender_ship_id = ${shipId}
-            AND m.selector_kind = 'ship'
-            AND m.selector_ship_id <> ${shipId}
-            AND s.retired_at IS NULL
-            AND lower(btrim(split_part(m.content_type, ';', 1))) IN (${QUESTION_CONTENT_TYPE}, ${WITHDRAWAL_CONTENT_TYPE}, ${REPLACEMENT_CONTENT_TYPE})
-          ORDER BY m.id ASC`,
-      );
-      const messages = (await db.message.findMany({ where: { fleetId, id: { in: ids.map(({ id }) => id) } }, orderBy: { id: 'asc' } })).map(toMessage);
-      const replies = (
-        await db.message.findMany({ where: { fleetId, inReplyToMessageId: { in: messages.map(({ id }) => id) } }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] })
-      ).map(toMessage);
-      return messages.map((message) => ({
-        message,
-        replies: replies.filter((reply) => reply.inReplyToMessageId === message.id && message.selector.kind === 'ship' && reply.senderShipId === message.selector.shipId),
-      }));
-    },
+    listOpenQuestionsOf: async (fleetId, query) =>
+      z
+        .array(z.object({ messageId: idSchema('message'), askedShipId: idSchema('ship'), questionId: z.string() }))
+        .parse(await db.$queryRaw(openQuestionsStatement(fleetId, query))),
   };
 }
 

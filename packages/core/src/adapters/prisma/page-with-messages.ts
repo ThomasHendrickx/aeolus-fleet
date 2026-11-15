@@ -24,6 +24,8 @@ export async function pageWithMessages(db: Db, page: { statement: Prisma.Sql; me
       m.sealed_ciphertext AS "sealedCiphertext",
       m.sealed_payload_bytes AS "sealedPayloadBytes",
       m.question_id AS "questionId",
+      m.asked_question_id AS "askedQuestionId",
+      m.answered_question_id AS "answeredQuestionId",
       m.content_type AS "contentType",
       m.model AS "model",
       m.idempotency_key AS "idempotencyKey",

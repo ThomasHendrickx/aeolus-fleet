@@ -1,13 +1,12 @@
 import { ANSWER_CONTENT_TYPE, WITHDRAWAL_CONTENT_TYPE, type DeliveryId, type FleetId, type MessageId, type Question, type ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { agentCaller, argoAboard, crewAboard, historyUseCases, initialiseFleet, messagingUseCases, operatorCaller, registryUseCases, sealFleet, SESSION_MODEL } from '../../../test/support/core-fixtures.js';
+import { agentCaller, argoAboard, crewAboard, historyUseCases, initialiseFleet, messagingUseCases, operatorCaller, registryUseCases, rotateDataKeys, sealFleet, SESSION_MODEL } from '../../../test/support/core-fixtures.js';
 import { aQuestion } from '../../../test/support/formatted-message-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { newKey } from '../../testing/keys.js';
 import { unwrap } from '../../testing/result.js';
 import { isSealedPayload } from '../messaging/public.js';
-import { createRotateDataKeys } from '../messaging/rotate-data-keys.js';
 import type { Crew, ShipCaller } from '../shared/caller.js';
 
 /**
@@ -169,18 +168,17 @@ describe('retiring a ship whose question history spans data key rotations (decis
 
   it('withdraws every open question, its questions and replies sealed under three data keys and the withdrawals under the current one', async () => {
     await sealFleet(core, fleetId);
-    const rotate = createRotateDataKeys({ sealings: core.sealings, uow: core.uow, clock: core.clock, ids: core.ids, dataKeys: core.sealing.dataKeys });
     for (const [index, open] of OPEN.entries()) {
       if (index > 0) {
         core.clock.advance(30 * DAY_MS);
-        await rotate();
+        await rotateDataKeys(core);
       }
       await asked(scout, { to: lookout.shipId, question: aQuestion({ id: open }) });
       const answered = await asked(scout, { to: argoId, question: aQuestion({ id: ANSWERED[index] }) });
       unwrap(await messaging.replyToMessage(argo, { deliveryId: answered.deliveryId, contentType: ANSWER_CONTENT_TYPE, payload: JSON.stringify({ questionId: ANSWERED[index], option: 2 }), idempotencyKey: newKey() }));
     }
     core.clock.advance(30 * DAY_MS);
-    await rotate();
+    await rotateDataKeys(core);
 
     await retired(scout);
 

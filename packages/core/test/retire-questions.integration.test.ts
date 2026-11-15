@@ -122,8 +122,8 @@ describe("the open questions of a ship, as Postgres selects them", () => {
     );
     const messages = createPrismaMessageRepository(core.prisma);
 
-    const first = await messages.listOpenQuestionsOf(scout.fleetId, scout.shipId, { limit: 2 });
-    const next = await messages.listOpenQuestionsOf(scout.fleetId, scout.shipId, { after: open.messageId, limit: 2 });
+    const first = await messages.listOpenQuestionsOf(scout.fleetId, { shipId: scout.shipId, limit: 2 });
+    const next = await messages.listOpenQuestionsOf(scout.fleetId, { shipId: scout.shipId, after: open.messageId, limit: 2 });
 
     expect([first, next]).toEqual([
       [

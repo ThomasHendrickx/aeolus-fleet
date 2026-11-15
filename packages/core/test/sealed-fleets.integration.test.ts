@@ -765,6 +765,8 @@ describe('the sealing pass on Postgres and a LocalStack KMS (decision 0068, B5)'
           idempotencyKey: newKey(),
           requestHash: 'a request hash',
           questionId: null,
+          askedQuestionId: null,
+          answeredQuestionId: null,
           inReplyToMessageId: null,
           resendOfMessageId: null,
           meetingId: null,

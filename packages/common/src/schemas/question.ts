@@ -139,6 +139,20 @@ function questionOf({ contentType, payload }: Carried): Question | null {
   return null;
 }
 
+/** The uuid of the question a message asks (a question, or the new question of a replacement); null for any other message. */
+export function askedQuestionIdOf(carried: Carried): string | null {
+  return questionOf(carried)?.id ?? null;
+}
+
+/** The uuid of the question an answer names; null for any other message. */
+export function answeredQuestionIdOf({ contentType, payload }: Carried): string | null {
+  if (!isAnswerContentType(contentType)) {
+    return null;
+  }
+  const answer = answerSchema.safeParse(jsonOf(payload));
+  return answer.success ? answer.data.questionId : null;
+}
+
 /**
  * The question a message withdraws, and the new question when it replaces it;
  * null when the message is neither a withdrawal nor a replacement.

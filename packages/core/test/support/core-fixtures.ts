@@ -184,6 +184,7 @@ import { unwrap } from '../../src/testing/result.js';
 import { NO_INSTALLATION_SETTINGS, type InstallationSettings } from '../../src/domain/registry/limits.js';
 import { isSealedPayload, type StoredPayload } from '../../src/domain/messaging/sealed-payload.js';
 import { createChangeCompanyKey } from '../../src/domain/messaging/change-company-key.js';
+import { createRotateDataKeys } from '../../src/domain/messaging/rotate-data-keys.js';
 import { createTurnOnSealing } from '../../src/domain/messaging/turn-on-sealing.js';
 import { createChangeRecoveryKey } from '../../src/domain/messaging/change-recovery-key.js';
 import { createReadSealing } from '../../src/domain/messaging/read-sealing.js';
@@ -692,6 +693,8 @@ export function deliveryInFlight(
     idempotencyKey: `in-flight-${messageId}`,
     requestHash: `sha256(in-flight-${messageId})`,
     questionId: null,
+    askedQuestionId: null,
+    answeredQuestionId: null,
     inReplyToMessageId: null,
     resendOfMessageId: null,
     meetingId: null,
@@ -738,6 +741,11 @@ export async function sealFleetWith(core: InMemoryCore, { fleetId, ...options }:
   const fleetManager: AccountCaller = { kind: 'account', accountId: accountIdSchema.parse('acc_fleetmanager'), fleetId, scopes: ['fleet:keys'], groupValues: [], personShipId: null, throughShipId: null };
   unwrap(await turnOn(fleetManager, { companyKey, ...options }));
   return companyKey;
+}
+
+/** Runs the data key pass once (decision 0068, B13a): a sealed fleet whose current data key is 30 days old gets a new one. */
+export function rotateDataKeys(core: InMemoryCore): Promise<void> {
+  return createRotateDataKeys({ sealings: core.sealings, uow: core.uow, clock: core.clock, ids: core.ids, dataKeys: core.sealing.dataKeys })();
 }
 
 /** A stored message's payload in a fleet that is not sealed: plain text, or the test fails. */

@@ -1,5 +1,5 @@
 import type { CommissionApproval, CommissionApprovalRepository } from '../../src/domain/registry/commission-approval.js';
-import { createIdGenerator, idSchema, isQuestionContentType, isReplacementContentType, isWithdrawalContentType, LEASE_END_REASONS, PING_CONTENT_TYPE, type DeliveryId, type FeatureFlag, type FleetId, type IdGenerator, type LabelValueId, type LeaseWaker, type MessageId, type ShipId } from '@aeolus-fleet/common';
+import { createIdGenerator, idSchema, LEASE_END_REASONS, PING_CONTENT_TYPE, type DeliveryId, type FeatureFlag, type FleetId, type IdGenerator, type LabelValueId, type LeaseWaker, type MessageId, type ShipId } from '@aeolus-fleet/common';
 
 import type { ConsoleSession } from '../../src/domain/identity/console-session.js';
 import type { Credential } from '../../src/domain/identity/credential.js';
@@ -1577,21 +1577,25 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         const found = state.messages.find((held) => held.fleetId === fleetId && held.id === messageId);
         return Promise.resolve(found && structuredClone(found));
       },
-      listQuestionMessagesOf: (fleetId, shipId) => {
-        const isQuestionFamily = (contentType: string) => isQuestionContentType(contentType) || isWithdrawalContentType(contentType) || isReplacementContentType(contentType);
+      listOpenQuestionsOf: (fleetId, { shipId, after, limit }) => {
         const isActive = (askedShipId: ShipId) => state.ships.some((ship) => ship.fleetId === fleetId && ship.id === askedShipId && ship.retiredAt === null);
-        const sent = state.messages.filter(
-          ({ fleetId: held, senderShipId, selector, contentType }) =>
-            held === fleetId && senderShipId === shipId && selector.kind === 'ship' && selector.shipId !== shipId && isActive(selector.shipId) && isQuestionFamily(contentType),
-        );
-        return Promise.resolve(
-          sent.map((message) => ({
-            message: structuredClone(message),
-            replies: state.messages
-              .filter((reply) => reply.fleetId === fleetId && reply.inReplyToMessageId === message.id && message.selector.kind === 'ship' && reply.senderShipId === message.selector.shipId)
-              .map((reply) => structuredClone(reply)),
-          })),
-        );
+        const isSettled = ({ question, askedShipId, questionId }: { question: Message; askedShipId: ShipId; questionId: string }) =>
+          state.messages.some(
+            (held) =>
+              held.fleetId === fleetId &&
+              ((held.inReplyToMessageId === question.id && held.senderShipId === askedShipId && held.answeredQuestionId === questionId) ||
+                (held.questionId === questionId && held.senderShipId === shipId && held.selector.kind === 'ship' && held.selector.shipId === askedShipId)),
+          );
+        const open = state.messages
+          .filter((held) => held.fleetId === fleetId && held.senderShipId === shipId && (after === undefined || held.id > after))
+          .flatMap((held) => {
+            const { selector, askedQuestionId } = held;
+            return selector.kind === 'ship' && askedQuestionId !== null && selector.shipId !== shipId && isActive(selector.shipId) && !isSettled({ question: held, askedShipId: selector.shipId, questionId: askedQuestionId })
+              ? [{ messageId: held.id, askedShipId: selector.shipId, questionId: askedQuestionId }]
+              : [];
+          })
+          .sort((left, right) => (left.messageId < right.messageId ? -1 : 1));
+        return Promise.resolve(open.slice(0, limit));
       },
     },
     prunedExchanges: {

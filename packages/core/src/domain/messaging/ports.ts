@@ -126,10 +126,11 @@ export interface ScheduleNotifier {
 }
 
 /** Outbound port: messages, always within one fleet. Never changed once stored. */
-/** A message of the question family a ship sent to one ship, with that ship's replies to it. */
-export interface SentQuestionMessage {
-  message: Message;
-  replies: readonly Message[];
+/** A question a ship asked another ship that is still open: its message, the ship it asked and its uuid. */
+export interface OpenQuestion {
+  messageId: MessageId;
+  askedShipId: ShipId;
+  questionId: string;
 }
 
 export interface MessageRepository {
@@ -145,13 +146,13 @@ export interface MessageRepository {
   findByIdempotencyKey(key: SenderKey): Promise<Message | undefined>;
   find(fleetId: FleetId, messageId: MessageId): Promise<Message | undefined>;
   /**
-   * The messages of the question family (decision 0038: questions,
-   * withdrawals and replacements, content types compared by essence) the
-   * ship sent to one other ship that is not retired, oldest first, each with
-   * that ship's replies to it, oldest first: what tells which of its
-   * questions are still open when it retires (#1632).
+   * The questions the ship asked another ship that is not retired and that
+   * are still open (decision 0038): a question or a replacement not answered
+   * by the ship it asked with an answer naming it, nor withdrawn or replaced
+   * by the ship itself. By message id, from after the cursor, at most limit:
+   * what it withdraws when it retires (#1632).
    */
-  listQuestionMessagesOf(fleetId: FleetId, shipId: ShipId): Promise<SentQuestionMessage[]>;
+  listOpenQuestionsOf(fleetId: FleetId, query: { shipId: ShipId; after?: MessageId; limit: number }): Promise<OpenQuestion[]>;
   /**
    * Holds the fleet's daily message-count lock until the unit of work ends, so
    * two sends at the daily limit never both see room for one more.
