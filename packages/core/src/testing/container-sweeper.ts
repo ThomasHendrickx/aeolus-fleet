@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { Socket } from "node:net";
 import { fileURLToPath } from "node:url";
 
@@ -11,40 +11,108 @@ import { getContainerRuntimeClient } from "testcontainers";
  */
 export const TEST_RUN_LABEL = "aeolus-fleet.test-run";
 
+/** The label of the pid of the run's process, so the sweep can tell a run that lives from one that ended. */
+export const RUN_PID_LABEL = "aeolus-fleet.test-run-pid";
+
+/** The label of the start of the run's process as the platform tells it: a pid alone can be reused by another process. */
+export const RUN_STARTED_LABEL = "aeolus-fleet.test-run-started";
+
 /** The label every test container carries, its value the repository, so a container of this repository is found whatever run started it. */
 export const REPOSITORY_LABEL = "aeolus-fleet.repository";
 
 const REPOSITORY = "aeolus-fleet";
 
-/** The labels of a container the run starts: its repository and the run. */
-export function testContainerLabels(run: string): Record<string, string> {
-  return { [REPOSITORY_LABEL]: REPOSITORY, [TEST_RUN_LABEL]: run };
+/** The process of the run that started a container. */
+export interface RunOwner {
+  readonly pid: number;
+  readonly startedAt: string;
 }
 
-/** A test container older than this is a leak: no run lasts that long. */
+/**
+ * The start of a process as the platform tells it, undefined when the process
+ * does not exist or the platform cannot tell (no ps, as on Windows).
+ */
+export function processStart(pid: number): string | undefined {
+  try {
+    const started = execFileSync("ps", ["-o", "lstart=", "-p", String(pid)], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+    return started === "" ? undefined : started;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Whether the process of a run lives: true when it exists and started when the
+ * label says, false when it is gone or another process has its pid, undefined
+ * when that cannot be checked.
+ */
+export function isRunAlive(owner: RunOwner): Promise<boolean | undefined> {
+  try {
+    process.kill(owner.pid, 0);
+  } catch (error) {
+    // EPERM: the process exists, owned by another user.
+    if (!(error instanceof Error && "code" in error && error.code === "EPERM")) {
+      return Promise.resolve(false);
+    }
+  }
+  const started = processStart(owner.pid);
+  return Promise.resolve(
+    started === undefined ? undefined : started === owner.startedAt,
+  );
+}
+
+/** The labels of a container the run starts: its repository, the run, and the pid and start of the run's process. */
+export function testContainerLabels(run: string): Record<string, string> {
+  const labels = { [REPOSITORY_LABEL]: REPOSITORY, [TEST_RUN_LABEL]: run };
+  const startedAt = processStart(process.pid);
+  return startedAt === undefined
+    ? labels
+    : { ...labels, [RUN_PID_LABEL]: String(process.pid), [RUN_STARTED_LABEL]: startedAt };
+}
+
+/** A test container older than this is a leak where liveness cannot be checked: no run lasts that long. */
 const STALE_AFTER_MS = 24 * 3_600_000;
 
 /** The part of the container runtime the removal of stale containers uses. */
 export interface StaleSweepRuntime {
-  listRepositoryContainers(): Promise<{ id: string; createdAt: Date }[]>;
+  listRepositoryContainers(): Promise<
+    { id: string; createdAt: Date; owner?: RunOwner }[]
+  >;
   removeContainer(id: string): Promise<void>;
 }
 
 /**
- * Removes this repository's test containers created more than 24 hours before
- * now, whichever run started them: a run that was killed or timed out never
- * reached its teardown, and its sweeper may have died too.
+ * Removes this repository's test containers whose run ended, whichever run
+ * started them: a run that was killed or timed out never reached its teardown,
+ * and its sweeper may have died too. A container whose run's process lives is
+ * kept however old, and one whose run's process is gone is removed. Where
+ * liveness cannot be checked (no owner labels, no way to read a process start)
+ * the age decides: older than 24 hours is a leak.
  */
 export async function removeStaleContainers(
   runtime: StaleSweepRuntime,
-  { now = new Date() }: { now?: Date } = {},
+  {
+    now = new Date(),
+    isRunAlive: isAlive = isRunAlive,
+  }: {
+    now?: Date;
+    isRunAlive?: (owner: RunOwner) => Promise<boolean | undefined>;
+  } = {},
 ): Promise<void> {
   const containers = await runtime.listRepositoryContainers();
-  const stale = containers.filter(
-    ({ createdAt }) => now.getTime() - createdAt.getTime() > STALE_AFTER_MS,
-  );
+  const removable: string[] = [];
+  for (const { id, createdAt, owner } of containers) {
+    const alive = owner === undefined ? undefined : await isAlive(owner);
+    const isStale = now.getTime() - createdAt.getTime() > STALE_AFTER_MS;
+    if (alive === false || (alive === undefined && isStale)) {
+      removable.push(id);
+    }
+  }
   // A container removed meanwhile answers not found: it is gone either way.
-  await Promise.allSettled(stale.map(({ id }) => runtime.removeContainer(id)));
+  await Promise.allSettled(removable.map((id) => runtime.removeContainer(id)));
 }
 
 /** Removes this repository's stale test containers from the container runtime of this machine. */
@@ -57,10 +125,18 @@ export async function removeStaleTestContainers(): Promise<void> {
         filters: { label: [`${REPOSITORY_LABEL}=${REPOSITORY}`] },
       });
       // Created is in seconds.
-      return containers.map((container) => ({
-        id: container.Id,
-        createdAt: new Date(container.Created * 1000),
-      }));
+      return containers.map((container) => {
+        const pid = Number(container.Labels[RUN_PID_LABEL]);
+        const startedAt = container.Labels[RUN_STARTED_LABEL];
+        return {
+          id: container.Id,
+          createdAt: new Date(container.Created * 1000),
+          owner:
+            Number.isInteger(pid) && startedAt !== undefined
+              ? { pid, startedAt }
+              : undefined,
+        };
+      });
     },
     async removeContainer(id) {
       await dockerode.getContainer(id).remove({ force: true, v: true });
