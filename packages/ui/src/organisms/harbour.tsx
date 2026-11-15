@@ -7,7 +7,7 @@ import type { ReactNode } from 'react';
 
 import { Button } from '../atoms/button.js';
 import { classNames } from '../class-names.js';
-import { HarbourGroup } from '../molecules/harbour-group.js';
+import { HARBOUR_TILE_GRID, HarbourGroup } from '../molecules/harbour-group.js';
 import { HarbourNumbers, type HarbourCounts } from '../molecules/harbour-numbers.js';
 import type { HarbourGroupKind } from '../molecules/harbour-state.js';
 import type { HarbourTileShip } from '../molecules/harbour-tile.js';
@@ -48,7 +48,7 @@ function HarbourLoading() {
   return (
     <div className="flex flex-col gap-2" data-testid="harbour-loading" aria-hidden>
       <span className="h-4 w-30 animate-pulse rounded-sm bg-secondary [animation-duration:var(--duration-pulse)] motion-reduce:animate-none" />
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(14rem,1fr))] gap-2 @max-[24rem]:grid-cols-2">
+      <div className={HARBOUR_TILE_GRID}>
         {LOADING_TILES.map((key) => (
           <span key={key} className="min-h-28 animate-pulse rounded-md bg-secondary [animation-duration:var(--duration-pulse)] motion-reduce:animate-none" />
         ))}
