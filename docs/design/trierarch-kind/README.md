@@ -23,3 +23,10 @@ Core/common: ship kind schemas, commissioning, discovery and kind filters, and t
 ## Screens
 
 Before/after pairs show the same `mac-studio` ship moving from Agents to Trierarchs and gaining a kind badge beside its existing type on details. Light and dark images are linked from the PR at their image commit; they are design mockups, not running application screenshots. Harbour uses the existing console shell and shared part; Bridge receives the same group in its Harbour column.
+
+| Screen | Before | After |
+| --- | --- | --- |
+| Harbour, light | [Before](https://github.com/ThomasHendrickx/aeolus-fleet/blob/0c90c18bcff5ff59d81484e8767eb51c741873d0/docs/design/trierarch-kind/mockups/harbour-before-light.png) | [After](https://github.com/ThomasHendrickx/aeolus-fleet/blob/0c90c18bcff5ff59d81484e8767eb51c741873d0/docs/design/trierarch-kind/mockups/harbour-after-light.png) |
+| Harbour, dark | [Before](https://github.com/ThomasHendrickx/aeolus-fleet/blob/0c90c18bcff5ff59d81484e8767eb51c741873d0/docs/design/trierarch-kind/mockups/harbour-before-dark.png) | [After](https://github.com/ThomasHendrickx/aeolus-fleet/blob/0c90c18bcff5ff59d81484e8767eb51c741873d0/docs/design/trierarch-kind/mockups/harbour-after-dark.png) |
+| Details, light | [Before](https://github.com/ThomasHendrickx/aeolus-fleet/blob/0c90c18bcff5ff59d81484e8767eb51c741873d0/docs/design/trierarch-kind/mockups/details-before-light.png) | [After](https://github.com/ThomasHendrickx/aeolus-fleet/blob/0c90c18bcff5ff59d81484e8767eb51c741873d0/docs/design/trierarch-kind/mockups/details-after-light.png) |
+| Details, dark | [Before](https://github.com/ThomasHendrickx/aeolus-fleet/blob/0c90c18bcff5ff59d81484e8767eb51c741873d0/docs/design/trierarch-kind/mockups/details-before-dark.png) | [After](https://github.com/ThomasHendrickx/aeolus-fleet/blob/0c90c18bcff5ff59d81484e8767eb51c741873d0/docs/design/trierarch-kind/mockups/details-after-dark.png) |
