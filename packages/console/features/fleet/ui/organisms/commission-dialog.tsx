@@ -71,11 +71,11 @@ interface CommissionDialogProps {
     /** Each change of the text typed in the field, so the person ships that match are read. */
     onQueryChange?: (query: string) => void;
     /** A read of the person ships failed: why, and how to read again. */
-    failure?: { message: string; onRetry: () => void };
+    failure?: { message: string; onRetry: () => void; isRetrying?: boolean };
   };
   /** What commissioning may grant, as the fleet describes it (decision 0046); undefined while it is read. */
   scopeGroups?: readonly OfferedScopes[];
-  scopeFailure?: { message: string; onRetry: () => void };
+  scopeFailure?: { message: string; onRetry: () => void; isRetrying?: boolean };
   /** The ship, and the crew request to write once it is commissioned: none when Request a crew is off. */
   onSubmit: (ship: { name: string; type: string; note?: string; scopes?: string[]; owner?: ShipId }, request: { settings: CrewSettings | Record<string, never> } | undefined) => void | Promise<void>;
 }
@@ -263,6 +263,7 @@ function CommissionDialogBody({ types, taken, onTypedChange, isPending: isReques
                 title="Couldn’t read the person ships"
                 description={`${owner.failure.message}. Nothing you typed is lost; try again to pick an owner.`}
                 onRetry={owner.failure.onRetry}
+                isRetrying={owner.failure.isRetrying}
               />
             </div>
           )}
@@ -287,7 +288,7 @@ function CommissionDialogBody({ types, taken, onTypedChange, isPending: isReques
           <span><span aria-hidden>{isExtraOpen ? '⌄' : '›'} </span><span>Extra permissions</span></span>
           {grantedScopes.length === 0 ? null : <span className="text-meta text-muted-foreground">{grantedScopes.length} selected</span>}
         </button>
-        {!isExtraOpen ? null : scopeFailure !== undefined ? <InlineError title="Couldn’t read permissions" description={scopeFailure.message} onRetry={scopeFailure.onRetry} /> : scopeGroups === undefined ? <p className="animate-pulse text-meta text-muted-foreground" data-testid="commission-scopes-reading">Reading the fleet&apos;s scopes.</p> : <>
+        {!isExtraOpen ? null : scopeFailure !== undefined ? <InlineError title="Couldn’t read permissions" description={scopeFailure.message} onRetry={scopeFailure.onRetry} isRetrying={scopeFailure.isRetrying} /> : scopeGroups === undefined ? <p className="animate-pulse text-meta text-muted-foreground" data-testid="commission-scopes-reading">Reading the fleet&apos;s scopes.</p> : <>
           <PermissionChoices choices={scopeGroups.flatMap((group) => group.scopes).filter(({ scope }) => scope !== 'messages:send' && scope !== 'messages:receive')} picked={grantedScopes} onPick={setGrantedScopes} query={permissionQuery} onQueryChange={setPermissionQuery} isDisabled={isPending} />
           <p className="text-meta text-muted-foreground">Each choice grants one permission.</p>
         </>}

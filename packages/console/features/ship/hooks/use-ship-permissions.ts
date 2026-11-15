@@ -13,6 +13,7 @@ export function useShipPermissions(ship: ShipDetail) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const [savedVersion, setSavedVersion] = useState(0);
+  const [isRetrying, setIsRetrying] = useState(false);
   const session = useQuery(trpc.console.session.queryOptions());
   const catalogue = useQuery(trpc.fleet.scopes.queryOptions());
   const manage = useQuery(trpc.fleet.checkManage.queryOptions({ shipId: ship.id }, { enabled: session.data?.scopes.includes('scopes:grant') === true && ship.status !== 'retired' && ship.kind !== 'operator' && ship.kind !== 'viewer', retry: false }));
@@ -28,7 +29,11 @@ export function useShipPermissions(ship: ShipDetail) {
     isPending: change.isPending,
     error: change.error?.message,
     readError: catalogue.error?.message,
-    onRetry: () => { void catalogue.refetch(); },
+    isRetrying,
+    onRetry: () => {
+      setIsRetrying(true);
+      void catalogue.refetch().finally(() => { setIsRetrying(false); });
+    },
     onSave: (difference: { grant: string[]; revoke: string[] }) => { change.mutate({ shipId: ship.id, ...difference }); },
   };
 }

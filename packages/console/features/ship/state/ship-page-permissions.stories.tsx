@@ -17,14 +17,14 @@ class Fleet {
   readonly saveAnswer = Promise.withResolvers<Response>();
   readonly retryAnswer = Promise.withResolvers<Response>();
   private catalogueReads = 0;
-  constructor(private readonly failsCatalogue = false) {}
+  constructor(private readonly hasCatalogueFailure = false) {}
   readonly scopes = ['messages:send', 'messages:receive', 'scopes:grant', 'fleet:read', 'meetings:open'];
   readonly fetch: typeof fetch = async (input) => {
     const url = new URL(input instanceof Request ? input.url : input);
     if (url.pathname.endsWith('console.session')) return Response.json({ result: { data: { kind: 'account', scopes: this.scopes } } });
     if (url.pathname.endsWith('fleet.checkManage')) return this.manageAnswer.promise;
     if (url.pathname.endsWith('fleet.grantScopes')) return this.saveAnswer.promise;
-    if (url.pathname.endsWith('fleet.scopes') && this.failsCatalogue) {
+    if (url.pathname.endsWith('fleet.scopes') && this.hasCatalogueFailure) {
       this.catalogueReads += 1;
       return this.catalogueReads === 1 ? Response.json({ error: { message: 'Could not read permissions', code: -32603, data: { code: 'INTERNAL_SERVER_ERROR', httpStatus: 500 } } }, { status: 500 }) : this.retryAnswer.promise;
     }

@@ -9,7 +9,7 @@ import { PermissionChoices } from '../../../../components/molecules/permission-c
 interface Permission { scope: string; description: string; isLocked?: boolean }
 
 /** Held permissions and their inline editor, preserving inputs through a refused save. */
-export function ShipPermissions({ shipName, scopes, choices, canChange, isPending, error, readError, onRetry, onSave }: {
+export function ShipPermissions({ shipName, scopes, choices, canChange, isPending, error, readError, isRetrying, onRetry, onSave }: {
   shipName: string;
   scopes: readonly string[];
   choices: readonly Permission[] | undefined;
@@ -17,6 +17,7 @@ export function ShipPermissions({ shipName, scopes, choices, canChange, isPendin
   isPending: boolean;
   error?: string;
   readError?: string;
+  isRetrying?: boolean;
   onRetry?: () => void;
   onSave: (change: { grant: string[]; revoke: string[] }) => void;
 }) {
@@ -36,7 +37,7 @@ export function ShipPermissions({ shipName, scopes, choices, canChange, isPendin
     {!isEditing ? null : <form onSubmit={(event) => { void handleSubmit((difference) => { onSave(difference); })(event); }} className="flex flex-col gap-3 rounded-lg border border-border p-4">
       <div className="flex items-center justify-between gap-3"><h3 className="text-section font-semibold">Change permissions</h3><span className="text-meta text-muted-foreground">{shipName}</span></div>
       <p className="text-meta text-muted-foreground">Add or remove permissions you may grant.</p>
-      {readError !== undefined ? <InlineError title="Couldn’t read permissions" description={readError} onRetry={onRetry} /> : listed === undefined ? <Skeleton className="h-40 w-full" /> : <PermissionChoices isExpanded choices={listed} picked={picked} onPick={(next) => { setValue('grant', next.filter((scope) => !scopes.includes(scope))); setValue('revoke', scopes.filter((scope) => !next.includes(scope))); }} query={query} onQueryChange={setQuery} isDisabled={isPending} />}
+      {readError !== undefined || isRetrying === true ? <InlineError title="Couldn’t read permissions" description={readError} onRetry={onRetry} isRetrying={isRetrying} /> : listed === undefined ? <Skeleton className="h-40 w-full" /> : <PermissionChoices isExpanded choices={listed} picked={picked} onPick={(next) => { setValue('grant', next.filter((scope) => !scopes.includes(scope))); setValue('revoke', scopes.filter((scope) => !next.includes(scope))); }} query={query} onQueryChange={setQuery} isDisabled={isPending} />}
       {error === undefined ? null : <InlineError title="Permissions not saved" description={error} />}
       <div className="flex flex-wrap items-center justify-end gap-2">
         <p className="mr-auto text-meta text-muted-foreground" role="status">{grant.length} permission{grant.length === 1 ? '' : 's'} added · {revoke.length} removed</p>
