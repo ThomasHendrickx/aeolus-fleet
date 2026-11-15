@@ -24,6 +24,7 @@ export * from './atoms/tabs.js';
 export * from './atoms/toast.js';
 export * from './atoms/tooltip.js';
 export * from './class-names.js';
+export * from './first-paint-theme.js';
 export * from './molecules/app-switcher.js';
 export * from './molecules/avatar-entry.js';
 export * from './molecules/avatar-menu.js';
