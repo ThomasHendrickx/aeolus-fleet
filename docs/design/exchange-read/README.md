@@ -91,9 +91,9 @@ Each has its options, the pick and Thomas's answer.
 1. **Every delivery from the other ship to the caller that is pending, received or handed**, whatever its content type.
 2. Plain messages only.
 
-**Pick 1.** Unseen is unseen: a new question is the first thing the person must see. What waits on them is the gateway's count, not this one.
+**Pick 1, with a second count.** `unacknowledged` counts option 1: unseen is unseen, and a new question is the first thing the person must see. `unseenPlainMessages` counts option 2 beside it: the same deliveries without a convention message, a meeting message or a retired ship's, so a custom content type counts. Plain messages are not the only count; the chat list shows both. What waits on the person is the gateway's count, not these.
 
-**Thomas: 1** (6 Nov).
+**Thomas: 1** (6 Nov); Thomas gave the go on the second count, `unseenPlainMessages` (15 Nov).
 
 ### E6 Which deliveries seen up to here acknowledges
 

@@ -128,16 +128,17 @@ describe('the rollup of exchanges on Postgres', () => {
     await send(lookout, { to: { kind: 'meeting', meetingId }, payload: 'In the meeting' });
     unwrap(await core.useCases.pingShip(argo, { shipId: thomas.shipId }));
 
-    // When the person reads the exchanges and marks the plain messages seen.
+    // When the person reads the exchanges, the migration backfills them again, and the person marks the plain messages seen.
     const before = unwrap(await core.useCases.readExchanges(thomas, {}));
     await core.prisma.$executeRaw`ALTER TABLE exchanges DROP COLUMN unseen_plain_messages`;
     await executeSqlFile(core.databaseUrl, fileURLToPath(new URL('../src/adapters/prisma/migrations/20261115100000_unseen_plain_messages/migration.sql', import.meta.url)));
-    expect(unwrap(await core.useCases.readExchanges(thomas, {})).items).toMatchObject([{ unacknowledged: 3, unseenPlainMessages: 2 }]);
+    const backfilled = unwrap(await core.useCases.readExchanges(thomas, {}));
     unwrap(await core.useCases.acknowledgeUpTo(thomas, { otherShipId: lookout.shipId, messageId: last }));
     const after = unwrap(await core.useCases.readExchanges(thomas, {}));
 
-    // Then the question stays unacknowledged but contributes no unseen plain message.
+    // Then the count held two plain messages before and after the backfill, and the question stays unacknowledged but adds no unseen plain message.
     expect(before.items).toMatchObject([{ unacknowledged: 3, unseenPlainMessages: 2 }]);
+    expect(backfilled.items).toMatchObject([{ unacknowledged: 3, unseenPlainMessages: 2 }]);
     expect(after.items).toMatchObject([{ unacknowledged: 1, unseenPlainMessages: 0 }]);
   });
 
