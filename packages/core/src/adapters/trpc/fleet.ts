@@ -1489,8 +1489,8 @@ export const fleetRouter = router({
 
   /**
    * The fleet's committed events after a position, for a client that is no
-   * browser: the same numbers the live stream sends, waiting up to
-   * waitSeconds while none has come. A query: it changes nothing.
+   * browser: the same numbers the live stream sends, answered at once (no
+   * call waits, decision 0072). A query: it changes nothing.
    */
   follow: actorScopedProcedure('fleet:read')
     .meta({
@@ -1499,7 +1499,7 @@ export const fleetRouter = router({
         'each with its seq, type, time, the ship that caused it and the ship, message and delivery it concerns, never its details. Only the events in your read reach (decision 0034): a message\'s through its sender or recipient, any other through the ship it concerns.',
         'Pass the lastSeq it answers as afterSeq next, so you miss nothing across reconnects: it counts the events you do not read too.',
         'Without afterSeq it answers no events and the current lastSeq to start from; so does an afterSeq past the fleet\'s last event, as after a restore, at once.',
-        'With waitSeconds (0 to 25) it waits while none has come, and answers as soon as one commits.',
+        'It answers at once and does not wait: with none come it answers no events and the same lastSeq.',
       ].join(' '),
     })
     .input(followFleetInputSchema)

@@ -4,34 +4,18 @@ import { initialiseFleet, operatorCaller, registryUseCases, readReachOf } from '
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../testing/result.js';
 import type { ShipCaller } from './caller.js';
-import type { FleetNewsWatch } from './events.js';
 import { createFollowFleet, type FollowFleet } from './follow-fleet.js';
 import { newKey } from '../../testing/keys.js';
 import { readReachScenario, type ReadReachScenario } from '../../../test/support/read-reach-scenario.js';
 
 let core: InMemoryCore;
 let argo: ShipCaller;
-/** What the next wait does: by default the whole wait passes on the clock. */
-let nextWait: (waitMs: number) => Promise<'woken' | 'timedOut'>;
-const waits: number[] = [];
 let followFleet: FollowFleet;
 
 beforeEach(async () => {
   core = createInMemoryCore('2026-10-02T19:00:00.000Z');
   argo = operatorCaller(await initialiseFleet(core));
-  waits.length = 0;
-  nextWait = (waitMs) => {
-    core.clock.advance(waitMs);
-    return Promise.resolve('timedOut');
-  };
-  const watch: FleetNewsWatch = {
-    next: (waitMs) => {
-      waits.push(waitMs);
-      return nextWait(waitMs);
-    },
-    stop: () => undefined,
-  };
-  followFleet = createFollowFleet({ feed: core.feed, clock: core.clock, wakeups: { watch: () => watch }, history: core.history, readReach: readReachOf(core) });
+  followFleet = createFollowFleet({ feed: core.feed, history: core.history, readReach: readReachOf(core) });
 });
 
 async function commission(name: string): Promise<void> {
@@ -84,49 +68,22 @@ describe('following the fleet', () => {
     const from = await lastSeq();
 
     await expect(followFleet(argo, { afterSeq: from })).resolves.toEqual({ isOk: true, value: { events: [], lastSeq: from } });
-    expect(waits).toEqual([]);
-  });
-
-  it('waits up to waitSeconds while nothing came, then answers none', async () => {
-    const from = await lastSeq();
-
-    await expect(followFleet(argo, { afterSeq: from, waitSeconds: 25 })).resolves.toEqual({
-      isOk: true,
-      value: { events: [], lastSeq: from },
-    });
-    expect(waits).toEqual([25_000]);
-  });
-
-  it('answers as soon as an event commits while it waits', async () => {
-    const from = await lastSeq();
-    nextWait = async () => {
-      core.clock.advance(1_000);
-      await commission('scout');
-      return 'woken';
-    };
-
-    const { events } = unwrap(await followFleet(argo, { afterSeq: from, waitSeconds: 25 }));
-
-    expect(events.map((event) => event.type)).toEqual(['ShipCommissioned', 'OwnerSet', 'StartingPromptIssued']);
   });
 
   it('answers the fleet\'s last position with no events, without waiting, to a follower past the fleet\'s last event, as after a restore', async () => {
     // Given a follower holding a position past the fleet's last event
     const last = await lastSeq();
 
-    // When it follows from there, willing to wait
-    const followed = await followFleet(argo, { afterSeq: last + 7, waitSeconds: 25 });
+    // When it follows from there
+    const followed = await followFleet(argo, { afterSeq: last + 7 });
 
     // Then it is answered the fleet's last position at once, to go on from there
     expect(followed).toEqual({ isOk: true, value: { events: [], lastSeq: last } });
-    expect(waits).toEqual([]);
   });
 
   it.each([
     { label: 'no event at most', input: { max: 0 }, kind: 'INVALID_FOLLOW_MAX' },
     { label: 'more than 100 at most', input: { max: 101 }, kind: 'INVALID_FOLLOW_MAX' },
-    { label: 'a wait over 25 seconds', input: { waitSeconds: 26 }, kind: 'INVALID_FOLLOW_WAIT' },
-    { label: 'a negative wait', input: { waitSeconds: -1 }, kind: 'INVALID_FOLLOW_WAIT' },
   ])('refuses $label', async ({ input, kind }) => {
     await expect(followFleet(argo, { afterSeq: 0, ...input })).resolves.toMatchObject({ isOk: false, error: { kind } });
   });
@@ -178,10 +135,10 @@ describe('following the fleet within read reach (decision 0034)', () => {
     expect(followed.events.map((event) => event.type)).toEqual(['NetworkRulesDeclared']);
   });
 
-  it('answers no event once its wait passes, with the last seq past the events it does not read', async () => {
+  it('answers no event at once, with the last seq past the events it does not read', async () => {
     await fleet.send(fleet.far, { kind: 'ship', shipId: fleet.argo.shipId });
 
-    const followed = unwrap(await fleet.registry.followFleet(fleet.reader, { afterSeq: from, waitSeconds: 1 }));
+    const followed = unwrap(await fleet.registry.followFleet(fleet.reader, { afterSeq: from }));
 
     expect(followed).toEqual({ events: [], lastSeq: unwrap(await fleet.registry.followFleet(fleet.argo, {})).lastSeq });
   });

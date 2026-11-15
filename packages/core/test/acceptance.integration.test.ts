@@ -22,10 +22,10 @@ import { withOperatorLogin } from './support/operator-login.js';
 // new starting prompt and receives the message again, and the conversation
 // goes on: nothing is lost, and the event log shows every step.
 
-/** How long a receive waits on an empty inbox at this server: short, so a session that keeps receiving turns often. */
-const RECEIVE_WAIT_MS = 1_000;
-/** How many receives a waiting session makes before the test gives up on an answer. */
-const RECEIVES_WHILE_WAITING = 10;
+/** How many looks a session makes for an answer before the test gives up on it. */
+const LOOKS_FOR_AN_ANSWER = 50;
+/** The pause between two looks: a receive answers at once, so a session looks again once it is woken (decision 0072). */
+const BETWEEN_LOOKS_MS = 100;
 
 let database: PrismaClient;
 let server: FastifyInstance;
@@ -39,7 +39,7 @@ const clients: Client[] = [];
 beforeAll(async () => {
   const databaseUrl = await createMigratedDatabase();
   database = createPrismaClient(databaseUrl);
-  server = createApp({ databaseUrl, publicUrl: FLEET_URL, logger: false, receiveWaitMs: RECEIVE_WAIT_MS });
+  server = createApp({ databaseUrl, publicUrl: FLEET_URL, logger: false });
   address = await server.listen({ host: '127.0.0.1', port: 0 });
   operator = createUseCases({ prisma: database });
   argo = operatorCaller(unwrap(await withOperatorLogin(database, operator.initialiseFleet({ name: 'home fleet' }))));
@@ -155,15 +155,16 @@ async function receive(session: Session): Promise<Delivery[]> {
   return deliveries;
 }
 
-/** Keeps receiving while it waits for an answer, as the protocol says: the first delivery that arrives. */
+/** Looks for an answer until one arrives, as a session woken for it would: the first delivery there. */
 async function receiveWhileWaiting(session: Session): Promise<Delivery> {
-  for (let receives = 0; receives < RECEIVES_WHILE_WAITING; receives += 1) {
+  for (let looks = 0; looks < LOOKS_FOR_AN_ANSWER; looks += 1) {
     const [delivery] = await receive(session);
     if (delivery) {
       return delivery;
     }
+    await new Promise((resolve) => setTimeout(resolve, BETWEEN_LOOKS_MS));
   }
-  throw new Error(`Nothing arrived in ${RECEIVES_WHILE_WAITING} receives`);
+  throw new Error(`Nothing arrived in ${LOOKS_FOR_AN_ANSWER} looks`);
 }
 
 async function ack(session: Session, delivery: Delivery): Promise<void> {
@@ -288,9 +289,9 @@ describe('the v1 acceptance test, over MCP', () => {
       logged('DeliveryReturned', { actorShipId: argoId, shipId: lookoutId, ...concerning(inFlight) }),
     ]);
 
-    // Scout keeps receiving while it waits. The operator gets lookout a new
-    // starting prompt: the old one no longer crews it, the new one does, and
-    // the new crew receives the question again, acks it and answers.
+    // Scout looks while it waits. The operator gets lookout a new starting
+    // prompt: the old one no longer crews it, the new one does, and the new
+    // crew receives the question again, acks it and answers.
     const waiting = receiveWhileWaiting(scout);
     const newPrompt = promptOf(unwrap(await operator.getStartingPrompt(argo, { shipId: lookoutId })));
     await expect(eventsSinceLastStep()).resolves.toEqual([

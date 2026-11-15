@@ -17,7 +17,6 @@ import type { ShipCaller, Crew } from '../shared/caller.js';
 import { shipActor } from '../shared/events.js';
 import { ok } from '../shared/result.js';
 import type { Selector } from '../shared/selector.js';
-import { RECEIVE_WAIT_MS } from './receive-deliveries.js';
 import { newKey } from '../../testing/keys.js';
 
 let core: InMemoryCore;
@@ -413,94 +412,22 @@ describe('a crew whose lease has ended', () => {
       error: { kind: 'LEASE_ENDED', message: 'This ship was released; this session no longer crews it.' },
     });
     expect(stored(deliveryId)).toMatchObject({ state: 'pending', attempts: 0 });
-    expect(core.wakeups.waits).toEqual([]);
   });
 });
 
-describe('waiting for a delivery', () => {
-  it('does not wait when a delivery is there', async () => {
-    await sendTo(toScout());
-
-    await receive(scout);
-
-    expect(core.wakeups.waits).toEqual([]);
-    expect(core.wakeups.watched).toEqual([]);
-  });
-
-  it('waits about 25 seconds on an empty inbox, then returns nothing', async () => {
+describe('an empty inbox (decision 0072)', () => {
+  it('answers at once with nothing: a receive never waits', async () => {
     const startedAt = core.clock.now().getTime();
 
     expect(await receive(scout)).toEqual([]);
-    expect(RECEIVE_WAIT_MS).toBe(25_000);
-    expect(core.wakeups.waits).toEqual([25_000]);
-    expect(core.clock.now().getTime() - startedAt).toBe(25_000);
+    expect(core.clock.now().getTime()).toBe(startedAt);
   });
 
-  it('watches its ship and its type while it waits, and stops watching once it returns', async () => {
-    await receive(scout);
-
-    expect(core.wakeups.watched).toEqual([{ fleetId, shipId: scoutId, type: 'reviewer' }]);
-    expect(core.wakeups.watching()).toBe(0);
-  });
-
-  it('returns a delivery sent while it waits, as soon as it is woken', async () => {
-    const sent: DeliveryId[] = [];
-    core.wakeups.nextWaits.push(async () => {
-      core.clock.advance(3_000);
-      sent.push(await sendTo(toReviewers));
-      return 'woken';
-    });
-
-    expect(await receive(scout)).toEqual(sent);
-    expect(sent).toHaveLength(1);
-    expect(core.wakeups.waits).toEqual([25_000]);
-  });
-
-  it('waits out the rest of its wait when a wake-up brings nothing for it', async () => {
-    core.wakeups.nextWaits.push(() => {
-      core.clock.advance(10_000);
-      return Promise.resolve('woken');
-    });
-
+  it('leaves a delivery sent after it answered for the next look', async () => {
     expect(await receive(scout)).toEqual([]);
-    expect(core.wakeups.waits).toEqual([25_000, 15_000]);
-  });
+    const sent = await sendTo(toReviewers);
 
-  it('is refused when its lease ends while it waits, and never holds the release up', async () => {
-    core.wakeups.nextWaits.push(async () => {
-      await endLeaseOf(scout);
-      return 'woken';
-    });
-
-    await expect(useCases.receiveDeliveries(scout, {})).resolves.toMatchObject({
-      isOk: false,
-      error: { kind: 'LEASE_ENDED' },
-    });
-    expect(core.wakeups.watching()).toBe(0);
-  });
-
-  it('hands nothing to its crew when a delivery wakes it after its ship was released', async () => {
-    const sent: DeliveryId[] = [];
-    core.wakeups.nextWaits.push(async () => {
-      await endLeaseOf(scout);
-      sent.push(await sendTo(toScout()));
-      return 'woken';
-    });
-
-    await expect(useCases.receiveDeliveries(scout, {})).resolves.toMatchObject({ isOk: false });
-    expect(sent.map((deliveryId) => stored(deliveryId))).toEqual([
-      expect.objectContaining({ state: 'pending', claimedByLeaseId: null, attempts: 0 }),
-    ]);
-  });
-
-  it('returns without deliveries at the end of its wait when its ship is released and nothing wakes it', async () => {
-    core.wakeups.nextWaits.push(async () => {
-      await endLeaseOf(scout);
-      core.clock.advance(RECEIVE_WAIT_MS);
-      return 'timedOut';
-    });
-
-    await expect(useCases.receiveDeliveries(scout, {})).resolves.toEqual({ isOk: true, value: { deliveries: [] } });
+    expect(await receive(scout)).toEqual([sent]);
   });
 });
 

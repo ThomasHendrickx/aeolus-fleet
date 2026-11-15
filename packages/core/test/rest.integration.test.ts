@@ -23,8 +23,6 @@ import { withOperatorLogin } from './support/operator-login.js';
 
 const newId = createIdGenerator();
 
-/** How long a receive waits on an empty inbox at this server: short, so an empty receive costs little. */
-const RECEIVE_WAIT_MS = 500;
 
 let databaseUrl: string;
 let database: PrismaClient;
@@ -40,7 +38,7 @@ beforeAll(async () => {
   argo = operatorCaller(
     unwrap(await withOperatorLogin(database, createUseCases({ prisma: database }).initialiseFleet({ name: 'home fleet' }))),
   );
-  server = createApp({ databaseUrl, publicUrl: FLEET_URL, logger: false, receiveWaitMs: RECEIVE_WAIT_MS });
+  server = createApp({ databaseUrl, publicUrl: FLEET_URL, logger: false });
   address = await server.listen({ host: '127.0.0.1', port: 0 });
 });
 
@@ -264,32 +262,21 @@ describe('the ship calls at /api/v1', () => {
       z.object({ messageId: z.string() }),
     );
 
-    await expect(ok(request('inbox', { crewToken: mooringToken, body: { waitSeconds: 1 } }), z.object({ waiting: z.number() }))).resolves.toEqual({
+    await expect(ok(request('inbox', { crewToken: mooringToken }), z.object({ waiting: z.number() }))).resolves.toEqual({
       waiting: 1,
     });
     const received = await ok(request('receive', { crewToken: mooringToken }), deliveriesSchema);
     expect(received.deliveries).toHaveLength(1);
   });
 
-  it('check the inbox with the count the crew knows: it waits while the count is still that', async () => {
-    const harbour = await commissioned();
+  it('refuse an inbox check that asks to wait, as unknown input: no call waits (decision 0072)', async () => {
     const mooring = await commissioned();
-    const harbourToken = await register(harbour);
     const mooringToken = await register(mooring);
-    await ok(
-      request('send', {
-        crewToken: harbourToken,
-        body: { selector: { kind: 'ship', name: mooring.name }, payload: 'Moor at berth 4', model: 'claude-opus-5-5', idempotencyKey: freshKey() },
-      }),
-      z.object({ messageId: z.string() }),
-    );
-    const startedAt = performance.now();
 
-    await expect(
-      ok(request('inbox', { crewToken: mooringToken, body: { waitSeconds: 1, knownWaiting: 1 } }), z.object({ waiting: z.number() })),
-    ).resolves.toEqual({ waiting: 1 });
-    // One second, less the leeway of a timer that fires a little early.
-    expect(performance.now() - startedAt).toBeGreaterThanOrEqual(950);
+    for (const body of [{ waitSeconds: 1 }, { knownWaiting: 0 }]) {
+      const response = await request('inbox', { crewToken: mooringToken, body });
+      expect(response.status).toBe(400);
+    }
   });
 
   it('register, send, receive, ack and deregister: two ships exchange a message and its answer', async () => {

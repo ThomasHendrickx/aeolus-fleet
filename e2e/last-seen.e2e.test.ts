@@ -21,8 +21,6 @@ import { withOperatorLogin } from '../packages/core/test/support/operator-login.
 // seen, and what it reported; when the session stops calling, the time ages.
 
 const clock = createTestClock('2026-10-01T09:00:00.000Z');
-/** A receive returns at once when it has deliveries; an empty one waits no longer than this. */
-const RECEIVE_WAIT_MS = 500;
 /** Sign-ins are rate limited per window; each test signs in after the window of the one before. */
 const SIGN_IN_WINDOW_MS = 60_000;
 
@@ -48,7 +46,6 @@ beforeAll(async () => {
     consoleOrigin: webUrl,
     clock,
     logger: false,
-    receiveWaitMs: RECEIVE_WAIT_MS,
   });
   serverUrl = await server.listen({ host: '127.0.0.1', port: 0 });
   web = await startWeb({ url: webUrl, serverUrl });

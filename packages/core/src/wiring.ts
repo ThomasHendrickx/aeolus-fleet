@@ -85,7 +85,7 @@ import { createWatchWakeups, type WatchWakeups } from './domain/messaging/watch-
 import { createDismissDelivery, type DismissDelivery } from './domain/messaging/dismiss-delivery.js';
 import { createMarkDone, type MarkDone } from './domain/messaging/mark-done.js';
 import { createMarkRead, type MarkRead } from './domain/messaging/mark-read.js';
-import type { ReceiverWakeups, WakeStreams } from './domain/messaging/ports.js';
+import type { WakeStreams } from './domain/messaging/ports.js';
 import { createPushReceiveDeliveries, type PushReceiveDeliveries } from './domain/messaging/push-receive-deliveries.js';
 import { createReceiveDeliveries, type ReceiveDeliveries } from './domain/messaging/receive-deliveries.js';
 import { createReceiveReply, type ReceiveReply } from './domain/messaging/receive-reply.js';
@@ -188,8 +188,6 @@ import type { Clock } from './domain/shared/clock.js';
 import { createPing, type Ping } from './domain/shared/ping.js';
 import { createReadFleetEvents, type ReadFleetEvents } from './domain/shared/read-fleet-events.js';
 import { createFollowFleet, type FollowFleet } from './domain/shared/follow-fleet.js';
-import type { FleetEventWakeups } from './domain/shared/events.js';
-import { createFleetEventWakeups, fleetEventWakeupsOf } from './adapters/prisma/fleet-event-wakeups.js';
 import { createCreateFleet, type CreateFleet } from './domain/registry/create-fleet.js';
 import { createGetFleetLimits, type GetFleetLimits } from './domain/registry/get-fleet-limits.js';
 import { createReadFleetName, type ReadFleetName } from './domain/registry/read-fleet-name.js';
@@ -416,21 +414,15 @@ const NO_ACCOUNT_TOKEN_SIGNATURES: AccountTokenSignatures = { verify: () => Prom
  * Wires every use case to Postgres through Prisma. The HTTP app and the server
  * commands share it.
  *
- * `wakeups` wake a waiting receive; the HTTP app feeds them from the delivery
- * listener. Without them, nothing wakes a receive and it ends only at its
- * wait: enough for the server commands, which never receive.
+ * `wakeStreams` feed the wake streams; the HTTP app feeds them from the
+ * delivery listener. No call waits (decision 0072), so nothing else is woken.
  */
 export function createUseCases(options: {
   prisma: PrismaClient;
   clock?: Clock;
   ids?: IdGenerator;
-  wakeups?: ReceiverWakeups;
   /** Feed the wake streams (long-poll design, W1); without them a stream wakes only at open and sends keep-alives. */
   wakeStreams?: WakeStreams;
-  /** Wake a waiting follow and an inbox check with a known count; without them both end only at their wait. */
-  fleetEventWakeups?: FleetEventWakeups;
-  /** How long a receive waits on an empty inbox; about 25 seconds unless a test says otherwise. */
-  receiveWaitMs?: number;
   /** pagasae's signatures on account tokens (decision 0058); without them, no account token is trusted. */
   accountTokenSignatures?: AccountTokenSignatures;
   /** The installation's KMS for sealed fleets (decision 0068); without it, no fleet can be sealed. */
@@ -448,9 +440,7 @@ export function createUseCases(options: {
   // A fleet delete and a retire grow with the fleet's history and the ship's pending deliveries.
   const bulkUow = createPrismaBulkUnitOfWork(prisma);
   const secrets = { hasher: sha256Hasher, random: cryptoRandomTokens };
-  const wakeups = options.wakeups ?? createReceiverWakeups();
   const wakeStreams = options.wakeStreams ?? createReceiverWakeups();
-  const fleetNews = options.fleetEventWakeups ?? fleetEventWakeupsOf(createFleetEventWakeups());
   const notices = createPrismaNoticeRepository(prisma);
   const dismissals = createPrismaNoticeDismissals(prisma);
   const guide = createPrismaGuideRepository(prisma);
@@ -593,24 +583,18 @@ export function createUseCases(options: {
       clock,
       ids,
       sealing,
-      wakeups,
-      waitMs: options.receiveWaitMs,
     }),
     receiveReply: createReceiveReply({
       uow,
       clock,
       ids,
       sealing,
-      wakeups,
-      waitMs: options.receiveWaitMs,
     }),
     pushReceiveDeliveries: createPushReceiveDeliveries({
       uow,
       clock,
       ids,
       sealing,
-      wakeups,
-      waitMs: options.receiveWaitMs,
     }),
     handOverDelivery: createHandOverDelivery({ uow, clock, ids }),
     reportHandled: createReportHandled({ uow, clock, ids }),
@@ -635,7 +619,7 @@ export function createUseCases(options: {
     acknowledgeUpTo: createAcknowledgeUpTo({ uow, clock, ids }),
     answerPing: createAnswerPing({ uow, clock, ids }),
     pingShip: createPingShip({ uow, clock, ids, hasher: sha256Hasher, sealing }),
-    checkInbox: createCheckInbox({ uow, clock, wakeups, fleetNews }),
+    checkInbox: createCheckInbox({ uow }),
     watchWakeups: createWatchWakeups({ uow, wakeStreams }),
     dismissDelivery: createDismissDelivery({ uow, clock, ids, readReach }),
     resendDelivery: createResendDelivery({ uow, clock, ids, hasher: sha256Hasher, readReach, sealing }),
@@ -645,10 +629,8 @@ export function createUseCases(options: {
     readFleetEvents: createReadFleetEvents({ feed: createPrismaFleetEventFeed(prisma), history: createPrismaShipHistory(prisma), readReach }),
     followFleet: createFollowFleet({
       feed: createPrismaFleetEventFeed(prisma),
-      clock,
       history: createPrismaShipHistory(prisma),
       readReach,
-      wakeups: fleetNews,
     }),
     readShipTimeline: createReadShipTimeline({ history: createPrismaShipHistory(prisma), readReach }),
     readShipMessages: createReadShipMessages({ history: createPrismaShipHistory(prisma), readReach , sealing }),

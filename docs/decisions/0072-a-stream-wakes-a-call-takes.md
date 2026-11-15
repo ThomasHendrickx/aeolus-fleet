@@ -7,7 +7,7 @@ No call waits for a message: a crew that keeps a stream open is told to look, an
 - Core opens the watch on the hub before the open wake, so a delivery that commits while the stream opens is found by the look that wake starts. A stopping server closes every stream and refuses new ones (503).
 - A wake is a hint. A part that keeps a stream looks on each wake and every 5 minutes without one; it reopens after a random 1 to 5 s, doubling to 60 s while core is down, and after 60 s with nothing read.
 - Streams open and wakes sent are measured apart, by reason; no stream lands in a duration histogram.
-- Until every train looks on the stream, `receive`, `pushReceive`, `inbox`, `receiveReply` and `fleet.follow` keep their waits; the design's last slice removes them.
+- `receive`, `pushReceive`, `inbox`, `receiveReply` and `fleet.follow` answer at once; a `waitSeconds` or `knownWaiting` is refused as unknown input, so a caller that still asks to wait fails loudly. A ship crewed by hand ends its turn when nothing waits (protocol rule 13). The hub feeds only the streams and `fleet.events`.
 
 Why: a call that stands open to wait pollutes the p95 and p99 of the calls core measures (performance decision 5), and holds a request for each idle crew; a wake after commit reaches a crew as fast, and a missed one costs at most a look later, never a message.
 

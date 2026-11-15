@@ -26,8 +26,6 @@ import { withOperatorLogin } from './support/operator-login.js';
 const newId = createIdGenerator();
 const clock = createTestClock('2026-09-29T12:00:00.000Z');
 const SIGN_IN_RATE_LIMIT = { limit: 5, windowMs: 60_000 };
-/** How long a receive waits on an empty inbox at this server: short, so an empty receive costs little. */
-const RECEIVE_WAIT_MS = 500;
 /** Where the console runs: the fleet's own origin, as no other console origin is configured. */
 const CONSOLE = new URL(FLEET_URL).origin;
 
@@ -54,7 +52,6 @@ beforeAll(async () => {
     clock,
     logger: false,
     signInRateLimit: SIGN_IN_RATE_LIMIT,
-    receiveWaitMs: RECEIVE_WAIT_MS,
   });
   address = await server.listen({ host: '127.0.0.1', port: 0 });
 });
@@ -1142,7 +1139,7 @@ describe('ship.receive and ship.ack at the API', () => {
     await expect(receiver.asShip.ship.receive.mutate()).resolves.toMatchObject({ deliveries: [{ attempts: 1 }] });
   });
 
-  it('answers an empty inbox with no deliveries once the wait ends', async () => {
+  it('answers an empty inbox with no deliveries at once', async () => {
     const { asShip } = await crewed('ketch');
 
     await expect(asShip.ship.receive.mutate({})).resolves.toEqual({ deliveries: [] });
@@ -2088,19 +2085,26 @@ describe('fleet.follow at the API', () => {
     return client({ authorization: `Bearer ${crewToken}` });
   }
 
-  it('answers a ship with fleet:read the events after its position, as soon as one commits while it waits', async () => {
+  it('answers a ship with fleet:read the events after its position at once, and none when nothing came', async () => {
     const reader = await crewedReader('follow-reader');
     // Signing in writes events of its own: before the position is read.
     const asArgo = await signedInArgo();
     const { lastSeq } = await reader.fleet.follow.query({});
+    await expect(reader.fleet.follow.query({ afterSeq: lastSeq })).resolves.toEqual({ events: [], lastSeq });
 
-    const following = reader.fleet.follow.query({ afterSeq: lastSeq, waitSeconds: 20 });
-    await new Promise((resolve) => setTimeout(resolve, 300));
     const { shipId } = await asArgo.fleet.commission.mutate({ idempotencyKey: newKey(), owner: ownerId, name: 'follow-new', type: 'squadron' });
 
-    const { events } = await following;
+    const { events } = await reader.fleet.follow.query({ afterSeq: lastSeq });
     expect(events[0]).toMatchObject({ type: 'ShipCommissioned', shipId });
     expect(events[0]?.seq).toBe(lastSeq + 1);
+  });
+
+  it('refuse a follow that asks to wait with BAD_REQUEST, as unknown input: no call waits (decision 0072)', async () => {
+    const reader = await crewedReader('follow-waiting');
+
+    const waiting = { afterSeq: 0, waitSeconds: 1 };
+
+    await expect(codeOf(reader.fleet.follow.query(waiting))).resolves.toBe('BAD_REQUEST');
   });
 
   it("answers a follower past the fleet's last event, as after a restore, the fleet's last position at once, with no events", async () => {
@@ -2108,13 +2112,11 @@ describe('fleet.follow at the API', () => {
     const reader = await crewedReader('follow-ahead');
     const { lastSeq } = await reader.fleet.follow.query({});
 
-    // When it follows from there, willing to wait
-    const startedAt = Date.now();
-    const followed = await reader.fleet.follow.query({ afterSeq: lastSeq + 50, waitSeconds: 20 });
+    // When it follows from there
+    const followed = await reader.fleet.follow.query({ afterSeq: lastSeq + 50 });
 
-    // Then it is answered the fleet's last position with no events, without waiting out the wait
+    // Then it is answered the fleet's last position with no events
     expect(followed).toEqual({ events: [], lastSeq });
-    expect(Date.now() - startedAt).toBeLessThan(10_000);
   });
 
   it('refuse follow to a ship without fleet:read', async () => {

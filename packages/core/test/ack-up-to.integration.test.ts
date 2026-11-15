@@ -87,7 +87,7 @@ describe('seen up to here on Postgres', () => {
         },
       },
     }));
-    const receiving = createPushReceiveDeliveries({ uow, clock: core.clock, ids: newId, sealing: unsealedFleetsOnly, wakeups: { watch: () => ({ next: () => Promise.resolve('timedOut'), stop: () => undefined }) } })(thomas, {});
+    const receiving = createPushReceiveDeliveries({ uow, clock: core.clock, ids: newId, sealing: unsealedFleetsOnly })(thomas, {});
     await reached;
 
     // When thomas marks the exchange seen up to the last meanwhile.

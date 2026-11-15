@@ -596,9 +596,9 @@ export const shipRouter = router({
   /**
    * Hands the crew up to `max` deliveries, 1 to 10, one by default: forced
    * ones first (decision 0040), then its own in flight, then the oldest
-   * pending for its ship or its type. Waits
-   * about 25 seconds when none is there, then answers with none. A mutation:
-   * every delivery it returns is claimed.
+   * pending for its ship or its type. Answers at once, with none when none
+   * is there: no call waits (decision 0072). A mutation: every delivery it
+   * returns is claimed.
    */
   receive: scopedCrewProcedure('messages:receive')
     .meta({
@@ -607,7 +607,7 @@ export const shipRouter = router({
         'senderShipId, senderName (the name to answer to), senderType, and senderStatus (awaitingCrew, crewed or retired) as it is now.',
         'A retired sender refuses a reply; its delivery is still yours to ack.',
         'A forced message, one to act on now, comes before every other.',
-        'With none there it waits about 25 seconds, then answers with none.',
+        'It answers at once: with none there it answers with none, and does not wait.',
         'Until you ack it a delivery stays yours: your next receive hands it to you again,',
         'and after four receives without an ack it goes to the operator as undeliverable.',
         'So you may see a deliveryId twice: treat it as the key of the work.',
@@ -630,7 +630,7 @@ export const shipRouter = router({
       description: [
         'Hands you the reply to one message: the oldest delivery whose message names messageId as its inReplyTo, with its message and its sender, as receive hands one.',
         'Use it when you sent several requests and wait for the answer to one. Your other deliveries stay where they are.',
-        'With none there it waits about 25 seconds, then answers with none.',
+        'It answers at once: with none there it answers with none, and does not wait.',
         'Until you ack it the reply stays yours: the next receiveReply or receive hands it to you again,',
         'and after four without an ack it goes to the operator as undeliverable.',
       ].join(' '),
@@ -647,7 +647,7 @@ export const shipRouter = router({
    * plugin watcher, never the agent: takes up to `max` deliveries as
    * received, counting no attempt, forced ones first, then its own in
    * flight, and makes the
-   * lease pushed until it ends. Waits as receive does. A mutation: every
+   * lease pushed until it ends. Answers at once, as receive does. A mutation: every
    * delivery it returns is the crew's.
    */
   pushReceive: scopedCrewProcedure('messages:receive')
@@ -655,7 +655,7 @@ export const shipRouter = router({
       description: [
         'For the trierarch or the plugin watcher, not the agent: takes your next deliveries for the computer side, up to max (1 to 10, one when left out),',
         'each with its message, its sender as receive names it (senderStatus included), its state and its last hand-over number. A pending one becomes received: yours, with no attempt counted.',
-        'Forced deliveries come first; then your own received or handed ones again, unchanged, so a restart loses nothing. With none there it waits about 25 seconds, then answers with none.',
+        'Forced deliveries come first; then your own received or handed ones again, unchanged, so a restart loses nothing. It answers at once: with none there it answers with none, and does not wait.',
         'From your first pushReceive until your lease ends, the agent\'s plain receive answers nothing.',
         'Your first pushReceive may state waker, what wakes the ship: trierarch, pluginWatcher, personApp, gateway or adapter; the lease keeps the first one, and the ship\'s page shows it.',
         'With shouldSkipHanded true, handed deliveries are left out before max; received deliveries still return after a lost answer.',
@@ -1023,25 +1023,20 @@ export const shipRouter = router({
 
   /**
    * How many deliveries wait for the crew: what its next receive would hand
-   * it. Claims nothing. With waitSeconds (0 to 25) it waits while none does,
-   * or with knownWaiting while the count is still that.
+   * it. Claims nothing, and answers at once: no call waits (decision 0072).
    * A mutation only so that REST takes its body; it changes nothing.
    */
   inbox: scopedCrewProcedure('messages:receive')
     .meta({
       description: [
         'Tells you how many deliveries wait for you: what your next receive would hand you, your own unacknowledged ones included.',
-        'It claims nothing, so call receive to get them.',
-        'With waitSeconds (0 to 25) it waits while none does, and answers as soon as one arrives.',
-        'With knownWaiting as well, the waiting count you already know, it waits while the count is still that,',
-        'and answers as soon as it differs: a delivery arrived, or one you held was acknowledged.',
+        'It claims nothing, so call receive to get them. It answers at once and does not wait;',
+        'the wake stream tells a program crewing a ship when to look.',
       ].join(' '),
     })
     .input(inboxInputSchema)
     .output(inboxOutputSchema)
-    .mutation(async ({ ctx, input }) =>
-      okOrThrow(await ctx.useCases.checkInbox(ctx.crew, { waitSeconds: input?.waitSeconds, knownWaiting: input?.knownWaiting })),
-    ),
+    .mutation(async ({ ctx }) => okOrThrow(await ctx.useCases.checkInbox(ctx.crew))),
 
   /**
    * The crew's wake stream (long-poll design, W1): tells it to look now,

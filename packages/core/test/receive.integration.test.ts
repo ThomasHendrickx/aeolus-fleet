@@ -1,13 +1,9 @@
 import { createIdGenerator, idSchema, type DeliveryId, type FleetId } from '@aeolus-fleet/common';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { sha256Hasher } from '../src/adapters/crypto/secrets.js';
 import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/client.js';
-import { listenForPendingDeliveries, type DeliveryListener } from '../src/adapters/prisma/delivery-notices.js';
-import { createReceiverWakeups, type ReceiverWakeupHub } from '../src/adapters/prisma/receiver-wakeups.js';
-import { createPrismaUnitOfWork, type PrismaTx } from '../src/adapters/prisma/unit-of-work.js';
+import type { PrismaTx } from '../src/adapters/prisma/unit-of-work.js';
 import { createReceiveDeliveries } from '../src/domain/messaging/receive-deliveries.js';
-import { createSendMessage } from '../src/domain/messaging/send-message.js';
 import type { ShipCaller, Crew } from '../src/domain/shared/caller.js';
 import type { Selector } from '../src/domain/shared/selector.js';
 import type { UnitOfWork } from '../src/domain/shared/unit-of-work.js';
@@ -20,24 +16,17 @@ import { newKey } from '../src/testing/keys.js';
 import { withOperatorLogin } from './support/operator-login.js';
 import { unsealedFleetsOnly } from './support/sealing.js';
 
-// Receiving and acknowledging on a real Postgres, with the listener and the
-// wake-ups the server runs: what a claim stores, the order and the limit of a
-// receive, the fifth claim, that concurrent receivers never share a delivery,
-// that a waiting receive wakes when a send commits and never for one that rolls
-// back, and that a lease ending while its crew receives gets back what it claimed.
+// Receiving and acknowledging on a real Postgres: what a claim stores, the
+// order and the limit of a receive, the fifth claim, that concurrent receivers
+// never share a delivery, that a receive on an empty inbox answers at once, and
+// that a lease ending while its crew receives gets back what it claimed.
 
 const newId = createIdGenerator();
-/** How long a receive waits on an empty inbox in these tests: short, so an empty receive costs little. */
-const WAIT_MS = 2_000;
-/** The wait of a receive that must end early: it proves a wake-up, not a timeout. */
-const LONG_WAIT_MS = 15_000;
-/** Time for a receive to start waiting before the test sends. */
-const SETTLE_MS = 300;
+/** Well under any wait a call once had: an answer this soon did not wait. */
+const AT_ONCE_MS = 1_000;
 
 let databaseUrl: string;
 let prisma: PrismaClient;
-let wakeups: ReceiverWakeupHub;
-let listener: DeliveryListener;
 let useCases: UseCases;
 let fleetId: FleetId;
 let argo: ShipCaller;
@@ -47,18 +36,7 @@ let lookout: Crew;
 beforeEach(async () => {
   databaseUrl = await createMigratedDatabase();
   prisma = createPrismaClient(databaseUrl);
-  wakeups = createReceiverWakeups();
-  listener = listenForPendingDeliveries({
-    databaseUrl,
-    onNotice: (notice) => {
-      wakeups.deliveryPending(notice);
-    },
-    onListening: () => {
-      wakeups.wakeAll();
-    },
-  });
-  await listener.listening;
-  useCases = createUseCases({ prisma, clock: systemClock, wakeups, receiveWaitMs: WAIT_MS });
+  useCases = createUseCases({ prisma, clock: systemClock });
   const fleet = unwrap(await withOperatorLogin(prisma, useCases.initialiseFleet({ name: 'home fleet' })));
   ({ fleetId } = fleet);
   argo = operatorCaller(fleet);
@@ -67,7 +45,6 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
-  await listener.close();
   await prisma.$disconnect();
 });
 
@@ -104,8 +81,8 @@ async function receive(crew: Crew, max?: number): Promise<DeliveryId[]> {
   return deliveries.map((delivery) => delivery.deliveryId);
 }
 
-function receiveWith(uow: UnitOfWork<PrismaTx>, waitMs = WAIT_MS) {
-  return createReceiveDeliveries({ sealing: unsealedFleetsOnly, uow, clock: systemClock, ids: newId, wakeups, waitMs });
+function receiveWith(uow: UnitOfWork<PrismaTx>) {
+  return createReceiveDeliveries({ sealing: unsealedFleetsOnly, uow, clock: systemClock, ids: newId });
 }
 
 /** The operator releases the crew's ship: its lease ends, and what it held in flight returns to pending. */
@@ -115,10 +92,6 @@ async function endLeaseOf(crew: Crew): Promise<void> {
 
 function stored(deliveryId: DeliveryId) {
   return prisma.delivery.findUniqueOrThrow({ where: { id: deliveryId } });
-}
-
-function pause(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 describe('receiving on Postgres', () => {
@@ -280,65 +253,12 @@ describe('concurrent receivers of one type', () => {
   });
 });
 
-describe('a receive waiting on an empty inbox', () => {
-  it('returns as soon as a send to its ship commits', async () => {
+describe('a receive on an empty inbox (decision 0072)', () => {
+  it('answers at once with nothing: a receive never waits', async () => {
     const startedAt = performance.now();
-    const receiving = receiveWith(createPrismaUnitOfWork(prisma), LONG_WAIT_MS)(scout, {});
-    await pause(SETTLE_MS);
 
-    const deliveryId = await sendTo(toShip(scout));
-
-    expect(unwrap(await receiving).deliveries.map((delivery) => delivery.deliveryId)).toEqual([deliveryId]);
-    expect(performance.now() - startedAt).toBeLessThan(LONG_WAIT_MS / 2);
-  });
-
-  it('returns as soon as a send to its type commits', async () => {
-    const startedAt = performance.now();
-    const receiving = receiveWith(createPrismaUnitOfWork(prisma), LONG_WAIT_MS)(scout, {});
-    await pause(SETTLE_MS);
-
-    const deliveryId = await sendTo(toReviewers);
-
-    expect(unwrap(await receiving).deliveries.map((delivery) => delivery.deliveryId)).toEqual([deliveryId]);
-    expect(performance.now() - startedAt).toBeLessThan(LONG_WAIT_MS / 2);
-  });
-
-  it('never returns for a send that rolls back: it waits out its wait, empty', async () => {
-    const failingSend = createSendMessage({ sealing: unsealedFleetsOnly,
-      uow: {
-        run: (work) =>
-          createPrismaUnitOfWork(prisma).run((tx) =>
-            work({
-              ...tx,
-              notifier: {
-                deliveryPending: async (notice) => {
-                  await tx.notifier.deliveryPending(notice);
-                  throw new Error('disk full');
-                },
-              },
-            }),
-          ),
-      },
-      clock: systemClock,
-      ids: newId,
-      hasher: sha256Hasher,
-    });
-    const startedAt = performance.now();
-    const receiving = useCases.receiveDeliveries(scout, {});
-    await pause(SETTLE_MS);
-
-    await expect(
-      failingSend(argo, {
-        selector: toShip(scout),
-        payload: 'never stored',
-        contentType: 'text/plain',
-        idempotencyKey: 'rolled-back',
-      }),
-    ).rejects.toThrow('disk full');
-
-    await expect(receiving).resolves.toEqual({ isOk: true, value: { deliveries: [] } });
-    expect(performance.now() - startedAt).toBeGreaterThanOrEqual(WAIT_MS - 50);
-    await expect(prisma.delivery.count()).resolves.toBe(0);
+    await expect(useCases.receiveDeliveries(scout, {})).resolves.toEqual({ isOk: true, value: { deliveries: [] } });
+    expect(performance.now() - startedAt).toBeLessThan(AT_ONCE_MS);
   });
 });
 
@@ -411,21 +331,10 @@ describe('checking the inbox on Postgres', () => {
     const queued = await sendTo(toReviewers);
     await sendTo(toShip(lookout));
 
-    await expect(useCases.checkInbox(scout, {})).resolves.toEqual({ isOk: true, value: { waiting: 3, forced: 0 } });
+    await expect(useCases.checkInbox(scout)).resolves.toEqual({ isOk: true, value: { waiting: 3, forced: 0 } });
     await expect(stored(pending)).resolves.toMatchObject({ state: 'pending', attempts: 0 });
     await expect(stored(queued)).resolves.toMatchObject({ state: 'pending', attempts: 0 });
     await expect(stored(inFlight)).resolves.toMatchObject({ state: 'handed', attempts: 1 });
-  });
-
-  it('waits while nothing waits, and answers as soon as a delivery is sent', async () => {
-    const startedAt = Date.now();
-    const checking = useCases.checkInbox(scout, { waitSeconds: 15 });
-    await pause(SETTLE_MS);
-
-    await sendTo(toReviewers);
-
-    await expect(checking).resolves.toEqual({ isOk: true, value: { waiting: 1, forced: 0 } });
-    expect(Date.now() - startedAt).toBeLessThan(LONG_WAIT_MS);
   });
 });
 
@@ -455,12 +364,12 @@ describe('forced deliveries on Postgres (decision 0040)', () => {
     await sendTo(toShip(scout), { isForced: true });
     await sendTo(toReviewers, { isForced: true });
     await sendTo(toShip(scout));
-    await expect(useCases.checkInbox(scout, {})).resolves.toEqual({ isOk: true, value: { waiting: 3, forced: 2 } });
+    await expect(useCases.checkInbox(scout)).resolves.toEqual({ isOk: true, value: { waiting: 3, forced: 2 } });
 
     const received = unwrap(await useCases.receiveDeliveries(scout, { max: 3 })).deliveries;
 
     expect(received.map((delivery) => delivery.isForced)).toEqual([true, true, false]);
-    await expect(useCases.checkInbox(scout, {})).resolves.toEqual({ isOk: true, value: { waiting: 3, forced: 0 } });
+    await expect(useCases.checkInbox(scout)).resolves.toEqual({ isOk: true, value: { waiting: 3, forced: 0 } });
   });
 
   it('go to concurrent receivers of one type before any older plain delivery, each exactly once, while both hold their claims open', async () => {

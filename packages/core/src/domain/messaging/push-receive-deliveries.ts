@@ -8,14 +8,8 @@ import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { withDataKeys, type DataKeysNeeded, type HeldDataKeys, type PayloadSealing } from './data-keys.js';
 import { pushReceiveDelivery } from './delivery.js';
-import type { DeliveryRepository, ReceiverWakeups } from './ports.js';
-import {
-  RECEIVE_WAIT_MS,
-  receivedDeliveryOf,
-  waitForDeliveries,
-  type ReceivedDelivery,
-  type ReceiveRefusal,
-} from './receive-deliveries.js';
+import type { DeliveryRepository } from './ports.js';
+import { receivedDeliveryOf, type ReceivedDelivery, type ReceiveRefusal } from './receive-deliveries.js';
 import { receiveMax } from './receive-max.js';
 
 export interface PushReceiveDeliveriesTx extends HoldLeaseTx, FindSenderTx {
@@ -34,7 +28,7 @@ export interface PushReceivedDelivery extends ReceivedDelivery {
 }
 
 export interface DeliveriesPushReceived {
-  /** None when the wait ended without a delivery. */
+  /** None when nothing was there for the crew. */
   deliveries: PushReceivedDelivery[];
 }
 
@@ -116,7 +110,8 @@ async function pushReceiptForCrew(
  * it ends, the lease is pushed: the agent's plain receive answers nothing.
  * Its first push receive may state what wakes the ship, kept with the lease
  * (interop 5.1).
- * When nothing is there it waits as a receive does, about 25 seconds.
+ * When nothing is there it answers empty at once, as a receive does
+ * (decision 0072).
  * In a sealed fleet it unseals as a receive does (decision 0068, B9): a key
  * it cannot get refuses KEY_UNAVAILABLE and takes nothing.
  */
@@ -125,30 +120,20 @@ export function createPushReceiveDeliveries(deps: {
   clock: Clock;
   ids: IdGenerator;
   sealing: PayloadSealing;
-  wakeups: ReceiverWakeups;
-  /** How long a push receive waits on an empty inbox; about 25 seconds unless a test says otherwise. */
-  waitMs?: number;
 }): PushReceiveDeliveries {
-  const waitMs = deps.waitMs ?? RECEIVE_WAIT_MS;
   return async (crew, input) => {
     const max = receiveMax(input.max);
     if (!max.isOk) {
       return max;
     }
-    return waitForDeliveries(
-      { clock: deps.clock, wakeups: deps.wakeups, waitMs },
-      {
-        crew,
-        look: () =>
-          withDataKeys({ sealing: deps.sealing, fleetId: crew.fleetId }, (keys) =>
-            deps.uow.run((tx) =>
-              pushReceiptForCrew(
-                { tx, ids: deps.ids, at: deps.clock.now(), keys },
-                { crew, max: max.value, shouldSkipHanded: input.shouldSkipHanded ?? false, excluding: input.excluding ?? [], ...(input.waker === undefined ? {} : { waker: input.waker }) },
-              ),
-            ),
-          ),
-      },
+    const received = await withDataKeys({ sealing: deps.sealing, fleetId: crew.fleetId }, (keys) =>
+      deps.uow.run((tx) =>
+        pushReceiptForCrew(
+          { tx, ids: deps.ids, at: deps.clock.now(), keys },
+          { crew, max: max.value, shouldSkipHanded: input.shouldSkipHanded ?? false, excluding: input.excluding ?? [], ...(input.waker === undefined ? {} : { waker: input.waker }) },
+        ),
+      ),
     );
+    return received.isOk ? ok({ deliveries: received.value.deliveries }) : received;
   };
 }

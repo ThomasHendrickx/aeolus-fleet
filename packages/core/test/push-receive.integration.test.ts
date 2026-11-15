@@ -2,7 +2,6 @@ import { createIdGenerator, idSchema, type DeliveryId, type FleetId } from '@aeo
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/client.js';
-import { createReceiverWakeups } from '../src/adapters/prisma/receiver-wakeups.js';
 import { createPrismaUnitOfWork } from '../src/adapters/prisma/unit-of-work.js';
 import { createHandOverDelivery } from '../src/domain/messaging/hand-over-delivery.js';
 import { createPushReceiveDeliveries } from '../src/domain/messaging/push-receive-deliveries.js';
@@ -24,8 +23,6 @@ import { unsealedFleetsOnly } from './support/sealing.js';
 // and that a restart of the server loses nothing the computer side holds.
 
 const newId = createIdGenerator();
-/** How long a receive waits on an empty inbox in these tests: short, so an empty receive costs little. */
-const WAIT_MS = 500;
 
 let databaseUrl: string;
 let prisma: PrismaClient;
@@ -38,7 +35,7 @@ let lookout: Crew;
 beforeEach(async () => {
   databaseUrl = await createMigratedDatabase();
   prisma = createPrismaClient(databaseUrl);
-  useCases = createUseCases({ prisma, clock: systemClock, wakeups: createReceiverWakeups(), receiveWaitMs: WAIT_MS });
+  useCases = createUseCases({ prisma, clock: systemClock });
   const fleet = unwrap(await withOperatorLogin(prisma, useCases.initialiseFleet({ name: 'home fleet' })));
   ({ fleetId } = fleet);
   argo = operatorCaller(fleet);
@@ -219,8 +216,6 @@ describe('concurrent push receivers of one type', () => {
       })),
       clock: systemClock,
       ids: newId,
-      wakeups: createReceiverWakeups(),
-      waitMs: WAIT_MS,
     });
 
     const [byScout, byLookout] = await Promise.all([racing(scout, { max: 2 }), racing(lookout, { max: 2 })]);
@@ -292,8 +287,6 @@ describe('a push receive that fails midway', () => {
       },
       clock: systemClock,
       ids: newId,
-      wakeups: createReceiverWakeups(),
-      waitMs: WAIT_MS,
     });
 
     await expect(failing(scout, {})).rejects.toThrow('disk full');
@@ -315,7 +308,7 @@ describe('a restart of the server', () => {
 
     const restarted = createPrismaClient(databaseUrl);
     try {
-      const afterRestart = createUseCases({ prisma: restarted, clock: systemClock, wakeups: createReceiverWakeups(), receiveWaitMs: WAIT_MS });
+      const afterRestart = createUseCases({ prisma: restarted, clock: systemClock });
 
       const { deliveries } = unwrap(await afterRestart.pushReceiveDeliveries(scout, { max: 3 }));
       const repeat = unwrap(await afterRestart.handOverDelivery(scout, { deliveryId: handed, handOverNumber: 1 }));
@@ -363,9 +356,9 @@ describe('forced deliveries on Postgres (decision 0040)', () => {
     const [first] = unwrap(await useCases.pushReceiveDeliveries(scout, {})).deliveries;
 
     expect(first).toMatchObject({ deliveryId: forced, isForced: true });
-    await expect(useCases.checkInbox(scout, {})).resolves.toEqual({ isOk: true, value: { waiting: 2, forced: 1 } });
+    await expect(useCases.checkInbox(scout)).resolves.toEqual({ isOk: true, value: { waiting: 2, forced: 1 } });
     unwrap(await useCases.handOverDelivery(scout, { deliveryId: forced, handOverNumber: 1 }));
-    await expect(useCases.checkInbox(scout, {})).resolves.toEqual({ isOk: true, value: { waiting: 2, forced: 0 } });
+    await expect(useCases.checkInbox(scout)).resolves.toEqual({ isOk: true, value: { waiting: 2, forced: 0 } });
   });
 
   it('go to concurrent receivers of one type before any older plain delivery, each exactly once, while both hold their claims open', async () => {
@@ -385,8 +378,6 @@ describe('forced deliveries on Postgres (decision 0040)', () => {
       })),
       clock: systemClock,
       ids: newId,
-      wakeups: createReceiverWakeups(),
-      waitMs: WAIT_MS,
     });
 
     const [byScout, byLookout] = await Promise.all([racing(scout, { max: 1 }), racing(lookout, { max: 1 })]);
