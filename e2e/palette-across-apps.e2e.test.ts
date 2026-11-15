@@ -105,22 +105,23 @@ async function paletteFor(query: string): Promise<Page> {
 }
 
 describe('the palette across apps', () => {
-  it('serves the console list without a sign-in: the pages and actions of its palette, with the rights each needs (A1)', async () => {
-    // Given the console runs
+  it('serves the console list without a sign-in: every page of its navigation and the actions of its palette, with the rights each needs (A1)', async () => {
+    // Given the console runs, without squadrons or the trierarch plugin
     // When another app's server asks for its list, with no sign-in
     const response = await fetch(`${web.url}${PALETTE_LIST_PATH}`);
-    // Then it answers the console's pages and actions, and no data
+    // Then it answers the console's pages and actions, every one, and no data
     const list = paletteListSchema.parse(await response.json());
     expect(list.app).toBe('console');
-    expect(list.entries.map(({ key, kind, rights }) => ({ key, kind, rights }))).toEqual(
-      expect.arrayContaining([
-        { key: 'commission', kind: 'action', rights: ['fleet:commission'] },
-        { key: 'compose', kind: 'action', rights: ['messages:send'] },
-        { key: 'overview', kind: 'page', rights: ['fleet:read'] },
-        { key: 'inbox', kind: 'page', rights: ['fleet:read'] },
-        { key: 'health', kind: 'page', rights: ['fleet:read'] },
-      ]),
-    );
+    expect(list.entries.map((entry) => ({ key: entry.key, kind: entry.kind, path: entry.kind === 'copy' ? undefined : entry.path, rights: entry.rights }))).toEqual([
+      { key: 'commission', kind: 'action', path: '/?commission=new', rights: ['fleet:manage'] },
+      { key: 'compose', kind: 'action', path: '/?compose=new', rights: ['messages:send'] },
+      { key: 'overview', kind: 'page', path: '/', rights: ['fleet:read'] },
+      { key: 'health', kind: 'page', path: '/fleet-health', rights: ['fleet:read'] },
+      { key: 'needs-crew', kind: 'page', path: '/needs-crew', rights: ['fleet:read'] },
+      { key: 'inbox', kind: 'page', path: '/inbox', rights: ['fleet:read'] },
+      { key: 'network', kind: 'page', path: '/network', rights: ['fleet:network'] },
+      { key: 'settings', kind: 'page', path: '/settings', rights: ['fleet:manage'] },
+    ]);
   });
 
   it("offers the gateway's Copy MCP address in the console; Enter copies it and says Copied, opening no app (A3)", async () => {

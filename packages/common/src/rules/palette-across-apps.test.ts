@@ -29,13 +29,9 @@ const consoleList: PaletteList = {
     { kind: 'page', key: 'overview', label: 'Fleet overview', path: '/', keywords: ['ships'], rights: ['fleet:read'], icon: 'ship' },
   ],
 };
-const gatewayList: PaletteList = {
-  app: 'gateway',
-  entries: [
-    { kind: 'page', key: 'fleet', label: 'Your fleet', path: '/fleet', keywords: [], rights: [], icon: 'lock' },
-    { kind: 'copy', key: 'mcp-address', label: 'Copy MCP address', value: 'https://gateway.acme.example/mcp', keywords: ['mcp'], rights: [], icon: 'copy' },
-  ],
-};
+const yourFleet = { kind: 'page', key: 'fleet', label: 'Your fleet', path: '/fleet', keywords: [], rights: [], icon: 'lock' } satisfies PaletteList['entries'][number];
+const mcpAddress = { kind: 'copy', key: 'mcp-address', label: 'Copy MCP address', value: 'https://gateway.acme.example/mcp', keywords: ['mcp'], rights: [], icon: 'copy' } satisfies PaletteList['entries'][number];
+const gatewayList: PaletteList = { app: 'gateway', entries: [yourFleet, mcpAddress] };
 const accountList: PaletteList = {
   app: 'account',
   entries: [{ kind: 'page', key: 'rights', label: 'Your rights', path: '/rights', keywords: [], rights: [], icon: 'shield' }],
@@ -108,7 +104,7 @@ describe('the palette across apps (header-across-apps A1 to A3, M2)', () => {
   it('shows no entry needing fleet:read where the apps list does not show the account holds it', () => {
     // Given an account that may open only the gateway in its fleet, whose Your fleet needs fleet:read
     const list = anAppsList([{ app: 'gateway', url: GATEWAY_URL }]);
-    const needsRead: PaletteList = { app: 'gateway', entries: [{ ...gatewayList.entries[0]!, rights: ['fleet:read'] } as PaletteList['entries'][number], gatewayList.entries[1]!] };
+    const needsRead: PaletteList = { app: 'gateway', entries: [{ ...yourFleet, rights: ['fleet:read'] }, mcpAddress] };
     // When the account app's server filters it
     const groups = otherAppsPaletteOf({ list, fleetId, openApp: 'account', paletteLists: [{ origin: new URL(GATEWAY_URL).origin, list: needsRead }] });
     // Then only Copy MCP address shows
@@ -122,7 +118,7 @@ describe('the palette across apps (header-across-apps A1 to A3, M2)', () => {
       ...anAppsList(),
       fleets: [...anAppsList().fleets, { id: fleetB, name: 'Fleet B', argo: false, apps: [{ app: 'console', url: CONSOLE_URL }, { app: 'gateway', url: GATEWAY_B_URL }] }],
     };
-    const gatewayBList: PaletteList = { app: 'gateway', entries: [{ ...gatewayList.entries[1]!, value: 'https://gateway-b.acme.example/mcp' } as PaletteList['entries'][number]] };
+    const gatewayBList: PaletteList = { app: 'gateway', entries: [{ ...mcpAddress, value: 'https://gateway-b.acme.example/mcp' }] };
     const read: readonly ReadPaletteList[] = [...READ, { origin: new URL(GATEWAY_B_URL).origin, list: gatewayBList }];
 
     it("reads only the lists of the fleet in view's apps and those outside any fleet", () => {
@@ -153,7 +149,7 @@ describe('the palette across apps (header-across-apps A1 to A3, M2)', () => {
     'drops an entry whose destination leaves its app: %j',
     (path) => {
       // Given the gateway's list holds an entry leading off the gateway, as an unchecked list might
-      const offApp = { app: 'gateway', entries: [{ ...gatewayList.entries[0]!, path } as PaletteList['entries'][number]] } satisfies PaletteList;
+      const offApp = { app: 'gateway', entries: [{ ...yourFleet, path }] } satisfies PaletteList;
       // When the console's server filters it
       const groups = otherAppsPaletteOf({ list: anAppsList(), fleetId, openApp: 'console', paletteLists: [{ origin: new URL(GATEWAY_URL).origin, list: offApp }] });
       // Then the entry is not shown

@@ -138,6 +138,14 @@ export const AcrossApps: Story = {
 
 const copied: string[] = [];
 
+/** Waits for the search field and Copy MCP address, active, then focuses the field: Enter is the field's key. */
+async function focusOnCopyMcpAddress(): Promise<void> {
+  const input = await screen.findByTestId('command-palette-input');
+  await waitFor(() => expect(screen.getByText('Copy MCP address').closest('[role="option"]')).toHaveAttribute('aria-selected', 'true'));
+  input.focus();
+  await waitFor(() => expect(input).toHaveFocus());
+}
+
 /** Copy MCP address copies and says Copied, with no app opening (A3). */
 export const CopyMcpAddress: Story = {
   args: { groupsOf: () => OTHER_APPS.map(appPaletteGroupOf), initialQuery: 'mcp' },
@@ -147,8 +155,8 @@ export const CopyMcpAddress: Story = {
       return Promise.resolve();
     }),
   play: async ({ args }) => {
-    // Given the palette shows the gateway's Copy MCP address
-    await screen.findByText('Copy MCP address');
+    // Given the palette shows the gateway's Copy MCP address, the search field focused
+    await focusOnCopyMcpAddress();
     // When the person presses Enter
     await userEvent.keyboard('{Enter}');
     // Then the address is copied, the row says Copied, and nothing opens or closes
@@ -164,7 +172,7 @@ export const CopyFailed: Story = {
   args: { groupsOf: () => OTHER_APPS.map(appPaletteGroupOf), initialQuery: 'mcp' },
   beforeEach: () => withClipboard(() => Promise.reject(new Error('denied'))),
   play: async () => {
-    await screen.findByText('Copy MCP address');
+    await focusOnCopyMcpAddress();
     await userEvent.keyboard('{Enter}');
     await waitFor(() => expect(screen.getByTestId('command-palette')).toHaveTextContent('Couldn’t copy. Try again'));
   },

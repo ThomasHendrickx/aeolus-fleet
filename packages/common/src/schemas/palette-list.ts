@@ -17,8 +17,13 @@ export const PALETTE_LIST_PATH = '/.well-known/aeolus-palette.json';
 const PALETTE_LIST_ENTRIES_MAX = 100;
 const LABEL_MAX_LENGTH = 80;
 
-/** A path within the app, never a way off it: one leading slash, not two. */
-const appPathSchema = z.string().regex(/^\/(?!\/)/, 'must be a path within the app');
+/**
+ * A path within the app, never a way off it: one leading slash, then no
+ * slash or backslash, and no backslash, white space or control character
+ * anywhere, which a browser drops or reads as a slash (/\host, slash newline slash).
+ * The open app's server checks again that the destination stays on the app.
+ */
+const appPathSchema = z.string().max(2048).regex(/^\/(?![/\\])[^\\\s\p{Cc}]*$/u, 'must be a path within the app');
 
 const shownSchema = {
   key: z.string().min(1).max(LABEL_MAX_LENGTH),

@@ -1,5 +1,5 @@
 import { paletteListSchema, PALETTE_LIST_PATH, type FleetId, type PaletteList } from '@aeolus-fleet/common';
-import { otherAppsPaletteOf, type AppPaletteGroup } from '@aeolus-fleet/common/rules';
+import { otherAppsPaletteOf, paletteOriginsOf, type AppPaletteGroup, type ReadPaletteList } from '@aeolus-fleet/common/rules';
 import { cookies } from 'next/headers';
 
 import { appsListFor } from './apps-list';
@@ -8,9 +8,11 @@ import type { PluginAnswer } from './plugin-answer';
 /**
  * The other apps' palette entries for the console (docs/design/header-across-apps.md,
  * A2): the web app's server reads the palette list of each app the signed-in
- * account may open and keeps it for a while (header design H4), then keeps
- * only those apps, linked into the fleet in view. An app that does not answer
- * shows by its name alone.
+ * account may open from the fleet in view, and outside any fleet, and keeps it
+ * for a while by its origin (header design H4), never another fleet's apps.
+ * The shared rule keeps each list with the origin it was read from and only
+ * the entries the account may open. An app that does not answer shows by its
+ * name alone.
  */
 
 /** How long a list read is kept: an app's pages and actions change with its releases. */
@@ -43,7 +45,10 @@ export async function readPaletteAcrossApps({ fleetId }: { fleetId: FleetId }): 
     return { kind: 'answered', data: [] };
   }
   const now = Date.now();
-  const origins = [...new Set([...list.apps, ...list.fleets.flatMap((fleet) => fleet.apps)].filter((link) => link.app !== 'console').map((link) => new URL(link.url).origin))];
-  const paletteLists = (await Promise.all(origins.map((origin) => paletteListAt(origin, now)))).filter((held) => held !== undefined);
+  const origins = paletteOriginsOf({ list, fleetId, openApp: 'console' });
+  const paletteLists = (await Promise.all(origins.map(async (origin): Promise<ReadPaletteList | undefined> => {
+    const read = await paletteListAt(origin, now);
+    return read === undefined ? undefined : { origin, list: read };
+  }))).filter((read) => read !== undefined);
   return { kind: 'answered', data: otherAppsPaletteOf({ list, fleetId, openApp: 'console', paletteLists }) };
 }
