@@ -1,11 +1,14 @@
 'use client';
 
+import type { GuideStep } from '@aeolus-fleet/common';
+
 import { Button } from '@aeolus-fleet/ui';
-import { Popover, PopoverContent, PopoverDescription, PopoverTitle } from '../../../components/atoms/popover';
+import { Popover, PopoverContent, PopoverDescription, PopoverTitle } from '../../../../components/atoms/popover';
 
 export interface TourStepProps {
   title: string;
   text: string;
+  actions?: GuideStep['actions'];
   /** The step's place, counted from 0, and how many steps the guide has: "3 of 6". */
   index: number;
   total: number;
@@ -19,7 +22,7 @@ export interface TourStepProps {
   onFinish: () => void;
 }
 
-function StepBody({ index, total, onBack, onNext, onSkip, onFinish, children }: Omit<TourStepProps, 'anchor' | 'side' | 'title' | 'text'> & { children: React.ReactNode }) {
+function StepBody({ actions, index, total, onBack, onNext, onSkip, onFinish, children }: Omit<TourStepProps, 'anchor' | 'side' | 'title' | 'text'> & { children: React.ReactNode }) {
   const isFirst = index === 0;
   const isLast = index === total - 1;
   return (
@@ -28,6 +31,15 @@ function StepBody({ index, total, onBack, onNext, onSkip, onFinish, children }: 
         {index + 1} of {total}
       </p>
       {children}
+      {actions?.length ? (
+        <div className="mt-2 flex flex-wrap gap-2" data-testid="tour-step-actions">
+          {actions.map((action) => (
+            <Button key={action.href} size="sm" render={<a href={action.href}>{action.label}</a>} nativeButton={false} role="link">
+              {action.label}
+            </Button>
+          ))}
+        </div>
+      ) : null}
       <div className="mt-2 flex items-center gap-2">
         {isLast ? null : (
           <Button size="sm" variant="ghost" data-testid="tour-step-skip" onClick={onSkip}>

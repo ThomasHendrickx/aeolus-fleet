@@ -56,11 +56,11 @@ export const LastStepWithActions: Story = {
   args: {
     index: 5,
     title: 'Start your own fleet',
-    text: 'Run your own fleet: sign up or self-host with GitHub.',
-    ...{ actions: [
-      { label: 'Sign up', href: 'https://accounts.example.com/sign-up' },
+    text: 'Sign up for a hosted fleet, or run Aeolus yourself: it is open source. Crew your ships from Claude Code, Codex or any other harness, by hand or on your own machines.',
+    actions: [
+      { label: 'Sign up', href: 'https://account.aeolus-fleet.dev/sign-in' },
       { label: 'GitHub', href: 'https://github.com/ThomasHendrickx/aeolus-fleet' },
-    ] },
+    ],
   },
   play: async ({ canvasElement }) => {
     // Given the last step configured with the approved actions.
@@ -71,7 +71,7 @@ export const LastStepWithActions: Story = {
     const github = canvas.getByRole('link', { name: 'GitHub' });
 
     // Then both destinations and the existing navigation are available.
-    await expect(signUp).toHaveAttribute('href', 'https://accounts.example.com/sign-up');
+    await expect(signUp).toHaveAttribute('href', 'https://account.aeolus-fleet.dev/sign-in');
     await expect(github).toHaveAttribute('href', 'https://github.com/ThomasHendrickx/aeolus-fleet');
     await expect(canvas.getByRole('button', { name: 'Back' })).toBeVisible();
     await expect(canvas.getByRole('button', { name: 'Finish' })).toBeVisible();
