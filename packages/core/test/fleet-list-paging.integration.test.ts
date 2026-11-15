@@ -179,6 +179,111 @@ describe('the ships of a kind at 3,000 ships', () => {
   });
 });
 
+describe("the possible owners at 3,000 ships", () => {
+  /** Person ships seeded in among the agents; the first owns only itself, the rest are argo's. */
+  const PERSONS = 45;
+  const OWNER_PAGE = 20;
+  const OWNERS = ["operator", "person"] as const;
+
+  beforeAll(async () => {
+    // Names that sort in among the seeded agents' names, and ids of their own.
+    await core.prisma.$executeRaw`
+      INSERT INTO ships (id, fleet_id, name, type, created_at, kind, scopes, owner_ship_id)
+      SELECT 'shp_2' || lpad(i::text, 25, '0'), ${fleetId}, 'ship-' || (i * 60) || '-person', 'person', now(), 'person', '{}',
+        CASE WHEN i = 1 THEN 'shp_2' || lpad(i::text, 25, '0') ELSE (SELECT id FROM ships WHERE fleet_id = ${fleetId} AND kind = 'operator') END
+      FROM generate_series(1, ${PERSONS}::int) i`;
+    await core.prisma.$executeRaw`ANALYZE`;
+  });
+
+  afterAll(async () => {
+    await core.prisma
+      .$executeRaw`UPDATE ships SET owner_ship_id = NULL WHERE fleet_id = ${fleetId} AND kind = 'person'`;
+    await core.prisma
+      .$executeRaw`DELETE FROM ships WHERE fleet_id = ${fleetId} AND kind = 'person'`;
+    await core.prisma.$executeRaw`ANALYZE`;
+  });
+
+  /** Every owner of the kinds asked, by cursor in pages of 20, . */
+  async function owners(
+    shipKind: ("operator" | "person")[],
+  ): Promise<{ pages: number; ships: { id: ShipId }[] }> {
+    const ships: { id: ShipId }[] = [];
+    let pages = 0;
+    let cursor: ShipPosition | undefined;
+    do {
+      const page = await core.useCases.listFleet(argo, {
+        limit: OWNER_PAGE,
+        shipKind,
+        cursor,
+      });
+      pages += 1;
+      ships.push(...page.ships.map(({ id }) => ({ id })));
+      cursor = page.nextCursor ?? undefined;
+    } while (cursor !== undefined);
+    return { pages, ships };
+  }
+
+  it("pages argo and every person once, the person who owns only themselves too, by cursor over more than one page", async () => {
+    const found = await owners([...OWNERS]);
+    const expected = await core.prisma.ship.findMany({
+      where: { fleetId, retiredAt: null, kind: { in: [...OWNERS] } },
+      select: { id: true },
+    });
+
+    expect([
+      found.pages > 1,
+      found.ships.length,
+      new Set(found.ships.map(({ id }) => id)).size,
+      new Set(found.ships.map(({ id }) => id)),
+    ]).toEqual([
+      true,
+      PERSONS + 1,
+      PERSONS + 1,
+      new Set(expected.map(({ id }) => id)),
+    ]);
+    expect(found.ships.map(({ id }) => id)).toContain(
+      idSchema("ship").parse(`shp_2${"1".padStart(25, "0")}`),
+    );
+  });
+
+  it("pages the operator and the persons each by their own kind, the two together being the owners", async () => {
+    const operators = await owners(["operator"]);
+    const persons = await owners(["person"]);
+    const kindOf = async (found: { id: ShipId }[]): Promise<string[]> => [
+      ...new Set(
+        (
+          await core.prisma.ship.findMany({
+            where: { fleetId, id: { in: found.map(({ id }) => id) } },
+            select: { kind: true },
+          })
+        ).map(({ kind }) => kind),
+      ),
+    ];
+
+    expect([
+      await kindOf(operators.ships),
+      operators.ships.length,
+      await kindOf(persons.ships),
+      persons.pages > 1,
+      new Set(persons.ships.map(({ id }) => id)).size,
+    ]).toEqual([["operator"], 1, ["person"], true, PERSONS]);
+  });
+
+  it("reads the owners through the kind index, not every ship", async () => {
+    const plan = await planOfPage({
+      limit: 501,
+      filter: { ...ACTIVE, shipKind: [...OWNERS] },
+      reach: { kind: "every" },
+    });
+
+    // argo and the persons alone: the 3,000 agents are not read.
+    expect([
+      rowsOfIndex(plan, "ships_kind_listing_idx"),
+      rowsOfIndex(plan, "ships_listing_idx"),
+    ]).toEqual([PERSONS + 1, 0]);
+  });
+});
+
 describe("the fleet's ship types at 3,000 ships", () => {
   it('answers each type once, reading the ships table alone, no read per ship', async () => {
     const [row] = await core.prisma.$queryRaw<{ 'QUERY PLAN': unknown }[]>(
