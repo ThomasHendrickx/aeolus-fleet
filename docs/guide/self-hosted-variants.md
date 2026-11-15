@@ -17,17 +17,17 @@ flowchart LR
 | --- | --- | --- |
 | [Quick start](https://aeolus-fleet.dev/quick-start) | Sign up | [Self-host](self-host.md) creates your fleet |
 | [Commission and crew a ship](commission-and-crew.md) | The crew line's address | It carries your `PUBLIC_URL` |
-| [Commission and crew a ship](commission-and-crew.md) | The Owner field | It needs a person ship, which your fleet cannot have yet |
+| [Commission and crew a ship](commission-and-crew.md) | The Owner field | It needs a person ship, which the sign-in service gives your fleet |
 | [Commission and crew a ship](commission-and-crew.md), [The console](console.md) | Your plan's limits | None |
 | [Crew from Claude Code](claude-code.md), [Crew from Codex](codex.md) | Reaching the fleet | The session must reach your `PUBLIC_URL` |
-| [The console](console.md) | Signing in, the account menu | You sign in as `argo` |
+| [The console](console.md) | Signing in, the account menu | You sign in as `argo`, or as a person once the sign-in service runs |
 | [The console](console.md) | Squadrons, Trierarchs and Usage | They show once you run and connect each part |
-| [Troubleshooting](troubleshooting.md) | When you sign in to the console | Self-host's own sign-in table |
-| [Answer your agents](answer-your-agents.md), [Bridge and the app](https://github.com/ThomasHendrickx/aeolus-fleet-gateway/blob/main/docs/guide/bridge-and-the-app.md) | Bridge, a chat, Slack, push | They need the gateway, and a sign-in you cannot run yet |
+| [Troubleshooting](troubleshooting.md) | When you sign in to the console | Self-host's own sign-in table, and the one for a person's sign-in |
+| [Answer your agents](answer-your-agents.md), [Bridge and the app](https://github.com/ThomasHendrickx/aeolus-fleet-gateway/blob/main/docs/guide/bridge-and-the-app.md) | Bridge, a chat, Slack, push | They need the gateway. Bridge also needs the person's sign-in; a chat, Slack and push are not available yet |
 | [Setting up a computer](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/blob/main/docs/guide/setup.md), [The trierarch plugin](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch-plugin/blob/main/docs/guide/trierarch-plugin.md) | Join a machine, trusted repositories, a quiet computer | You run the trierarch plugin and set them |
 | [Squadrons](https://github.com/ThomasHendrickx/aeolus-fleet-squadrons/blob/main/docs/guide/squadrons.md), [Run a squadron](https://github.com/ThomasHendrickx/aeolus-fleet-squadrons/blob/main/docs/guide/run-a-squadron.md) | Switched on for your fleet, a cap on members | You run squadrons and set its limits |
 
-One setting runs through all of them. The fleet server, squadrons, the trierarch plugin and the [gateway](words.md#gateway) each have an `INSTALLATION_TOKEN`, which only a hosting service sets. Leave it unset on each: then each part serves your fleet with no switch to turn on.
+One setting runs through them. The fleet server, squadrons, the trierarch plugin and the [gateway](words.md#gateway) each have an `INSTALLATION_TOKEN`, which a hosting service sets. Leave it unset on squadrons and the trierarch plugin, and each serves your fleet with no switch to turn on. Set it, one value, on the fleet server and the gateway only when you run the sign-in service: [Self-host: sign a person in](self-host-sign-in.md) says how, and how to switch the gateway on for your fleet.
 
 ## Quick start
 
@@ -49,9 +49,9 @@ Back to [Quick start](https://aeolus-fleet.dev/quick-start).
 
 **The hosted step.** Signed in with your own [account](words.md#account), you own what you commission and see no Owner field. Signed in as argo, you pick the [owner](words.md#owner), a [person ship](words.md#person).
 
-**On your own fleet.** You always sign in as argo, so the **Owner** field is always there, and it is required: a ship argo commissions in the console is owned by the person ship it names, never by argo. A person ship comes from a person's account, and nobody signs in to your own fleet with an account yet: the account sign-in service is not one you can run, as [Self-host the gateway and app](https://github.com/ThomasHendrickx/aeolus-fleet-gateway/blob/main/docs/guide/self-host-the-gateway.md) says. So the field says **No person ship yet**, **Commission ship** stays off, and the console offers no way to commission a person ship.
+**On your own fleet.** Signed in as argo, the **Owner** field is there and required: a ship argo commissions in the console is owned by the person ship it names, never by argo. Without the sign-in service your fleet has no person ship, so the field says **No person ship yet** and **Commission ship** stays off. Run the sign-in service and set a person up, as [Self-host: sign a person in](self-host-sign-in.md) shows: the field then lists that person's ship. Signed in as that person, you see no Owner field and own what you commission, as on the hosted fleet.
 
-There is no step to use instead yet. The ships your plugins commission are not held up by it: a computer still joins through the trierarch plugin, as below.
+The ships your plugins commission are not held up by it: a computer still joins through the trierarch plugin, as below.
 
 ### Your plan's limits
 
@@ -82,7 +82,7 @@ Back to [Crew from Claude Code](claude-code.md) or [Crew from Codex](codex.md).
 
 **The hosted step.** You sign in with your account through the hosting service. The account menu offers **Your account**, with your plan's limits, and you may sign in as argo from there.
 
-**Instead.** You sign in as argo: with the link `npx aeolus-core fleet:init` or `npx aeolus-core sign-in` prints, then with the email and password you set under **Settings**, **Sign-in**. [Self-host, step 6](self-host.md#6-sign-in-as-the-operator) walks through it. The account menu shows who you are signed in as, the theme and **Sign out**; with no plan, it offers no **Your account**.
+**Instead.** You sign in as argo: with the link `npx aeolus-core fleet:init` or `npx aeolus-core sign-in` prints, then with the email and password you set under **Settings**, **Sign-in**. [Self-host, step 6](self-host.md#6-sign-in-as-the-operator) walks through it. With the sign-in service running, a person signs in as themselves instead, as [Self-host: sign a person in](self-host-sign-in.md) shows. The account menu shows who you are signed in as, the theme and **Sign out**; with no plan, it offers no **Your account**.
 
 ### Squadrons, Trierarchs and Usage
 
@@ -101,7 +101,7 @@ Back to [The console](console.md).
 
 **The hosted step.** The table [When you sign in to the console](troubleshooting.md#when-you-sign-in-to-the-console) explains what the account sign-in says: an account with no rights, the sign-in service out of reach, not allowed as argo.
 
-**Instead.** None of those apply: you sign in as argo, with a link or a password. Use Self-host's own table, [If something does not work](self-host.md#if-something-does-not-work): a link that expired or was used, sign-in that needs https, a forgotten password.
+**Instead.** As argo, use Self-host's own table, [If something does not work](self-host.md#if-something-does-not-work): a link that expired or was used, sign-in that needs https, a forgotten password. For a person, the sign-in service answers what the hosted one does: no rights in the fleet, and a disabled account that looks like a wrong password. [Self-host: sign a person in](self-host-sign-in.md#if-something-does-not-work) lists them.
 
 Back to [Troubleshooting](troubleshooting.md).
 
@@ -109,7 +109,7 @@ Back to [Troubleshooting](troubleshooting.md).
 
 **The hosted step.** A question to your person ship shows in [Bridge](words.md#bridge) at the hosted gateway's address, in a chat signed in to your fleet, in Slack, and wakes you by web push or email. A question to argo lands in the console's operator inbox.
 
-**On your own fleet.** The operator inbox works as written: a question to argo lands there, and you answer it in the console. Bridge, a chat, Slack and push are served by the gateway, which runs beside your server with a database of its own, at its own address. Each also needs the person to sign in with an account, which a self-hosted fleet cannot offer yet. [Self-host the gateway and app](https://github.com/ThomasHendrickx/aeolus-fleet-gateway/blob/main/docs/guide/self-host-the-gateway.md) runs the gateway and says what of it works on your own fleet today.
+**On your own fleet.** The operator inbox works as written: a question to argo lands there, and you answer it in the console. Bridge, a chat, Slack and push are served by the gateway, which runs beside your server with a database of its own, at its own address. Bridge also needs the person to sign in with an account, which the sign-in service gives your fleet: [Self-host: sign a person in](self-host-sign-in.md) sets it up and answers a question in Bridge. A chat, Slack, web push and email wakes are not available on your own fleet yet.
 
 Back to [Answer your agents](answer-your-agents.md) or [Bridge and the app](https://github.com/ThomasHendrickx/aeolus-fleet-gateway/blob/main/docs/guide/bridge-and-the-app.md).
 
@@ -165,11 +165,11 @@ Back to [Squadrons](https://github.com/ThomasHendrickx/aeolus-fleet-squadrons/bl
 | What you see | What to do |
 | --- | --- |
 | A crew line cannot reach the fleet | `PUBLIC_URL` is an address that session cannot reach. Set it to the address sessions use, restart the server, and get a new starting prompt. |
-| Commission ship stays off, and Owner says **No person ship yet** | Your fleet has no person ship, and cannot have one yet. See [The Owner field](#the-owner-field). |
+| Commission ship stays off, and Owner says **No person ship yet** | Your fleet has no person ship. Set a person up, as [Self-host: sign a person in](self-host-sign-in.md) shows. |
 | Squadrons, Trierarchs or Usage is missing from the console | The console has no address for that part, or it is not connected. Start the console with its address, then connect it under **Settings**. |
 | A computer's setup line points at the wrong address | The trierarch plugin's `FLEET_URL` is not one that computer reaches. Set it, restart the plugin, and ask for a new setup line on **Trierarchs**. |
 | A crew request is never placed, naming a repository | Add the repository to a computer with `aeolus-trierarch add`, or name it in the plugin's `TRUSTED_REPOSITORIES`. |
-| Nobody can sign in to Bridge, and no chat connects | The account sign-in service cannot be run on your own fleet yet. See [Self-host the gateway and app](https://github.com/ThomasHendrickx/aeolus-fleet-gateway/blob/main/docs/guide/self-host-the-gateway.md). |
+| Nobody can sign in to Bridge | The sign-in service is not set, or the gateway is not switched on and connected. See [Self-host: sign a person in](self-host-sign-in.md#if-something-does-not-work). No chat connects: that is not available yet. |
 
 ## The code
 
