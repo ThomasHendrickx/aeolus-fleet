@@ -14,6 +14,7 @@ import {
   PASSWORD_TOO_LONG,
   PASSWORD_TOO_SHORT,
 } from '../rules/sign-in.js';
+import { THEMES, type Theme } from '../rules/theme.js';
 
 /** One @ with something on each side, and no whitespace. */
 export const OPERATOR_EMAIL_PATTERN = /^[^\s@]+@[^\s@]+$/;
@@ -42,10 +43,9 @@ const SIGN_IN_TICKET_MAX_LENGTH = 256;
  */
 export const redeemSignInTicketInputSchema = z.strictObject({ ticket: z.string().min(1).max(SIGN_IN_TICKET_MAX_LENGTH) });
 
-/** The console's theme, per operator account: Light, Dark, or System (the browser's setting), the default. */
-export const THEMES = ['light', 'dark', 'system'] as const;
+/** The theme, one per browser (rules/theme.ts). */
+export { THEMES, type Theme };
 export const themeSchema = z.enum(THEMES);
-export type Theme = z.infer<typeof themeSchema>;
 
 /** ISO 8601 in UTC. */
 const isoTime = z.iso.datetime();

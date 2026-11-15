@@ -19,3 +19,4 @@ export * from './read-reach.js';
 export * from './ship-handle.js';
 export * from './ship-filter.js';
 export * from './sign-in.js';
+export * from './theme.js';
