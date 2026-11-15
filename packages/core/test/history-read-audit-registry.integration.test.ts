@@ -199,10 +199,9 @@ describe('the health reads on a fleet with 120,000 messages', () => {
 });
 
 describe('the fleet delete on a fleet with 120,000 messages', () => {
-  // Scans the fleet's history (#1856): asserted until it is fixed.
-  it('installation.fleets.delete scans the fleet\'s history by design', async () => {
+  it('installation.fleets.delete touches no history table: the request only marks the fleet', async () => {
     // Rolled back: the fleet and its history stay for the other tests.
-    const scans = await scansOf(({ client }) => rolledBack(client, (tx) => createPrismaFleetRepository(tx).delete(scale.fleetId)));
-    expect(scans).toEqual(['events', 'deliveries', 'messages', 'messages']);
+    const plans = await plansOf(core, ({ client }) => rolledBack(client, (tx) => createPrismaFleetRepository(tx).delete(scale.fleetId)));
+    expect(plans.map(({ statement }) => statement)).toEqual([]);
   }, 120_000);
 });
