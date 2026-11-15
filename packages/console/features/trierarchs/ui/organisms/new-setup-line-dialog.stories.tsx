@@ -46,7 +46,10 @@ const REASON = 'This call needs the fleet:manage or crew:run scope.';
 export const Failed: Story = {
   args: { error: { reason: REASON, outcome: 'unchanged' } },
   play: async () => {
-    await expect(await screen.findByText('Couldn’t get a new setup line')).toBeVisible();
+    // The dialog fades in: wait until it shows rather than check it at once.
+    await waitFor(async () => {
+      await expect(await screen.findByText('Couldn’t get a new setup line')).toBeVisible();
+    });
     await expect(screen.getByText(`${REASON} Nothing changed.`)).toBeVisible();
   },
 };
@@ -55,7 +58,10 @@ export const Failed: Story = {
 export const FailedAfterRelease: Story = {
   args: { error: { reason: REASON, outcome: 'released' } },
   play: async () => {
-    await expect(await screen.findByText('Couldn’t get a new setup line')).toBeVisible();
+    // The dialog fades in: wait until it shows rather than check it at once.
+    await waitFor(async () => {
+      await expect(await screen.findByText('Couldn’t get a new setup line')).toBeVisible();
+    });
     await expect(
       screen.getByText(`${REASON} trierarch-mac was released, but has no new setup line yet: its old line stopped working and its trierarch lost its crew. Get a new setup line again, here or on its card, and run it on the machine.`),
     ).toBeVisible();
@@ -67,7 +73,10 @@ export const FailedAfterRelease: Story = {
 export const FailedMaybeReleased: Story = {
   args: { error: { reason: REASON, outcome: 'unsure' } },
   play: async () => {
-    await expect(await screen.findByText('Couldn’t get a new setup line')).toBeVisible();
+    // The dialog fades in: wait until it shows rather than check it at once.
+    await waitFor(async () => {
+      await expect(await screen.findByText('Couldn’t get a new setup line')).toBeVisible();
+    });
     await expect(
       screen.getByText(`${REASON} trierarch-mac may have been released: if so, its old line stopped working and its trierarch lost its crew. Get a new setup line again, here or on its card, and run it on the machine.`),
     ).toBeVisible();

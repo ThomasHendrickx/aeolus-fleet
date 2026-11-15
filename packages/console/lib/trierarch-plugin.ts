@@ -14,7 +14,8 @@ import { renew } from './renew-account-token';
 import { CATALOGUE_WAIT_MS, renewUntilHolding } from './renew-until-holding';
 import { useTRPC } from './trpc';
 import { connectTrierarchPlugin, joinMachine, newSetupLine, setModelEnabled } from './trierarch-plugin-actions';
-import type { SettingsCheck } from './trierarch-plugin-schemas';
+import type { Machine, NewSetupLine, SettingsCheck } from './trierarch-plugin-schemas';
+import { NewSetupLineError, newSetupLineOutcomeOf } from './new-setup-line-outcome';
 
 /**
  * The trierarch plugin as the browser reads it (decision 0030): its
@@ -146,16 +147,36 @@ export function useJoinMachine() {
   });
 }
 
+/** Whether the machine is crewed now, read afresh; undefined when the read fails or no longer lists it. */
+async function isCrewedNow(shipId: string): Promise<boolean | undefined> {
+  try {
+    const machine = (await fetchConsoleRead({ read: 'machines' })).find((listed) => listed.shipId === shipId);
+    return machine === undefined ? undefined : machine.status === 'crewed';
+  } catch {
+    return undefined;
+  }
+}
+
 /**
  * A machine's new setup line (#1239): its old line stops working, and a
  * trierarch running with it loses its crew. The answer is shown once, kept
- * only in this browser's memory while the dialog is open.
+ * only in this browser's memory while the dialog is open. A refusal throws a
+ * NewSetupLineError: a crewed machine is read again, since the plugin may
+ * have released it before the new line failed (trierarch#260).
  */
 export function useNewSetupLine() {
   const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (shipId: string) => dataOf(await newSetupLine(shipId)),
-    onSuccess: async () => {
+  return useMutation<NewSetupLine, NewSetupLineError, Pick<Machine, 'shipId' | 'status'>>({
+    mutationFn: async (machine) => {
+      const answer = await newSetupLine(machine.shipId);
+      if (answer.kind === 'answered') {
+        return answer.data;
+      }
+      const wasCrewed = machine.status === 'crewed';
+      const outcome = newSetupLineOutcomeOf({ wasCrewed, isCrewedNow: wasCrewed ? await isCrewedNow(machine.shipId) : undefined });
+      throw new NewSetupLineError(answer.message, outcome);
+    },
+    onSettled: async () => {
       await queryClient.invalidateQueries({ queryKey: MACHINES_KEY });
     },
   });
