@@ -49,7 +49,7 @@ interface CommissionDialogProps {
   /**
    * With the trierarch plugin connected: what the machines offer, the fleet's
    * squadrons, and the plugin's check of the settings as the form makes them;
-   * Request a crew then starts on. Without it, Request a crew starts off and
+   * Request a crew starts on when a computer can crew. Without it, it starts off and
    * puts the ship on Needs crew, to crew by hand.
    */
   crewRequest?: {
@@ -104,9 +104,9 @@ function CommissionDialogBody({ types, taken, onTypedChange, isPending: isReques
   const ownerChoices = owner?.choices === undefined && pickedOwner == null ? undefined : [...(owner?.choices ?? []), ...(pickedOwner == null || owner?.choices?.some((choice) => choice.id === pickedOwner.id) === true ? [] : [pickedOwner])];
   const [grantedScopes, setGrantedScopes] = useState<readonly string[]>([]);
   // The first available offers set the default; an explicit choice stays switchable and is kept.
-  const [pickedCrewRequest, setIsCrewRequested] = useState<boolean>();
+  const [isCrewRequestPicked, setIsCrewRequested] = useState<boolean>();
   const canComputerCrew = (crewRequest?.offers.length ?? 0) > 0 && crewRequest?.check?.kind !== 'noRoom';
-  const isCrewRequested = pickedCrewRequest ?? canComputerCrew;
+  const isCrewRequested = isCrewRequestPicked ?? canComputerCrew;
   const [isExtraOpen, setIsExtraOpen] = useState(false);
   const [permissionQuery, setPermissionQuery] = useState('');
   const [editedCrewValues, setCrewValues] = useState<CrewSettingsValues>();

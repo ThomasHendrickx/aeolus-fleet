@@ -32,7 +32,7 @@ const meta = {
     onOpenChange: () => undefined,
     isPending: false,
     scopeGroups: [FLEET_ACCESS],
-    onSubmit: () => undefined,
+    onSubmit: (): void | Promise<void> => undefined,
   },
   decorators: [
     (Story) => (
