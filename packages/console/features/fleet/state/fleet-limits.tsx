@@ -1,5 +1,6 @@
 'use client';
 
+import { useAccess } from '../../../lib/access';
 import { useFleetLimits } from '../../../lib/fleet-limits';
 import { useHostedAccountUrl } from '../../../lib/hosted-account';
 import { hasLimits, retentionLine } from '../../../lib/limits';
@@ -11,12 +12,13 @@ import { LimitMeter } from '../ui/molecules/limit-meter';
  * it resets, as meters; a limit not set shows No limit beside one that is.
  * Under the meters, how long the fleet keeps its finished history, or that it
  * keeps it for good. View limits opens the hosted account when the console
- * knows it. With no limit and no retention at all, as on a self-hosted
- * installation, nothing shows.
+ * knows it and the session is not a viewer. With no limit and no retention
+ * at all, as on a self-hosted installation, nothing shows.
  */
 export function FleetLimits() {
   const limits = useFleetLimits().data;
   const accountUrl = useHostedAccountUrl();
+  const { isViewer } = useAccess();
   if (!hasLimits(limits)) {
     return null;
   }
@@ -26,7 +28,7 @@ export function FleetLimits() {
         <h2 id="overview-limits-title" className="text-body font-semibold">
           Limits
         </h2>
-        {accountUrl === undefined ? null : (
+        {accountUrl === undefined || isViewer ? null : (
           <a href={accountUrl} data-testid="overview-limits-view" className="text-meta font-medium text-primary underline underline-offset-2">
             View limits
           </a>
