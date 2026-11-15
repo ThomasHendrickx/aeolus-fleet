@@ -47,6 +47,7 @@ import type { Lease } from '../../src/domain/registry/lease.js';
 import type {
   FleetListing,
   ShipFacts,
+  FleetRemoval,
   FleetRepository,
   InFlightDeliveries,
   FleetHealth,
@@ -216,6 +217,8 @@ export interface InMemoryState {
   healthSnapshotLocks: FleetId[];
   /** Each fleet's last pruning pass and where its finished history begins: the columns on its fleets row (decision 0066). */
   fleetPrunes: { fleetId: FleetId; prunedAt: Date | null; keptFrom: Date | null }[];
+  /** The fleets marked deleted whose removal is not finished (decision 0020). */
+  deletedFleets: { fleetId: FleetId; deletedAt: Date }[];
   /** How far pruning went in each exchange, one row per pair of ships, the lower id first (docs/design/exchange-history). */
   prunedExchanges: { fleetId: FleetId; shipId: ShipId; otherShipId: ShipId; prunedUpTo: Date }[];
   /** The fleets whose prune lock another server holds, as a test sets it. */
@@ -284,6 +287,7 @@ export interface InMemoryTx {
   installationSettings: InstallationSettingsRepository;
   healthSnapshots: HealthSnapshotWriter;
   historyPruner: HistoryPruner;
+  fleetRemoval: FleetRemoval;
   sealings: FleetSealingRepository;
   featureFlags: FeatureFlagRepository;
 }
@@ -474,6 +478,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     healthSnapshots: [],
     healthSnapshotLocks: [],
     fleetPrunes: [],
+    deletedFleets: [],
     prunedExchanges: [],
     historyPruneLocks: [],
     lockedMessages: [],
@@ -519,6 +524,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     return held && copyOfLabel(held);
   };
 
+  const isDeleted = (fleetId: FleetId): boolean => state.deletedFleets.some((held) => held.fleetId === fleetId);
   const ship = (fleetId: FleetId, shipId: ShipId): Ship | undefined =>
     state.ships.find((candidate) => candidate.fleetId === fleetId && candidate.id === shipId);
 
@@ -683,8 +689,8 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     historyPruner: createInMemoryHistoryPruner(state),
     fleets: {
       lockInitialisation: () => Promise.resolve(),
-      count: () => Promise.resolve(state.fleets.length),
-      list: () => Promise.resolve(state.fleets.map((fleet) => ({ ...fleet }))),
+      count: () => Promise.resolve(state.fleets.filter((fleet) => !isDeleted(fleet.id)).length),
+      list: () => Promise.resolve(state.fleets.filter((fleet) => !isDeleted(fleet.id)).map((fleet) => ({ ...fleet }))),
       create: (fleet) => {
         state.fleets.push({ ...fleet });
         return Promise.resolve();
@@ -705,14 +711,44 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         return Promise.resolve();
       },
       find: (fleetId) => {
-        const fleet = state.fleets.find((held) => held.id === fleetId);
+        const fleet = state.fleets.find((held) => held.id === fleetId && !isDeleted(held.id));
         return Promise.resolve(fleet && { ...fleet });
       },
       findForUpdate: (fleetId) => {
-        const fleet = state.fleets.find((held) => held.id === fleetId);
+        const fleet = state.fleets.find((held) => held.id === fleetId && !isDeleted(held.id));
         return Promise.resolve(fleet && { ...fleet });
       },
-      delete: (fleetId) => {
+      markDeleted: (fleetId, at) => {
+        state.deletedFleets.push({ fleetId, deletedAt: at });
+        // What signs in to the fleet ends with the mark, as the Postgres adapter does.
+        for (const table of ['credentials', 'operatorAccounts', 'consoleSessions', 'signInTickets', 'noticeDismissals', 'guideProgress'] as const) {
+          const rows: { fleetId: FleetId }[] = state[table];
+          rows.splice(0, rows.length, ...rows.filter((row) => row.fleetId !== fleetId));
+        }
+        return Promise.resolve();
+      },
+      listDeleted: () =>
+        Promise.resolve(
+          state.deletedFleets
+            .toSorted((first, second) => first.deletedAt.getTime() - second.deletedAt.getTime())
+            .flatMap(({ fleetId }) => state.fleets.filter((fleet) => fleet.id === fleetId).map((fleet) => ({ ...fleet }))),
+        ),
+    },
+    fleetRemoval: {
+      tryLock: () => Promise.resolve(true),
+      // The history tables, a batch of the first with rows left; the rest in one go.
+      removeHistoryBatch: (fleetId, limit) => {
+        for (const table of ['events', 'overdueDeliveries', 'deliveries', 'messages'] as const) {
+          const rows: { fleetId: FleetId }[] = state[table];
+          const doomed = rows.filter((row) => row.fleetId === fleetId).slice(0, limit);
+          if (doomed.length > 0) {
+            rows.splice(0, rows.length, ...rows.filter((row) => !doomed.includes(row)));
+            return Promise.resolve('more');
+          }
+        }
+        return Promise.resolve('empty');
+      },
+      removeRest: (fleetId) => {
         // Every table that belongs to a fleet, as the Postgres adapter deletes them.
         state.fleets.splice(0, state.fleets.length, ...state.fleets.filter((fleet) => fleet.id !== fleetId));
         for (const table of FLEET_TABLES) {
@@ -2775,6 +2811,7 @@ const FLEET_TABLES = [
   'guideProgress',
   'fleetLimitSettings',
   'fleetPrunes',
+  'deletedFleets',
   'prunedExchanges',
 ] as const satisfies readonly Exclude<keyof InMemoryState, 'fleets' | 'installationRequests' | 'installationSettings' | 'installationNotices' | 'installationGuide'>[];
 
@@ -2820,6 +2857,7 @@ const TABLES = [
   'installationSettings',
   'fleetLimitSettings',
   'fleetPrunes',
+  'deletedFleets',
   'prunedExchanges',
   'notices',
 ] as const satisfies readonly (keyof InMemoryState)[];

@@ -11,6 +11,7 @@ import { createPrismaExchangeRollups } from '../src/adapters/prisma/exchange-rol
 import { createPrismaHealthRecords } from '../src/adapters/prisma/health.js';
 import { createPrismaHealthSnapshots } from '../src/adapters/prisma/health-snapshots.js';
 import { createPrismaInstallationFleets } from '../src/adapters/prisma/installation.js';
+import { createPrismaFleetRemoval } from '../src/adapters/prisma/fleet-removal.js';
 import { createPrismaFleetListing, createPrismaFleetRepository, createPrismaInFlightDeliveries, createPrismaShipRepository } from '../src/adapters/prisma/registry.js';
 import { messageWindow } from '../src/domain/registry/installation-fleet.js';
 import type { ReadReach } from '../src/domain/registry/read-reach.js';
@@ -201,7 +202,23 @@ describe('the health reads on a fleet with 120,000 messages', () => {
 describe('the fleet delete on a fleet with 120,000 messages', () => {
   it('installation.fleets.delete touches no history table: the request only marks the fleet', async () => {
     // Rolled back: the fleet and its history stay for the other tests.
-    const plans = await plansOf(core, ({ client }) => rolledBack(client, (tx) => createPrismaFleetRepository(tx).delete(scale.fleetId)));
+    const plans = await plansOf(core, ({ client }) => rolledBack(client, (tx) => createPrismaFleetRepository(tx).markDeleted(scale.fleetId, new Date())));
     expect(plans.map(({ statement }) => statement)).toEqual([]);
   }, 120_000);
+
+  it("the removal pass takes the fleet's history in batches of 500, each through an index, children first", async () => {
+    // Rolled back: the fleet and its history stay for the other tests.
+    const plans = await plansOf(core, ({ client }) =>
+      rolledBack(client, async (tx) => {
+        const removal = createPrismaFleetRemoval(tx);
+        while ((await removal.removeHistoryBatch(scale.fleetId, 500)) === 'more') {
+          // One batch each, until the history is gone.
+        }
+      }),
+    );
+    // Every history table is among the statements, so none went unchecked.
+    const statements = plans.map(({ statement }) => statement).join('\n');
+    expect([/DELETE FROM events/, /DELETE FROM deliveries/, /DELETE FROM messages/].map((table) => table.test(statements))).toEqual([true, true, true]);
+    expect(scansIn(plans)).toEqual([]);
+  }, 600_000);
 });

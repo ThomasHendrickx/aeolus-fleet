@@ -221,6 +221,7 @@ import { createReadStuckHistory, type ReadStuckHistory } from './domain/shared/r
 import { createReadStuck, type ReadStuck } from './domain/shared/read-stuck.js';
 import { createReadStuckSummary, type ReadStuckSummary } from './domain/shared/read-stuck-summary.js';
 import { createCloseHealthSnapshots, type CloseHealthSnapshots } from './domain/shared/close-health-snapshots.js';
+import { createRemoveDeletedFleets, type RemoveDeletedFleets } from './domain/registry/remove-deleted-fleets.js';
 import { createPruneHistory, type PruneHistory } from './domain/shared/prune-history.js';
 import { createReadShipMessages, type ReadShipMessages } from './domain/shared/read-ship-messages.js';
 import { createReadShipTimeline, type ReadShipTimeline } from './domain/shared/read-ship-timeline.js';
@@ -334,6 +335,7 @@ export interface UseCases {
   closeHealthSnapshots: CloseHealthSnapshots;
   /** One pruning pass of every fleet with a retention (decision 0066); core runs it, never the API. */
   pruneHistory: PruneHistory;
+  removeDeletedFleets: RemoveDeletedFleets;
   sealStoredPayloads: SealStoredPayloads;
   /** Makes a new data key current in every sealed fleet whose current one is 30 days old (decision 0068); core runs it, never the API. */
   rotateDataKeys: RotateDataKeys;
@@ -623,6 +625,7 @@ export function createUseCases(options: {
     resumeSchedule: createResumeSchedule({ uow, clock, ids }),
     sendDueSchedules: createSendDueSchedules({ fleets: createPrismaFleetRepository(prisma), scheduleAttempts: createPrismaScheduleAttempts(prisma), uow, clock, ids, hasher: sha256Hasher, sealing }),
     closeHealthSnapshots: createCloseHealthSnapshots({ fleets: createPrismaFleetRepository(prisma), uow: createPrismaSnapshotUnitOfWork(prisma), clock }),
+    removeDeletedFleets: createRemoveDeletedFleets({ fleets: createPrismaFleetRepository(prisma), uow: bulkUow, clock }),
     pruneHistory: createPruneHistory({ fleets: createPrismaFleetRepository(prisma), uow: bulkUow, clock, ids }),
     sealStoredPayloads: createSealStoredPayloads({ sealings, uow, clock, ids, hasher: sha256Hasher, sealing }),
     rotateDataKeys: createRotateDataKeys({ sealings, uow, clock, ids, dataKeys: sealing.dataKeys }),

@@ -6,7 +6,7 @@ import type { ScheduleTimer } from './schedule-timer.js';
 import type { UseCases } from './wiring.js';
 
 type MaintenanceUseCases = Pick<UseCases,
-  'tellOverdueDeliveries' | 'closeHealthSnapshots' | 'pruneHistory' | 'sealStoredPayloads' | 'rotateDataKeys' | 'sendDueSchedules'
+  'tellOverdueDeliveries' | 'closeHealthSnapshots' | 'removeDeletedFleets' | 'pruneHistory' | 'sealStoredPayloads' | 'rotateDataKeys' | 'sendDueSchedules'
 >;
 
 /** The app's periodic maintenance, with the same task boundaries in memory and in production. */
@@ -19,7 +19,7 @@ export function startMaintenancePass(options: {
 }): RepeatingPass {
   const { useCases, scheduleTimer, scheduleSendFailed } = options;
   // One pass, every 30 seconds: the clocks, then the stuck snapshot's close,
-  // then the pruning of finished history (decision 0066), then the sealing of
+  // then the removal of deleted fleets (decision 0020), then the pruning of finished history (decision 0066), then the sealing of
   // what a sealing fleet stored plain and the data keys by age (decision
   // 0068), then whatever
   // schedule is due that a lost timer missed (decision 0062, S14).
@@ -30,6 +30,9 @@ export function startMaintenancePass(options: {
         tellOverdueDeliveries: () => useCases.tellOverdueDeliveries(),
         closeHealthSnapshots: () => useCases.closeHealthSnapshots((fleetId, error) => {
           options.log.warn({ ...failureForLog(error), fleetId }, 'the stuck snapshot failed to close an hour for a fleet: closing it again next pass');
+        }),
+        removeDeletedFleets: () => useCases.removeDeletedFleets((fleetId, error) => {
+          options.log.warn({ ...failureForLog(error), fleetId }, 'the removal of a deleted fleet failed: removing it again next pass');
         }),
         pruneHistory: () => useCases.pruneHistory((fleetId, error) => {
           options.log.warn({ ...failureForLog(error), fleetId }, 'the pruning pass failed for a fleet: pruning it again next hour');
