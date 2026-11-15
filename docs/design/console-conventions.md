@@ -16,7 +16,7 @@ Rules only the console has: its parts, pages and actions. The rules for every ap
 - Row menu: crewed: Message this ship…, Copy ship id, Ping, Re-crew…, Release ship…, Rename…, Retire ship…. Awaiting crew: Get starting prompt… in place of Ping, Re-crew, Release. Member: Ping, Get new crew line…, Release ship…, Remove from squadron…, no Rename or Retire. Flagship: Open squadron only. Retired: Copy ship id.
 - FleetTable Runs on: current session only, LocationTag with harness and location kind followed on the same desktop line by a quieter muted mono model hint. The hint truncates before the location and exposes the full exact model/package and stated time in its accessible text and desktop Tooltip. No model stated: show nothing in the overview. Awaiting crew, retired and viewer: empty Runs on, no prompt status, trierarch assignment or retired date. argo has no model.
 - ModelTag outside FleetTable: the value exactly as the session stated it, stated time in title. Starts with @ or ends in @x.y.z → software (package mark, dashed outline); otherwise a model (sparkles mark). Empty for argo and ships without a session; "Not stated yet" for a crewed ship that has not stated one.
-- FleetScopes: edit in CommissionForm, both off; read-only in the ShipHeader meta strip, "None" when empty.
+- Ship permissions: CommissionForm and the ship page follow [0075](../decisions/0075-commission-form-and-permissions.md).
 - StartingPromptBlock always shows a CrewLineBlock per harness under the prompt, in the order core issues them: Claude Code, Codex, Copilot.
 
 ## Squadrons (only when enabled)
@@ -36,7 +36,7 @@ Rules only the console has: its parts, pages and actions. The rules for every ap
 - "Requested by" on a crew request names the actor of the ship's latest `CrewRequested` event, from its timeline; no stored field holds it. argo reads "you".
 - The Trierarchs sidebar count is silent machines only. Requests no trierarch can take already show on Needs crew; they are not counted twice.
 - A harness a trierarch cannot serve shows as a NotOfferedLine (warning icon, attention tone, "Codex not offered", the reason, "Clears itself once the plugin is back.") on its MachineCard and on its Health machines row. It does not change the Trierarchs count, which stays silent machines only.
-- Commissioning: Request a crew is on by default while the trierarch plugin is connected, off otherwise.
+- Commissioning: Request a crew follows [0075](../decisions/0075-commission-form-and-permissions.md).
 
 ## Network
 - Export and import sit in their own section after Apply: Export (secondary) downloads the applied rules as `network-rules-<fleet>-v<version>.json` and confirms with a Toast; the rules it left out (a label or ship the fleet no longer has) stay listed in the section, each with why, in the waiting tone; Import… opens ImportNetworkRulesDialog, offered only to a session holding labels:define beside fleet:network.
