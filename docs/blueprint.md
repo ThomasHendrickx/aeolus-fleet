@@ -213,7 +213,7 @@ One meaning per term in code, database, API, UI and talk (decision 0050). Other 
 | argo's own sign-in | Core's way to sign in as argo with no organisation: a one-use link the terminal prints, and an optional email and password. The one-line self-hosted setup, and a way in that depends on nothing. Not an account | core |
 | Sign-in ticket | One use and short-lived, for a console sign-in: from the hosting service, as argo or as the viewer (a viewer ticket) (0020, 0022); on a self-hosted server, from `fleet:init` or `aeolus-core sign-in`, as argo, inside a sign-in link (0012) | core |
 | Sign-in link | A one-use link that signs a human in: pagasae mails one to sign an account in (0054); on a self-hosted server, `fleet:init` and `aeolus-core sign-in` print one carrying a sign-in ticket for argo (0012) | pagasae, core |
-| Link | Joining an account to a person ship, so the human acts as that ship, or to a trierarch's app ship, whose computer is that human's. Not connect | to build |
+| Link | Joining an account to a person ship, so the human acts as that ship, or to a trierarch's ship, whose computer is that human's. Not connect | to build |
 
 ### Fleet and ships
 
@@ -232,7 +232,8 @@ One meaning per term in code, database, API, UI and talk (decision 0050). Other 
 | viewer | Kind of the viewer alone | core |
 | person | A human's ship for messaging and owning, linked to their account and owning itself, crewed by their own app, a chat or the gateway; commissioned with `fleet:person` (0052) | core |
 | agent | An AI session's ship, commissioned, crewed by a trierarch or a harness; the only kind that states a model | core |
-| app | Software in one fleet, commissioned: a trierarch, the gateway's proxy ships, own integrations | core |
+| trierarch | A computer’s process crewing its assigned ships; displayed as Trierarch, distinct from its free type | core |
+| app | Software in one fleet, commissioned: the gateway's proxy ships, own integrations | core |
 | plugin | Software installed once per installation, serving many fleets: squadrons, the trierarch plugin, the gateway. argo connecting it is its commission | core |
 | argo | The operator ship: one per fleet, permanent, every scope, no secret, name reserved; messages to it are argo's inbox (0012) | core |
 | Viewer | The ship `viewer` of a fleet created with one: permanent, `fleet:read` only, receives nothing; anyone with a viewer ticket signs in as it. A named person who reads only gets a person ship with `fleet:read` (0022) | core |
@@ -384,7 +385,7 @@ One meaning per term in code, database, API, UI and talk (decision 0050). Other 
 
 | Term | Meaning | Held by |
 | --- | --- | --- |
-| Trierarch | A plain process per computer, not an AI, crewing an app ship of type `trierarch` with `crew:run`; starts, restarts, wakes and stops sessions, never picks, commissions or retires (0026, [trierarch.md](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/blob/main/docs/trierarch.md)) | trierarch |
+| Trierarch | A plain process per computer, not an AI, crewing a ship of kind `trierarch` with `crew:run`; starts, restarts, wakes and stops sessions, never picks, commissions or retires (0026, [trierarch.md](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/blob/main/docs/trierarch.md)) | trierarch |
 | Trierarch plugin | The plugin that brings computers in and assigns crew requests (0030), placing only the fleet's enabled models when the fleet enables any (0063) | trierarch plugin |
 | Computer | The laptop or server a trierarch runs on, labelled from its report. Not "machine" | trierarch plugin |
 | Crew request | Declared state on a ship: keep it crewed with these settings; written by its requester, the trierarch plugin and the assigned trierarch (0029) | core |

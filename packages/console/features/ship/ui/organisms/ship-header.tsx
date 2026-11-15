@@ -1,5 +1,5 @@
 import type { AlertOutput, FleetId, ShipDetail, ShipId } from '@aeolus-fleet/common';
-import { Archive, CircleAlert, Eye, Info, KeyRound, Plug, UserRound } from 'lucide-react';
+import { Archive, CircleAlert, Eye, Info, KeyRound, Monitor, Plug, UserRound } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
@@ -106,7 +106,7 @@ function MetaStrip({
             </time>
           )}
           <PingStatus ping={ship.ping} now={now} testId="ship-ping-status" />
-          {ship.kind !== 'agent' && ship.kind !== 'plugin' ? null : <ReportLine report={ship.report} now={now} variant="full" viewerFleetId={viewerFleetId} testId="ship-report" />}
+          {ship.kind !== 'agent' && ship.kind !== 'plugin' && ship.kind !== 'trierarch' ? null : <ReportLine report={ship.report} now={now} variant="full" viewerFleetId={viewerFleetId} testId="ship-report" />}
           <ActivityLine activity={ship.activity} now={now} variant="full" testId="ship-activity" />
         </span>
       </MetaCell>
@@ -292,6 +292,12 @@ export function ShipHeader({ ship, shipId, state, actions, crewRequest, now, vie
                   </Badge>
                 ) : null}
                 <Badge variant="type">{ship.type}</Badge>
+                {ship.kind === 'trierarch' ? (
+                  <Badge variant="kind" data-testid="ship-kind">
+                    <Monitor aria-hidden />
+                    Kind: Trierarch
+                  </Badge>
+                ) : null}
                 {ship.scopes.map((scope) => (
                   <Badge key={scope} variant="kind" data-testid="ship-fleet-scope">
                     {scope}
@@ -341,7 +347,7 @@ export function ShipHeader({ ship, shipId, state, actions, crewRequest, now, vie
         <ShipOpenAlert key={alert.id} alert={alert} now={now} />
       ))}
       <MetaStrip ship={ship} now={now} viewerFleetId={viewerFleetId} labels={labels} owner={owner} way={way} />
-      {(ship.kind === 'agent' || ship.kind === 'plugin') && ship.report?.details && ship.report.detailsBytes !== null ? (
+      {(ship.kind === 'agent' || ship.kind === 'plugin' || ship.kind === 'trierarch') && ship.report?.details && ship.report.detailsBytes !== null ? (
         <ReportDetails details={ship.report.details} bytes={ship.report.detailsBytes} version={ship.report.detailsVersion} testId="ship-report-details" />
       ) : null}
     </div>

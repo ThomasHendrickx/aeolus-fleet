@@ -156,14 +156,15 @@ export type FleetScope = z.infer<typeof fleetScopeSchema>;
  * door is the `viewer`, an `agent` is a session, a `person` a human's ship
  * crewed by their own app or a chat, an `app` an application or an
  * outside party, crewed by its adapter, and a `plugin` software installed
- * once per installation serving many fleets (decision 0050).
+ * once per installation serving many fleets (decision 0050); a `trierarch`
+ * crews the ships assigned to its computer.
  */
-export const SHIP_KINDS = ['operator', 'agent', 'viewer', 'person', 'app', 'plugin'] as const;
+export const SHIP_KINDS = ['operator', 'agent', 'viewer', 'person', 'app', 'plugin', 'trierarch'] as const;
 export const shipKindSchema = z.enum(SHIP_KINDS);
 export type ShipKind = z.infer<typeof shipKindSchema>;
 
 /** The kinds a commission makes; argo and the viewer ship come with the fleet. A plugin's commission is its connect (decision 0050). */
-export const COMMISSIONED_SHIP_KINDS = ['agent', 'person', 'app', 'plugin'] as const;
+export const COMMISSIONED_SHIP_KINDS = ['agent', 'person', 'app', 'plugin', 'trierarch'] as const;
 export const commissionedShipKindSchema = z.enum(COMMISSIONED_SHIP_KINDS);
 export type CommissionedShipKind = z.infer<typeof commissionedShipKindSchema>;
 

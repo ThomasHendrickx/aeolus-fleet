@@ -896,7 +896,7 @@ function shownSortValueOfShip(sort: ShipSort | undefined): Prisma.Sql {
     case 'status':
       return statusWordOfShip;
     case 'report':
-      return Prisma.sql`CASE WHEN s.kind IN ('agent', 'plugin') AND ${statusOfShip} = 'crewed' THEN lower(COALESCE(l.report_note, '')) ELSE '' END`;
+      return Prisma.sql`CASE WHEN s.kind IN ('agent', 'plugin', 'trierarch') AND ${statusOfShip} = 'crewed' THEN lower(COALESCE(l.report_note, '')) ELSE '' END`;
     case 'runsOn':
       return Prisma.sql`CASE WHEN ${statusOfShip} = 'crewed' AND s.kind <> 'viewer'
                              THEN CASE WHEN s.kind = 'operator' THEN 'console' ELSE lower(COALESCE(l.harness, '')) END

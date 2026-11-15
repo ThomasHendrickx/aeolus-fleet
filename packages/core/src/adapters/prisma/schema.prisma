@@ -135,6 +135,7 @@ enum ShipKind {
   person
   app
   plugin
+  trierarch
 
   @@map("ship_kind")
 }

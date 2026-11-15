@@ -10,7 +10,7 @@ import { uniqueById } from '../../../lib/paged-list';
  * working and idle, each by last activity, newest first, then by name; and
  * the overview's subtitle from its numbers.
  */
-export const HARBOUR_GROUPS = ['people', 'agents', 'plugins', 'gateway'] as const;
+export const HARBOUR_GROUPS = ['people', 'agents', 'trierarchs', 'plugins', 'gateway'] as const;
 
 export type HarbourGroupKind = (typeof HARBOUR_GROUPS)[number];
 
@@ -28,6 +28,7 @@ const GROUP_OF_KIND: Record<ShipKind, HarbourGroupKind | null> = {
   operator: 'people',
   person: 'people',
   agent: 'agents',
+  trierarch: 'trierarchs',
   plugin: 'plugins',
   app: 'gateway',
   viewer: null,

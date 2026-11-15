@@ -1,12 +1,12 @@
-import { Network, Plug, SquareTerminal, User, Users, type LucideIcon } from 'lucide-react';
+import { Monitor, Network, Plug, SquareTerminal, User, Users, type LucideIcon } from 'lucide-react';
 
 /**
  * Harbour's groups (docs/design/fleet-overview), shared by its groups and
  * tiles. A ship's state shows through ShipState, as everywhere else.
  */
 
-/** Harbour's groups, in the order it shows them: People, Agents, Plugins, Through the gateway. */
-export const HARBOUR_GROUP_KINDS = ['people', 'agents', 'plugins', 'gateway'] as const;
+/** Harbour's groups, in the order it shows them: People, Agents, Trierarchs, Plugins, Through the gateway. */
+export const HARBOUR_GROUP_KINDS = ['people', 'agents', 'trierarchs', 'plugins', 'gateway'] as const;
 
 export type HarbourGroupKind = (typeof HARBOUR_GROUP_KINDS)[number];
 
@@ -18,6 +18,7 @@ export const HARBOUR_GROUP_LOOK: Record<HarbourGroupKind, { word: string; Icon: 
     kindWord: 'Agent',
     KindIcon: SquareTerminal,
   },
+  trierarchs: { word: 'Trierarchs', Icon: Monitor, kindWord: 'Trierarch', KindIcon: Monitor },
   plugins: { word: 'Plugins', Icon: Plug, kindWord: 'Plugin', KindIcon: Plug },
   gateway: {
     word: 'Through the gateway',
