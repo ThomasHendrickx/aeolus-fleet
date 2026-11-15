@@ -56,16 +56,36 @@ export type SealingBadgeState = 'sealing' | 'sealed' | 'reachable' | 'notReachab
 export type AlertBadgeState = 'alert';
 type Status = AlertBadgeState | SealingBadgeState | ShipStatus | DeliveryState | SquadronState | LimitState | CrewStatus | UnassignedCrewState | PushedStepState | HealthState | ScheduleState;
 
-type Tone = 'waiting' | 'active' | 'ok' | 'attention' | 'ended';
+/** A tone family (docs/design/conventions.md, "Colour"): what a status means, the same in every app. */
+export type StatusTone = 'waiting' | 'active' | 'ok' | 'attention' | 'ended';
+type Tone = StatusTone;
+
+/**
+ * How a badge draws: flat, icon and word in the tone with no fill or border,
+ * only Attention keeps its fill (the Compact look, the console's); or pill,
+ * round and filled in its tone with its border (the gateway's).
+ */
+export type StatusBadgeLook = 'flat' | 'pill';
 
 /** Icon and word in the tone, no fill or border; only Attention keeps its fill (the Compact look). */
-const TONE_CLASSES: Record<Tone, string> = {
+const FLAT_CLASSES: Record<Tone, string> = {
   waiting: 'border-transparent bg-transparent px-0.5 text-tone-waiting-fg',
   active: 'border-transparent bg-transparent px-0.5 text-tone-active-fg',
   ok: 'border-transparent bg-transparent px-0.5 text-tone-ok-fg',
   attention: 'border-tone-attention-border bg-tone-attention-bg text-tone-attention-fg',
   ended: 'border-transparent bg-transparent px-0.5 text-tone-ended-fg',
 };
+
+/** Round and filled in the tone, with its border. */
+const PILL_CLASSES: Record<Tone, string> = {
+  waiting: 'rounded-full px-2 border-tone-waiting-border bg-tone-waiting-bg text-tone-waiting-fg',
+  active: 'rounded-full px-2 border-tone-active-border bg-tone-active-bg text-tone-active-fg',
+  ok: 'rounded-full px-2 border-tone-ok-border bg-tone-ok-bg text-tone-ok-fg',
+  attention: 'rounded-full px-2 border-tone-attention-border bg-tone-attention-bg text-tone-attention-fg',
+  ended: 'rounded-full px-2 border-tone-ended-border bg-tone-ended-bg text-tone-ended-fg',
+};
+
+const LOOK_CLASSES: Record<StatusBadgeLook, Record<Tone, string>> = { flat: FLAT_CLASSES, pill: PILL_CLASSES };
 
 /**
  * Every ship status, delivery state, squadron state, limit state, crew request state and schedule state with its tone, icon
@@ -122,27 +142,40 @@ const STATUSES: Record<Status, { tone: Tone; Icon: LucideIcon; label: string }> 
   alert: { tone: 'attention', Icon: TriangleAlert, label: 'Alert' },
 };
 
+/** A status from the catalogue: its tone, icon and label come with it. */
+interface CatalogueStatusProps { status: Status; look?: StatusBadgeLook; className?: string }
+/** A status an app names itself (an outside party's, a request's, a limit's): it hands the tone, the icon and the label. */
+interface ToneStatusProps { tone: StatusTone; icon: LucideIcon; label: string; look?: StatusBadgeLook; className?: string }
+export type StatusBadgeProps = CatalogueStatusProps | ToneStatusProps;
+
 /**
- * One component for every ship status and delivery state
- * (docs/design/png/StatusBadge.png). Colour comes from the tone family, and
- * each state has its own icon and label, so it reads without colour.
+ * One component for every status an Aeolus app shows
+ * (docs/design/png/StatusBadge.png): a status from the catalogue, or a tone,
+ * icon and label an app hands it. Colour comes from the tone family, and
+ * each status has its icon and label, so it reads without colour. Flat by
+ * default, as the console draws it; pill where an app draws it round.
  * Abandoned keeps a dashed border to set it apart from Dismissed.
  */
-export function StatusBadge({ status, className }: { status: Status; className?: string }) {
-  const { tone, Icon, label } = STATUSES[status];
+export function StatusBadge(props: StatusBadgeProps) {
+  const look = props.look ?? 'flat';
+  const { tone, Icon, label } = 'status' in props ? STATUSES[props.status] : { tone: props.tone, Icon: props.icon, label: props.label };
+  const status = 'status' in props ? props.status : undefined;
   return (
     <Badge
       variant="outline"
       data-slot="status-badge"
       data-status={status}
-      className={classNames(TONE_CLASSES[tone], status === 'abandoned' ? 'border-dashed border-tone-ended-border px-1.5' : undefined, className)}
+      className={classNames(
+        LOOK_CLASSES[look][tone],
+        status === 'abandoned' ? classNames('border-dashed border-tone-ended-border', look === 'flat' ? 'px-1.5' : undefined) : undefined,
+        props.className,
+      )}
     >
       <Icon aria-hidden />
       {label}
     </Badge>
   );
 }
-
 /** The label a status or state reads as, for a sentence beside the badge: "In flight". */
 export function statusLabel(status: Status): string {
   return STATUSES[status].label;
