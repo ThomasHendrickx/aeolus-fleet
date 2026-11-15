@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { expect, fn, userEvent, within } from 'storybook/test';
 
 import { Button } from '../atoms/button.js';
-import { TypedConfirm } from './typed-confirm.js';
+import { isTypedMatch, TypedConfirm } from './typed-confirm.js';
 
 const meta = {
   title: 'Molecules/TypedConfirm',
@@ -25,6 +25,14 @@ export const Empty: Story = {};
 export const Mismatch: Story = { args: { value: 'reviewer-0' } };
 export const Match: Story = { args: { value: 'reviewer-01' } };
 
+/** While the action runs, the field holds still. */
+export const Disabled: Story = {
+  args: { value: 'reviewer-01', isDisabled: true },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getByRole('textbox')).toBeDisabled();
+  },
+};
+
 /** Typing for real, with the action it unlocks. */
 export const WithAction: Story = {
   render: function Render({ expected, onValueChange }) {
@@ -39,7 +47,7 @@ export const WithAction: Story = {
             setValue(nextValue);
           }}
         />
-        <Button variant="destructive" disabled={value !== expected}>
+        <Button variant="destructive" disabled={!isTypedMatch(expected, value)}>
           Retire and abandon 3 deliveries
         </Button>
       </div>
