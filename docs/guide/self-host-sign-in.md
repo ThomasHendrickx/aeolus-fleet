@@ -112,6 +112,8 @@ PAGASAE_APP_CLIENT_SECRET=<the Bridge client secret>
 INSTALLATION_TOKEN=<the installation token>
 ```
 
+`GATEWAY_PUBLIC_URL` must match the gateway origin in the sign-in service's client registrations and fleet settings. The gateway derives both callbacks from it; its localhost default does not match your public HTTPS callbacks.
+
 Start it from the build, not a development server: `npm start`. With an installation token the gateway serves a fleet only once you switch it on, from the server, with the token in a header file so it stays out of your shell history:
 
 ```sh
@@ -179,13 +181,21 @@ aeolus-sign-in recover --account <account id> --enable --fleet <fleet id> --flee
 
 It asks for a new password twice, revokes the old shared sign-ins and keeps the account id and person ship. Leave out `--enable` and the fleet flags to reset only the password. The agents you released need crews again.
 
-After `disable`, `recover` with the fleet flags does not yet let the person sign in: the console says **No rights in this fleet** ([sign-in issue 8](https://github.com/ThomasHendrickx/aeolus-fleet-sign-in/issues/8)). Restoring the backup of the sign-in database from before the removal does, as step 8 says.
-
 Without server access, or without the sign-in database, nothing restores the person: do not run `setup` again, which would make a new person.
 
 ## 8. Back up and restore
 
-Back up the three databases, the settings of each, the installation token and the signing key together, encrypted and apart from the repositories. A sign-in backup can sign people in, so restrict it as you do the key. Restore all three together, with browser traffic stopped, then follow the [restore steps](https://github.com/ThomasHendrickx/aeolus-fleet-sign-in/blob/main/docs/self-hosting.md#backup-restore-and-signing-rotation): `migrate`, `reconcile`, `disable` the restored account, and `recover` it. Restoring the sign-in database alone, with the services running, brought back the same account id, the original password and the same person ship with its questions. Test the walk on a second installation before you need it.
+Back up the three databases, the settings of each, the installation token and the signing key together, encrypted and apart from the repositories. A sign-in backup can sign people in, so restrict it as you do the key. Follow the sign-in service's [restore steps](https://github.com/ThomasHendrickx/aeolus-fleet-sign-in/blob/main/docs/self-hosting.md#backup-restore-and-signing-rotation):
+
+1. Stop browser traffic and every sign-in instance. Keep core and gateway access restricted during recovery.
+2. Restore the corresponding databases, protected settings, installation token and signing keys on the same installation. Keep the issuer address, fleet ids, account ids and person mappings. Do not run `setup` to create replacement people.
+3. Run `aeolus-sign-in migrate`. Check the public keys against the backed-up signing material and the installation token on all three services.
+4. Run `aeolus-sign-in reconcile` until it says `No pending cleanup remains.` Repair any unreachable or refused target and retry.
+5. Run `aeolus-sign-in disable --account <saved account id>` for each restored account, then reconcile pending cleanup. This invalidates sign-ins and tokens restored from an older backup. Reapply removals made after the backup; the backup cannot know later rights decisions.
+6. For the person whose access you intend to restore, run `aeolus-sign-in recover --account <saved account id> --enable --fleet <existing fleet id> --fleet-manager` privately and enter a new password. Recovery refuses while earlier cleanup remains pending.
+7. Check the account id and person ship against the protected backup and core history. Start sign-in, sign in normally, and check that the console and Bridge open the same person ship and history before admitting other browser traffic. Released agents need crews again.
+
+Test this walk on an isolated installation before you need it. A stored dump alone does not prove recovery.
 
 ## If something does not work
 
