@@ -753,7 +753,7 @@ function agentKindOfShip(pluginShipIds: readonly ShipId[]): Prisma.Sql {
     CASE
       WHEN s.kind IN ('operator', 'viewer') THEN 'console'
       WHEN s.id = ANY(${[...pluginShipIds]}::text[]) THEN 'plugin'
-      WHEN s.type = 'trierarch' THEN 'trierarch'
+      WHEN s.kind = 'trierarch' THEN 'trierarch'
       ELSE COALESCE((SELECT CASE ol.harness WHEN 'claude-code' THEN 'claudeCode' WHEN 'codex' THEN 'codex' END
                      FROM leases ol WHERE ol.fleet_id = s.fleet_id AND ol.ship_id = s.id AND ol.ended_at IS NULL), 'other')
     END`;

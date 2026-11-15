@@ -128,7 +128,7 @@ describe('the approved trierarch-kind screens', () => {
     // When the operator opens the computer at each approved viewport.
     await capture(page, { screen: 'harbour', theme });
     const harbour = page.getByRole('region', { name: 'Harbour', exact: true });
-    const groupNames = await harbour.getByRole('region').evaluateAll((groups) => groups.map((group) => group.getAttribute('aria-label')));
+    const groupNames = await Promise.all((await harbour.getByRole('region').all()).map((group) => group.getAttribute('aria-label')));
     const computers = await page.getByRole('region', { name: 'Trierarchs', exact: true }).getByText('mac-studio', { exact: true }).count();
     const plugins = await page.getByRole('region', { name: 'Plugins', exact: true }).getByText('trierarch-plugin', { exact: true }).count();
     const viewports = [];
@@ -143,7 +143,7 @@ describe('the approved trierarch-kind screens', () => {
         doDetailsFit: await page.evaluate('document.documentElement.scrollWidth <= window.innerWidth'),
         kind: await page.getByText('Kind: Trierarch', { exact: true }).innerText(),
         type: await page.getByText('trierarch', { exact: true }).count(),
-        crewRequest: await page.getByText('No crew requested', { exact: true }).count(),
+        crewRequest: await page.getByRole('region', { name: 'Crew request', exact: true }).filter({ hasText: 'No crew request.' }).count(),
         ping: await page.getByRole('button', { name: 'Ping', exact: true }).count(),
         delivery: await page.getByText('Delivery', { exact: true }).count(),
       });

@@ -103,7 +103,7 @@ export function ShipPageFor({ shipId, tab, messageId }: { shipId: ShipId; tab: S
   // A ship the session does not read whole shows as one it cannot find (decision 0034).
   const isNotFound = trpcErrorCode(ship.error) === 'NOT_FOUND' || ship.data === null;
   // argo's own side is this console; a ship no session crews has none.
-  const wayView = way.data && ship.data?.kind === 'agent' ? shipWayView(way.data, { now, machines: machines.data ?? [] }) : undefined;
+  const wayView = way.data && (ship.data?.kind === 'agent' || ship.data?.kind === 'trierarch') ? shipWayView(way.data, { now, machines: machines.data ?? [] }) : undefined;
   // In a sealed fleet, a ship the gateway reads says so (decision 0068, B19); nothing until the sealing is read.
   const gatewayReader = ship.data
     ? gatewayReaderOf({

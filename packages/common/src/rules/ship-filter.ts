@@ -65,16 +65,13 @@ export function statusesAsked(status: readonly ShipStatus[] | undefined): readon
   return status === undefined || status.length === 0 ? ACTIVE_STATUSES : status;
 }
 
-/** The type of a machine's trierarch ship (decision 0026). */
-const TRIERARCH_TYPE = 'trierarch';
-
 const HARNESS_KINDS: Readonly<Partial<Record<string, AgentKind>>> = { 'claude-code': 'claudeCode', codex: 'codex' };
 
 /**
  * What sort of agent crews a ship (idea #401), read from what the fleet
  * knows: argo and the viewer are the console; a ship a console plugin runs as
- * is a plugin; a ship of type trierarch is a machine's trierarch (decision
- * 0026); any other is what its crewing session's harness says (decision
+ * is a plugin; a ship of kind trierarch is a machine's trierarch (decision
+ * 0044); any other is what its crewing session's harness says (decision
  * 0018), other while no session crews it.
  */
 export function agentKindOf(ship: Pick<FilteredShip, 'id' | 'kind' | 'type' | 'harness'>, pluginShipIds: readonly ShipId[] = []): AgentKind {
@@ -84,7 +81,7 @@ export function agentKindOf(ship: Pick<FilteredShip, 'id' | 'kind' | 'type' | 'h
   if (pluginShipIds.includes(ship.id)) {
     return 'plugin';
   }
-  if (ship.type === TRIERARCH_TYPE) {
+  if (ship.kind === 'trierarch') {
     return 'trierarch';
   }
   return (ship.harness === null ? undefined : HARNESS_KINDS[ship.harness]) ?? 'other';
