@@ -131,11 +131,10 @@ async function replayed(): Promise<Health> {
 
 function expectSameCounts(fromSnapshot: Health, replay: Health): void {
   expect(fromSnapshot.stuck).toEqual(replay.stuck);
-  // The replay's hours end at now; the snapshot's at each hour mark, then now: at 18:00 the same marks.
-  expect(fromSnapshot.stuckPerHour.slice(0, -1)).toEqual(replay.stuckPerHour.slice(1));
-  expect(fromSnapshot.stuckPerHour.at(-1)).toEqual(replay.stuckPerHour.at(-1));
+  // Both series end at now, each hour once: at 18:00 on the mark the last point is that hour's, whole.
+  expect(fromSnapshot.stuckPerHour).toEqual(replay.stuckPerHour);
   expect(fromSnapshot.acknowledged.count).toBe(replay.acknowledged.count);
-  expect(fromSnapshot.acknowledged.perHour.slice(0, -1)).toEqual(replay.acknowledged.perHour.slice(1));
+  expect(fromSnapshot.acknowledged.perHour).toEqual(replay.acknowledged.perHour);
 }
 
 describe('the health read from the stuck snapshot', () => {
@@ -145,8 +144,8 @@ describe('the health read from the stuck snapshot', () => {
     const fromSnapshot = await core.useCases.readHealth(argo);
 
     expectSameCounts(fromSnapshot, await replayed());
-    // 13:00 to 18:00, then now: the type's delivery from 13:00:31, the quiet one stalled from 14:40 until 16:20.
-    expect(fromSnapshot.stuckPerHour.slice(-7).map((hour) => hour.count)).toEqual([0, 1, 2, 2, 1, 1, 1]);
+    // 13:00 to 18:00, the last being now: the type's delivery from 13:00:31, the quiet one stalled from 14:40 until 16:20.
+    expect(fromSnapshot.stuckPerHour.slice(-6).map((hour) => hour.count)).toEqual([0, 1, 2, 2, 1, 1]);
   });
 
   it("counts as the replay does from a fleet's first snapshot, replayed once from its events", async () => {
