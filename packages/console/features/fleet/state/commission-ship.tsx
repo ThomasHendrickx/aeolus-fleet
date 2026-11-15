@@ -7,7 +7,7 @@ import { useState } from 'react';
 import { lazyDialog } from '../../../lib/lazy-dialog';
 import { useConsoleConstants } from '../../../lib/console-constants';
 import { defaultValues, offersOf, settingsOf } from '../../../lib/crew-settings-form';
-import { useCommissionShip, useFleetScopes, useGetStartingPrompt, useLabelContext, useRequestCrew } from '../../../lib/fleet';
+import { useCommissionShip, useGetStartingPrompt, useLabelContext, useRequestCrew } from '../../../lib/fleet';
 import { machineLabelsInputOf } from '../../../lib/machine-labels';
 import { useIsShipNameTaken } from '../../../lib/ship-name-taken';
 import { Button, showToast } from '@aeolus-fleet/ui';
@@ -19,7 +19,7 @@ import { useSquadronsConnection } from '../../../lib/squadrons';
 import { useSquadrons } from '../../../lib/squadrons-api';
 import { useCrewSettingsCheck, useEnabledModels, useMachines, useTrierarchPluginConnection } from '../../../lib/trierarch-plugin';
 import { useShipTypes, useTypeShipCount } from '../../../lib/ship-types';
-import { grantableScopes } from '../services/grantable-scopes';
+import { useCommissionScopes } from '../hooks/commission-scopes';
 import { useCommissionOwner } from '../hooks/commission-owner';
 
 // Dialogs load when first opened, not with the page.
@@ -51,8 +51,8 @@ export function CommissionShip({ isOpen, onOpenChange }: { isOpen: boolean; onOp
   const [crewSettings, setCrewSettings] = useState<CrewSettings | undefined | null>(null);
   const offers = offersOf(machines.data ?? [], enabledModels.data ?? []);
   const labelContext = useLabelContext(machines.data?.map((machine) => machine.shipId));
-  const { shipLabelsMax, fleetScopes } = useConsoleConstants();
-  const scopes = useFleetScopes();
+  const { shipLabelsMax } = useConsoleConstants();
+  const scopeGroups = useCommissionScopes();
   const machineLabels = labelContext === undefined || machines.data === undefined ? undefined : machineLabelsInputOf(labelContext, { machines: machines.data, shipLabelsMax });
   const check = useCrewSettingsCheck(isOpen && hasTrierarchs ? (crewSettings === null ? settingsOf(defaultValues(offers)) : crewSettings) : undefined);
   const types = useShipTypes(false);
@@ -121,7 +121,7 @@ export function CommissionShip({ isOpen, onOpenChange }: { isOpen: boolean; onOp
         shipLimit={shipLimitReached(limits.data)}
         accountUrl={accountUrl}
         {...(owner === undefined ? {} : { owner })}
-        scopeGroups={scopes.data === undefined ? undefined : grantableScopes(scopes.data, fleetScopes)}
+        scopeGroups={scopeGroups}
         {...(hasTrierarchs
           ? {
               crewRequest: {
