@@ -71,6 +71,9 @@ export async function sweep(
     // A container the run's teardown removes meanwhile answers not found: it is gone either way.
     await Promise.allSettled(ids.map((id) => runtime.removeContainer(id)));
     previous = ids;
+    if (lists === timing.maxLists) {
+      return;
+    }
     await new Promise((resolve) => setTimeout(resolve, timing.delayMs));
   }
 }
