@@ -25,7 +25,7 @@ export const RECEIVE_MAX_UPPER_BOUND = 10;
 
 /** Input of `ship.receive`: at most how many deliveries to return, 1 to 10. Without it, one. */
 export const receiveInputSchema = z
-  .object({ max: z.int().min(1).max(RECEIVE_MAX_UPPER_BOUND).optional() })
+  .strictObject({ max: z.int().min(1).max(RECEIVE_MAX_UPPER_BOUND).optional() })
   .optional();
 
 export type ReceiveInput = z.infer<typeof receiveInputSchema>;
@@ -89,7 +89,7 @@ export type ReceiveOutput = z.infer<typeof receiveOutputSchema>;
  * Input of `ship.receiveReply`: the message whose reply to receive. Its
  * output is `receiveOutputSchema`, with one delivery at most.
  */
-export const receiveReplyInputSchema = z.object({ messageId: idSchema('message') });
+export const receiveReplyInputSchema = z.strictObject({ messageId: idSchema('message') });
 
 export type ReceiveReplyInput = z.infer<typeof receiveReplyInputSchema>;
 
@@ -120,7 +120,7 @@ export const PUSH_RECEIVE_EXCLUDING_MAX = 1000;
  * holding 10 or more reaches the next one.
  */
 export const pushReceiveInputSchema = z
-  .object({
+  .strictObject({
     max: z.int().min(1).max(RECEIVE_MAX_UPPER_BOUND).optional(),
     waker: leaseWakerSchema.optional(),
     shouldSkipHanded: z.boolean().optional(),
