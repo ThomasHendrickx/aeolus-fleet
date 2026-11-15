@@ -331,8 +331,11 @@ export interface LiveFleet {
  * attention; a label's event the fleet's labels; a sealing event the fleet's sealing; NetworkRulesDeclared the
  * declared network rules; and a change of the rules or the draft the network
  * rules, what the draft changes and the reach. `resync`, sent first and
- * whenever the browser fell too far behind, reloads every one of them, except
- * the first, which only says the socket opened: the page's reads are current.
+ * whenever the browser fell too far behind, reloads every one of them. The
+ * first, sent as the socket opens, reloads only what may have missed an event
+ * (#1169): everything when an event committed between the page opening and
+ * the socket subscribing, else only the reads the page kept from before it
+ * opened. A read the page began has nothing new to bring.
  */
 export function createLiveFleetHandler(input: {
   trpc: TRPCOptionsProxy<AppRouter>;
@@ -340,8 +343,20 @@ export function createLiveFleetHandler(input: {
   reload: (queryKey: readonly unknown[]) => void;
   /** A ship's row went first on the overview's loaded pages, which shows none of it. */
   onPlacedFirst: (shipId: ShipId) => void;
-}): (item: FleetStreamItem) => void {
+}): (item: FleetStreamItem, seq?: number) => void {
   const { trpc, queryClient, reload } = input;
+  // The number of the fleet's last event as the page opens, read before its reads start, outside the cache, which a resync reloads.
+  const openedAt = Date.now();
+  const opening = new QueryClient();
+  const seqBeforeReads = opening
+    .query({ ...trpc.fleet.follow.queryOptions({}), staleTime: 0, retry: false })
+    .then(
+      (read) => read.lastSeq,
+      () => undefined,
+    )
+    .finally(() => {
+      opening.clear();
+    });
   // Every view's pages the overview loaded (features/fleet/hooks/fleet-pages.ts).
   const pagesKey: readonly unknown[] = [...trpc.fleet.list.infiniteQueryKey()];
   const loadedPages = () => queryClient.getQueriesData<InfiniteData<ShipPage>>({ queryKey: pagesKey }).flatMap(([, pages]) => (pages === undefined ? [] : [pages]));
@@ -412,16 +427,34 @@ export function createLiveFleetHandler(input: {
     // Every cause's pages of places, whichever are shown.
     reload(trpc.fleet.stuck.pathKey());
   };
-  // The server sends resync first, as the socket opens: no event was missed yet, and the queries the page just started are still on their first read (#1169, #1127).
+  const reloadAll = () => {
+    reload(trpc.fleet.pathKey());
+    reload(INBOX_KEY);
+  };
+  // What the page kept from before it opened, read before the socket subscribed, may have missed an event.
+  const reloadKeptReads = () => {
+    for (const queryKey of [trpc.fleet.pathKey(), INBOX_KEY]) {
+      for (const query of queryClient.getQueryCache().findAll({ queryKey, predicate: ({ state }) => state.dataUpdatedAt > 0 && state.dataUpdatedAt < openedAt })) {
+        reload(query.queryKey);
+      }
+    }
+  };
   let hasSocketOpened = false;
-  return (item) => {
+  return (item, seq) => {
     if (item.kind === 'resync') {
-      if (!hasSocketOpened) {
-        hasSocketOpened = true;
+      if (hasSocketOpened) {
+        reloadAll();
         return;
       }
-      reload(trpc.fleet.pathKey());
-      reload(INBOX_KEY);
+      // The server sends resync first, as the socket opens, with the number it follows from (#1169, #1127).
+      hasSocketOpened = true;
+      void seqBeforeReads.then((before) => {
+        if (before !== undefined && seq !== undefined && seq <= before) {
+          reloadKeptReads();
+        } else {
+          reloadAll();
+        }
+      });
       return;
     }
     const { event } = item;
@@ -509,23 +542,26 @@ export function useLiveFleet(): LiveFleet {
   const [placedFirstShipIds, setPlacedFirstShipIds] = useState<ReadonlySet<ShipId>>(new Set());
   const isReopening = useIsReopening();
 
+  // Made as the page renders, so the number it reads first goes out before the page's reads; rendering on the server, which follows nothing, makes none.
   const [onItem] = useState(() =>
-    createLiveFleetHandler({
-      trpc,
-      queryClient,
-      reload: createLiveReloads(queryClient),
-      onPlacedFirst: (shipId) => {
-        setPlacedFirstShipIds((shown) => new Set([...shown, shipId]));
-      },
-    }),
+    typeof window === 'undefined'
+      ? () => undefined
+      : createLiveFleetHandler({
+          trpc,
+          queryClient,
+          reload: createLiveReloads(queryClient),
+          onPlacedFirst: (shipId) => {
+            setPlacedFirstShipIds((shown) => new Set([...shown, shipId]));
+          },
+        }),
   );
 
   const subscription = useSubscription(
     trpc.fleet.events.subscriptionOptions(
       { lastEventId: null },
       {
-        onData: ({ data: item }) => {
-          onItem(item);
+        onData: ({ id, data: item }) => {
+          onItem(item, Number(id));
         },
       },
     ),

@@ -365,14 +365,14 @@ describe('the live fleet (performance design, decision 3)', () => {
   });
 
   it('reloads a read the page kept from before it opened, on the resync sent as the socket opens', async () => {
-    const live = aLiveFleet({ 'fleet.follow': () => ({ events: [], lastSeq: 7 }), 'fleet.labels': () => [{ name: 'region' }] });
-    live.queryClient.setQueryData(live.trpc.fleet.labels.queryKey(), [{ name: 'team' }], { updatedAt: Date.now() - 60_000 });
-    const shown = new QueryObserver(live.queryClient, { ...live.trpc.fleet.labels.queryOptions(), staleTime: Infinity });
+    const live = aLiveFleet({ 'fleet.follow': () => ({ events: [], lastSeq: 7 }), 'fleet.stuckCount': () => ({ count: 2, oldestSince: null }) });
+    live.queryClient.setQueryData(live.trpc.fleet.stuckCount.queryKey(), { count: 0, oldestSince: null }, { updatedAt: Date.now() - 60_000 });
+    const shown = new QueryObserver(live.queryClient, { ...live.trpc.fleet.stuckCount.queryOptions(), staleTime: Infinity });
     live.show(shown);
 
     live.onItem({ kind: 'resync' }, 7);
 
-    await expect.poll(() => shown.getCurrentResult().data).toEqual([{ name: 'region' }]);
+    await expect.poll(() => shown.getCurrentResult().data).toEqual({ count: 2, oldestSince: null });
     live.close();
   });
 
