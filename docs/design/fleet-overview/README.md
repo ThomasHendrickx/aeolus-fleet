@@ -87,7 +87,7 @@ Built on what was approved: Harbour above, the fleet table as it is today ([Flee
 
 ### The shared part: Harbour in @aeolus-fleet/ui
 
-Props only: no fetching, router, live wiring or filters. It lays itself out by its own width (a container query), not the window's: six large numbers and four tiles a row in the console at 1440 (seven at 1920), six small numbers and one tile a row in Bridge's column at 1440 (three at 1920), two a row on a phone.
+Props only: no fetching, router, live wiring or filters. It lays itself out by its own width (a container query), not the window's: six large numbers in the console, six small ones in Bridge's column. Tiles are between 12rem and 18rem wide, as many a row as fit, leaving space rather than stretching a tile past 18rem (Thomas, #1672): five a row in the console at 1440, two in Bridge's column at 1440, more on an ultra-wide window; two a row on a phone.
 
 | Part | Props |
 | --- | --- |

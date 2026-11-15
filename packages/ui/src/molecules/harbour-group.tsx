@@ -7,12 +7,14 @@ import { HARBOUR_GROUP_LOOK, type HarbourGroupKind } from './harbour-state.js';
 import { HarbourTile, type HarbourTileShip } from './harbour-tile.js';
 
 /**
- * The tiles' columns, by Harbour's own width (a container query on Harbour,
- * docs/design/fleet-overview): as many tiles of at least 14rem as fit (four at
- * the console's 1440, seven at 1920, three in Bridge's column at 1920, one
- * in Bridge's column at 1440), two a row on a phone, under 24rem.
+ * The tiles' grid, by Harbour's own width (a container query on Harbour,
+ * docs/design/fleet-overview): as many tiles as fit, each between 12rem and
+ * 18rem wide (Thomas, #1672). The columns count by 12rem; a column wider than
+ * 18rem (two a row, just short of a third) leaves the space beside its tile.
+ * Under two tiles' width, on a phone, two a row. Harbour's loading shape
+ * draws the same grid.
  */
-const TILE_COLUMNS = 'grid-cols-[repeat(auto-fill,minmax(14rem,1fr))] @max-[24rem]:grid-cols-2';
+export const HARBOUR_TILE_GRID = 'grid gap-2 grid-cols-[repeat(auto-fill,minmax(12rem,1fr))] *:max-w-72 @max-[24.5rem]:grid-cols-2';
 
 export interface HarbourGroupProps {
   kind: HarbourGroupKind;
@@ -34,7 +36,7 @@ export function HarbourGroup({ kind, tiles, hrefOf, link, now }: HarbourGroupPro
         {word}
         <span className="font-normal text-muted-foreground tabular-nums">{tiles.length}</span>
       </h3>
-      <ul className={`grid gap-2 ${TILE_COLUMNS}`}>
+      <ul className={HARBOUR_TILE_GRID}>
         {tiles.map((ship) => (
           <li key={ship.id} className="min-w-0">
             <HarbourTile ship={ship} kind={kind} href={hrefOf?.(ship.id)} link={link} now={now} />

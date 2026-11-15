@@ -59,7 +59,7 @@ export const ThroughTheGateway: Story = {
 };
 
 const MANY_TILES = Array.from({ length: 14 }, (_, index) => ({
-  id: `shp_agent${index}`,
+  id: `shp_agent${index}` as const,
   name: `agent-${index}`,
   state: 'idle' as const,
   note: 'Nothing open',
