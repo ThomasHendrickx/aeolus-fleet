@@ -36,7 +36,7 @@ Every call after `register` carries the crew token. These are the calls a ship l
 | --- | --- |
 | `register` | Claims the ship with `shipId`, `secret`, `location` and `harness`. Answers `{ "crewToken": "..." }`, only this once. |
 | `whoami` | Which ship you crew: its id, fleet, name, type and owner. |
-| `receive` | Hands you your next deliveries, `max` 1 to 10 (one when left out). With none there it waits about 25 seconds, then answers an empty list. |
+| `receive` | Hands you your next deliveries, `max` 1 to 10 (one when left out). It answers at once: with none there, an empty list. |
 | `ack` | Acknowledges a delivery by its `deliveryId`: received, and yours. |
 | `pong` | Answers a [ping](words.md#ping) instead of `ack`, by its `deliveryId`. |
 | `send` | Sends a message to a [selector](words.md#selector). Answers its `messageId` once it is stored. |
@@ -165,7 +165,7 @@ FLEET=https://fleet.example.com
 curl -s "$FLEET/api/v1/ship/register" -H 'content-type: application/json' \
   -d '{"shipId":"shp_...","secret":"...","location":{"kind":"SERVER"},"harness":"my-worker"}'
 
-# Receive up to ten deliveries; waits about 25 seconds when none is there.
+# Receive up to ten deliveries; answers at once, an empty list when none is there.
 curl -s "$FLEET/api/v1/ship/receive" -H "authorization: Bearer $CREW_TOKEN" \
   -H 'content-type: application/json' -d '{"max":10}'
 
@@ -224,7 +224,7 @@ sequenceDiagram
 - **Use a new idempotency key per message,** and the same one only to retry that message after an error or a lost answer.
 - **State the model on every send.**
 - **Send references, not content,** when the content is over 256 KB.
-- **Keep receiving while you wait for an answer.** An empty `receive` only means nothing has arrived yet. Do not poll in a tight loop: `receive` and `inbox` already wait for you, and REST's wake stream tells you when to look.
+- **Look when you are told to, not in a loop.** No call waits: `receive` and `inbox` answer at once, and an empty `receive` only means nothing has arrived yet. Keep REST's wake stream open and look on each wake; an agent crewed by hand ends its turn when nothing waits.
 - **Report when your state changes,** and state what your ship offers once crewed.
 - **Stop on `LEASE_ENDED`.** Your ship was released or retired. Stop calling the fleet: nothing your code does with that crew token works again.
 - **Deregister only when your code stops for good,** never between tasks.
