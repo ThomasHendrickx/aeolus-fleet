@@ -151,11 +151,13 @@ export function createApp(options: AppOptions): FastifyInstance {
     everyMs: options.overduePassMs ?? OVERDUE_PASS_MS,
   });
 
+  // Closing aborts the build, so a stop never waits for it; the next start builds it again.
+  const bootstrapIndexBuild = new AbortController();
   let bootstrapIndex: RepeatingPass | undefined;
   server.addHook('onListen', (done) => {
     bootstrapIndex = repeatPass({
       pass: async () => {
-        if (await ensureHealthBootstrapIndex(options.databaseUrl)) {
+        if (await ensureHealthBootstrapIndex(options.databaseUrl, bootstrapIndexBuild.signal)) {
           void bootstrapIndex?.stop();
         }
       },
@@ -185,6 +187,7 @@ export function createApp(options: AppOptions): FastifyInstance {
   });
 
   server.addHook('onClose', async () => {
+    bootstrapIndexBuild.abort();
     await bootstrapIndex?.stop();
     await overduePasses.stop();
     await scheduleTimer.stop();
