@@ -158,6 +158,7 @@ describe('migrations', () => {
       'meeting_participants',
       'meetings',
       'message_days',
+      'message_metadata_backfills',
       'messages',
       'network_rules_drafts',
       'network_settings',
