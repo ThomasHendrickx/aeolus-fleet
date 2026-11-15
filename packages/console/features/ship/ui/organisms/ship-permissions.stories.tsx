@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { expect, fn, screen, userEvent, waitFor } from 'storybook/test';
 
 import { ShipPermissions } from './ship-permissions';
@@ -83,5 +83,29 @@ export const HeldPermissionVisible: Story = {
     const locked = screen.getByRole('checkbox', { name: /Read leads/ });
     const list = screen.getByTestId('permissions-choices');
     await expect(locked.getBoundingClientRect().bottom <= list.getBoundingClientRect().bottom).toBe(true);
+  },
+};
+
+function LivePermissions(args: React.ComponentProps<typeof ShipPermissions>) {
+  const [scopes, setScopes] = useState(args.scopes);
+  useEffect(() => {
+    const grant = () => { setScopes([...args.scopes, 'fleet:manage']); };
+    window.addEventListener('permissions-granted', grant);
+    return () => { window.removeEventListener('permissions-granted', grant); };
+  }, [args.scopes]);
+  return <ShipPermissions {...args} scopes={scopes} choices={[...(args.choices ?? []), { scope: 'fleet:manage', description: 'Manage ships' }]} />;
+}
+export const LivePermissionsKeepUntouchedScopes: Story = {
+  render: (args) => <LivePermissions {...args} />,
+  play: async ({ args }) => {
+    // Given one permission being added in the editor.
+    await userEvent.click(screen.getByTestId('ship-permissions-change'));
+    await userEvent.click(screen.getByRole('checkbox', { name: /Open a meeting/ }));
+    // When the fleet grants another permission while the editor stays open.
+    window.dispatchEvent(new Event('permissions-granted'));
+    // Then the untouched permission stays held and only the intended change is saved.
+    await waitFor(async () => { await expect(screen.getByRole('checkbox', { name: /Manage ships/ })).toBeChecked(); });
+    await userEvent.click(screen.getByTestId('ship-permissions-save'));
+    await expect(args.onSave).toHaveBeenCalledWith({ grant: ['meetings:open'], revoke: [] });
   },
 };
