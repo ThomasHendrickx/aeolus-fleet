@@ -279,6 +279,7 @@ export function createPrismaDeliveryRepository(db: Db, rollups: ExchangeRollups)
         rollups.add(delivery.fleetId, {
           after: {
             messageId: delivery.messageId,
+            contentType: message.contentType,
             senderShipId: message.senderShipId,
             reachedShipId: recipient.kind === 'ship' ? recipient.shipId : delivery.claimedByShipId,
             state: delivery.state,
@@ -427,7 +428,8 @@ export function createPrismaDeliveryRepository(db: Db, rollups: ExchangeRollups)
             hand_over_number = ${delivery.handOverNumber}::int, handed_once_more_at = ${delivery.handedOnceMoreAt}::timestamptz
         FROM before
         WHERE d.fleet_id = ${delivery.fleetId} AND d.id = before.id
-        RETURNING d.fleet_id, d.message_id, d.sender_ship_id, d.is_in_exchange, before.state AS before_state,
+        RETURNING d.fleet_id, d.message_id, d.sender_ship_id, d.is_in_exchange,
+                  (SELECT m.content_type FROM messages m WHERE m.fleet_id = d.fleet_id AND m.id = d.message_id) AS content_type, before.state AS before_state,
                   before.reached_ship_id AS before_reached_ship_id, d.state::text AS after_state, d.reached_ship_id AS after_reached_ship_id`;
       for (const row of rows) {
         addChangedDelivery(rollups, row);

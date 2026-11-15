@@ -1,4 +1,4 @@
-import { isPingContentType, type DeliveryState, type MessageId, type ShipId } from '@aeolus-fleet/common';
+import { isConventionContentType, isPingContentType, type DeliveryState, type MessageId, type ShipId } from '@aeolus-fleet/common';
 
 import type { Message } from './message.js';
 
@@ -16,17 +16,19 @@ export function isInExchange(message: Pick<Message, 'meetingId' | 'contentType'>
 /** A delivery as its exchange counts it: its message and sender, the ship it reached, if any yet, and its state. */
 export interface ExchangeSide {
   messageId: MessageId;
+  contentType: string;
   senderShipId: ShipId;
   reachedShipId: ShipId | null;
   state: DeliveryState;
 }
 
-/** What one delivery's change adds to one ship's row for another ship: the newest message, and how many more are not yet acknowledged. */
+/** What one delivery adds to the newest message and unacknowledged counts, including plain messages seen by ackUpTo. */
 export interface ExchangeCount {
   shipId: ShipId;
   otherShipId: ShipId;
   newestMessageId: MessageId;
   unacknowledged: number;
+  unseenPlainMessages: number;
 }
 
 /** Not yet acknowledged: pending, received or handed, whatever its content type (E5). */
@@ -47,18 +49,22 @@ export function exchangeCountsOf(change: { before?: ExchangeSide; after?: Exchan
   const add = (count: ExchangeCount) => {
     const key = `${count.shipId} ${count.otherShipId}`;
     const sum = counts.get(key);
-    counts.set(key, { ...count, unacknowledged: (sum?.unacknowledged ?? 0) + count.unacknowledged });
+    counts.set(key, {
+      ...count,
+      unacknowledged: (sum?.unacknowledged ?? 0) + count.unacknowledged,
+      unseenPlainMessages: (sum?.unseenPlainMessages ?? 0) + count.unseenPlainMessages,
+    });
   };
   const isNewReach = after?.reachedShipId != null && after.reachedShipId !== before?.reachedShipId;
   if (before?.reachedShipId != null && isUnacknowledged(before.state)) {
-    add({ shipId: before.reachedShipId, otherShipId: before.senderShipId, newestMessageId: before.messageId, unacknowledged: -1 });
+    add({ shipId: before.reachedShipId, otherShipId: before.senderShipId, newestMessageId: before.messageId, unacknowledged: -1, unseenPlainMessages: isConventionContentType(before.contentType) ? 0 : -1 });
   }
   if (after?.reachedShipId != null) {
     const reached = { shipId: after.reachedShipId, otherShipId: after.senderShipId, newestMessageId: after.messageId };
-    add({ ...reached, unacknowledged: isUnacknowledged(after.state) ? 1 : 0 });
+    add({ ...reached, unacknowledged: isUnacknowledged(after.state) ? 1 : 0, unseenPlainMessages: isUnacknowledged(after.state) && !isConventionContentType(after.contentType) ? 1 : 0 });
     if (isNewReach) {
-      add({ shipId: after.senderShipId, otherShipId: after.reachedShipId, newestMessageId: after.messageId, unacknowledged: 0 });
+      add({ shipId: after.senderShipId, otherShipId: after.reachedShipId, newestMessageId: after.messageId, unacknowledged: 0, unseenPlainMessages: 0 });
     }
   }
-  return [...counts.values()].filter((count) => count.unacknowledged !== 0 || isNewReach);
+  return [...counts.values()].filter((count) => count.unacknowledged !== 0 || count.unseenPlainMessages !== 0 || isNewReach);
 }

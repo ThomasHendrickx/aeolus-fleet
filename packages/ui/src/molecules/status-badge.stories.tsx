@@ -1,5 +1,6 @@
 import { DELIVERY_STATES, SCHEDULE_STATES, SHIP_STATUSES } from '@aeolus-fleet/common';
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { Check, CircleCheck, CircleX, Clock, Gauge, Power, Send, TriangleAlert } from 'lucide-react';
 import { expect, within } from 'storybook/test';
 
 import { StatusBadge } from './status-badge.js';
@@ -107,4 +108,64 @@ export const QuietBadges: Story = {
     await expect(undeliverable.backgroundColor).not.toBe('rgba(0, 0, 0, 0)');
     await expect(undeliverable.borderTopColor).not.toBe('rgba(0, 0, 0, 0)');
   },
+};
+
+/** A status an app names itself, from its tone, icon and label: the gateway's outside parties and pagasae's limits (docs/design/ui-package/mockups). */
+export const Approved: Story = { args: { tone: 'ok', icon: CircleCheck, label: 'Approved' } };
+export const WaitingForApproval: Story = { args: { tone: 'waiting', icon: Clock, label: 'Waiting for approval' } };
+export const SignInFailed: Story = { args: { tone: 'attention', icon: CircleX, label: 'Sign-in failed' } };
+export const On: Story = { args: { tone: 'ok', icon: Check, label: 'On' } };
+export const Off: Story = { args: { tone: 'ended', icon: Power, label: 'Off' } };
+export const Sending: Story = { args: { tone: 'active', icon: Send, label: 'Sending' } };
+export const AtLimitFromTone: Story = { args: { tone: 'waiting', icon: Gauge, label: 'At limit' } };
+export const OverLimitFromTone: Story = { args: { tone: 'attention', icon: TriangleAlert, label: 'Over limit' } };
+
+/** The pill look: round and filled in its tone, with its border, for each tone. */
+export const PillTones: Story = {
+  args: { tone: 'ok', icon: CircleCheck, label: 'Approved', look: 'pill' },
+  render: () => (
+    <div className="flex flex-wrap gap-3">
+      <StatusBadge tone="waiting" icon={Clock} label="Waiting for approval" look="pill" />
+      <StatusBadge tone="active" icon={Send} label="Sending" look="pill" />
+      <StatusBadge tone="ok" icon={CircleCheck} label="Approved" look="pill" />
+      <StatusBadge tone="attention" icon={CircleX} label="Sign-in failed" look="pill" />
+      <StatusBadge tone="ended" icon={Power} label="Off" look="pill" />
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const approved = getComputedStyle(canvas.getByText('Approved'));
+    await expect(approved.backgroundColor).not.toBe('rgba(0, 0, 0, 0)');
+    await expect(approved.borderTopColor).not.toBe('rgba(0, 0, 0, 0)');
+  },
+};
+
+/** A catalogue status in the pill look, Abandoned with its dashed border. */
+export const PillStatuses: Story = {
+  args: { status: 'crewed', look: 'pill' },
+  render: () => (
+    <div className="flex flex-wrap gap-3">
+      {(['awaitingCrew', 'crewed', 'received', 'undeliverable', 'retired', 'abandoned'] as const).map((status) => (
+        <StatusBadge key={status} status={status} look="pill" />
+      ))}
+    </div>
+  ),
+};
+
+/** Flat and pill side by side, for each tone. */
+export const Looks: Story = {
+  args: { tone: 'ok', icon: CircleCheck, label: 'Approved' },
+  render: () => (
+    <div className="flex flex-col gap-3">
+      {(['flat', 'pill'] as const).map((look) => (
+        <div key={look} className="flex flex-wrap gap-3">
+          <StatusBadge tone="waiting" icon={Clock} label="Waiting for approval" look={look} />
+          <StatusBadge tone="active" icon={Send} label="Sending" look={look} />
+          <StatusBadge tone="ok" icon={CircleCheck} label="Approved" look={look} />
+          <StatusBadge tone="attention" icon={CircleX} label="Sign-in failed" look={look} />
+          <StatusBadge tone="ended" icon={Power} label="Off" look={look} />
+        </div>
+      ))}
+    </div>
+  ),
 };

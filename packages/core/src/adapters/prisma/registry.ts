@@ -670,7 +670,8 @@ export function createPrismaInFlightDeliveries(db: Db, rollups: ExchangeRollups)
                     d.sender_ship_id, d.is_in_exchange, held.state AS before_state, held.reached_ship_id AS before_reached_ship_id,
                     d.state::text AS after_state, d.reached_ship_id AS after_reached_ship_id
         )
-        SELECT * FROM returned ORDER BY created_at, id`;
+        SELECT returned.*, (SELECT m.content_type FROM messages m WHERE m.fleet_id = returned.fleet_id AND m.id = returned.message_id) AS content_type
+        FROM returned ORDER BY created_at, id`;
       for (const row of rows) {
         addChangedDelivery(rollups, row);
       }
@@ -682,7 +683,8 @@ export function createPrismaInFlightDeliveries(db: Db, rollups: ExchangeRollups)
       const rows = await db.$queryRaw<unknown[]>`
         UPDATE deliveries SET state = 'abandoned'
         WHERE fleet_id = ${fleetId} AND recipient_ship_id = ${shipId} AND state = 'pending'
-        RETURNING id, message_id, created_at, fleet_id, sender_ship_id, is_in_exchange, 'pending' AS before_state,
+        RETURNING id, message_id, created_at, fleet_id, sender_ship_id, is_in_exchange,
+                  (SELECT m.content_type FROM messages m WHERE m.fleet_id = deliveries.fleet_id AND m.id = deliveries.message_id) AS content_type, 'pending' AS before_state,
                   reached_ship_id AS before_reached_ship_id, state::text AS after_state, reached_ship_id AS after_reached_ship_id`;
       for (const row of rows) {
         addChangedDelivery(rollups, row);

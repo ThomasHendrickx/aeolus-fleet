@@ -203,9 +203,9 @@ It comes from the gateway's manifest and shows where the account may open the ga
 
 The switcher lists Console, Gateway, Account and Admin. A plugin that serves pages of its own joins later by serving a manifest (H4), with no header change.
 
-### H13. The theme is per app, as today (option 1)
+### H13. One theme per browser, in every app
 
-Each app saves its own.
+One theme cookie on the shared domain, read by every app for the first paint, argo and the viewer included. The rule and why: [The theme and the apps across every Aeolus app](../header-across-apps.md), T1 to T5.
 
 ## 5. The gateway's pages on Next.js
 
