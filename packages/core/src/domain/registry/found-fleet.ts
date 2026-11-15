@@ -44,7 +44,7 @@ export async function foundFleet(
   await tx.ships.create(argo);
 
   const operatorId = ids('operator');
-  await tx.operatorAccounts.create({ id: operatorId, fleetId, email, passwordHash, theme: 'system', createdAt: at });
+  await tx.operatorAccounts.create({ id: operatorId, fleetId, email, passwordHash, createdAt: at });
 
   await recordEvent({ events: tx.events, ids }, { fleetId, type: 'FleetInitialised', occurredAt: at, actor: SYSTEM, details: { name, operatorId } });
   await recordEvent({ events: tx.events, ids }, {

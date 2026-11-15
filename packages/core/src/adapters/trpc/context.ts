@@ -10,7 +10,6 @@ import type { SignOutAccount } from '../../domain/identity/sign-out-account.js';
 import type { ReadAccount } from '../../domain/identity/read-account.js';
 import type { ReadArgoSignIn } from '../../domain/identity/read-argo-sign-in.js';
 import type { SetOperatorLogin } from '../../domain/identity/set-operator-login.js';
-import type { SetTheme } from '../../domain/identity/set-theme.js';
 import type { SignIn } from '../../domain/identity/sign-in.js';
 import type { SignOut } from '../../domain/identity/sign-out.js';
 import type { AcknowledgeDelivery } from '../../domain/messaging/acknowledge-delivery.js';
@@ -171,7 +170,6 @@ export interface UseCases {
   signOut: SignOut;
   readAccount: ReadAccount;
   readArgoSignIn: ReadArgoSignIn;
-  setTheme: SetTheme;
   setOperatorLogin: SetOperatorLogin;
   setNotices: SetNotices;
   getNotices: GetNotices;

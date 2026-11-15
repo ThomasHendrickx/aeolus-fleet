@@ -35,7 +35,6 @@ import { createReadArgoSignIn } from '../../src/domain/identity/read-argo-sign-i
 import { createSetOperatorLogin } from '../../src/domain/identity/set-operator-login.js';
 import { createResetOperatorPassword } from '../../src/domain/identity/reset-operator-password.js';
 import { createSignIn } from '../../src/domain/identity/sign-in.js';
-import { createSetTheme } from '../../src/domain/identity/set-theme.js';
 import { createSignOut } from '../../src/domain/identity/sign-out.js';
 import { createAcknowledgeDelivery } from '../../src/domain/messaging/acknowledge-delivery.js';
 import { createAnswerPing } from '../../src/domain/messaging/answer-ping.js';
@@ -217,7 +216,6 @@ export function identityUseCases(core: InMemoryCore) {
     setOperatorLogin: createSetOperatorLogin({ ...deps, isSelfHosted: true }),
     readAccount: createReadAccount(deps),
     readArgoSignIn: createReadArgoSignIn(deps),
-    setTheme: createSetTheme(deps),
     authenticate: createAuthenticate({ callers: core.callers, hasher: core.hasher, clock: core.clock }),
     issueSignInTicket: createIssueSignInTicket(deps),
     issueSignInLink: createIssueSignInLink(deps),

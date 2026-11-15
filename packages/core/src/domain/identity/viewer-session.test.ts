@@ -129,20 +129,13 @@ describe('using a viewer session', () => {
 });
 
 describe('what a viewer session may do', () => {
-  it('reads its account as the viewer: its session, no email and no theme', async () => {
+  it('reads its account as the viewer: its session, no email', async () => {
     const { caller } = await viewing();
 
     await expect(useCases.readAccount(caller)).resolves.toEqual({
       isOk: true,
       value: { kind: 'viewer', session: { device: 'iPhone · Safari', since: core.clock.now() } },
     });
-  });
-
-  it('chooses no theme: the theme belongs to the operator', async () => {
-    const { caller } = await viewing();
-
-    await expect(useCases.setTheme(caller, { theme: 'dark' })).resolves.toMatchObject({ isOk: false, error: { kind: 'NOT_THE_OPERATOR_SHIP' } });
-    expect(core.state.operatorAccounts[0]?.theme).toBe('system');
   });
 
   it('signs out alone: its session ends, and no lease is touched', async () => {

@@ -181,7 +181,6 @@ Defined in `@aeolus-fleet/common`, checked by core on every call and by the clie
 | 3 s | `/health` | [lib/health.ts](../packages/console/lib/health.ts) `TIMEOUT_MS` | #454 |
 | 3 s | `/api/version` of core and the plugins | [lib/version.ts](../packages/console/lib/version.ts) `TIMEOUT_MS` | #49, #432, #478 |
 | 3 s | The trierarch plugin's `/api/version` | [lib/trierarch-plugin-reads.ts](../packages/console/lib/trierarch-plugin-reads.ts) `VERSION_TIMEOUT_MS` | #332 |
-| 1.5 s | Reading the account's theme before rendering with System | [lib/theme-of-session.ts](../packages/console/lib/theme-of-session.ts) `ACCOUNT_TIMEOUT_MS` | none recorded |
 | 3 s | An analytics event's session check, then the event is dropped | [lib/analytics-route.ts](../packages/console/lib/analytics-route.ts) `SESSION_CHECK_TIMEOUT_MS` | [0025](decisions/0025-console-analytics.md) |
 | 3 s | Sending an analytics event to PostHog | [lib/analytics-posthog.ts](../packages/console/lib/analytics-posthog.ts) `CAPTURE_TIMEOUT_MS` | [0025](decisions/0025-console-analytics.md) |
 | 100 characters; steps 1 to 10; 0 to 100 roles | An analytics event's route, guide step and role count | [lib/analytics-event.ts](../packages/console/lib/analytics-event.ts) `ROUTE_MAX_LENGTH`, `GUIDE_STEPS_MAX`, `ROLES_MAX` | [0025](decisions/0025-console-analytics.md) |

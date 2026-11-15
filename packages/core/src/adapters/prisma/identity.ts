@@ -72,7 +72,7 @@ export function createPrismaOperatorAccountLookup(db: Db): OperatorAccountLookup
       // Not scoped by fleet: signing in names no fleet (ADR 0007). No lock:
       // a plain read never waits for a sign-in or a reset holding the row.
       const rows = await db.$queryRaw<unknown[]>`
-        SELECT id, fleet_id, email, password_hash, theme::text AS theme, created_at FROM operators
+        SELECT id, fleet_id, email, password_hash, created_at FROM operators
         WHERE email = ${email}
         ORDER BY id`;
       return rows.map(toOperatorAccount);
@@ -80,7 +80,7 @@ export function createPrismaOperatorAccountLookup(db: Db): OperatorAccountLookup
     byFleet: async (fleetId) => {
       // No lock, as allByEmail: the caller checks the row again under its lock.
       const [row] = await db.$queryRaw<unknown[]>`
-        SELECT id, fleet_id, email, password_hash, theme::text AS theme, created_at FROM operators
+        SELECT id, fleet_id, email, password_hash, created_at FROM operators
         WHERE fleet_id = ${fleetId}`;
       return row ? toOperatorAccount(row) : undefined;
     },
@@ -101,7 +101,7 @@ export function createPrismaOperatorAccountRepository(db: Db): OperatorAccountRe
       // Not scoped by fleet: signing in names no fleet (ADR 0007). Locked in
       // id order, so two units of work never wait on each other's rows.
       const rows = await db.$queryRaw<unknown[]>`
-        SELECT id, fleet_id, email, password_hash, theme::text AS theme, created_at FROM operators
+        SELECT id, fleet_id, email, password_hash, created_at FROM operators
         WHERE email = ${email}
         ORDER BY id
         FOR UPDATE`;
@@ -109,7 +109,7 @@ export function createPrismaOperatorAccountRepository(db: Db): OperatorAccountRe
     },
     findForFleetForUpdate: async (fleetId) => {
       const [row] = await db.$queryRaw<unknown[]>`
-        SELECT id, fleet_id, email, password_hash, theme::text AS theme, created_at FROM operators
+        SELECT id, fleet_id, email, password_hash, created_at FROM operators
         WHERE fleet_id = ${fleetId}
         FOR UPDATE`;
       return row ? toOperatorAccount(row) : undefined;
@@ -122,12 +122,9 @@ export function createPrismaOperatorAccountRepository(db: Db): OperatorAccountRe
     },
     findForFleet: async (fleetId) => {
       const [row] = await db.$queryRaw<unknown[]>`
-        SELECT id, fleet_id, email, password_hash, theme::text AS theme, created_at FROM operators
+        SELECT id, fleet_id, email, password_hash, created_at FROM operators
         WHERE fleet_id = ${fleetId}`;
       return row ? toOperatorAccount(row) : undefined;
-    },
-    setTheme: async ({ fleetId, operatorId, theme }) => {
-      await db.operator.updateMany({ where: { fleetId, id: operatorId }, data: { theme } });
     },
   };
 }

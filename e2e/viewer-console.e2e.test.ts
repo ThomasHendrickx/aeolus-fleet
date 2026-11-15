@@ -2,6 +2,7 @@ import { SCOPES, type FleetId } from '@aeolus-fleet/common';
 import { createTRPCClient, httpBatchLink } from '@trpc/client';
 import type { FastifyInstance } from 'fastify';
 import type { Browser, BrowserContext, Page } from 'playwright';
+import { THEME_COOKIE } from '@aeolus-fleet/common/rules';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { createPrismaClient, type PrismaClient } from '../packages/core/src/adapters/prisma/client.js';
@@ -78,6 +79,23 @@ describe('the console of a viewer session', () => {
 
     await expect(page.getByTestId('fleet-commission').count()).resolves.toBe(0);
     await expect(page.getByTestId('header-compose').count()).resolves.toBe(0);
+  });
+
+  it("shows the browser's theme from the first paint, still with no theme switch (header-across-apps T3)", async () => {
+    // Given a viewer signed in, in a browser that keeps Dark
+    const page = await signedIn('viewer');
+    await page.context().addCookies([{ name: THEME_COOKIE, value: 'dark', url: web.url }]);
+
+    // When the next page loads
+    await page.reload({ waitUntil: 'domcontentloaded' });
+
+    // Then it is dark from the first paint, and the menu offers no theme
+    await expect(page.locator('html').getAttribute('class')).resolves.toMatch(/(^|\s)dark(\s|$)/);
+    // Live shows once the page is hydrated: a menu click before that does nothing.
+    await page.locator('[data-slot="live-status"][data-state="live"]:visible').waitFor({ timeout: 20_000 });
+    await page.locator('[data-testid="avatar-menu"][aria-label="Account menu, viewer, Viewer"]').first().click();
+    await page.getByTestId('avatar-menu-shortcuts').waitFor();
+    await expect(page.getByTestId('avatar-menu-theme-dark').count()).resolves.toBe(0);
   });
 
   it("offers only Copy ship id in a ship's row menu", async () => {

@@ -4,7 +4,7 @@
 - Permanent, as `argo`: never released, retired or renamed. Always crewed, never pinged, never in Needs attention. It has no secret and receives nothing: a send to it, or to its type, is refused.
 - The installation issues a viewer ticket (`issueSignInTicket` with `as: 'viewer'`; refused for a fleet without the viewer ship). Redeemed, it starts a viewer session: many at once, holding no lease, beside the operator's session, which never ends them. Each is valid 2 hours after its last use and 24 hours after it started at most; it ends by expiry, by its own sign-out, or with its fleet. Writes `ViewerSessionStarted`.
 - A viewer session reads argo's inbox read-only, within its read reach (decision 0034), and the viewer ship is last seen when its most recent viewer session was used.
-- `console.session` answers `{ fleetId, expiresAt, kind, scopes }`, so a service beside the console serves a viewer reads only: squadrons serves what needs `fleet:manage` only to an actor holding it. `console.account` answers a viewer `{ kind, session }`, no email or theme; `setTheme` refuses it.
+- `console.session` answers `{ fleetId, expiresAt, kind, scopes }`, so a service beside the console serves a viewer reads only: squadrons serves what needs `fleet:manage` only to an actor holding it. `console.account` answers a viewer `{ kind, session }`, no email.
 
 Why: a read-only look at a live fleet (the hosted demo is its first user) without handing out the operator's session or a crew line. A ship of its own keeps the viewer an actor authorised by its scopes (0057).
 

@@ -12,6 +12,7 @@ import { trpcErrorCode } from '../lib/errors';
 import { HostedAccountUrlContext } from '../lib/hosted-account';
 import { createLiveUpdates, LiveUpdatesContext } from '../lib/live-updates';
 import { OwnSignInContext } from '../lib/own-sign-in';
+import { ThemeCookieDomainContext } from '../lib/browser-theme-client';
 import { WayOutContext, useWayOutEndsWithPage } from '../lib/session';
 import { createSessionFetch } from '../lib/session-fetch';
 import { TRPCProvider } from '../lib/trpc';
@@ -87,6 +88,7 @@ function Pageviews(): null {
 /**
  * constants: the values from common the browser shows, read by the root layout on the server (decision 0033).
  * hostedAccountUrl: AEOLUS_HOSTED_ACCOUNT_URL, where a hosted operator's account lists the fleet's limits.
+ * themeCookieDomain: AEOLUS_THEME_COOKIE_DOMAIN, the domain the Aeolus apps share for the browser's one theme.
  * isAnalyticsOn: whether AEOLUS_HOSTED_ANALYTICS_* configure an adapter (decision 0025); off, the console sends no analytics.
  */
 export function Providers({
@@ -94,6 +96,7 @@ export function Providers({
   constants,
   hostedAccountUrl,
   hasOwnSignIn,
+  themeCookieDomain,
   isAnalyticsOn,
   children,
 }: {
@@ -101,6 +104,7 @@ export function Providers({
   constants: ConsoleConstants;
   hostedAccountUrl?: string;
   hasOwnSignIn: boolean;
+  themeCookieDomain?: string;
   isAnalyticsOn: boolean;
   children: ReactNode;
 }) {
@@ -123,6 +127,7 @@ export function Providers({
         <ConsoleConstantsContext value={constants}>
           <HostedAccountUrlContext value={hostedAccountUrl}>
             <OwnSignInContext value={hasOwnSignIn}>
+            <ThemeCookieDomainContext value={themeCookieDomain}>
             <AnalyticsContext value={isAnalyticsOn}>
               <WayOutContext value={wayOut}>
                 <LiveUpdatesContext value={live}>
@@ -133,6 +138,7 @@ export function Providers({
               </WayOutContext>
               <Toaster />
             </AnalyticsContext>
+            </ThemeCookieDomainContext>
             </OwnSignInContext>
           </HostedAccountUrlContext>
         </ConsoleConstantsContext>

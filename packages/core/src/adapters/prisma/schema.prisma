@@ -1301,8 +1301,6 @@ model Operator {
   /// The fleets the installation creates may share one; the email of argo's own sign-in (with a password) is no other operator's.
   email        String?
   passwordHash String?  @map("password_hash")
-  /// How the console looks for this operator; system until they choose.
-  theme        Theme    @default(system)
   createdAt    DateTime @map("created_at") @db.Timestamptz(3)
 
   fleet Fleet @relation(fields: [fleetId], references: [id])
@@ -1312,13 +1310,6 @@ model Operator {
   @@map("operators")
 }
 
-enum Theme {
-  light
-  dark
-  system
-
-  @@map("theme")
-}
 
 /// The operator crewing argo through the web console. Ids start with ses_.
 /// Only the hash of the session token is stored, unique across all fleets: finding

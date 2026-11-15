@@ -119,7 +119,7 @@ describe('a viewer ticket', () => {
     });
   });
 
-  it('gives an account with its kind and session, and no email or theme', async () => {
+  it('gives an account with its kind and session, and no email', async () => {
     const cookie = await signIn(demoFleet, 'viewer');
 
     await expect(consoleWith(cookie).console.account.query()).resolves.toEqual({ kind: 'viewer', session: { device: 'Mac · Safari', since: clock.now().toISOString() } });
@@ -146,7 +146,6 @@ describe('viewer sessions on Postgres', () => {
 
     await expect(codeOf(viewer.fleet.list.query())).resolves.toBeUndefined();
     await expect(codeOf(viewer.fleet.commission.mutate({ idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }))).resolves.toBe('FORBIDDEN');
-    await expect(codeOf(viewer.console.setTheme.mutate({ theme: 'dark' }))).resolves.toBe('FORBIDDEN');
   });
 
   it('stay valid 2 hours after their last use, and end 2 hours after it', async () => {

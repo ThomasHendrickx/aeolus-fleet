@@ -310,6 +310,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_events_owner_set_index$/),
       expect.stringMatching(/^\d{14}_messages_asked_answered_question_id$/),
       expect.stringMatching(/^\d{14}_unseen_plain_messages$/),
+      expect.stringMatching(/^\d{14}_theme_per_browser$/),
     ]);
   });
 });
@@ -1852,15 +1853,6 @@ describe("the operator's account at the API", () => {
     expect(argo?.location).toEqual({ kind: 'OTHER', description: 'Mac · Chrome' });
   });
 
-  it('keeps the chosen theme on the account, across sign-ins', async () => {
-    const asArgo = await signedInArgo();
-
-    await expect(asArgo.console.setTheme.mutate({ theme: 'dark' })).resolves.toEqual({});
-    const next = await signedInArgo();
-    await expect(next.console.account.query()).resolves.toMatchObject({ theme: 'dark' });
-    await next.console.setTheme.mutate({ theme: 'system' });
-  });
-
   it("sets argo's email and password after its current password, which then sign in", async () => {
     const asArgo = await signedInArgo();
 
@@ -1880,7 +1872,6 @@ describe("the operator's account at the API", () => {
     const agent = client({ authorization: `Bearer ${await crewedShip([...SCOPES])}` });
 
     await expect(codeOf(agent.console.account.query())).resolves.toBe('FORBIDDEN');
-    await expect(codeOf(agent.console.setTheme.mutate({ theme: 'dark' }))).resolves.toBe('FORBIDDEN');
     await expect(codeOf(agent.console.setLogin.mutate({ email: 'agent@example.com', password: 'staple battery horse' }))).resolves.toBe('FORBIDDEN');
   });
 });

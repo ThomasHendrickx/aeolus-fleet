@@ -27,7 +27,7 @@ describe('creating a fleet for the installation', () => {
     expect(core.state.fleets).toEqual([{ id: fleetId, name: 'hemma', createdAt: CREATED_AT }]);
     expect(core.state.ships).toEqual([expect.objectContaining({ id: operatorShipId, fleetId, name: 'argo', kind: 'operator', scopes: [...SCOPES] })]);
     expect(core.state.operatorAccounts).toEqual([
-      expect.objectContaining({ fleetId, email: 'lena@example.com', passwordHash: null, theme: 'system', createdAt: CREATED_AT }),
+      expect.objectContaining({ fleetId, email: 'lena@example.com', passwordHash: null, createdAt: CREATED_AT }),
     ]);
   });
 

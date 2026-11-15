@@ -20,10 +20,10 @@ beforeEach(async () => {
 });
 
 describe("reading the operator's account", () => {
-  it('gives the email, the theme (System until chosen) and this session: its device and since when', async () => {
+  it('gives the email and this session: its device and since when', async () => {
     await expect(useCases.readAccount(console)).resolves.toEqual({
       isOk: true,
-      value: { kind: 'operator', email: OPERATOR.email, theme: 'system', hasPassword: true, session: { device: 'Mac · Chrome', since: signedInAt, accountId: null } },
+      value: { kind: 'operator', email: OPERATOR.email, hasPassword: true, session: { device: 'Mac · Chrome', since: signedInAt, accountId: null } },
     });
   });
 

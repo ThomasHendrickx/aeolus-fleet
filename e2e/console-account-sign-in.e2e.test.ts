@@ -1,6 +1,7 @@
 import type { FleetId, ShipId } from '@aeolus-fleet/common';
 import type { FastifyInstance } from 'fastify';
 import type { Browser, BrowserContext, Page, Request } from 'playwright';
+import { THEME_COOKIE } from '@aeolus-fleet/common/rules';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { createPrismaClient, type PrismaClient } from '../packages/core/src/adapters/prisma/client.js';
@@ -172,15 +173,32 @@ describe('an account signing in to the console', () => {
     await useCases.setNotices({ notices: [] });
   });
 
-  it('keeps the theme the account picks in the browser, from the first paint of the next page (header design, C5)', async () => {
+  it('keeps the theme the account picks in the cookie every Aeolus app reads, from the first paint of the next page (header-across-apps T1)', async () => {
+    // Given an account signed in to the console
     pagasae.signInAs(mathilde());
     const page = await newPage();
     await page.goto('/');
     await page.locator('[data-testid="avatar-menu"]:visible').click();
 
+    // When it picks Dark
     await page.getByTestId('avatar-menu-theme-dark').click();
-    await page.reload();
 
+    // Then the browser keeps Dark for every app, and the next page paints it
+    await expect.poll(async () => (await page.context().cookies()).find((cookie) => cookie.name === THEME_COOKIE)?.value).toBe('dark');
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await expect(page.locator('html').getAttribute('class')).resolves.toContain('dark');
+  });
+
+  it('shows the theme another Aeolus app kept in this browser, from the first paint (header-across-apps T1)', async () => {
+    // Given a browser where Bridge kept Dark
+    pagasae.signInAs(mathilde());
+    const page = await newPage();
+    await page.context().addCookies([{ name: THEME_COOKIE, value: 'dark', url: web.url }]);
+
+    // When the account opens the console
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+
+    // Then the console is dark from the first paint
     await expect(page.locator('html').getAttribute('class')).resolves.toContain('dark');
   });
 
