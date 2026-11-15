@@ -50,6 +50,8 @@ const CREDENTIALS = { accessKeyId: 'test', secretAccessKey: 'test' };
 const INSTALLATION_TOKEN = 'aeolus_installation_test_0123456789abcdef';
 const PAYLOAD = 'Review https://github.com/ThomasHendrickx/aeolus-fleet/pull/1373, before 5 € lunch';
 const QUESTION_ID = '0f8e2c1a-5b7d-4e3f-9a6b-2c4d8e1f0a3b';
+/** Long enough that the server's own 30 second maintenance pass never runs in a test: it would seal under the fleet's sealing lock while a test's pass tries it, which skips the fleet and seals nothing (#1836). */
+const NO_PASS_MS = 600_000;
 const clock = createTestClock('2026-10-29T12:00:00.000Z');
 const newId = createIdGenerator();
 
@@ -75,7 +77,7 @@ beforeAll(async () => {
   databaseUrl = await createMigratedDatabase();
   prisma = createPrismaClient(databaseUrl);
   useCases = createUseCases({ prisma, clock, keyVault, receiveWaitMs: 0 });
-  server = createApp({ databaseUrl, publicUrl: FLEET_URL, clock, logger: false, installationToken: INSTALLATION_TOKEN, keyVault });
+  server = createApp({ databaseUrl, publicUrl: FLEET_URL, clock, logger: false, installationToken: INSTALLATION_TOKEN, keyVault, overduePassMs: NO_PASS_MS });
   address = await server.listen({ host: '127.0.0.1', port: 0 });
 });
 
@@ -792,9 +794,11 @@ describe('the sealing pass on Postgres and a LocalStack KMS (decision 0068, B5)'
     unwrap(await useCases.turnOnSealing(fleet.argo, { companyKey: await aKeyBoundTo(fleet.fleetId) }));
 
     const sendsDuringThePass = Array.from({ length: 40 }, (_, index) => useCases.sendMessage(fleet.argo, aMessageTo(scout.shipId, `${PAYLOAD} during #${index}`)));
-    const [, ...sent] = await Promise.all([useCases.sealStoredPayloads(), ...sendsDuringThePass]);
-    await useCases.sealStoredPayloads();
+    const failures: unknown[] = [];
+    const [, ...sent] = await Promise.all([useCases.sealStoredPayloads((_, error) => failures.push(error)), ...sendsDuringThePass]);
+    await useCases.sealStoredPayloads((_, error) => failures.push(error));
 
+    expect(failures).toEqual([]);
     expect(sent.filter((result) => !result.isOk)).toEqual([]);
     expect(await sealingPassOf(fleet.fleetId)).toEqual({ plainMessages: 0, plainSchedules: 0, state: 'sealed', sealedEvents: [{ actorKind: 'system' }] });
     expect(await everyPayloadReceived(scout)).toHaveLength(440);
