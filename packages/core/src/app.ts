@@ -36,6 +36,8 @@ export interface AppOptions {
   installationToken?: string;
   /** How often the 10 and 60 minute clocks and the schedules' fallback pass run; every 30 seconds unless a test says otherwise. */
   overduePassMs?: number;
+  /** Whether the maintenance pass runs at all: false, only what a test calls runs passes (#1836). Unset, it runs. */
+  hasMaintenancePass?: boolean;
   /** pagasae's URL, the issuer whose account tokens core trusts (decision 0058); unset, it trusts none. */
   accountTokenIssuer?: string;
   /** The installation's KMS for sealed fleets (decision 0068); unset, no fleet can be sealed. */
@@ -140,7 +142,7 @@ export function createApp(options: AppOptions): FastifyInstance {
     },
   });
 
-  const overduePasses = startMaintenancePass({
+  const overduePasses = options.hasMaintenancePass === false ? undefined : startMaintenancePass({
     useCases,
     log: server.log,
     scheduleTimer,
@@ -168,7 +170,7 @@ export function createApp(options: AppOptions): FastifyInstance {
   });
 
   server.addHook('onClose', async () => {
-    await overduePasses.stop();
+    await overduePasses?.stop();
     await scheduleTimer.stop();
     await listener.close();
     await prisma.$disconnect();
