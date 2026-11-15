@@ -11,6 +11,63 @@ import { getContainerRuntimeClient } from "testcontainers";
  */
 export const TEST_RUN_LABEL = "aeolus-fleet.test-run";
 
+/** The label every test container carries, its value the repository, so a container of this repository is found whatever run started it. */
+export const REPOSITORY_LABEL = "aeolus-fleet.repository";
+
+const REPOSITORY = "aeolus-fleet";
+
+/** The labels of a container the run starts: its repository and the run. */
+export function testContainerLabels(run: string): Record<string, string> {
+  return { [REPOSITORY_LABEL]: REPOSITORY, [TEST_RUN_LABEL]: run };
+}
+
+/** A test container older than this is a leak: no run lasts that long. */
+const STALE_AFTER_MS = 24 * 3_600_000;
+
+/** The part of the container runtime the removal of stale containers uses. */
+export interface StaleSweepRuntime {
+  listRepositoryContainers(): Promise<{ id: string; createdAt: Date }[]>;
+  removeContainer(id: string): Promise<void>;
+}
+
+/**
+ * Removes this repository's test containers created more than 24 hours before
+ * now, whichever run started them: a run that was killed or timed out never
+ * reached its teardown, and its sweeper may have died too.
+ */
+export async function removeStaleContainers(
+  runtime: StaleSweepRuntime,
+  { now = new Date() }: { now?: Date } = {},
+): Promise<void> {
+  const containers = await runtime.listRepositoryContainers();
+  const stale = containers.filter(
+    ({ createdAt }) => now.getTime() - createdAt.getTime() > STALE_AFTER_MS,
+  );
+  // A container removed meanwhile answers not found: it is gone either way.
+  await Promise.allSettled(stale.map(({ id }) => runtime.removeContainer(id)));
+}
+
+/** Removes this repository's stale test containers from the container runtime of this machine. */
+export async function removeStaleTestContainers(): Promise<void> {
+  const { dockerode } = (await getContainerRuntimeClient()).container;
+  await removeStaleContainers({
+    async listRepositoryContainers() {
+      const containers = await dockerode.listContainers({
+        all: true,
+        filters: { label: [`${REPOSITORY_LABEL}=${REPOSITORY}`] },
+      });
+      // Created is in seconds.
+      return containers.map((container) => ({
+        id: container.Id,
+        createdAt: new Date(container.Created * 1000),
+      }));
+    },
+    async removeContainer(id) {
+      await dockerode.getContainer(id).remove({ force: true, v: true });
+    },
+  });
+}
+
 /**
  * Starts the sweeper of a test run: a process of its own that removes the
  * run's containers with their volumes once the run's process ends, however it

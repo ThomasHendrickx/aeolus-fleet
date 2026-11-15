@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -66,6 +66,8 @@ let prisma: PrismaClient;
 let useCases: UseCases;
 let server: FastifyInstance;
 let address: string;
+/** The temp folders the tests made, removed at the end. */
+const recoveryFolders: string[] = [];
 
 beforeAll(async () => {
   localStack = await startLocalStack();
@@ -85,6 +87,7 @@ afterAll(async () => {
   company.destroy();
   await policy.close();
   await localStack.stop();
+  await Promise.all(recoveryFolders.map((folder) => rm(folder, { recursive: true, force: true })));
 });
 
 function client(headers: Record<string, string>): TRPCClient<AppRouter> {
@@ -1185,7 +1188,9 @@ describe('recovery on Postgres and a LocalStack KMS (decision 0068, B15)', () =>
     const fleet = await aHostedFleet();
     const companyKey = await aKeyBoundTo(fleet.fleetId);
     const identity = await generateX25519Identity();
-    const identityFile = join(await mkdtemp(join(tmpdir(), 'aeolus-recovery-')), 'recovery-key.txt');
+    const identityFolder = await mkdtemp(join(tmpdir(), 'aeolus-recovery-'));
+    recoveryFolders.push(identityFolder);
+    const identityFile = join(identityFolder, 'recovery-key.txt');
     await writeFile(identityFile, `# created: 2026-10-29T12:00:00Z\n# public key: ${await identityToRecipient(identity)}\n${identity}\n`, { mode: 0o600 });
     unwrap(await useCases.turnOnSealing(fleet.argo, { companyKey, recoveryKey: await identityToRecipient(identity) }));
     const scout = await aCrewedReviewer(fleet, 'scout');

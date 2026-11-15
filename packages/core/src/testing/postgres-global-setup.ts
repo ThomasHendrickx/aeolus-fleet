@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import type { TestProject } from 'vitest/node';
 
 import { POSTGRES_IMAGE, REAPER_IMAGE } from './container-images.js';
-import { startContainerSweeper } from './container-sweeper.js';
+import { removeStaleTestContainers, startContainerSweeper } from './container-sweeper.js';
 import { TestPostgres } from './postgres-container.js';
 import { createMigratedTemplate } from './migrated-template.js';
 import { stopContainer } from './stop-container.js';
@@ -23,11 +23,12 @@ declare module 'vitest' {
  * migrated one is a copy of the template migrated here, before any test runs.
  * Testcontainers reads the reaper image from the environment when it starts
  * the first container; a reaper image set from outside wins. The run's sweeper
- * starts before any container, so a run that never reaches its teardown still
+ * starts before any container, and this repository's test containers older than 24 hours, leaks of runs that were killed, are removed first; so a run that never reaches its teardown still
  * leaves none behind.
  */
 export async function setup(project: TestProject): Promise<() => Promise<void>> {
   process.env.RYUK_CONTAINER_IMAGE ??= REAPER_IMAGE;
+  await removeStaleTestContainers();
   const run = randomUUID();
   startContainerSweeper(run);
   project.provide('testRun', run);
