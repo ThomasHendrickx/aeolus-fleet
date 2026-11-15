@@ -15,12 +15,19 @@ class Fleet {
   readonly queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   readonly manageAnswer = Promise.withResolvers<Response>();
   readonly saveAnswer = Promise.withResolvers<Response>();
+  readonly retryAnswer = Promise.withResolvers<Response>();
+  private catalogueReads = 0;
+  constructor(private readonly failsCatalogue = false) {}
   readonly scopes = ['messages:send', 'messages:receive', 'scopes:grant', 'fleet:read', 'meetings:open'];
   readonly fetch: typeof fetch = async (input) => {
     const url = new URL(input instanceof Request ? input.url : input);
     if (url.pathname.endsWith('console.session')) return Response.json({ result: { data: { kind: 'account', scopes: this.scopes } } });
     if (url.pathname.endsWith('fleet.checkManage')) return this.manageAnswer.promise;
     if (url.pathname.endsWith('fleet.grantScopes')) return this.saveAnswer.promise;
+    if (url.pathname.endsWith('fleet.scopes') && this.failsCatalogue) {
+      this.catalogueReads += 1;
+      return this.catalogueReads === 1 ? Response.json({ error: { message: 'Could not read permissions', code: -32603, data: { code: 'INTERNAL_SERVER_ERROR', httpStatus: 500 } } }, { status: 500 }) : this.retryAnswer.promise;
+    }
     if (url.pathname.endsWith('fleet.scopes')) return Response.json({ result: { data: [{ namespace: 'fleet', kind: 'core', declaredBy: null, scopes: [
       { scope: 'fleet:read', description: 'Read ships, timelines and messages.' },
       { scope: 'meetings:open', description: 'Invite ships to a meeting.' },
@@ -91,5 +98,21 @@ export const SaveClosesEditor: Story = {
     // Then the completed action closes the editor and says what was saved.
     await waitFor(async () => { await expect(screen.queryByTestId('ship-permissions-save')).toBeNull(); });
     await waitFor(async () => { await expect(screen.getByText('Permissions saved for reviewer-01')).toBeVisible(); });
+  },
+};
+
+export const RetryReadShowsPending: Story = {
+  args: { fleet: new Fleet(true) },
+  play: async ({ args }) => {
+    // Given a failed catalogue read in an allowed editor.
+    args.fleet.allowManage();
+    await userEvent.click(await screen.findByTestId('ship-permissions-change'));
+    await expect(await screen.findByText('Couldn’t read permissions')).toBeVisible();
+    // When Try again is pressed before the fleet answers.
+    await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    // Then the retry is visibly pending and cannot be pressed twice.
+    const retry = await screen.findByRole('button', { name: /Trying again/ });
+    await expect(retry).toHaveAttribute('data-loading');
+    await expect(retry).toHaveAttribute('data-disabled');
   },
 };

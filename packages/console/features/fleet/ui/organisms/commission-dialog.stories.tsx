@@ -431,3 +431,40 @@ export const LiveCrewCheckKeepsShownSwitch: Story = {
     await expect(crew).not.toBeChecked();
   },
 };
+
+function RetryingCommissionReads(args: ComponentProps<typeof CommissionDialog>) {
+  const [isRetrying, setIsRetrying] = useState(false);
+  const failure = { message: 'The read failed. Nothing you typed is lost.', isRetrying, onRetry: () => { setIsRetrying(true); } };
+  return <CommissionDialog {...args} scopeGroups={undefined} scopeFailure={failure} owner={args.owner === undefined ? undefined : { ...args.owner, failure }} />;
+}
+
+export const PermissionRetryShowsPending: Story = {
+  render: (args) => <RetryingCommissionReads {...args} />,
+  play: async () => {
+    // Given a failed permission read and an edited commission form.
+    await typeNameAndType();
+    await userEvent.click(screen.getByTestId('commission-extra-permissions'));
+    // When retry is pressed before its read answers.
+    await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    // Then the button shows pending and the form keeps its input.
+    const retry = await screen.findByRole('button', { name: /Trying again/ });
+    await expect(retry).toHaveAttribute('data-loading');
+    await expect(retry).toHaveAttribute('data-disabled');
+    await expect(screen.getByTestId('commission-name')).toHaveValue('reviewer-03');
+  },
+};
+export const OwnerRetryShowsPending: Story = {
+  args: { owner: { choices: undefined } },
+  render: (args) => <RetryingCommissionReads {...args} />,
+  play: async () => {
+    // Given a failed owner read and an edited commission form.
+    await typeNameAndType();
+    // When retry is pressed before its read answers.
+    await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    // Then the button shows pending and the form keeps its input.
+    const retry = await screen.findByRole('button', { name: /Trying again/ });
+    await expect(retry).toHaveAttribute('data-loading');
+    await expect(retry).toHaveAttribute('data-disabled');
+    await expect(screen.getByTestId('commission-name')).toHaveValue('reviewer-03');
+  },
+};
