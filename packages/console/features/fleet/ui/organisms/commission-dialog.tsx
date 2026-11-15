@@ -7,7 +7,7 @@ import { useId, useState } from 'react';
 
 import { Button, classNames, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, dialogSurface, DialogTitle, Input, Label, ScopePicker, Switch, InlineError } from '@aeolus-fleet/ui';
 import { useConsoleConstants } from '../../../../lib/console-constants';
-import { defaultValues, promptBytes, settingsOf, workspaceProblems, type CrewSettingsValues, type HarnessOffer } from '../../../../lib/crew-settings-form';
+import { defaultValues, promptBytes, settingsOf, withHarness, workspaceProblems, type CrewSettingsValues, type HarnessOffer } from '../../../../lib/crew-settings-form';
 import type { MachineLabelsInput } from '../../../../lib/machine-labels';
 import type { SettingsCheck } from '../../../../lib/trierarch-plugin-schemas';
 import { asHandle, checkShipName, typeHint } from '../../../../lib/ship-name';
@@ -102,7 +102,9 @@ function CommissionDialogBody({ types, taken, onTypedChange, isPending, error, s
   // On by default while the trierarch plugin is connected, off otherwise (#245: Thomas's decision).
   const [isCrewRequested, setIsCrewRequested] = useState(crewRequest !== undefined);
   const [editedCrewValues, setCrewValues] = useState<CrewSettingsValues>();
-  const crewValues = editedCrewValues ?? defaultValues(crewRequest?.offers ?? []);
+  const offers = crewRequest?.offers ?? [];
+  const defaults = defaultValues(offers);
+  const crewValues = editedCrewValues === undefined ? defaults : editedCrewValues.harness === '' && defaults.harness !== '' ? withHarness(editedCrewValues, { harness: defaults.harness, offers }) : editedCrewValues;
   const isWaitingForMachine = crewValues.machineLabels.length > 0 && crewRequest?.machineLabels?.matchOf(crewValues.machineLabels).matching.length === 0;
   const crewSettings = settingsOf(crewValues);
   const refusal = crewRequest?.check?.kind === 'refused' ? crewRequest.check : undefined;
