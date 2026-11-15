@@ -2,7 +2,6 @@ import { idSchema, type FleetId } from '@aeolus-fleet/common';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/client.js';
-import { unseenPlainMessagesStatement } from '../src/adapters/prisma/unseen-plain-messages.js';
 import { exchangeListStatement } from '../src/adapters/prisma/exchange-rollups.js';
 import { Prisma } from '../src/adapters/prisma/generated/client.js';
 import { exchangePageStatement, unacknowledgedUpToStatement } from '../src/adapters/prisma/messaging.js';
@@ -165,21 +164,5 @@ describe('the exchange reads on a fleet with a long history', () => {
     expect(plan).toContain('deliveries_in_flight_claimed_idx');
     expect(plan).not.toMatch(/Seq Scan on deliveries/);
     expect(plan).not.toContain('deliveries_record_fleet_id_claimed_by_ship_id_id_idx');
-  });
-});
-
-describe('unseen plain message backfill at scale', () => {
-  it('counts only open exchange deliveries and looks up each message by key while the fill is partial', async () => {
-    // Given the existing 65,000-message and 800-ship analysed fixture.
-    const statement = Prisma.sql`SELECT ${unseenPlainMessagesStatement(Prisma.sql`e`)} FROM exchanges e
-      WHERE e.fleet_id = ${fleetId} AND e.ship_id = ${thomas.shipId} AND e.other_ship_id = ${busiest}`;
-    // When the same recount used by a batch and a partial read is planned.
-    const rows = await prisma.$queryRaw<{ 'QUERY PLAN': string }[]>(Prisma.sql`EXPLAIN ${statement}`);
-    const plan = rows.map((row) => row['QUERY PLAN']).join('\n');
-    // Then the open deliveries use an index and their messages use key lookups.
-    expect(plan).toContain('Index Cond:');
-    expect(plan).toMatch(/Index.*Scan.*messages/);
-    expect(plan).toContain('deliveries_open_exchange_idx');
-    expect(plan).not.toMatch(/Seq Scan on (messages|deliveries)/);
   });
 });

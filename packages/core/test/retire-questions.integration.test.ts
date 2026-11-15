@@ -1,7 +1,6 @@
 import { ANSWER_CONTENT_TYPE, createIdGenerator, REPLACEMENT_CONTENT_TYPE, idSchema, WITHDRAWAL_CONTENT_TYPE, type DeliveryId, type MessageId } from '@aeolus-fleet/common';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { backfillMessageMetadata } from '../src/adapters/prisma/message-metadata-backfill.js';
 import { sha256Hasher } from '../src/adapters/crypto/secrets.js';
 import { createPrismaMessageRepository } from '../src/adapters/prisma/messaging.js';
 import { createReplyToMessage } from '../src/domain/messaging/reply-to-message.js';
@@ -12,6 +11,7 @@ import { aQuestion } from './support/formatted-message-fixtures.js';
 import { createPostgresCore, heldUnitOfWork, type PostgresCore } from './support/postgres-core.js';
 import { unwrap } from '../src/testing/result.js';
 import { newKey } from '../src/testing/keys.js';
+import { fillUntilComplete, metadataFillOf } from './support/metadata-fill.js';
 import { withOperatorLogin } from './support/operator-login.js';
 import { createInMemoryKeyVault } from './support/in-memory-key-vault.js';
 import { unsealedFleetsOnly } from './support/sealing.js';
@@ -149,12 +149,10 @@ describe("the open questions of a ship, as Postgres selects them", () => {
     // Given old questions and answers whose uuids have not yet been filled.
     await core.prisma.message.updateMany({ data: { askedQuestionId: null, answeredQuestionId: null } });
     if (state === 'partial') {
-      await backfillMessageMetadata(core.prisma, { batchSize: 1 });
+      await metadataFillOf(core.prisma, 1)();
     }
     if (state === 'filled') {
-      while (await backfillMessageMetadata(core.prisma, { batchSize: 1 }) > 0) {
-        // Resume from each committed cursor.
-      }
+      await fillUntilComplete(core.prisma, 1);
       await expect(core.prisma.message.findUniqueOrThrow({ where: { id: answered.messageId } })).resolves.toMatchObject({ askedQuestionId: ANSWERED });
     }
     const messages = createPrismaMessageRepository(core.prisma);
