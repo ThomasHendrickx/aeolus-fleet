@@ -10,8 +10,7 @@ import { useConsoleConstants } from '../../../../lib/console-constants';
 import { Button, Checkbox, classNames, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, dialogSurface, DialogTitle, Input, Label, InlineError } from '@aeolus-fleet/ui';
 import { asHandle, checkShipName } from '../../../../lib/ship-name';
 import type { JoinedMachine } from '../../../../lib/trierarch-plugin-schemas';
-import { CodeBlock } from '../../../../components/atoms/code-block';
-import { CrewLines } from '../../../../components/molecules/crew-lines';
+import { joinMachineDescription } from '../../services/join-machine-description';
 import { SetupLineBlock } from '../molecules/setup-line-block';
 
 interface JoinMachineDialogProps {
@@ -24,8 +23,10 @@ interface JoinMachineDialogProps {
   isPending: boolean;
   /** Why the last try failed; the dialog stays open with the input kept. */
   error?: string;
-  /** The joined machine, once: its setup line and starting prompt are shown only now. */
+  /** The joined machine, once: its setup line is shown only now. */
   joined?: JoinedMachine;
+  /** The options submitted for this answer, used only to describe what the line does. */
+  joinedInput?: JoinMachineInput;
   onSubmit: (input: JoinMachineInput) => void;
 }
 
@@ -214,8 +215,8 @@ function NameStep({ takenNames, onNameChange, isPending, error, onSubmit }: Pick
   );
 }
 
-/** The joined machine's setup line, then its starting prompt and crew lines: each shown once, each with its copy button. */
-function JoinedStep({ joined }: { joined: JoinedMachine }) {
+/** The joined machine shows only the plugin's setup line, once, with what it will do and ask. */
+function JoinedStep({ joined, joinedInput }: { joined: JoinedMachine; joinedInput?: JoinMachineInput }) {
   const [hasCopyFailed, setHasCopyFailed] = useState(false);
   const copied = () => {
     setHasCopyFailed(false);
@@ -227,19 +228,9 @@ function JoinedStep({ joined }: { joined: JoinedMachine }) {
     <>
       <DialogHeader>
         <DialogTitle>{joined.name} joined</DialogTitle>
-        <DialogDescription>Run the setup line on the machine. It installs the trierarch, which then crews {joined.name} and reports what the machine offers.</DialogDescription>
+        <DialogDescription>{joinMachineDescription(joinedInput)}</DialogDescription>
       </DialogHeader>
       <SetupLineBlock name={joined.name} setupLine={joined.setupLine} testIdPrefix="join-machine" onCopied={copied} onCopyFailed={failed} />
-      <CodeBlock
-        label={`Starting prompt for ${joined.name}`}
-        code={joined.prompt}
-        isWrapped
-        copyLabel={`Copy the starting prompt for ${joined.name}`}
-        codeTestId="join-machine-prompt"
-        onCopied={copied}
-        onCopyFailed={failed}
-      />
-      <CrewLines crewLines={joined.crewLines} subject={joined.name} testIdPrefix="join-machine-crew-line" onCopied={copied} onCopyFailed={failed} />
       <p role="status" className="flex items-center gap-1.5 text-meta text-destructive-text empty:hidden">
         {hasCopyFailed ? (
           <>
@@ -256,13 +247,12 @@ function JoinedStep({ joined }: { joined: JoinedMachine }) {
 }
 
 /**
- * Join a machine (#245; follows RenameDialog for the name, then
- * StartingPromptDialog for what is shown once): the operator names it, the
- * trierarch plugin commissions its trierarch's ship, and the dialog shows its
- * setup line and starting prompt once. Desktop: a dialog; phone: full screen.
+ * Join a machine: the operator supplies its name and optional setup choices,
+ * the plugin commissions its ship, and the dialog shows only its setup line
+ * once. Desktop: a dialog; phone: full screen.
  */
 export function JoinMachineDialog(props: JoinMachineDialogProps) {
-  const { isOpen, onOpenChange, isPending, joined } = props;
+  const { isOpen, onOpenChange, isPending, joined, joinedInput } = props;
   return (
     <Dialog
       open={isOpen}
@@ -273,7 +263,7 @@ export function JoinMachineDialog(props: JoinMachineDialogProps) {
       }}
     >
       <DialogContent size="md" data-testid="join-machine-dialog" className={dialogSurface.phoneFullScreen}>
-        {joined === undefined ? <NameStep {...props} /> : <JoinedStep joined={joined} />}
+        {joined === undefined ? <NameStep {...props} /> : <JoinedStep joined={joined} joinedInput={joinedInput} />}
       </DialogContent>
     </Dialog>
   );

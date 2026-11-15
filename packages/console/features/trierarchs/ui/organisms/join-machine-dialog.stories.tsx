@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { useState } from 'react';
-import { expect, fn, screen, userEvent } from 'storybook/test';
+import type { JoinMachineInput } from '../../../../lib/join-machine-input';
+import { expect, fn, screen, userEvent, waitFor } from 'storybook/test';
 
 import { JOINED } from '../../../../lib/fixtures/machines.fixtures';
 import { JoinMachineDialog } from './join-machine-dialog';
@@ -172,5 +173,82 @@ export const InvalidFolder: Story = {
     await userEvent.type(screen.getByTestId('join-machine-folder'), 'code/api');
     await expect(screen.getByText('code/api is not a full path: start it with / or ~.')).toBeVisible();
     await expect(screen.getByTestId('join-machine-submit')).toBeDisabled();
+  },
+};
+
+const COMPLETE_INPUT: JoinMachineInput = { name: 'trierarch-new', harnesses: ['claude-code', 'codex'], unattended: ['claude-code'], repositories: { kind: 'list', entries: ['~/code/web', '~/code/api', 'git@github.com:acme/docs.git'] } };
+const JOINED_ASKS = { ...JOINED, setupLine: JOINED.setupLine.replace(' --secret', ' --plugin-ship-id shp_01j9k2t4qzr3a9w6m2v5n7plgn --secret') };
+const JOINED_COMPLETE = { ...JOINED_ASKS, setupLine: `${JOINED_ASKS.setupLine} --harnesses claude-code,codex --unattended claude-code --repositories '~/code/web,~/code/api,git@github.com:acme/docs.git'` };
+const COMPLETE_DESCRIPTION = 'Run this line in a terminal on the machine. It installs the trierarch and the aeolus-fleet plugin for Claude Code and Codex, adds 3 repositories, and starts the trierarch. It asks nothing. It ends with a report of how it went.';
+const ASKS_DESCRIPTION = 'Run this line in a terminal on the machine. It installs the trierarch, the aeolus-fleet plugin for each harness you pick, and starts the trierarch. It asks on the machine for the harnesses and the repositories. It ends with a report of how it went.';
+
+export const AfterJoinedComplete: Story = {
+  args: { joined: JOINED_COMPLETE, joinedInput: COMPLETE_INPUT },
+  play: async () => {
+    // Given all join options were filled.
+    const line = await screen.findByTestId('join-machine-setup-line');
+    // When the plugin answers with its setup line.
+    await expect(line).toHaveTextContent(JOINED_COMPLETE.setupLine);
+    // Then only that line is shown, with what it does and that it asks nothing.
+    await waitFor(async () => { await expect(screen.getByText(COMPLETE_DESCRIPTION)).toBeVisible(); });
+    await expect(screen.queryByTestId('join-machine-prompt')).not.toBeInTheDocument();
+    await expect(screen.queryByTestId('join-machine-crew-line-claude-code')).not.toBeInTheDocument();
+    await expect(screen.getAllByRole('button', { name: /Copy/ })).toHaveLength(1);
+  },
+};
+
+export const AfterJoinedAsks: Story = {
+  args: { joined: JOINED_ASKS },
+  play: async () => {
+    // Given only the name was filled.
+    const line = await screen.findByTestId('join-machine-setup-line');
+    // When the plugin answers.
+    await expect(line).toHaveTextContent(JOINED_ASKS.setupLine);
+    // Then the description says the machine asks for harnesses and repositories.
+    await waitFor(async () => { await expect(screen.getByText(ASKS_DESCRIPTION)).toBeVisible(); });
+    await expect(screen.queryByTestId('join-machine-prompt')).not.toBeInTheDocument();
+  },
+};
+
+export const AfterJoinedCopyFailed: Story = {
+  args: { joined: JOINED_ASKS },
+  beforeEach: () => {
+    const clipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: () => Promise.reject(new Error('Clipboard unavailable')) } });
+    return () => {
+      if (clipboard === undefined) Reflect.deleteProperty(navigator, 'clipboard');
+      else Object.defineProperty(navigator, 'clipboard', clipboard);
+    };
+  },
+  play: async () => {
+    // Given the clipboard refuses access.
+    const copy = await screen.findByTestId('join-machine-setup-line-copy');
+    // When Copy is pressed.
+    await userEvent.click(copy);
+    // Then the person is told to select the unchanged line and copy it by hand.
+    await waitFor(async () => { await expect(screen.getByText('Could not copy: select the text and copy it by hand.')).toBeVisible(); });
+    await expect(screen.getByTestId('join-machine-setup-line')).toHaveTextContent(JOINED_ASKS.setupLine);
+  },
+};
+
+export const AfterJoining: Story = { ...PressShowsPending };
+
+export const AfterFailed: Story = {
+  render: function Render(args) {
+    const [error, setError] = useState<string>();
+    return <JoinMachineDialog {...args} error={error} onSubmit={() => { setError('The trierarch plugin did not answer.'); }} />;
+  },
+  play: async () => {
+    // Given a filled form.
+    await filled();
+    // When the plugin refuses or does not answer.
+    await userEvent.click(screen.getByTestId('join-machine-submit'));
+    // Then the reason is shown, nothing changed, and the input stays editable.
+    await expect(screen.getByText('The trierarch plugin did not answer. Nothing changed.')).toBeVisible();
+    await expect(screen.getByTestId('join-machine-repository-1')).toHaveValue('~/code/web');
+    await expect(screen.getByTestId('join-machine-repository-3')).toHaveValue('git@github.com:acme/docs.git');
+    await expect(screen.getByTestId('join-machine-name')).toHaveValue('trierarch-new');
+    await expect(screen.getByTestId('join-machine-submit')).toBeEnabled();
+    await expect(screen.getByRole('button', { name: 'Cancel' })).toBeEnabled();
   },
 };
