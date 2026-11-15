@@ -198,8 +198,9 @@ export const SignedInAsAccount: Story = {
 function CommissionWithDelayedOffers(args: ComponentProps<typeof CommissionDialog>) {
   const [offers, setOffers] = useState<typeof OFFERS>([]);
   useEffect(() => {
-    const timer = setTimeout(() => { setOffers(OFFERS); }, 1500);
-    return () => { clearTimeout(timer); };
+    const deliverOffers = () => { setOffers(OFFERS); };
+    window.addEventListener('deliver-offers', deliverOffers);
+    return () => { window.removeEventListener('deliver-offers', deliverOffers); };
   }, []);
   return <CommissionDialog {...args} crewRequest={{ offers, onSettingsChange: () => undefined }} />;
 }
@@ -210,6 +211,7 @@ export const OffersArriveAfterOpening: Story = {
   render: (args) => <CommissionWithDelayedOffers {...args} />,
   play: async ({ args }) => {
     await typeNameAndType();
+    window.dispatchEvent(new Event('deliver-offers'));
     await waitFor(async () => {
       await expect(screen.getByTestId('crew-settings-harness')).toHaveTextContent('Claude Code');
       await expect(screen.getByTestId('crew-settings-workspace')).toHaveTextContent('aeolus-fleet');
@@ -225,6 +227,7 @@ export const EditedBeforeOffersArrive: Story = {
   render: (args) => <CommissionWithDelayedOffers {...args} />,
   play: async () => {
     await userEvent.type(await screen.findByTestId('crew-settings-first-prompt'), 'Triage issues');
+    window.dispatchEvent(new Event('deliver-offers'));
     await waitFor(async () => {
       await expect(screen.getByTestId('crew-settings-harness')).toHaveTextContent('Claude Code');
       await expect(screen.getByTestId('crew-settings-workspace')).toHaveTextContent('aeolus-fleet');

@@ -102,8 +102,9 @@ export const RefusedSubRepository: Story = {
 function RequestWithDelayedOffers(args: ComponentProps<typeof RequestCrewDialog> & { initialOffers?: typeof OFFERS }) {
   const [offers, setOffers] = useState<typeof OFFERS>(args.initialOffers ?? []);
   useEffect(() => {
-    const timer = setTimeout(() => { setOffers(OFFERS); }, 1500);
-    return () => { clearTimeout(timer); };
+    const deliverOffers = () => { setOffers(OFFERS); };
+    window.addEventListener('deliver-offers', deliverOffers);
+    return () => { window.removeEventListener('deliver-offers', deliverOffers); };
   }, []);
   return <RequestCrewDialog {...args} offers={offers} />;
 }
@@ -112,6 +113,7 @@ function RequestWithDelayedOffers(args: ComponentProps<typeof RequestCrewDialog>
 export const OffersArriveAfterOpening: Story = {
   render: (args) => <RequestWithDelayedOffers {...args} />,
   play: async () => {
+    window.dispatchEvent(new Event('deliver-offers'));
     await waitFor(async () => {
       await expect(screen.getByTestId('crew-settings-harness')).toHaveTextContent('Claude Code');
       await expect(screen.getByTestId('crew-settings-workspace')).toHaveTextContent('aeolus-fleet');
@@ -125,6 +127,7 @@ export const EditedBeforeOffersArrive: Story = {
   render: (args) => <RequestWithDelayedOffers {...args} initialOffers={OFFERS.map((offer) => ({ ...offer, repositories: [], folders: [] }))} />,
   play: async () => {
     await userEvent.type(await screen.findByTestId('crew-settings-first-prompt'), 'Triage issues');
+    window.dispatchEvent(new Event('deliver-offers'));
     await waitFor(async () => {
       await expect(screen.getByTestId('crew-settings-harness')).toHaveTextContent('Claude Code');
       await expect(screen.getByTestId('crew-settings-workspace')).toHaveTextContent('aeolus-fleet');
