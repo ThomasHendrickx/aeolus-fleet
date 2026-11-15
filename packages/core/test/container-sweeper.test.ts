@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  type RunOwner,
   type StaleSweepRuntime,
   type SweepRuntime,
   removeStaleContainers,
@@ -93,13 +94,19 @@ const NOW = new Date("2026-11-16T12:00:00.000Z");
 class FakeRepositoryRuntime implements StaleSweepRuntime {
   readonly removed: string[] = [];
 
-  constructor(private readonly ageHours: Record<string, number>) {}
+  constructor(
+    private readonly ageHours: Record<string, number>,
+    private readonly owners: Record<string, RunOwner> = {},
+  ) {}
 
-  listRepositoryContainers(): Promise<{ id: string; createdAt: Date }[]> {
+  listRepositoryContainers(): Promise<
+    { id: string; createdAt: Date; owner?: RunOwner }[]
+  > {
     return Promise.resolve(
       Object.entries(this.ageHours).map(([id, hours]) => ({
         id,
         createdAt: new Date(NOW.getTime() - hours * HOUR_MS),
+        owner: this.owners[id],
       })),
     );
   }
@@ -127,11 +134,49 @@ describe("the removal of stale test containers", () => {
   });
 });
 
+describe("the removal of stale test containers while runs live", () => {
+  const owner: RunOwner = { pid: 4242, startedAt: "Mon Nov 16 10:00:00 2026" };
+
+  it("keeps the container of a run whose process is alive, however old", async () => {
+    const runtime = new FakeRepositoryRuntime({ live: 72 }, { live: owner });
+
+    await removeStaleContainers(runtime, { now: NOW, isRunAlive: () => Promise.resolve(true) });
+
+    expect(runtime.removed).toEqual([]);
+  });
+
+  it("removes the container of a run whose process ended, even a recent one", async () => {
+    const runtime = new FakeRepositoryRuntime({ dead: 1 }, { dead: owner });
+
+    await removeStaleContainers(runtime, { now: NOW, isRunAlive: () => Promise.resolve(false) });
+
+    expect(runtime.removed).toEqual(["dead"]);
+  });
+
+  it("falls back to the age when liveness cannot be checked", async () => {
+    const runtime = new FakeRepositoryRuntime(
+      { old: 30, recent: 2, unlabelled: 30 },
+      { old: owner, recent: owner },
+    );
+
+    await removeStaleContainers(runtime, { now: NOW, isRunAlive: () => Promise.resolve(undefined) });
+
+    expect(runtime.removed).toEqual(["old", "unlabelled"]);
+  });
+});
+
 describe("the labels of a test container", () => {
   it("name the repository and the run", () => {
-    expect(testContainerLabels("run-1")).toEqual({
+    expect(testContainerLabels("run-1")).toMatchObject({
       "aeolus-fleet.repository": "aeolus-fleet",
       "aeolus-fleet.test-run": "run-1",
+    });
+  });
+
+  it("name the pid and the start of the process of the run", () => {
+    expect(testContainerLabels("run-1")).toMatchObject({
+      "aeolus-fleet.test-run-pid": String(process.pid),
+      "aeolus-fleet.test-run-started": expect.any(String),
     });
   });
 });
