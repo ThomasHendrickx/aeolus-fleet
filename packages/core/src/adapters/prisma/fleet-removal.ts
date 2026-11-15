@@ -1,3 +1,5 @@
+import type { FleetId } from '@aeolus-fleet/common';
+
 import type { FleetRemoval } from '../../domain/registry/ports.js';
 import type { Db } from './client.js';
 import { Prisma } from './generated/client.js';
@@ -6,19 +8,60 @@ import { Prisma } from './generated/client.js';
 const BY_FLEET = ['health_snapshot_deliveries', 'health_snapshots'] as const;
 const THEN_BY_FLEET = ['overdue_deliveries', 'exchanges', 'pruned_exchanges'] as const;
 
+/** The fleet's other records, children first, after its history: each in batches too, so no step grows with the fleet (the fleet row and its request go last). */
+const RECORDS = [
+  'commission_approvals',
+  'schedules',
+  'data_keys',
+  'fleet_feature_flags',
+  'meeting_mic_requests',
+  'meeting_participants',
+  'meetings',
+  'message_days',
+  'notice_dismissals',
+  'guide_progress',
+  'account_notice_dismissals',
+  'account_guide_progress',
+  'console_sessions',
+  'sign_in_tickets',
+  'credentials',
+  'crew_request_give_backs',
+  'crew_requests',
+  'worktree_clear_requests',
+  'network_settings',
+  'network_rules_drafts',
+  'reach_refusals',
+  'declared_network_rules',
+  'installation_declared_network_rules',
+  'scope_namespaces',
+  'defined_scopes',
+  'verified_facts',
+  'alerts',
+  'ship_expectations',
+  'ship_labels',
+  'label_values',
+  'labels',
+  'leases',
+  'ships',
+  'operators',
+] as const;
+
 /**
  * The removal of a fleet marked deleted, on Postgres (decision 0020). A
  * batch takes a transaction-level advisory lock on the fleet's removal with
  * try, so a second server skips the fleet, and removes at most `limit` rows
- * of the first kind of history that still has rows, children first: every
+ * of the first kind of history that still has rows, children first, and a
+ * records batch then the same of its schedules, leases, ships and every other
+ * record, so no step grows with the fleet: every
  * foreign key restricts, and a message may answer or resend another of the
  * fleet, so messages go newest first, after the schedules stop naming them.
+ * The last step removes only the fleet row and the request that created it.
  * Each statement reads its rows through an index in order, so a batch costs
  * the batch, not the fleet's history. The fleet's events go under the
  * transaction-local setting `aeolus.deleting_fleet`.
  */
 export function createPrismaFleetRemoval(db: Db): FleetRemoval {
-  const removeByFleet = async (table: string, { fleetId, limit }: { fleetId: string; limit: number }): Promise<number> =>
+  const removeByFleet = async (table: string, { fleetId, limit }: { fleetId: FleetId; limit: number }): Promise<number> =>
     db.$executeRaw`
       DELETE FROM ${Prisma.raw(table)}
       WHERE ctid = ANY(ARRAY(SELECT ctid FROM ${Prisma.raw(table)} WHERE fleet_id = ${fleetId} LIMIT ${limit}))`;
@@ -57,42 +100,16 @@ export function createPrismaFleetRemoval(db: Db): FleetRemoval {
           AND id IN (SELECT id FROM messages WHERE fleet_id = ${fleetId} ORDER BY created_at DESC, id DESC LIMIT ${limit})`;
       return removed > 0 ? 'more' : 'empty';
     },
+    removeRecordsBatch: async (fleetId, limit) => {
+      for (const table of RECORDS) {
+        if ((await removeByFleet(table, { fleetId, limit })) > 0) {
+          return 'more';
+        }
+      }
+      return 'empty';
+    },
     removeRest: async (fleetId) => {
-      // What the batches left is nothing but what a pass of the fleet wrote since; a row they still find fails the foreign keys, and the next pass batches it away.
-      await db.$executeRaw`DELETE FROM commission_approvals WHERE fleet_id = ${fleetId}`;
-      await db.$executeRaw`DELETE FROM schedules WHERE fleet_id = ${fleetId}`;
-      await db.$executeRaw`DELETE FROM data_keys WHERE fleet_id = ${fleetId}`;
-      await db.$executeRaw`DELETE FROM fleet_feature_flags WHERE fleet_id = ${fleetId}`;
-      await db.$executeRaw`DELETE FROM meeting_mic_requests WHERE fleet_id = ${fleetId}`;
-      await db.$executeRaw`DELETE FROM meeting_participants WHERE fleet_id = ${fleetId}`;
-      await db.$executeRaw`DELETE FROM meetings WHERE fleet_id = ${fleetId}`;
-      await db.$executeRaw`DELETE FROM message_days WHERE fleet_id = ${fleetId}`;
-      await db.$executeRaw`DELETE FROM notice_dismissals WHERE fleet_id = ${fleetId}`;
-      await db.$executeRaw`DELETE FROM guide_progress WHERE fleet_id = ${fleetId}`;
-      await db.$executeRaw`DELETE FROM account_notice_dismissals WHERE fleet_id = ${fleetId}`;
-      await db.$executeRaw`DELETE FROM account_guide_progress WHERE fleet_id = ${fleetId}`;
-      await db.$executeRaw`DELETE FROM console_sessions WHERE fleet_id = ${fleetId}`;
-      await db.$executeRaw`DELETE FROM sign_in_tickets WHERE fleet_id = ${fleetId}`;
-      await db.$executeRaw`DELETE FROM credentials WHERE fleet_id = ${fleetId}`;
-      await db.$executeRaw`DELETE FROM crew_request_give_backs WHERE fleet_id = ${fleetId}`;
-      await db.$executeRaw`DELETE FROM crew_requests WHERE fleet_id = ${fleetId}`;
-      await db.$executeRaw`DELETE FROM worktree_clear_requests WHERE fleet_id = ${fleetId}`;
-      await db.$executeRaw`DELETE FROM network_settings WHERE fleet_id = ${fleetId}`;
-      await db.$executeRaw`DELETE FROM network_rules_drafts WHERE fleet_id = ${fleetId}`;
-      await db.$executeRaw`DELETE FROM reach_refusals WHERE fleet_id = ${fleetId}`;
-      await db.$executeRaw`DELETE FROM declared_network_rules WHERE fleet_id = ${fleetId}`;
-      await db.$executeRaw`DELETE FROM installation_declared_network_rules WHERE fleet_id = ${fleetId}`;
-      await db.$executeRaw`DELETE FROM scope_namespaces WHERE fleet_id = ${fleetId}`;
-      await db.$executeRaw`DELETE FROM defined_scopes WHERE fleet_id = ${fleetId}`;
-      await db.$executeRaw`DELETE FROM verified_facts WHERE fleet_id = ${fleetId}`;
-      await db.$executeRaw`DELETE FROM alerts WHERE fleet_id = ${fleetId}`;
-      await db.$executeRaw`DELETE FROM ship_expectations WHERE fleet_id = ${fleetId}`;
-      await db.$executeRaw`DELETE FROM ship_labels WHERE fleet_id = ${fleetId}`;
-      await db.$executeRaw`DELETE FROM label_values WHERE fleet_id = ${fleetId}`;
-      await db.$executeRaw`DELETE FROM labels WHERE fleet_id = ${fleetId}`;
-      await db.$executeRaw`DELETE FROM leases WHERE fleet_id = ${fleetId}`;
-      await db.$executeRaw`DELETE FROM ships WHERE fleet_id = ${fleetId}`;
-      await db.$executeRaw`DELETE FROM operators WHERE fleet_id = ${fleetId}`;
+      // The batches left nothing but the fleet row and the request that created it; a row a pass of the fleet wrote since fails the foreign keys, and the next pass batches it away.
       await db.$executeRaw`DELETE FROM installation_requests WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM fleets WHERE id = ${fleetId}`;
     },

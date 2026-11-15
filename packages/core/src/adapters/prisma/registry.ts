@@ -104,7 +104,7 @@ export function createPrismaFleetRepository(db: Db): FleetRepository {
     },
     markDeleted: async (fleetId, at) => {
       await db.$executeRaw`UPDATE fleets SET deleted_at = ${at} WHERE id = ${fleetId}`;
-      // What signs in to the fleet ends with the mark; everything else waits for the removal pass.
+      // What signs in to the fleet and its crew requests end with the mark; everything else waits for the removal pass.
       await db.$executeRaw`DELETE FROM credentials WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM notice_dismissals WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM guide_progress WHERE fleet_id = ${fleetId}`;
@@ -113,6 +113,10 @@ export function createPrismaFleetRepository(db: Db): FleetRepository {
       await db.$executeRaw`DELETE FROM console_sessions WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM sign_in_tickets WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM operators WHERE fleet_id = ${fleetId}`;
+      await db.$executeRaw`DELETE FROM crew_request_give_backs WHERE fleet_id = ${fleetId}`;
+      await db.$executeRaw`DELETE FROM crew_requests WHERE fleet_id = ${fleetId}`;
+      // Its data keys are shredded, so nothing it sealed opens again; the rows stay until the batches, as every message and schedule sealed under one restricts its delete.
+      await db.$executeRaw`UPDATE data_keys SET wrapped_by_company_key = ''::bytea, wrapped_by_recovery_key = NULL, check_value = ''::bytea WHERE fleet_id = ${fleetId}`;
     },
     listDeleted: async () => (await db.fleet.findMany({ where: { deletedAt: { not: null } }, orderBy: { deletedAt: 'asc' } })).map(toFleet),
   };

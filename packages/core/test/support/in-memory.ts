@@ -48,6 +48,7 @@ import type {
   FleetListing,
   ShipFacts,
   FleetRemoval,
+  RemovalBatch,
   FleetRepository,
   InFlightDeliveries,
   FleetHealth,
@@ -545,6 +546,18 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
 
   const healthRecords = createInMemoryHealthRecords(state);
   const healthSnapshots = createInMemoryHealthSnapshots(state, healthRecords);
+  /** A removal batch: at most `limit` of the fleet's rows of the first of `tables` with rows left. */
+  const removeBatchOf = (tables: readonly (typeof FLEET_TABLES)[number][], { fleetId, limit }: { fleetId: FleetId; limit: number }): Promise<RemovalBatch> => {
+    for (const table of tables) {
+      const rows: { fleetId: FleetId }[] = state[table];
+      const doomed = rows.filter((row) => row.fleetId === fleetId).slice(0, limit);
+      if (doomed.length > 0) {
+        rows.splice(0, rows.length, ...rows.filter((row) => !doomed.includes(row)));
+        return Promise.resolve('more');
+      }
+    }
+    return Promise.resolve('empty');
+  };
   const tx: InMemoryTx = {
     featureFlags: {
       onFor: (fleetId) => Promise.resolve(state.featureFlags.filter((held) => held.fleetId === fleetId).map((held) => held.flag)),
@@ -721,9 +734,13 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       markDeleted: (fleetId, at) => {
         state.deletedFleets.push({ fleetId, deletedAt: at });
         // What signs in to the fleet ends with the mark, as the Postgres adapter does.
-        for (const table of ['credentials', 'operatorAccounts', 'consoleSessions', 'signInTickets', 'noticeDismissals', 'guideProgress'] as const) {
+        for (const table of ['credentials', 'operatorAccounts', 'consoleSessions', 'signInTickets', 'noticeDismissals', 'guideProgress', 'crewRequests'] as const) {
           const rows: { fleetId: FleetId }[] = state[table];
           rows.splice(0, rows.length, ...rows.filter((row) => row.fleetId !== fleetId));
+        }
+        // Its data keys are shredded; the rows go with the removal pass.
+        for (const key of state.dataKeys.filter((held) => held.fleetId === fleetId)) {
+          Object.assign(key, { wrappedByCompanyKey: new Uint8Array(0), wrappedByRecoveryKey: null, checkValue: new Uint8Array(0) });
         }
         return Promise.resolve();
       },
@@ -736,25 +753,14 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     },
     fleetRemoval: {
       tryLock: () => Promise.resolve(true),
-      // The history tables, a batch of the first with rows left; the rest in one go.
-      removeHistoryBatch: (fleetId, limit) => {
-        for (const table of ['events', 'overdueDeliveries', 'deliveries', 'messages'] as const) {
-          const rows: { fleetId: FleetId }[] = state[table];
-          const doomed = rows.filter((row) => row.fleetId === fleetId).slice(0, limit);
-          if (doomed.length > 0) {
-            rows.splice(0, rows.length, ...rows.filter((row) => !doomed.includes(row)));
-            return Promise.resolve('more');
-          }
-        }
-        return Promise.resolve('empty');
-      },
+      // A batch of the first history table with rows left.
+      removeHistoryBatch: (fleetId, limit) => removeBatchOf(['events', 'overdueDeliveries', 'deliveries', 'messages'], { fleetId, limit }),
+      // Then of every other table; the mark is the last to go, as a pass takes up again what it names.
+      removeRecordsBatch: (fleetId, limit) => removeBatchOf(FLEET_TABLES.filter((table) => table !== 'deletedFleets'), { fleetId, limit }),
       removeRest: (fleetId) => {
-        // Every table that belongs to a fleet, as the Postgres adapter deletes them.
+        // The fleet with its mark, and the request that created it, as the Postgres adapter deletes them.
         state.fleets.splice(0, state.fleets.length, ...state.fleets.filter((fleet) => fleet.id !== fleetId));
-        for (const table of FLEET_TABLES) {
-          const rows: { fleetId: FleetId }[] = state[table];
-          rows.splice(0, rows.length, ...rows.filter((row) => row.fleetId !== fleetId));
-        }
+        state.deletedFleets.splice(0, state.deletedFleets.length, ...state.deletedFleets.filter((deleted) => deleted.fleetId !== fleetId));
         const { installationRequests } = state;
         installationRequests.splice(
           0,

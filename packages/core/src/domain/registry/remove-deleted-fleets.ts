@@ -21,10 +21,10 @@ export type RemoveDeletedFleets = (onFleetError?: (fleetId: FleetId, error: unkn
  * Use case: the removal pass (decision 0020), run by core in the 30 second
  * pass, never through the API. It starts from the rows a fleet marked deleted
  * still has, so whatever stopped it, a failed batch, a failed last step or a
- * restart, the next pass goes on until the fleet is gone. Each fleet's history
- * goes in batches, each one unit of work under the fleet's removal lock taken
- * with try (a fleet another server is removing is skipped); then one unit of
- * work removes the rest, the fleet last. A pass whose time budget is spent
+ * restart, the next pass goes on until the fleet is gone. Each fleet's history,
+ * then its other records, go in batches, each one unit of work under the
+ * fleet's removal lock taken with try (a fleet another server is removing is
+ * skipped); then one unit of work removes the fleet itself. A pass whose time budget is spent
  * leaves the rest to the next pass.
  */
 export function createRemoveDeletedFleets(deps: {
@@ -39,17 +39,19 @@ export function createRemoveDeletedFleets(deps: {
 
   const removeOne = async (fleetId: FleetId): Promise<void> => {
     const startedAt = deps.clock.now().getTime();
-    for (;;) {
-      const result = await deps.uow.run(async (tx) => ok((await tx.fleetRemoval.tryLock(fleetId)) ? await tx.fleetRemoval.removeHistoryBatch(fleetId, batchSize) : 'locked'));
-      const batch = result.isOk ? result.value : 'locked';
-      if (batch === 'locked') {
-        return;
-      }
-      if (batch === 'empty') {
-        break;
-      }
-      if (deps.clock.now().getTime() - startedAt >= budgetMs) {
-        return;
+    for (const step of ['removeHistoryBatch', 'removeRecordsBatch'] as const) {
+      for (;;) {
+        const result = await deps.uow.run(async (tx) => ok((await tx.fleetRemoval.tryLock(fleetId)) ? await tx.fleetRemoval[step](fleetId, batchSize) : 'locked'));
+        const batch = result.isOk ? result.value : 'locked';
+        if (batch === 'locked') {
+          return;
+        }
+        if (batch === 'empty') {
+          break;
+        }
+        if (deps.clock.now().getTime() - startedAt >= budgetMs) {
+          return;
+        }
       }
     }
     await deps.uow.run(async (tx) => {

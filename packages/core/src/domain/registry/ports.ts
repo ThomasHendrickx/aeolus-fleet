@@ -54,8 +54,10 @@ export interface FleetRepository {
   /**
    * Marks the fleet deleted (decision 0020): from then it reads as gone (find,
    * findForUpdate, list and count skip it) and what signs in to it ends with
-   * it, its secrets, operator account, console sessions and sign-in tickets.
-   * Its other records stay for the removal pass.
+   * it, its secrets, operator account, console sessions and sign-in tickets,
+   * with its crew requests; its data keys are shredded, so nothing it sealed
+   * opens. Its other records, the shredded keys' rows included, stay for the
+   * removal pass.
    */
   markDeleted(fleetId: FleetId, at: Date): Promise<void>;
   /** The fleets marked deleted whose removal is not finished, the oldest first. */
@@ -74,7 +76,9 @@ export interface FleetRemoval {
   tryLock(fleetId: FleetId): Promise<boolean>;
   /** Removes at most `limit` rows of the fleet's history, children first, and answers `empty` once none is left. */
   removeHistoryBatch(fleetId: FleetId, limit: number): Promise<RemovalBatch>;
-  /** Removes every record the fleet has left, the fleet itself and the installation's record of the request that created it last. */
+  /** After the history: removes at most `limit` rows of the first kind of the fleet's other records with rows left, its schedules, leases, ships and the rest, children first, and answers `empty` once none is left. */
+  removeRecordsBatch(fleetId: FleetId, limit: number): Promise<RemovalBatch>;
+  /** The last step: removes the fleet itself and the installation's record of the request that created it. */
   removeRest(fleetId: FleetId): Promise<void>;
 }
 
