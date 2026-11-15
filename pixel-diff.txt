@@ -1,0 +1,11 @@
+fleet-health-no-ship-375.png max channel delta 20 18 px in 16 23 359 73
+needs-crew-1440.png max channel delta 1 9 px in 217 100 226 101
+overview-375.png max channel delta 1 29 px in 357 75 358 247
+settings-1440.png max channel delta 1 9 px in 217 100 226 101
+settings-375.png max channel delta 1 6 px in 357 167 358 169
+ship-builder-1440.png max channel delta 16 8 px in 562 618 562 686
+ship-builder-375.png max channel delta 16 8 px in 319 1253 319 1325
+ship-pusher-375.png max channel delta 16 5 px in 237 1226 237 1230
+ship-tester-1440.png max channel delta 16 21 px in 556 618 612 1016
+ship-tester-375.png max channel delta 16 21 px in 193 1255 310 1809
+usage-1440.png max channel delta 1 20 px in 217 100 232 111
