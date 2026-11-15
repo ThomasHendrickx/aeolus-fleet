@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { RefreshCw } from 'lucide-react';
+import { expect, userEvent, within } from 'storybook/test';
 
 import { Button } from './button.js';
 import { showToast, ToastCard, Toaster } from './toast.js';
@@ -41,12 +42,27 @@ export const ErrorWithRetry: Story = {
   },
 };
 
-/** The real Toaster, bottom right on desktop and above the TabBar on phone. */
-export const Shown: Story = {
-  args: { title: 'reviewer-01 released' },
-  render: () => (
+/** How far from the bottom edge the Toaster sets a phone's toasts, in px. */
+async function phoneBottomOffsetOf(canvasElement: HTMLElement): Promise<string> {
+  await userEvent.click(within(canvasElement).getByTestId('show-toast'));
+  await within(canvasElement).findAllByText('reviewer-01 released');
+  const toaster = canvasElement.querySelector<HTMLElement>('[data-sonner-toaster]');
+  if (toaster === null) {
+    throw new Error('No toaster on the page');
+  }
+  const probe = document.createElement('div');
+  probe.style.paddingBottom = 'var(--mobile-offset-bottom)';
+  toaster.append(probe);
+  const offset = getComputedStyle(probe).paddingBottom;
+  probe.remove();
+  return offset;
+}
+
+function ShowToast() {
+  return (
     <>
       <Button
+        data-testid="show-toast"
         onClick={() => {
           showToast({ title: 'reviewer-01 released', description: 'Its old secret no longer works.' });
         }}
@@ -55,5 +71,27 @@ export const Shown: Story = {
       </Button>
       <Toaster />
     </>
+  );
+}
+
+/** The real Toaster on a page without a TabBar: bottom right on desktop, 12 px from the edges on phone. */
+export const Shown: Story = {
+  args: { title: 'reviewer-01 released' },
+  render: () => <ShowToast />,
+  play: async ({ canvasElement }) => {
+    await expect(await phoneBottomOffsetOf(canvasElement)).toBe('12px');
+  },
+};
+
+/** On a page that shows a TabBar, the page sets --tab-bar-clearance and the phone's toasts sit above it. */
+export const ShownAboveTabBar: Story = {
+  args: { title: 'reviewer-01 released' },
+  render: () => (
+    <div className="[--tab-bar-clearance:var(--size-tabbar)]">
+      <ShowToast />
+    </div>
   ),
+  play: async ({ canvasElement }) => {
+    await expect(await phoneBottomOffsetOf(canvasElement)).toBe('80px');
+  },
 };

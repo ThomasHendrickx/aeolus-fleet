@@ -438,6 +438,8 @@ export function createUseCases(options: {
   keyVault?: KeyVault;
   /** Whether the server has an installation token, so the installation sets each fleet's feature flags; without one each flag has its own value (decision 0069). */
   hasInstallation?: boolean;
+  /** How long one fleet's pruning pass runs before it leaves the rest to the next hour; 10 seconds unless a test says otherwise (0 ends it after its first batch). */
+  pruneBudgetMs?: number;
 }): UseCases {
   const { prisma } = options;
   const clock = options.clock ?? systemClock;
@@ -626,7 +628,7 @@ export function createUseCases(options: {
     resumeSchedule: createResumeSchedule({ uow, clock, ids }),
     sendDueSchedules: createSendDueSchedules({ fleets: createPrismaFleetRepository(prisma), scheduleAttempts: createPrismaScheduleAttempts(prisma), uow, clock, ids, hasher: sha256Hasher, sealing }),
     closeHealthSnapshots: createCloseHealthSnapshots({ fleets: createPrismaFleetRepository(prisma), uow: createPrismaSnapshotUnitOfWork(prisma), clock }),
-    pruneHistory: createPruneHistory({ fleets: createPrismaFleetRepository(prisma), uow: bulkUow, clock, ids }),
+    pruneHistory: createPruneHistory({ fleets: createPrismaFleetRepository(prisma), uow: bulkUow, clock, ids, budgetMs: options.pruneBudgetMs }),
     fillMessageMetadata: createFillMessageMetadata({ fleets: createPrismaFleetRepository(prisma), indexes: createPrismaMetadataFillIndexes(prisma), uow }),
     sealStoredPayloads: createSealStoredPayloads({ sealings, uow, clock, ids, hasher: sha256Hasher, sealing }),
     rotateDataKeys: createRotateDataKeys({ sealings, uow, clock, ids, dataKeys: sealing.dataKeys }),

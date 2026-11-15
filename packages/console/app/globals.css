@@ -10,6 +10,14 @@
 @source '../../ui/src';
 
 /*
+ * The console's phone toasts sit above the TabBar (docs/design/README.md,
+ * Toast): the ui Toaster lifts them by this clearance.
+ */
+:root {
+  --tab-bar-clearance: var(--size-tabbar);
+}
+
+/*
  * The Usage chart's series colours (docs/design/usage/mockup): seven for the
  * series, a neutral one for Other and the gridlines. A series keeps its colour
  * with what it is, never with its rank.
