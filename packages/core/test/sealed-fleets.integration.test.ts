@@ -877,12 +877,12 @@ describe('the sealing pass on Postgres and a LocalStack KMS (decision 0068, B5)'
 
     await sealings.sealPayloads(fleet.fleetId, { messages: messages.map(({ id }) => sealedAs(id)), schedules: [] });
     const isPlainWithAMessageAndTheSchedule = await sealings.storesPlainPayload(fleet.fleetId);
-    await sealings.sealPayloads(fleet.fleetId, { messages: [sealedAs(middle.id)], schedules: [] });
-    const isPlainWithTheSchedule = await sealings.storesPlainPayload(fleet.fleetId);
     await sealings.sealPayloads(fleet.fleetId, { messages: [], schedules: schedules.map(({ id }) => sealedAs(id)) });
+    const isPlainWithTheMessageOnly = await sealings.storesPlainPayload(fleet.fleetId);
+    await sealings.sealPayloads(fleet.fleetId, { messages: [sealedAs(middle.id)], schedules: [] });
     const isPlainWithNone = await sealings.storesPlainPayload(fleet.fleetId);
 
-    expect({ isPlainWithAMessageAndTheSchedule, isPlainWithTheSchedule, isPlainWithNone }).toEqual({ isPlainWithAMessageAndTheSchedule: true, isPlainWithTheSchedule: true, isPlainWithNone: false });
+    expect({ isPlainWithAMessageAndTheSchedule, isPlainWithTheMessageOnly, isPlainWithNone }).toEqual({ isPlainWithAMessageAndTheSchedule: true, isPlainWithTheMessageOnly: true, isPlainWithNone: false });
   });
 });
 
