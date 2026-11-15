@@ -54,6 +54,7 @@ Feature designs, one folder each; the status of each is at its top:
 | [ship-repositories](ship-repositories/README.md) | Mockups: the crew settings name a main repository and sub-repositories, shown on the ship and trierarch pages |
 | [working-band](working-band/README.md) | Shared UI working band: approved motion reference, integration proposal and simulated comparison evidence |
 | [state-colours](state-colours/state-colours.md) | One meaning per colour for a ship's state, in every app |
+| [trierarch-kind](trierarch-kind/README.md) | Purpose proposed for a trierarch ship's own kind |
 | [ui-package](ui-package/README.md) | One set of UI parts for every Aeolus app |
 | [usage](usage/usage.md) | Usage over time: tokens across the fleet and its setup |
 | [vendor-platforms](vendor-platforms/README.md) | Aeolus beside vendor agent platforms |
