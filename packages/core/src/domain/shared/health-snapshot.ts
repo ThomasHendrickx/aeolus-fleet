@@ -281,7 +281,8 @@ export function stuckPerHourOf(
   read: { now: Date; stuckNow: number; reads: (message: MessageParties) => boolean },
 ): { at: Date; count: number }[] {
   const { now, reads } = read;
-  const lastMark = hourMarkOf(now);
+  // Now on an hour mark is that mark: the series ends at the hour before, so no hour shows twice.
+  const lastMark = hoursAfter(hourMarkOf(now), now.getTime() === hourMarkOf(now).getTime() ? -1 : 0);
   const hours = [...snapshot.hours, ...snapshot.folded.map(({ hour, fold }) => stuckCountOf(openingHourOf(fold, { hour, crews: snapshot.crews }), reads))];
   const perHour = Array.from({ length: STUCK_TREND_HOURS - 1 }, (_unused, index) => {
     const at = hoursAfter(lastMark, index - STUCK_TREND_HOURS + 2);
@@ -324,7 +325,11 @@ export function acknowledgedOfSnapshot(
   });
   const openWaits = waitsOfAcknowledged(snapshot.acknowledged.filter((delivery) => reads(delivery.message)));
   const closedPerHour = closedWaits.map(({ at, waits }) => ({ at, count: waits.reduce((sum, one) => sum + waitCount(one), 0) }));
-  const perHour = [...closedPerHour.slice(1), { at: now, count: waitCount(openWaits) }];
+  // Now on an hour mark is the end of the last closed hour: that hour and the open one are one point, so no hour shows twice.
+  const isOnMark = now.getTime() === lastMark.getTime();
+  const perHour = isOnMark
+    ? [...closedPerHour.slice(0, -1), { at: now, count: (closedPerHour.at(-1)?.count ?? 0) + waitCount(openWaits) }]
+    : [...closedPerHour.slice(1), { at: now, count: waitCount(openWaits) }];
   return {
     count: [...closedPerHour, { count: waitCount(openWaits) }].reduce((sum, hour) => sum + hour.count, 0),
     medianMs: medianOfWaits([...closedWaits.flatMap(({ waits }) => waits), openWaits]),
