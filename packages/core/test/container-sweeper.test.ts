@@ -73,7 +73,7 @@ describe("the sweep of a test run", () => {
         run: "run",
         timing: { delayMs: 60_000, maxLists: 1 },
       }).then(() => "done"),
-      new Promise((resolve) => setTimeout(() => resolve("waiting"), 100)),
+      new Promise((resolve) => setTimeout(() => { resolve("waiting"); }, 100)),
     ]);
 
     expect(outcome).toBe("done");
