@@ -3,6 +3,7 @@ import { createIdGenerator, idSchema, type DeliveryId, type MessageId, type Ship
 import { z } from 'zod';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { backfillMessageMetadata } from '../src/adapters/prisma/message-metadata-backfill.js';
 import { sha256Hasher } from '../src/adapters/crypto/secrets.js';
 import { createPrismaUnitOfWork, type PrismaTx } from '../src/adapters/prisma/unit-of-work.js';
 import { createAcknowledgeDelivery } from '../src/domain/messaging/acknowledge-delivery.js';
@@ -132,12 +133,17 @@ describe('the rollup of exchanges on Postgres', () => {
     const before = unwrap(await core.useCases.readExchanges(thomas, {}));
     await core.prisma.$executeRaw`ALTER TABLE exchanges DROP COLUMN unseen_plain_messages`;
     await executeSqlFile(core.databaseUrl, fileURLToPath(new URL('../src/adapters/prisma/migrations/20261115100000_unseen_plain_messages/migration.sql', import.meta.url)));
+    const partial = unwrap(await core.useCases.readExchanges(thomas, {}));
+    // Each batch commits separately; restarting from the beginning is harmless.
+    await backfillMessageMetadata(core.prisma, { batchSize: 1 });
+    await backfillMessageMetadata(core.prisma, { batchSize: 1 });
     const backfilled = unwrap(await core.useCases.readExchanges(thomas, {}));
     unwrap(await core.useCases.acknowledgeUpTo(thomas, { otherShipId: lookout.shipId, messageId: last }));
     const after = unwrap(await core.useCases.readExchanges(thomas, {}));
 
     // Then the count held two plain messages before and after the backfill, and the question stays unacknowledged but adds no unseen plain message.
     expect(before.items).toMatchObject([{ unacknowledged: 3, unseenPlainMessages: 2 }]);
+    expect(partial.items).toMatchObject([{ unacknowledged: 3, unseenPlainMessages: 2 }]);
     expect(backfilled.items).toMatchObject([{ unacknowledged: 3, unseenPlainMessages: 2 }]);
     expect(after.items).toMatchObject([{ unacknowledged: 1, unseenPlainMessages: 0 }]);
   });

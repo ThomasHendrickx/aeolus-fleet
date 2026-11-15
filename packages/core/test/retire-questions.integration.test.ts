@@ -71,6 +71,8 @@ function storedWithdrawals() {
 describe('retiring a ship with an open question on Postgres', () => {
   it("withdraws it from argo in the retire's transaction: argo's inbox finds the withdrawal by the question's uuid", async () => {
     await askedArgo();
+    // Given an upgrade has not yet filled the old question's metadata.
+    await core.prisma.message.updateMany({ data: { askedQuestionId: null, answeredQuestionId: null } });
 
     unwrap(await core.useCases.retireShip(operator, { shipId: scout.shipId }));
 

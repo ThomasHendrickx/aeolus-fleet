@@ -1,6 +1,7 @@
 import { ANSWER_CONTENT_TYPE, QUESTION_CONTENT_TYPE, type FleetId, type ShipId } from '@aeolus-fleet/common';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
+import { messageMetadataBatchStatement } from '../src/adapters/prisma/message-metadata-backfill.js';
 import { Prisma } from '../src/adapters/prisma/generated/client.js';
 import { openQuestionsStatement } from '../src/adapters/prisma/messaging.js';
 import { createPostgresCore, type PostgresCore } from './support/postgres-core.js';
@@ -49,6 +50,21 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await core.close();
+});
+
+describe('message metadata backfill at scale', () => {
+  it('reads each batch from an index range with a message id cursor', async () => {
+    // Given the existing 50,000-message history fixture.
+    const statement = messageMetadataBatchStatement({ fleetId, after: 'msg_seed0000000000000000020000', batchSize: 100 });
+    // When Postgres plans the actual batch query.
+    const rows = await core.prisma.$queryRaw<{ 'QUERY PLAN': string }[]>(Prisma.sql`EXPLAIN ${statement}`);
+    const plan = rows.map((row) => row['QUERY PLAN']).join('\n');
+    // Then it bounds its read by the cursor and batch size, without scanning history.
+    expect(plan).toContain('Limit');
+    expect(plan).toContain('Index');
+    expect(plan).toContain('Index Cond:');
+    expect(plan).not.toMatch(/Seq Scan on messages/);
+  });
 });
 
 describe("the open questions of a ship with a long question history", () => {
