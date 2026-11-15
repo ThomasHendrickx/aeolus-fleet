@@ -142,6 +142,7 @@ describe.each([
     await page.reload({ waitUntil: 'domcontentloaded' });
     await expect(isDark(page)).resolves.toBe(true);
 
+    await hydrated(page);
     await visible(page, 'avatar-menu').click();
     await visible(page, 'avatar-menu-theme-light').click();
     await expect.poll(() => isDark(page)).toBe(false);
@@ -160,6 +161,7 @@ describe.each([
 
     // Then it is dark from the first paint, and the menu says Dark
     await expect(isDark(page)).resolves.toBe(true);
+    await hydrated(page);
     await visible(page, 'avatar-menu').click();
     await expect.poll(() => themeChosen(visible(page, 'avatar-menu-theme-dark'))).toBe(true);
   });
@@ -333,4 +335,9 @@ async function themeCookieOf(page: Page): Promise<string | undefined> {
 /** Whether a theme choice shows as chosen: checked in the desktop menu, pressed in the phone sheet. */
 async function themeChosen(choice: Locator): Promise<boolean> {
   return (await choice.getAttribute('aria-checked')) === 'true' || (await choice.getAttribute('aria-pressed')) === 'true';
+}
+
+/** The page shows live once hydrated: a menu click before that does nothing. */
+async function hydrated(page: Page): Promise<void> {
+  await page.locator('[data-slot="live-status"][data-state="live"]:visible').waitFor({ timeout: 20_000 });
 }

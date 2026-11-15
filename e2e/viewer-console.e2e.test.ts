@@ -91,6 +91,8 @@ describe('the console of a viewer session', () => {
 
     // Then it is dark from the first paint, and the menu offers no theme
     await expect(page.locator('html').getAttribute('class')).resolves.toMatch(/(^|\s)dark(\s|$)/);
+    // Live shows once the page is hydrated: a menu click before that does nothing.
+    await page.locator('[data-slot="live-status"][data-state="live"]:visible').waitFor({ timeout: 20_000 });
     await page.locator('[data-testid="avatar-menu"][aria-label="Account menu, viewer, Viewer"]').first().click();
     await page.getByTestId('avatar-menu-shortcuts').waitFor();
     await expect(page.getByTestId('avatar-menu-theme-dark').count()).resolves.toBe(0);
