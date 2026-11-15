@@ -1,22 +1,34 @@
 'use client';
 
 import type { ShipDetail } from '@aeolus-fleet/common';
+import { showToast } from '@aeolus-fleet/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
 
 import { useTRPC } from '../../../lib/trpc';
+import { shipPermissionsOf } from '../services/ship-permissions';
 
-/** Catalogue and mutation for one ship; the fleet rechecks grant authority and manage reach on save. */
+/** The editor's authority, reads and save outcome; no query or mutation escapes this port. */
 export function useShipPermissions(ship: ShipDetail) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
+  const [savedVersion, setSavedVersion] = useState(0);
   const session = useQuery(trpc.console.session.queryOptions());
   const catalogue = useQuery(trpc.fleet.scopes.queryOptions());
-  const change = useMutation(trpc.fleet.grantScopes.mutationOptions({ onSuccess: () => queryClient.invalidateQueries({ queryKey: trpc.fleet.pathKey() }) }));
-  const canChange = session.data?.scopes.includes('scopes:grant') === true && ship.status !== 'retired' && ship.kind !== 'operator' && ship.kind !== 'viewer';
-  const described = catalogue.data?.flatMap((namespace) => namespace.scopes);
-  const choices = described === undefined ? undefined : [...described, ...ship.scopes.filter((scope) => !described.some((choice) => choice.scope === scope)).map((scope) => ({ scope, description: scope }))].map((choice) => ({
-    ...choice,
-    isLocked: choice.scope === 'messages:send' || choice.scope === 'messages:receive' || !(session.data?.kind === 'operator' || session.data?.scopes.includes(choice.scope) === true),
-  }));
-  return { choices, canChange, change, catalogue };
+  const manage = useQuery(trpc.fleet.checkManage.queryOptions({ shipId: ship.id }, { enabled: session.data?.scopes.includes('scopes:grant') === true && ship.status !== 'retired' && ship.kind !== 'operator' && ship.kind !== 'viewer', retry: false }));
+  const change = useMutation(trpc.fleet.grantScopes.mutationOptions({ onSuccess: async () => {
+    await queryClient.invalidateQueries({ queryKey: trpc.fleet.pathKey() });
+    setSavedVersion((version) => version + 1);
+    showToast({ title: `Permissions saved for ${ship.name}`, tone: 'success' });
+  } }));
+  const view = shipPermissionsOf({ ship, actor: session.data, catalogue: catalogue.data, hasManageReach: manage.isSuccess });
+  return {
+    ...view,
+    savedVersion,
+    isPending: change.isPending,
+    error: change.error?.message,
+    readError: catalogue.error?.message,
+    onRetry: () => { void catalogue.refetch(); },
+    onSave: (difference: { grant: string[]; revoke: string[] }) => { change.mutate({ shipId: ship.id, ...difference }); },
+  };
 }

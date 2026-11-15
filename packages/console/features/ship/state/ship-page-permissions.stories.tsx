@@ -17,7 +17,7 @@ class Fleet {
   readonly saveAnswer = Promise.withResolvers<Response>();
   readonly scopes = ['messages:send', 'messages:receive', 'scopes:grant', 'fleet:read', 'meetings:open'];
   readonly fetch: typeof fetch = async (input) => {
-    const url = new URL(String(input));
+    const url = new URL(input instanceof Request ? input.url : input);
     if (url.pathname.endsWith('console.session')) return Response.json({ result: { data: { kind: 'account', scopes: this.scopes } } });
     if (url.pathname.endsWith('fleet.checkManage')) return this.manageAnswer.promise;
     if (url.pathname.endsWith('fleet.grantScopes')) return this.saveAnswer.promise;
