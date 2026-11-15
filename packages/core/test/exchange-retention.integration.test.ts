@@ -271,6 +271,7 @@ describe('how far pruning went, per exchange, on Postgres (docs/design/exchange-
 
     // When the fleet is deleted.
     unwrap(await core.useCases.deleteFleet({ requestId: 'delete-home-fleet', fleetId: argo.fleetId }));
+    await core.useCases.removeDeletedFleets();
 
     // Then no mark of it is left.
     await expect(core.prisma.$queryRaw<{ count: number }[]>`SELECT count(*)::int AS count FROM pruned_exchanges`).resolves.toEqual([{ count: 0 }]);

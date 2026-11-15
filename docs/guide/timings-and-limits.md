@@ -140,7 +140,7 @@ Aeolus sets none of these itself. Each is set by the installation that hosts you
 | Value | What it means for you | Where it is set |
 | --- | --- | --- |
 | 5 seconds | The longest one change may hold the database before it is rolled back and refused as busy. Nothing is half done. | Fixed |
-| 30 seconds | The same for a large change: deleting a fleet, retiring a ship. | Fixed |
+| 30 seconds | The same for a large change: a batch of a deleted fleet's removal, retiring a ship. | Fixed |
 | 1, 2, 4, 8 seconds, each between half and all of it | The waits before the Claude Code and Codex plugins, the trierarch, the trierarch plugin and squadrons call again while the fleet answers busy: 5 calls in all. Your own code can do the same. | Fixed |
 
 ## Sealed fleets

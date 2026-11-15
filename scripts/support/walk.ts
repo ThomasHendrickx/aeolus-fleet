@@ -1,9 +1,9 @@
 import { z } from 'zod';
 
-/** The Walk section of a pull request body (the pull-request skill): what the release walker walks. */
-export function walkSection(body: string): string | undefined {
+/** The Walk section of a pull request body (the pull-request skill): what the release walker walks. Another `## <heading>` section is read the same way. */
+export function walkSection(body: string, heading = 'Walk'): string | undefined {
   const lines = body.split('\n');
-  const start = lines.findIndex((line) => /^##\s+Walk\s*$/i.test(line));
+  const start = lines.findIndex((line) => new RegExp(`^##\\s+${heading}\\s*$`, 'i').test(line));
   if (start === -1) {
     return undefined;
   }
@@ -13,7 +13,7 @@ export function walkSection(body: string): string | undefined {
 
 /** A Walk of `None: <reason>` says nobody can see the change. */
 export function isNoWalk(section: string): boolean {
-  return /^none\b\s*[:.]?\s*\S/i.test(section);
+  return /^none\b(?:\s*[:.]\s*|\s+)\S/i.test(section);
 }
 
 export interface ApiStep {

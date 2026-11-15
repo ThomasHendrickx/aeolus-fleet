@@ -153,7 +153,7 @@ Defined in `@aeolus-fleet/common`, checked by core on every call and by the clie
 | --- | --- | --- | --- |
 | 10 s | Waiting for a pool connection (pg's default pool size) | [prisma/client.ts](../packages/core/src/adapters/prisma/client.ts) `CONNECTION_WAIT_MS` | [architecture.md](architecture.md) |
 | 5 s | An interactive transaction, then rolled back and refused as busy | [prisma/client.ts](../packages/core/src/adapters/prisma/client.ts) `TRANSACTION_TIME_MS` | [architecture.md](architecture.md) |
-| 30 s | A bulk transaction: a fleet delete, a ship retire | [prisma/client.ts](../packages/core/src/adapters/prisma/client.ts) `BULK_TRANSACTION_TIME_MS` | [architecture.md](architecture.md) |
+| 30 s | A bulk transaction: a fleet's removal batch, a ship retire | [prisma/client.ts](../packages/core/src/adapters/prisma/client.ts) `BULK_TRANSACTION_TIME_MS` | [architecture.md](architecture.md) |
 | 1 s, doubling, at most 30 s | Reconnecting the `LISTEN` connection | [prisma/delivery-notices.ts](../packages/core/src/adapters/prisma/delivery-notices.ts) `RECONNECT_DELAY_MS`, `RECONNECT_DELAY_MAX_MS` | none recorded |
 | 10 s (Prisma's), tried again without end | Prisma Migrate's advisory lock at start | [prisma/migrate.ts](../packages/core/src/adapters/prisma/migrate.ts) `LOCK_TIMED_OUT` | [architecture.md](architecture.md) |
 

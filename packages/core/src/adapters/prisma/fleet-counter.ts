@@ -3,6 +3,6 @@ import type { PrismaClient } from './client.js';
 
 export function createPrismaFleetCounter(prisma: PrismaClient): FleetCounter {
   return {
-    countFleets: () => prisma.fleet.count(),
+    countFleets: () => prisma.fleet.count({ where: { deletedAt: null } }),
   };
 }

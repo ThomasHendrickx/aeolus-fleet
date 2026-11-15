@@ -28,9 +28,11 @@ export type DeleteFleet = (input: { requestId: string; fleetId: FleetId }) => Pr
 
 /**
  * Use case: the installation deletes a fleet (docs/blueprint.md,
- * "Installation"), for good: every record in it goes in one unit of work,
- * which ends its console session and leases with it, and so does the request
- * that created it. No event is written, as the event log is the fleet's own.
+ * "Installation"), for good. One short unit of work marks it deleted, so it
+ * reads as gone at once and its secrets, operator account, console sessions
+ * and sign-in tickets end; the removal pass (remove-deleted-fleets) then takes
+ * every other record away in batches, the request that created it with them.
+ * No event is written, as the event log is the fleet's own.
  * Under its request id it runs once: the record keeps only the request's
  * hash, so a replay answers that the fleet was deleted, and another request
  * under that id is refused.
@@ -53,7 +55,7 @@ export function createDeleteFleet(deps: { uow: UnitOfWork<DeleteFleetTx>; clock:
         return refuse('FLEET_NOT_FOUND', `The installation hosts no fleet ${fleetId}`);
       }
       const operatorEmail = (await tx.operatorAccounts.findForFleet(fleetId))?.email ?? '';
-      await tx.fleets.delete(fleetId);
+      await tx.fleets.markDeleted(fleetId, deps.clock.now());
       await tx.installationRequests.record({ requestId, at: deps.clock.now(), requestHash, kind: 'deleteFleet' });
       return ok({ isReplay: false, fleetId, name: fleet.name, operatorEmail });
     });

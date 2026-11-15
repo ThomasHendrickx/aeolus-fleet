@@ -10,7 +10,14 @@ interface TypedConfirmProps {
   expected: string;
   value: string;
   onValueChange: (value: string) => void;
+  /** Holds the field still while the action runs. */
+  isDisabled?: boolean;
   'data-testid'?: string;
+}
+
+/** Whether the typed value confirms: exactly the expected text, case and hyphens included. */
+export function isTypedMatch(expected: string, value: string): boolean {
+  return value === expected;
 }
 
 /** The hint under the field: the rule while empty, then how far the text matches. Never error styling. */
@@ -18,15 +25,23 @@ function hintOf(expected: string, value: string): string {
   if (value === '') {
     return 'Case and hyphens must match.';
   }
-  return value === expected ? 'Matches. The button is now active.' : 'Doesn’t match yet.';
+  return isTypedMatch(expected, value) ? 'Matches. The button is now active.' : 'Doesn’t match yet.';
 }
 
 /**
  * Second confirmation for an irreversible action that loses work
  * (docs/design/png/TypedConfirm.png): retiring a ship that still holds open
- * deliveries, or renaming one that other ships may address by name. The caller keeps its action disabled until the typed value matches; no error styling while the operator is still typing.
+ * deliveries, or renaming one that other ships may address by name. The caller
+ * keeps its action disabled until isTypedMatch holds; no error styling while
+ * the operator is still typing.
  */
-export function TypedConfirm({ expected, value, onValueChange, 'data-testid': testId = 'retire-typed-confirm' }: TypedConfirmProps) {
+export function TypedConfirm({
+  expected,
+  value,
+  onValueChange,
+  isDisabled = false,
+  'data-testid': testId = 'retire-typed-confirm',
+}: TypedConfirmProps) {
   const inputId = useId();
   const hintId = useId();
 
@@ -45,6 +60,7 @@ export function TypedConfirm({ expected, value, onValueChange, 'data-testid': te
         aria-describedby={hintId}
         className="max-sm:h-(--size-control-touch) max-sm:text-input-touch"
         value={value}
+        disabled={isDisabled}
         onChange={(event) => {
           onValueChange(event.target.value);
         }}
