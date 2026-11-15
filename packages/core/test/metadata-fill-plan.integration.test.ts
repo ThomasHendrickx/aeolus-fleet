@@ -22,6 +22,8 @@ import { seedScaleFleet } from './support/scale-fleet.js';
 // never a history scan. The plan is asserted, not a time.
 
 const BATCH = 100;
+/** The other fleets of the installation, each with its fill's cursor. */
+const OTHER_FLEETS = 1_000;
 
 let core: PostgresCore;
 let fleetId: FleetId;
@@ -54,6 +56,12 @@ beforeAll(async () => {
     FROM ships s WHERE s.fleet_id = ${fleetId} AND s.id <> ${fleet.operatorShipId}`;
   await core.prisma.$executeRaw`UPDATE deliveries SET is_in_exchange = true WHERE fleet_id = ${fleetId}`;
   await core.prisma.$executeRaw`INSERT INTO message_metadata_backfills (fleet_id) VALUES (${fleetId})`;
+  // The installation's other fleets, each with its cursor: on one row alone Postgres reads the table, not its key.
+  await core.prisma.$executeRaw`
+    INSERT INTO fleets (id, name, created_at)
+    SELECT 'flt_' || lpad(n::text, 26, '0'), 'fleet ' || n, now() FROM generate_series(1, ${OTHER_FLEETS}) n`;
+  await core.prisma.$executeRaw`
+    INSERT INTO message_metadata_backfills (fleet_id) SELECT 'flt_' || lpad(n::text, 26, '0') FROM generate_series(1, ${OTHER_FLEETS}) n`;
   // As core serves once the fill built its indexes after start.
   await createPrismaMetadataFillIndexes(core.prisma).build();
   await core.prisma.$executeRaw`ANALYZE`;
