@@ -121,6 +121,27 @@ export const SignOut: Story = {
   },
 };
 
+/** The theme holds for this browser in every Aeolus app (header-across-apps, M1): the line under Theme says so. */
+export const ThemeAcrossApps: Story = {
+  play: async ({ canvasElement }) => {
+    // Given the menu offers the theme; When it opens
+    await userEvent.click(within(canvasElement).getByTestId('avatar-menu'));
+    // Then the line under Theme says where the choice holds
+    await expect(await screen.findByTestId('avatar-menu-theme-scope')).toHaveTextContent('This browser, every Aeolus app');
+  },
+};
+
+/** Phone: the theme's line holds there too (M1). */
+export const PhoneThemeAcrossApps: Story = {
+  globals: { viewport: { value: 'mobile1' } },
+  render: (args) => <AvatarMenuSheet {...args} />,
+  play: async ({ canvasElement }) => {
+    await userEvent.click(within(canvasElement).getByTestId('avatar-menu'));
+    const sheet = await screen.findByTestId('avatar-menu-sheet');
+    await expect(within(sheet).getByTestId('avatar-menu-theme-scope')).toHaveTextContent('This browser, every Aeolus app');
+  },
+};
+
 /** Phone: the same content as a bottom Sheet, the theme as three buttons, no shortcuts (H6). */
 export const Phone: Story = {
   globals: { viewport: { value: 'mobile1' } },

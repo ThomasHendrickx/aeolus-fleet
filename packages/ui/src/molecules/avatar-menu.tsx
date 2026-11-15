@@ -51,6 +51,9 @@ interface AvatarMenuLayout {
 }
 
 const THEME_LABELS: Record<Theme, string> = { light: 'Light', dark: 'Dark', system: 'System' };
+
+/** Where the theme holds: one theme per browser, in every Aeolus app (docs/design/header-across-apps.md, M1). */
+const THEME_SCOPE = 'This browser, every Aeolus app';
 const THEME_ICONS: Record<Theme, LucideIcon> = { light: Sun, dark: Moon, system: Monitor };
 
 /** The account's own pages in Account, from its address there. */
@@ -154,7 +157,8 @@ function ShortcutsDialog({ isOpen, onOpenChange, shortcuts }: { isOpen: boolean;
  * a header, or a row of the avatar, the name and a caption in an app's sidebar
  * foot (docs/design/fleet-overview), opens a
  * DropdownMenu with who is signed in here and how, the account's own pages
- * in Account, the app's entries, the theme (applied at once), keyboard
+ * in Account, the app's entries, the theme (applied at once, held for this
+ * browser in every app), keyboard
  * shortcuts, help and sign out, which shows "Signing out" until it ends.
  */
 export function AvatarMenu(props: AvatarMenuProps & AvatarMenuLayout) {
@@ -233,7 +237,12 @@ export function AvatarMenu(props: AvatarMenuProps & AvatarMenuLayout) {
             <>
               <DropdownMenuSeparator />
               <DropdownMenuGroup>
-                <DropdownMenuLabel>Theme</DropdownMenuLabel>
+                <DropdownMenuLabel className="flex flex-col">
+                  Theme
+                  <span data-testid="avatar-menu-theme-scope">
+                    {THEME_SCOPE}
+                  </span>
+                </DropdownMenuLabel>
                 {/* null, never undefined: undefined until the theme is known would leave the group uncontrolled, then controlled once it is. */}
                 <DropdownMenuRadioGroup
                   value={theme ?? null}
@@ -358,7 +367,10 @@ export function AvatarMenuSheet(props: AvatarMenuProps) {
         )}
         {hasTheme ? (
           <div role="group" aria-label="Theme" className="flex shrink-0 flex-col gap-1.5 border-t border-border pt-3">
-            <p className="text-caption text-muted-foreground">Theme</p>
+            <p className="flex flex-col text-caption text-muted-foreground">
+              Theme
+              <span data-testid="avatar-menu-theme-scope">{THEME_SCOPE}</span>
+            </p>
             <div className="grid grid-cols-3 gap-1 rounded-lg bg-muted p-1">
               {themes.map((option) => {
                 const Icon = THEME_ICONS[option];
