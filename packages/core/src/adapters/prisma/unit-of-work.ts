@@ -11,6 +11,7 @@ import type { DeliveryRepository, ExchangeList, FleetSealingRepository, MeetingR
 import type {
   ClearRequestRepository,
   CrewRequestRepository,
+  FleetRemoval,
   FleetRepository,
   InFlightDeliveries,
   InstallationRequestRepository,
@@ -40,6 +41,7 @@ import { createPrismaEventLog, type BufferedEventLog } from './event-log.js';
 import { createPrismaExchangeList, createPrismaExchangeRollups, type ExchangeRollups } from './exchange-rollups.js';
 import { createPrismaPrunedExchanges } from './pruned-exchanges.js';
 import { createPrismaHealthSnapshots } from './health-snapshots.js';
+import { createPrismaFleetRemoval } from './fleet-removal.js';
 import { createPrismaHistoryPruner } from './history-pruner.js';
 import {
   createPrismaCallerLookup,
@@ -112,6 +114,7 @@ export interface PrismaTx {
   installationSettings: InstallationSettingsRepository;
   healthSnapshots: HealthSnapshotWriter;
   historyPruner: HistoryPruner;
+  fleetRemoval: FleetRemoval;
 }
 
 export function createPrismaTx(db: Db): PrismaTx {
@@ -155,6 +158,7 @@ export function createPrismaTx(db: Db): PrismaTx {
     scheduleNotifier: createPrismaScheduleNotifier(db),
     healthSnapshots: createPrismaHealthSnapshots(db),
     historyPruner: createPrismaHistoryPruner(db),
+    fleetRemoval: createPrismaFleetRemoval(db),
   };
 }
 

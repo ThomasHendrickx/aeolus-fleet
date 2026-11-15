@@ -8,8 +8,10 @@ import { listenForPendingDeliveries } from './adapters/prisma/delivery-notices.j
 import { failureForLog } from './adapters/prisma/failure-log.js';
 import { createFleetEventWakeups, fleetEventWakeupsOf } from './adapters/prisma/fleet-event-wakeups.js';
 import { createReceiverWakeups } from './adapters/prisma/receiver-wakeups.js';
+import { ensureHealthBootstrapIndex } from './adapters/prisma/health-bootstrap-index.js';
 import type { Clock } from './domain/shared/clock.js';
 import { startMaintenancePass } from './maintenance-pass.js';
+import { repeatPass, type RepeatingPass } from './repeating-pass.js';
 import { startScheduleTimer } from './schedule-timer.js';
 import { createUseCases, systemClock } from './wiring.js';
 import type { KeyVault } from './domain/messaging/key-vault.js';
@@ -36,6 +38,8 @@ export interface AppOptions {
   installationToken?: string;
   /** How often the 10 and 60 minute clocks and the schedules' fallback pass run; every 30 seconds unless a test says otherwise. */
   overduePassMs?: number;
+  /** Whether the maintenance pass runs at all: false, only what a test calls runs passes (#1836). Unset, it runs. */
+  hasMaintenancePass?: boolean;
   /** pagasae's URL, the issuer whose account tokens core trusts (decision 0058); unset, it trusts none. */
   accountTokenIssuer?: string;
   /** The installation's KMS for sealed fleets (decision 0068); unset, no fleet can be sealed. */
@@ -44,6 +48,7 @@ export interface AppOptions {
 
 /** How often core runs the 10 and 60 minute clocks: argo hears of an overdue delivery within this of its clock running out. */
 const OVERDUE_PASS_MS = 30_000;
+const BOOTSTRAP_INDEX_RETRY_MS = 1_000;
 
 /** How long core waits for pagasae's key set before it goes on with the keys it holds. */
 const KEY_SET_FETCH_TIMEOUT_MS = 5_000;
@@ -140,12 +145,28 @@ export function createApp(options: AppOptions): FastifyInstance {
     },
   });
 
-  const overduePasses = startMaintenancePass({
+  const overduePasses = options.hasMaintenancePass === false ? undefined : startMaintenancePass({
     useCases,
     log: server.log,
     scheduleTimer,
     scheduleSendFailed,
     everyMs: options.overduePassMs ?? OVERDUE_PASS_MS,
+  });
+
+  // Closing aborts the build, so a stop never waits for it; the next start builds it again.
+  const bootstrapIndexBuild = new AbortController();
+  let bootstrapIndex: RepeatingPass | undefined;
+  server.addHook('onListen', (done) => {
+    bootstrapIndex = repeatPass({
+      pass: async () => {
+        if (await ensureHealthBootstrapIndex(options.databaseUrl, bootstrapIndexBuild.signal)) {
+          void bootstrapIndex?.stop();
+        }
+      },
+      everyMs: BOOTSTRAP_INDEX_RETRY_MS,
+      onError: (error) => { server.log.warn(failureForLog(error), 'snapshot bootstrap index build failed: retrying while serving'); },
+    });
+    done();
   });
 
   // Before the server stops taking requests and waits for the ones it holds:
@@ -168,7 +189,9 @@ export function createApp(options: AppOptions): FastifyInstance {
   });
 
   server.addHook('onClose', async () => {
-    await overduePasses.stop();
+    bootstrapIndexBuild.abort();
+    await bootstrapIndex?.stop();
+    await overduePasses?.stop();
     await scheduleTimer.stop();
     await listener.close();
     await prisma.$disconnect();

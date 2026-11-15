@@ -5,7 +5,6 @@ import { sha256Hasher } from '../src/adapters/crypto/secrets.js';
 import { createPrismaClient } from '../src/adapters/prisma/client.js';
 import { createApp } from '../src/app.js';
 import { listenForPendingDeliveries, type DeliveryListener } from '../src/adapters/prisma/delivery-notices.js';
-import { createPrismaFleetRepository } from '../src/adapters/prisma/registry.js';
 import { createPrismaScheduleAttempts } from '../src/adapters/prisma/schedules.js';
 import { createPrismaUnitOfWork, type PrismaTx } from '../src/adapters/prisma/unit-of-work.js';
 import type { ScheduleNotice } from '../src/domain/messaging/ports.js';
@@ -14,6 +13,7 @@ import { createSendDueSchedules } from '../src/domain/messaging/send-due-schedul
 import type { ShipCaller } from '../src/domain/shared/caller.js';
 import type { UnitOfWork } from '../src/domain/shared/unit-of-work.js';
 import { newKey } from '../src/testing/keys.js';
+import { createPrismaFleetRepository } from '../src/adapters/prisma/registry.js';
 import { unwrap } from '../src/testing/result.js';
 import { createUseCases } from '../src/wiring.js';
 import { agentCaller, operatorCaller } from './support/core-fixtures.js';
@@ -215,7 +215,8 @@ describe('a send time on Postgres', () => {
     await core.useCases.sendDueSchedules();
     await scheduled();
 
-    await core.prisma.$transaction((tx) => createPrismaFleetRepository(tx).delete(fleetId));
+    unwrap(await core.useCases.deleteFleet({ requestId: 'delete-schedules-fleet', fleetId }));
+    await core.useCases.removeDeletedFleets();
 
     expect([await core.prisma.schedule.count({ where: { fleetId } }), await core.prisma.message.count({ where: { fleetId, scheduleId } })]).toEqual([0, 0]);
   });

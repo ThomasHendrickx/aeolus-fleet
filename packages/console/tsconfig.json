@@ -11,6 +11,6 @@
     "incremental": true,
     "plugins": [{ "name": "next" }]
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".storybook/*.ts", ".storybook/*.tsx", ".next/types/**/*.ts"],
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", "app/.well-known/**/*.ts", ".storybook/*.ts", ".storybook/*.tsx", ".next/types/**/*.ts"],
   "exclude": ["node_modules", ".next/cache"]
 }

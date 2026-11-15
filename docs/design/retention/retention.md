@@ -40,7 +40,7 @@ Not the purpose:
 | L10 | Storage and messages per day are counters in `message_days`, summed per fleet; the 7 day message measure and the daily limit read them | performance design, decision 1 |
 | L11 | Limits are configuration: an installation default, a per-fleet override, unset means none; Aeolus sets no maximum or minimum of its own | 0016, 0020 |
 | L12 | No hidden behaviour: every rule visible, every change an event | blueprint, Principles; 0034 |
-| L13 | A deleted fleet is gone, every row in one transaction, children first; a bulk delete without indexed foreign keys timed out | 0020; #331 |
+| L13 | A deleted fleet reads as gone at once (marked in one short transaction); its rows go in batches, children first, taken up again after any failure until none is left; a bulk delete without indexed foreign keys timed out | 0020; #331; #1856 |
 | L14 | A read's cost follows what it answers, never the fleet's history | performance design, Purpose 1 |
 | L15 | The demo fleet does not pile up: pagasae's demo runner deletes it every night at 03:00 UTC and builds a new one, at most a day (about 50 MB) | #1080, correction comment (a read-only check of pagasae, not verifiable from this repo) |
 | L16 | Core knows no demo: no flag on a fleet, the demo runner lives with the hosting service | 0022, 0023, 0024 |
@@ -132,7 +132,7 @@ flowchart TD
   d(["A ship replies to a pruned message"]) --> d1["Refused IN_REPLY_TO_NOT_FOUND, saying it is not kept; nothing stored (R11)"]
   e(["Retention lowered"]) --> e1["The next pass prunes to the new cutoff, in batches over several hours if large"]
   f(["Retention raised or set to none"]) --> f1["Nothing comes back; pruning slows or stops"]
-  g(["The fleet is deleted during a pass"]) --> g1["The delete waits on the batch's row locks or the batch finds no rows; either way the fleet is gone"]
+  g(["The fleet is deleted during a pass"]) --> g1["The delete's mark waits on the batch's row lock; from the mark the pruning pass skips the fleet and the removal pass takes the rest, so the fleet ends gone"]
   h(["The first pass on a large fleet"]) --> h1["Batches until the budget is spent, each short; the rest the next hours"]
   i(["An acknowledged delivery on an open pushed lease"]) --> i1["Not final: kept until handled, not handled or its lease ends (L2)"]
 ```

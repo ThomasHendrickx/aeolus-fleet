@@ -1,4 +1,4 @@
-import type { FleetId } from '@aeolus-fleet/common';
+import { createIdGenerator, type FleetId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { addAgentShip, crewAboard, deliveryInFlight, identityUseCases, initialiseFleet, OPERATOR } from '../../../test/support/core-fixtures.js';
@@ -6,9 +6,12 @@ import { createInMemoryCore, type InMemoryCore, type InMemoryState } from '../..
 import { unwrap } from '../../testing/result.js';
 import { createCreateFleet } from './create-fleet.js';
 import { createDeleteFleet, type DeleteFleet } from './delete-fleet.js';
+import { createRemoveDeletedFleets, type RemoveDeletedFleets } from './remove-deleted-fleets.js';
 
+const newId = createIdGenerator();
 let core: InMemoryCore;
 let deleteFleet: DeleteFleet;
+let removeDeletedFleets: RemoveDeletedFleets;
 let kept: FleetId;
 let doomed: FleetId;
 
@@ -65,6 +68,7 @@ function rowsOf(fleetId: FleetId): Record<keyof InMemoryState, number> {
     healthSnapshotLocks: 0,
     // The pruning columns on the fleets row, apart from the Fleet.
     fleetPrunes: of(state.fleetPrunes),
+    deletedFleets: of(state.deletedFleets),
     prunedExchanges: of(state.prunedExchanges),
     // Another server's prune lock and another transaction's row locks, as a test holds them: no row.
     historyPruneLocks: 0,
@@ -88,6 +92,7 @@ function rowsOf(fleetId: FleetId): Record<keyof InMemoryState, number> {
 beforeEach(async () => {
   core = createInMemoryCore('2026-10-04T12:00:00.000Z');
   deleteFleet = createDeleteFleet({ uow: core.uow, clock: core.clock, hasher: core.hasher });
+  removeDeletedFleets = createRemoveDeletedFleets({ fleets: core.fleets, uow: core.uow, clock: core.clock });
   ({ fleetId: kept } = await initialiseFleet(core));
   ({ fleetId: doomed } = unwrap(
     await createCreateFleet({ uow: core.uow, clock: core.clock, ids: core.ids, hasher: core.hasher })({ requestId: 'signup-1', name: 'hemma', operatorEmail: 'lena@example.com' }),
@@ -105,7 +110,56 @@ describe('deleting a fleet for the installation', () => {
     expect(Object.values(rowsOf(doomed)).some((count) => count > 0)).toBe(true);
 
     unwrap(await deleteFleet({ requestId: 'delete-1', fleetId: doomed }));
+    await removeDeletedFleets();
 
+    expect(Object.values(rowsOf(doomed)).every((count) => count === 0)).toBe(true);
+  });
+
+  it('reads the fleet as gone at once, before the removal pass: no fleet, no sign-in, no secret, no crew request, no key to open what it sealed, and the fleet does not count', async () => {
+    const trierarch = addAgentShip(core, { fleetId: doomed, name: 'mac-studio' });
+    const cook = addAgentShip(core, { fleetId: doomed, name: 'cook' });
+    core.state.crewRequests.push({
+      fleetId: doomed,
+      shipId: cook.shipId,
+      settings: {},
+      settingsVersion: 1,
+      requestedAt: core.clock.now(),
+      requestedBy: null,
+      assignedTo: null,
+      status: null,
+      reason: null,
+      attempt: 0,
+      sessionStartedAt: null,
+      isFinal: false,
+      givenBack: [{ trierarchShipId: trierarch.shipId, settingsVersion: 1, reason: 'no room', givenBackAt: core.clock.now() }],
+    });
+    core.state.dataKeys.push({ id: newId('dataKey'), fleetId: doomed, wrappedByCompanyKey: new Uint8Array(32).fill(7), wrappedByRecoveryKey: new Uint8Array(32).fill(9), checkValue: new Uint8Array(8).fill(3), createdAt: core.clock.now(), isCurrent: true });
+
+    unwrap(await deleteFleet({ requestId: 'delete-1', fleetId: doomed }));
+
+    expect(await core.fleets.find(doomed)).toBeUndefined();
+    expect((await core.fleets.list()).map((fleet) => fleet.id)).toEqual([kept]);
+    expect(await core.fleets.count()).toBe(1);
+    const rows = rowsOf(doomed);
+    expect([rows.credentials, rows.operatorAccounts, rows.consoleSessions, rows.signInTickets, rows.crewRequests]).toEqual([0, 0, 0, 0, 0]);
+    // Its data keys are shredded: no wrap of the key and no check value left, so no sealed payload opens; the rows go in the batches after what they sealed.
+    expect(core.state.dataKeys.filter((key) => key.fleetId === doomed).map(({ wrappedByCompanyKey, wrappedByRecoveryKey, checkValue }) => [wrappedByCompanyKey.length, wrappedByRecoveryKey, checkValue.length])).toEqual([[0, null, 0]]);
+    await expect(deleteFleet({ requestId: 'delete-2', fleetId: doomed })).resolves.toMatchObject({ isOk: false, error: { kind: 'FLEET_NOT_FOUND' } });
+  });
+
+  it('removes the history in batches of the size it is given', async () => {
+    unwrap(await deleteFleet({ requestId: 'delete-1', fleetId: doomed }));
+    const batches: number[] = [];
+    const counting = createRemoveDeletedFleets({
+      fleets: core.fleets,
+      uow: { run: (work) => core.uow.run(async (tx) => work({ fleetRemoval: { ...tx.fleetRemoval, removeHistoryBatch: async (...args) => { batches.push(rowsOf(doomed).messages + rowsOf(doomed).deliveries + rowsOf(doomed).events); return tx.fleetRemoval.removeHistoryBatch(...args); } } })) },
+      clock: core.clock,
+      batch: 1,
+    });
+
+    await counting();
+
+    expect(batches.length).toBeGreaterThan(1);
     expect(Object.values(rowsOf(doomed)).every((count) => count === 0)).toBe(true);
   });
 
@@ -113,6 +167,7 @@ describe('deleting a fleet for the installation', () => {
     const before = rowsOf(kept);
 
     unwrap(await deleteFleet({ requestId: 'delete-1', fleetId: doomed }));
+    await removeDeletedFleets();
 
     expect(rowsOf(kept)).toEqual(before);
   });
@@ -126,6 +181,7 @@ describe('deleting a fleet for the installation', () => {
 
   it('refuses a fleet the installation does not host', async () => {
     unwrap(await deleteFleet({ requestId: 'delete-1', fleetId: doomed }));
+    await removeDeletedFleets();
 
     await expect(deleteFleet({ requestId: 'delete-2', fleetId: doomed })).resolves.toMatchObject({ isOk: false, error: { kind: 'FLEET_NOT_FOUND' } });
   });
@@ -140,6 +196,7 @@ describe('a delete that comes again under its request id', () => {
 
   it("keeps nothing of the fleet in the record of the delete: no fleet id, name or operator email, only the request's hash", async () => {
     unwrap(await deleteFleet({ requestId: 'delete-1', fleetId: doomed }));
+    await removeDeletedFleets();
 
     expect(core.state.installationRequests.map((request) => Object.keys(request).sort())).toEqual([['at', 'kind', 'requestHash', 'requestId']]);
     expect(JSON.stringify(core.state.installationRequests)).not.toMatch(/hemma|lena@example\.com/);
@@ -148,6 +205,7 @@ describe('a delete that comes again under its request id', () => {
   it('refuses another fleet, or the request id of a create whose fleet is still there', async () => {
     unwrap(await createCreateFleet({ uow: core.uow, clock: core.clock, ids: core.ids, hasher: core.hasher })({ requestId: 'signup-2', name: 'other', operatorEmail: 'olle@example.com' }));
     unwrap(await deleteFleet({ requestId: 'delete-1', fleetId: doomed }));
+    await removeDeletedFleets();
 
     await expect(deleteFleet({ requestId: 'delete-1', fleetId: kept })).resolves.toMatchObject({ isOk: false, error: { kind: 'IDEMPOTENCY_KEY_REUSED' } });
     await expect(deleteFleet({ requestId: 'signup-2', fleetId: kept })).resolves.toMatchObject({ isOk: false, error: { kind: 'IDEMPOTENCY_KEY_REUSED' } });

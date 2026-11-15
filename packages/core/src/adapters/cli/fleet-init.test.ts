@@ -116,14 +116,24 @@ describe('fleet:init', () => {
     expect(io.stdout).toEqual([]);
   });
 
-  it('reports a refusal from the domain and exits 1', async () => {
+  it('exits 3 when a run at the same time created the fleet first', async () => {
     const io = scriptedIo();
     const refused: InitialiseFleet = () =>
       Promise.resolve(refuse('FLEET_ALREADY_EXISTS', 'A fleet already exists: a fleet is initialised only once'));
 
-    await expect(fleetInit(['--name', 'again'], depsWith({ initialiseFleet: refused, io }))).resolves.toBe(1);
+    await expect(fleetInit(['--name', 'again'], depsWith({ initialiseFleet: refused, io }))).resolves.toBe(3);
 
     expect(io.stderr).toEqual(['A fleet already exists: a fleet is initialised only once']);
+    expect(io.stdout).toEqual([]);
+  });
+
+  it('reports any other refusal from the domain and exits 1', async () => {
+    const io = scriptedIo();
+    const refused: InitialiseFleet = () => Promise.resolve(refuse('INVALID_FLEET_NAME', 'The fleet name is empty'));
+
+    await expect(fleetInit(['--name', 'x'], depsWith({ initialiseFleet: refused, io }))).resolves.toBe(1);
+
+    expect(io.stderr).toEqual(['The fleet name is empty']);
     expect(io.stdout).toEqual([]);
   });
 
@@ -146,7 +156,7 @@ describe('fleet:init with a fleet already there', () => {
     const oneFleet: ListFleets = () =>
       Promise.resolve([{ id: newId('fleet'), name: 'home fleet', createdAt: new Date('2026-09-29T12:00:00.000Z') }]);
 
-    await expect(fleetInit(['--name', 'again'], depsWith({ initialiseFleet, listFleets: oneFleet, io }))).resolves.toBe(1);
+    await expect(fleetInit(['--name', 'again'], depsWith({ initialiseFleet, listFleets: oneFleet, io }))).resolves.toBe(3);
 
     expect(io.stderr).toEqual(['A fleet already exists: a fleet is initialised only once. Nothing was created.']);
     expect(initialiseFleet).not.toHaveBeenCalled();

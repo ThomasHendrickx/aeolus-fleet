@@ -1,6 +1,28 @@
 'use client';
 
-import { CornerDownLeft, LoaderCircle, Search } from 'lucide-react';
+import type { AppPaletteGroup, PaletteIcon } from '@aeolus-fleet/common/rules';
+import {
+  Activity,
+  AppWindow,
+  ArrowUpRight,
+  Check,
+  Copy,
+  CornerDownLeft,
+  House,
+  Inbox,
+  LoaderCircle,
+  Lock,
+  Mail,
+  Network,
+  Plus,
+  Search,
+  Send,
+  Settings,
+  ShieldCheck,
+  Ship,
+  Users,
+  type LucideIcon,
+} from 'lucide-react';
 import { useId, useState, type KeyboardEvent, type ReactNode } from 'react';
 
 import { Button } from '../atoms/button.js';
@@ -12,8 +34,9 @@ import { classNames } from '../class-names.js';
 /**
  * One entry of the palette: what it shows, and where it goes. An entry with
  * an href opens another app: the browser leaves, so the palette stays open
- * and says "Opening ..." until it does. Any other entry is handed to
- * onSelect and the palette closes.
+ * and says "Opening ..." until it does. An entry with copyText copies it and
+ * says Copied, opening nothing. Any other entry is handed to onSelect and
+ * the palette closes.
  */
 export interface CommandEntry {
   key: string;
@@ -21,6 +44,10 @@ export interface CommandEntry {
   href?: string;
   /** The name "Opening ..." uses for an entry with an href. */
   name?: string;
+  /** The app the entry opens, named at the row's end (header-across-apps M2). */
+  app?: string;
+  /** What choosing the entry copies (A3). */
+  copyText?: string;
 }
 
 export interface CommandGroup {
@@ -47,6 +74,75 @@ export interface CommandPaletteProps {
   onQueryChange?: (query: string) => void;
 }
 
+const PALETTE_ICON_PARTS: Record<PaletteIcon, LucideIcon> = {
+  app: AppWindow,
+  plus: Plus,
+  send: Send,
+  users: Users,
+  ship: Ship,
+  inbox: Inbox,
+  activity: Activity,
+  home: House,
+  shield: ShieldCheck,
+  mail: Mail,
+  lock: Lock,
+  copy: Copy,
+  settings: Settings,
+  network: Network,
+};
+
+/**
+ * Another app's group as the palette shows it (header-across-apps A2, M2):
+ * under the app's name, each entry with its icon and the app it opens named
+ * at the row's end, or copying its value.
+ */
+export function appPaletteGroupOf(group: AppPaletteGroup): CommandGroup {
+  return {
+    key: `app:${group.app}`,
+    label: group.label,
+    entries: group.entries.map((entry) => {
+      const Icon = PALETTE_ICON_PARTS[entry.icon];
+      return {
+        key: entry.key,
+        name: group.label,
+        content: (
+          <>
+            <Icon aria-hidden className="size-(--size-icon) shrink-0 text-muted-foreground" />
+            <span className="min-w-0 truncate">{entry.label}</span>
+          </>
+        ),
+        ...(entry.copyText === undefined ? { app: group.label } : { copyText: entry.copyText }),
+        ...(entry.href === undefined ? {} : { href: entry.href }),
+      };
+    }),
+  };
+}
+
+/** How a copy went: under way, done, or refused by the browser. */
+type CopyState = { key: string; outcome: 'copied' | 'failed' } | undefined;
+
+/** The row's end: the app it opens, or what copying does and did. */
+function RowEnd({ entry, copy }: { entry: CommandEntry; copy: CopyState }) {
+  if (entry.copyText !== undefined) {
+    const outcome = copy?.key === entry.key ? copy.outcome : undefined;
+    return (
+      <span data-testid="command-palette-item-copy" aria-live="polite" className={classNames('ml-auto inline-flex shrink-0 items-center gap-1 text-caption', outcome === 'failed' ? 'text-destructive' : 'text-muted-foreground')}>
+        {outcome === 'copied' ? <Check aria-hidden className="size-3" /> : outcome === 'failed' ? null : <Copy aria-hidden className="size-3" />}
+        {outcome === 'copied' ? 'Copied' : outcome === 'failed' ? 'Couldn’t copy. Try again' : 'Copies'}
+      </span>
+    );
+  }
+  if (entry.app !== undefined) {
+    return (
+      <span className="ml-auto inline-flex shrink-0 items-center gap-0.5 text-caption text-muted-foreground">
+        <span data-testid="command-palette-item-app">{entry.app}</span>
+        <ArrowUpRight aria-hidden className="size-3" />
+      </span>
+    );
+  }
+  return null;
+}
+
 /** Rows standing in while the entries load. */
 const SKELETON_ROWS = 4;
 
@@ -70,6 +166,7 @@ function PaletteBody({ groupsOf, onSelect, onOpenChange, label, emptyMessage, is
   const [query, setQuery] = useState(initialQuery);
   const [activeIndex, setActiveIndex] = useState(0);
   const [opening, setOpening] = useState<CommandEntry | undefined>(undefined);
+  const [copy, setCopy] = useState<CopyState>(undefined);
   const groups = groupsOf(query);
   const entries = groups.flatMap((group) => group.entries);
   const active = entries[Math.min(activeIndex, entries.length - 1)];
@@ -77,6 +174,18 @@ function PaletteBody({ groupsOf, onSelect, onOpenChange, label, emptyMessage, is
 
   const choose = (entry: CommandEntry) => {
     if (opening !== undefined) {
+      return;
+    }
+    if (entry.copyText !== undefined) {
+      const { key } = entry;
+      navigator.clipboard.writeText(entry.copyText).then(
+        () => {
+          setCopy({ key, outcome: 'copied' });
+        },
+        () => {
+          setCopy({ key, outcome: 'failed' });
+        },
+      );
       return;
     }
     if (entry.href !== undefined) {
@@ -145,7 +254,8 @@ function PaletteBody({ groupsOf, onSelect, onOpenChange, label, emptyMessage, is
                 <ul role="group" aria-labelledby={`${listId}-${group.key}`} className="flex flex-col gap-0.5">
                   {group.entries.map((entry) => {
                     const isActive = entry === active;
-                    const isOpening = entry === opening;
+                    // By key: the app hands over new entries on every render.
+                    const isOpening = entry.key === opening?.key;
                     return (
                       // The keys belong to the search field (aria-activedescendant
                       // names the active option), as the combobox pattern wants;
@@ -176,7 +286,10 @@ function PaletteBody({ groupsOf, onSelect, onOpenChange, label, emptyMessage, is
                             <span className="min-w-0 truncate">Opening {entry.name ?? ''}</span>
                           </>
                         ) : (
-                          entry.content
+                          <>
+                            {entry.content}
+                            <RowEnd entry={entry} copy={copy} />
+                          </>
                         )}
                       </li>
                     );

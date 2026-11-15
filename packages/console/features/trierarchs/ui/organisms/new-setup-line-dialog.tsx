@@ -4,6 +4,7 @@ import { CircleAlert, TriangleAlert } from 'lucide-react';
 import { useState } from 'react';
 
 import { Button, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, dialogSurface, DialogTitle, InlineError } from '@aeolus-fleet/ui';
+import { failureWords, type NewSetupLineOutcome } from '../../../../lib/new-setup-line-outcome';
 import { SetupLineBlock } from '../molecules/setup-line-block';
 
 interface NewSetupLineDialogProps {
@@ -12,8 +13,8 @@ interface NewSetupLineDialogProps {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
   isPending: boolean;
-  /** Why the last try failed; the dialog stays on the confirm. */
-  error?: string;
+  /** Why the last try failed, and what it left behind; the dialog stays on the confirm. */
+  error?: { reason: string; outcome: NewSetupLineOutcome };
   /** The new setup line, once: shown only now. */
   setupLine?: string;
   onConfirm: () => void;
@@ -31,7 +32,7 @@ function ConfirmStep({ name, isPending, error, onConfirm }: Pick<NewSetupLineDia
         <TriangleAlert aria-hidden className="mt-0.5 size-(--size-icon-sm) shrink-0" />
         <span>The old setup line stops working. A trierarch already running with it loses its crew; run the new line on the machine to start it again.</span>
       </p>
-      {error === undefined ? null : <InlineError title="Couldn’t get a new setup line" description={`${error} Nothing changed.`} />}
+      {error === undefined ? null : <InlineError title="Couldn’t get a new setup line" description={`${error.reason} ${failureWords(name, error.outcome)}`} />}
       <DialogFooter>
         <DialogClose render={<Button type="button" disabled={isPending} />}>Cancel</DialogClose>
         <Button variant="primary" isLoading={isPending} onClick={onConfirm} data-testid="new-setup-line-confirm">
