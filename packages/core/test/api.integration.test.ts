@@ -311,6 +311,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_messages_asked_answered_question_id$/),
       expect.stringMatching(/^\d{14}_unseen_plain_messages$/),
       expect.stringMatching(/^\d{14}_theme_per_browser$/),
+      expect.stringMatching(/^\d{14}_fleet_deleted_at$/),
     ]);
   });
 });

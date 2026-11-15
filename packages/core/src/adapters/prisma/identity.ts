@@ -318,6 +318,6 @@ export function createPrismaAccountCutOffs(db: Db): AccountCutOffRepository {
 
 export function createPrismaHostedFleets(db: Db): HostedFleets {
   return {
-    isHosted: async (fleetId) => (await db.fleet.count({ where: { id: fleetId } })) > 0,
+    isHosted: async (fleetId) => (await db.fleet.count({ where: { id: fleetId, deletedAt: null } })) > 0,
   };
 }

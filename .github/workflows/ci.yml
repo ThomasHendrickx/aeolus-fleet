@@ -97,6 +97,11 @@ jobs:
       - name: Every use case has a test
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: node scripts/check-use-case-tests.ts
+      - name: Fleet query plans
+        if: ${{ !cancelled() && steps.install.outcome == 'success' && github.event_name == 'pull_request' }}
+        run: node scripts/check-query-plans.ts "$BASE_SHA" "$HEAD_SHA"
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
       - name: TDD evidence
         if: ${{ !cancelled() && steps.install.outcome == 'success' && github.event_name == 'pull_request' }}
         run: node scripts/check-tdd-evidence.ts "$BASE_SHA" "$HEAD_SHA"

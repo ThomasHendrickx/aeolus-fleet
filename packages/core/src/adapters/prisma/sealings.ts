@@ -153,7 +153,7 @@ export function createPrismaFleetSealingRepository(db: Db): FleetSealingReposito
       return { companyKey: sealing.companyKey, recoveryKey: sealing.recoveryKey, dataKeys: rows.map(toDataKey) };
     },
     sealingFleetIds: async () => {
-      const rows = await db.fleet.findMany({ where: { sealingState: 'sealing' }, select: { id: true }, orderBy: { id: 'asc' } });
+      const rows = await db.fleet.findMany({ where: { sealingState: 'sealing', deletedAt: null }, select: { id: true }, orderBy: { id: 'asc' } });
       return rows.map((row) => idSchema('fleet').parse(row.id));
     },
     tryLockSealing: async (fleetId) => {
