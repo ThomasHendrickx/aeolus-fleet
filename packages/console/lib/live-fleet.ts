@@ -331,7 +331,8 @@ export interface LiveFleet {
  * attention; a label's event the fleet's labels; a sealing event the fleet's sealing; NetworkRulesDeclared the
  * declared network rules; and a change of the rules or the draft the network
  * rules, what the draft changes and the reach. `resync`, sent first and
- * whenever the browser fell too far behind, reloads every one of them.
+ * whenever the browser fell too far behind, reloads every one of them, except
+ * the first, which only says the socket opened: the page's reads are current.
  */
 export function createLiveFleetHandler(input: {
   trpc: TRPCOptionsProxy<AppRouter>;
@@ -411,8 +412,14 @@ export function createLiveFleetHandler(input: {
     // Every cause's pages of places, whichever are shown.
     reload(trpc.fleet.stuck.pathKey());
   };
+  // The server sends resync first, as the socket opens: no event was missed yet, and the queries the page just started are still on their first read (#1169, #1127).
+  let hasSocketOpened = false;
   return (item) => {
     if (item.kind === 'resync') {
+      if (!hasSocketOpened) {
+        hasSocketOpened = true;
+        return;
+      }
       reload(trpc.fleet.pathKey());
       reload(INBOX_KEY);
       return;

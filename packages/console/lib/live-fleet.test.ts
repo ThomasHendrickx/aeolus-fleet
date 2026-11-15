@@ -309,6 +309,35 @@ function aLiveFleet(answers: Readonly<Record<string, (input: unknown) => unknown
 const settled = () => new Promise((resolve) => setTimeout(resolve, SETTLE_MS));
 
 describe('the live fleet (performance design, decision 3)', () => {
+  it('reads a query still on its first read once when the resync sent as the socket opens comes (#1169, #1127)', async () => {
+    const live = aLiveFleet({ 'fleet.list': () => new Promise((resolve) => setTimeout(() => { resolve([]); }, SETTLE_MS)), 'fleet.health': () => ({}) });
+    live.show(new QueryObserver(live.queryClient, live.trpc.fleet.list.queryOptions()));
+    live.show(new QueryObserver(live.queryClient, live.trpc.fleet.health.queryOptions()));
+    await expect.poll(() => live.askedOf('fleet.list')).toBe(1);
+
+    live.onItem({ kind: 'resync' });
+    await settled();
+    await settled();
+
+    expect({ list: live.askedOf('fleet.list'), health: live.askedOf('fleet.health') }).toEqual({ list: 1, health: 1 });
+    live.close();
+  });
+
+  it('reloads every fleet query on a resync after the first: the browser fell behind or reconnected', async () => {
+    const live = aLiveFleet({ 'fleet.list': () => [], 'fleet.health': () => ({}) });
+    live.show(new QueryObserver(live.queryClient, live.trpc.fleet.list.queryOptions()));
+    live.show(new QueryObserver(live.queryClient, live.trpc.fleet.health.queryOptions()));
+    await expect.poll(() => live.askedOf('fleet.list') + live.askedOf('fleet.health')).toBe(2);
+    live.onItem({ kind: 'resync' });
+    await settled();
+
+    live.onItem({ kind: 'resync' });
+    await settled();
+
+    expect({ list: live.askedOf('fleet.list'), health: live.askedOf('fleet.health') }).toEqual({ list: 2, health: 2 });
+    live.close();
+  });
+
   it('reloads neither fleet.list nor the full health for any event', async () => {
     const builder = aShip({});
     const live = aLiveFleet({ 'fleet.list': () => [builder], 'fleet.health': () => ({}), 'fleet.listedShip': () => builder, 'fleet.stuckCount': () => ({ count: 0, oldestSince: null }) });

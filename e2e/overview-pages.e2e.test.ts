@@ -114,9 +114,8 @@ describe('the overview of a fleet larger than a page', () => {
     await page.waitForLoadState('networkidle');
 
     const expected = ['argo', ...Array.from({ length: PAGE_SIZE - 1 }, (_, index) => shipName(index + 1))];
-    // The live updates' resync, sent as the socket opens, reads the first page once more (#1169).
     const pages = overviewPagesOf(asked);
-    expect([await rowNames(page), pages.length <= 2, pages.filter((input) => input.cursor !== undefined)]).toEqual([expected, true, []]);
+    expect([await rowNames(page), pages.length, pages.filter((input) => input.cursor !== undefined)]).toEqual([expected, 1, []]);
   });
 
   it('counts every ship the view selects, not the rows loaded', async () => {
