@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { useState } from 'react';
-import { fn } from 'storybook/test';
+import { expect, fn, within } from 'storybook/test';
 
 import { TourStep, type TourStepProps } from './tour-step';
 
@@ -50,3 +50,30 @@ export const PointingAtItsAnchor: Story = { render: (args) => <Anchored {...args
 
 /** On a narrow window: above its anchor, so what follows the anchor stays in sight. */
 export const AboveItsAnchor: Story = { args: { side: 'top' }, render: (args) => <Anchored {...args} /> };
+
+/** The final demo step offers hosted sign-up and self-hosting without hiding navigation. */
+export const LastStepWithActions: Story = {
+  args: {
+    index: 5,
+    title: 'Start your own fleet',
+    text: 'Run your own fleet: sign up or self-host with GitHub.',
+    ...{ actions: [
+      { label: 'Sign up', href: 'https://accounts.example.com/sign-up' },
+      { label: 'GitHub', href: 'https://github.com/ThomasHendrickx/aeolus-fleet' },
+    ] },
+  },
+  play: async ({ canvasElement }) => {
+    // Given the last step configured with the approved actions.
+    const canvas = within(canvasElement);
+
+    // When the step is rendered.
+    const signUp = canvas.getByRole('link', { name: 'Sign up' });
+    const github = canvas.getByRole('link', { name: 'GitHub' });
+
+    // Then both destinations and the existing navigation are available.
+    await expect(signUp).toHaveAttribute('href', 'https://accounts.example.com/sign-up');
+    await expect(github).toHaveAttribute('href', 'https://github.com/ThomasHendrickx/aeolus-fleet');
+    await expect(canvas.getByRole('button', { name: 'Back' })).toBeVisible();
+    await expect(canvas.getByRole('button', { name: 'Finish' })).toBeVisible();
+  },
+};

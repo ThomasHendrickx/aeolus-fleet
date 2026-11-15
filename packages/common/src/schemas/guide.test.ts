@@ -22,6 +22,31 @@ describe('setGuideInputSchema', () => {
     expect(setGuideInputSchema.parse({ guide: { audience: 'everyone', steps: [centred] } }).guide?.steps).toEqual([centred]);
   });
 
+  it('preserves the sign-up and self-hosting actions configured for a guide step', () => {
+    // Given a final step with the two approved destinations.
+    const step = aStep({ actions: [
+      { label: 'Sign up', href: 'https://accounts.example.com/sign-up' },
+      { label: 'GitHub', href: 'https://github.com/ThomasHendrickx/aeolus-fleet' },
+    ] });
+
+    // When the installation sets the guide.
+    const result = setGuideInputSchema.parse({ guide: { audience: 'viewers', steps: [step] } });
+
+    // Then the console receives the configured actions intact.
+    expect(result.guide?.steps).toEqual([step]);
+  });
+
+  it.each(['javascript:alert(1)', 'data:text/html,hello', 'file:///tmp/test'])('refuses an unsafe guide action destination: %s', (href) => {
+    // Given an action with an unsafe destination.
+    const step = aStep({ actions: [{ label: 'Sign up', href }] });
+
+    // When the installation sets the guide.
+    const result = setGuideInputSchema.safeParse({ guide: { audience: 'viewers', steps: [step] } });
+
+    // Then the unsafe link is refused.
+    expect(result.success).toBe(false);
+  });
+
   it('takes none, which clears the guide', () => {
     expect(setGuideInputSchema.parse({ guide: null })).toEqual({ guide: null });
   });
