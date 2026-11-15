@@ -372,3 +372,16 @@ export const ApprovedFieldHints: Story = {
     await expect(screen.getByText('2 active ships have this type.')).toBeVisible();
   },
 };
+
+/** A failed permission read keeps the form and offers a visible retry. */
+export const PermissionsReadFailed: Story = {
+  args: { scopeGroups: undefined, scopeFailure: { message: 'Network request failed. Nothing you typed is lost.', onRetry: fn() } },
+  play: async ({ args }) => {
+    await typeNameAndType();
+    await userEvent.click(screen.getByTestId('commission-extra-permissions'));
+    await expect(await screen.findByText('Couldn’t read permissions')).toBeVisible();
+    await userEvent.click(screen.getByRole('button', { name: /Try again/ }));
+    await expect(args.scopeFailure?.onRetry).toHaveBeenCalledOnce();
+    await expect(screen.getByTestId('commission-name')).toHaveValue('reviewer-03');
+  },
+};
