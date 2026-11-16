@@ -136,7 +136,7 @@ describe("the installation's manage reach", () => {
     const released = await fleet.registry.releaseShip(caller, { shipId });
 
     // Then the same installation can recover the ship without argo or a network grant.
-    expect(fleet.core.state.ships.find((ship) => ship.id === shipId)?.scopes).toEqual(expect.arrayContaining(scopes));
+    expect(fleet.core.state.ships.find((ship) => ship.id === shipId)?.scopes).toEqual(expect.arrayContaining([...scopes]));
     expect(prompt.secret).toMatch(/^aeolus_sk_v1_/);
     expect(released).toMatchObject({ isOk: true });
     expect(fleet.core.state.leases.find((lease) => lease.id === crew.leaseId)?.endedAt).toEqual(fleet.core.clock.now());
