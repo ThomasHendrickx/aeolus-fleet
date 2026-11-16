@@ -2,7 +2,7 @@ import type { CommissionedShipKind, Scope, ShipKind, ShipStatus } from '@aeolus-
 
 /**
  * Connecting a plugin from the console, squadrons (decision 0017), the
- * trierarch plugin (decision 0030) or the gateway (decision 0048): the web app's server commissions the
+ * trierarch plugin (decision 0030), the gateway (decision 0048) or the watch plugin (decision 0072): the web app's server commissions the
  * plugin's ship, kind plugin, whose commission is its connect (decision
  * 0050), or gives the one it had a new starting prompt, and hands its
  * secret to the plugin, server to server. An existing plugin ship is granted
@@ -33,6 +33,13 @@ export const TRIERARCH_PLUGIN_SHIP: PluginShip = { name: 'trierarch-plugin', typ
  * ship without every one of these.
  */
 export const GATEWAY_SHIP: PluginShip = { name: 'gateway', type: 'gateway', scopes: ['fleet:read', 'fleet:commission', 'fleet:on-behalf', 'scopes:declare', 'fleet:verify'] };
+
+/**
+ * The watch plugin's ship: it reads the fleet's facts, compares them with
+ * what is expected, and raises and clears alerts (decisions 0071, 0072). The
+ * watch plugin refuses to connect a ship without both.
+ */
+export const WATCH_PLUGIN_SHIP: PluginShip = { name: 'watch-plugin', type: 'watch-plugin', scopes: ['fleet:read', 'fleet:alert'] };
 
 export interface PluginConnection {
   /** False when the plugin is off for this operator's fleet: the console then shows nothing of it. */
