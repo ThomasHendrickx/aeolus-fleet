@@ -1,7 +1,7 @@
 import type { FleetId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { addAgentShip, crewAboard, deliveryInFlight, initialiseFleet, operatorCaller, withInstallationSettings } from '../../../test/support/core-fixtures.js';
+import { addAgentShip, addViewerShip, crewAboard, deliveryInFlight, initialiseFleet, operatorCaller, withInstallationSettings } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import type { ShipCaller } from './caller.js';
 import { createReadFleetLimits, type ReadFleetLimits } from './read-fleet-limits.js';
@@ -20,6 +20,17 @@ beforeEach(async () => {
 });
 
 describe("reading the caller's fleet's limits", () => {
+  it('leaves the viewer out of quota usage', async () => {
+    // Given argo and the fleet's read-only viewer.
+    addViewerShip(core, { fleetId });
+
+    // When quota usage is read.
+    const limits = await readLimits(argo);
+
+    // Then argo alone uses a ship place.
+    expect(limits.ships.count).toBe(1);
+  });
+
   it('gives no limit for either and no retention while none applies, with what each counts', async () => {
     await expect(readLimits(argo)).resolves.toEqual({
       ships: { limit: null, count: 1 },
