@@ -1,6 +1,6 @@
 # Serving authenticated plugin calls
 
-Core 0.41.0 exposes `fleet.callPlugin`, `POST /api/v1/fleet/callPlugin` and MCP `fleet_callPlugin`. The [approved actor contract](design/plugin-actor-contract.md) defines admission, scope, reach and failure semantics.
+Core 0.42.0 exposes `fleet.callPlugin`, `POST /api/v1/fleet/callPlugin` and MCP `fleet_callPlugin`. The [approved actor contract](design/plugin-actor-contract.md) defines admission, scope, reach and failure semantics.
 
 ## Deployment
 

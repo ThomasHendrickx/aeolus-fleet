@@ -30,7 +30,7 @@ Every package also builds against `@aeolus-fleet/common`: its schemas are the sh
 
 ## Authenticated plugin calls
 
-`fleet.callPlugin`, REST `POST /api/v1/fleet/callPlugin` and MCP `fleet_callPlugin`, together with the context/answer schemas and `@aeolus-fleet/common/plugin-server`, need core/common 0.41.0. A plugin raises its minimum to 0.41.0 before using this call. Deployment and the durable reservation port are in [Serving authenticated plugin calls](plugin-calls.md); authority and refusal semantics are in the [approved contract](design/plugin-actor-contract.md). Repository operations remain the trierarch plugin's API, not core's.
+`fleet.callPlugin`, REST `POST /api/v1/fleet/callPlugin` and MCP `fleet_callPlugin`, together with the context/answer schemas and `@aeolus-fleet/common/plugin-server`, need core/common 0.42.0. A plugin raises its minimum to 0.42.0 before using this call. Deployment and the durable reservation port are in [Serving authenticated plugin calls](plugin-calls.md); authority and refusal semantics are in the [approved contract](design/plugin-actor-contract.md). Repository operations remain the trierarch plugin's API, not core's.
 
 ## What the console needs from the trierarch plugin
 
