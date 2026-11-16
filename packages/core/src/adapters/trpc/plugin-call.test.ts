@@ -196,6 +196,20 @@ describe('plugin actor contract slice 1: fleet.callPlugin doors', () => {
       await rm(directory, { recursive: true, force: true });
     }
   });
+  it("refuses a trierarch's own crew token with FORBIDDEN before reading the envelope, so no session borrows its authority (scenario 8)", async () => {
+    // Given a ship holding crew:run beside a plugin scope and the message scopes every agent ship holds.
+    const fixture = await scenario();
+    fixture.grant(['messages:send', 'messages:receive', 'crew:run', 'sample:change']);
+    // When it calls with a valid envelope, and with none.
+    const valid = await fixture.call();
+    const empty = await fixture.call({});
+    // Then both are forbidden and nothing is dispatched.
+    expect(valid.statusCode).toBe(403);
+    expect(empty.statusCode).toBe(403);
+    expect(empty.json()).toMatchObject({ code: 'FORBIDDEN' });
+    expect(fixture.dispatches).toHaveLength(0);
+  });
+
   it('passes argo the declared plugin scopes through the same scope check and preserves the signing account', async () => {
     // Given a plugin declaring its scope and an account signed in as argo.
     const fixture = await scenario();
