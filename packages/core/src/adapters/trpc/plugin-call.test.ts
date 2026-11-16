@@ -37,7 +37,7 @@ async function scenario() {
   let isCutOff = false;
   const claims = accountTokenClaimsSchema.parse({ iss: 'https://issuer.example', aud: fleet.fleetId, sub: 'account-1', org: 'organisation-1', scope: 'sample:change', group: [], iat: 1794830399, exp: 1794830410 });
   const authenticateAccount = createAuthenticateAccount({ clock: core.clock, signatures: { verify: () => Promise.resolve(claims) }, cutOffs: { cutOffAt: () => Promise.resolve(isCutOff ? core.clock.now() : undefined) }, fleets: { isHosted: () => Promise.resolve(core.state.fleets.some((held) => held.id === fleet.fleetId) && !core.state.deletedFleets.some((held) => held.fleetId === fleet.fleetId)) } });
-  const server = buildHttpServer({ clock: core.clock, fleetUrl: FLEET_URL, consoleOrigin: new URL(FLEET_URL).origin, logger: false, checkDatabase: () => Promise.resolve(), latestMigration: () => Promise.resolve(null), useCases: { ...identityUseCases(core), ...registry, ...messagingUseCases(core), ...historyUseCases(core), authenticateAccount, callPlugin, ping: () => Promise.resolve({ serverTime: core.clock.now(), fleetCount: 1 }) } });
+  const server = buildHttpServer({ clock: core.clock, fleetUrl: FLEET_URL, installationToken: 'aeolus_installation_plugin_contract_0000', consoleOrigin: new URL(FLEET_URL).origin, logger: false, checkDatabase: () => Promise.resolve(), latestMigration: () => Promise.resolve(null), useCases: { ...identityUseCases(core), ...registry, ...messagingUseCases(core), ...historyUseCases(core), authenticateAccount, callPlugin, ping: () => Promise.resolve({ serverTime: core.clock.now(), fleetCount: 1 }) } });
   servers.push(server);
   const input = { pluginShipId: plugin.shipId, procedure: 'widgets.change', input: { value: 1 } };
   const call = (body: unknown = input) => server.inject({ method: 'POST', url: '/api/v1/fleet/callPlugin', headers: { 'content-type': 'application/json', authorization: `Bearer ${crewToken}` }, payload: JSON.stringify(body) });
@@ -213,6 +213,20 @@ describe('plugin actor contract slice 1: fleet.callPlugin doors', () => {
     expect(answer.statusCode).toBe(200);
     expect(fixture.dispatches[0]?.scopes).toContain('sample:change');
     expect(fixture.dispatches[0]?.actor).toEqual({ kind: 'ship', shipId: fixture.argo.shipId, signedInAccountId: 'account-signing-as-argo' });
+  });
+
+  it('gives the installation no plugin scope implicitly and requires the same plugin permission from a managing agent', async () => {
+    // Given an installation credential and an agent with management and messaging scopes alone.
+    const fixture = await scenario();
+    fixture.grant(['fleet:manage', 'trierarch:join', 'messages:send']);
+    // When each actor calls the exposed operation without its plugin scope.
+    const agent = await fixture.call();
+    const installation = await fixture.server.inject({ method: 'POST', url: '/trpc/fleet.callPlugin', headers: { 'x-aeolus-installation-token': 'aeolus_installation_plugin_contract_0000', 'aeolus-fleet': fixture.fleet.fleetId }, payload: fixture.input });
+    // Then neither management authority nor installation identity replaces the caller's plugin scope.
+    expect(agent.statusCode).toBe(403);
+    expect(installation.statusCode).toBe(403);
+    expect(fixture.dispatches[1]?.actor).toEqual({ kind: 'installation' });
+    expect(fixture.dispatches[1]?.scopes).not.toContain('sample:change');
   });
 
 });

@@ -3,7 +3,7 @@ import { createServer, type Server, type RequestListener } from 'node:http';
 import type { PluginCallContext } from '@aeolus-fleet/common';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { createHttpPluginCalls } from './plugin-calls.js';
+import { createHttpPluginCalls, type PluginDispatchLog } from './plugin-calls.js';
 
 const context: PluginCallContext = { requestId: 'f473fb19-52cd-445f-906b-7d6ef5e4b01f', fleetId: 'flt_00000000000000000000000001', pluginShipId: 'shp_00000000000000000000000002', actor: { kind: 'installation' }, scopes: [], procedure: 'widgets.change', input: { private: 'never in errors' }, expiresAt: new Date(Date.now() + 30_000).toISOString() };
 const servers: Server[] = [];
@@ -22,16 +22,21 @@ describe('plugin actor contract slice 1: configured server transport', () => {
   it('dispatches once with the shared secret and returns plugin data', async () => {
     // Given an internal configured plugin endpoint.
     const received: unknown[] = [];
+    const logs: PluginDispatchLog[] = [];
     const plugin = await endpoint((request, response) => {
       received.push(request.headers['aeolus-plugin-secret']);
       response.setHeader('content-type', 'application/json');
       response.end(JSON.stringify({ result: { data: { version: 1 } } }));
     });
     // When core dispatches the authenticated context.
-    const answer = await createHttpPluginCalls({ targets: [target(plugin.url)], now: () => new Date() }).dispatch(context);
+    const answer = await createHttpPluginCalls({ targets: [target(plugin.url)], now: () => new Date(), log: (facts) => { logs.push(facts); } }).dispatch(context);
     // Then the operation's data returns and only one dispatch occurs.
     expect(answer).toEqual({ isOk: true, value: { version: 1 } });
     expect(received).toEqual(['plugin-transport-test-shared-secret']);
+    expect(logs[0]).toMatchObject({ requestId: context.requestId, pluginShipId: context.pluginShipId, procedure: 'widgets.change', outcome: 'OK' });
+    expect(JSON.stringify(logs)).not.toContain('plugin-transport-test-shared-secret');
+    expect(JSON.stringify(logs)).not.toContain('never in errors');
+    expect(JSON.stringify(logs)).not.toContain('scopes');
   });
 
   it('refuses redirects without contacting the redirected endpoint', async () => {

@@ -58,11 +58,11 @@ export function createPluginBoundary(options: PluginBoundaryOptions) {
     const context = parsed.data;
     const remaining = Date.parse(context.expiresAt) - options.now().getTime();
     if (context.pluginShipId !== options.pluginShipId || remaining <= 0 || remaining > 30_000) return refusal('UNAUTHORIZED');
-    if (!(await options.serves(context.fleetId))) return refusal('PRECONDITION_FAILED');
-    // Own properties only: names such as constructor and toString never expose inherited code.
-    const procedure = Object.hasOwn(options.procedures, context.procedure) ? options.procedures[context.procedure] : undefined;
-    if (procedure === undefined) return refusal('NOT_FOUND');
     try {
+      if (!(await options.serves(context.fleetId))) return refusal('PRECONDITION_FAILED');
+      // Own properties only: names such as constructor and toString never expose inherited code.
+      const procedure = Object.hasOwn(options.procedures, context.procedure) ? options.procedures[context.procedure] : undefined;
+      if (procedure === undefined) return refusal('NOT_FOUND');
       if (!(await options.reservations.reserve(context))) return refusal('CONFLICT');
       // Storage admission may wait for another transaction. Its wait cannot extend this dispatch.
       if (Date.parse(context.expiresAt) <= options.now().getTime()) return refusal('UNAUTHORIZED');

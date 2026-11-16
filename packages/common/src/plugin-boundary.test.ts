@@ -102,7 +102,9 @@ describe('plugin actor contract slice 1: verified boundary', () => {
       expect(answer).toEqual({ error: { data: { code } } });
       expect(fixture.changes).toEqual([]);
     } finally { await fixture.close(); }
-  });  it('sanitizes a failed fleet lookup without exposing its diagnostic or admitting an operation', async () => {
+  });
+
+  it('sanitizes a failed fleet lookup without exposing its diagnostic or admitting an operation', async () => {
     // Given an internal failure while checking the plugin's fleet connection.
     const boundary = createPluginBoundary({ pluginShipId: context.pluginShipId, secrets: [CURRENT], now: () => new Date('2026-11-16T12:00:00.000Z'), serves: () => Promise.reject(new Error('private fleet lookup diagnostic')), reservations: { reserve: () => Promise.resolve(true) }, procedures: {} });
     // When core supplies an otherwise valid immediate dispatch.
