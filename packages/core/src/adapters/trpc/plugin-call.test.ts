@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import { randomUUID } from 'node:crypto';
 
-import { accountTokenClaimsSchema, type PluginCallContext } from '@aeolus-fleet/common';
+import { accountIdSchema, accountTokenClaimsSchema, type PluginCallContext } from '@aeolus-fleet/common';
 import { createAuthenticateAccount } from '../../domain/identity/authenticate-account.js';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
@@ -195,6 +195,24 @@ describe('plugin actor contract slice 1: fleet.callPlugin doors', () => {
       await new Promise<void>((resolve) => { proxy.close(() => { resolve(); }); });
       await rm(directory, { recursive: true, force: true });
     }
+  });
+  it('passes argo the declared plugin scopes through the same scope check and preserves the signing account', async () => {
+    // Given a plugin declaring its scope and an account signed in as argo.
+    const fixture = await scenario();
+    const pluginToken = crewShip(fixture.core, { fleetId: fixture.fleet.fleetId, shipId: fixture.plugin.shipId });
+    const pluginCaller = unwrap(await identityUseCases(fixture.core).authenticate.byCrewToken(pluginToken));
+    unwrap(await fixture.registry.declareScopes(pluginCaller, { namespace: 'sample', scopes: [{ scope: 'sample:change', description: 'Change a sample widget' }] }));
+    const signedIn = await fixture.server.inject({ method: 'POST', url: '/trpc/console.signIn', payload: OPERATOR, headers: { origin: new URL(FLEET_URL).origin } });
+    const cookie = signedIn.headers['set-cookie']?.toString().split(';')[0] ?? '';
+    const session = fixture.core.state.consoleSessions.find((held) => held.endedAt === null);
+    if (!session) throw new Error('No console sign-in');
+    session.accountId = accountIdSchema.parse('account-signing-as-argo');
+    // When argo calls, without an explicit plugin grant or an operator bypass in the plugin.
+    const answer = await fixture.server.inject({ method: 'POST', url: '/trpc/fleet.callPlugin', headers: { cookie, origin: new URL(FLEET_URL).origin }, payload: fixture.input });
+    // Then the ordinary scope check succeeds from effective scopes and the actual event actor survives.
+    expect(answer.statusCode).toBe(200);
+    expect(fixture.dispatches[0]?.scopes).toContain('sample:change');
+    expect(fixture.dispatches[0]?.actor).toEqual({ kind: 'ship', shipId: fixture.argo.shipId, signedInAccountId: 'account-signing-as-argo' });
   });
 
 });
