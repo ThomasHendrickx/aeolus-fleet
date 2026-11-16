@@ -1,4 +1,4 @@
-import { createIdGenerator } from '@aeolus-fleet/common';
+import { SCOPES, createIdGenerator, type FleetId, type ShipId } from '@aeolus-fleet/common';
 import { createTRPCClient, httpBatchLink } from '@trpc/client';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -6,9 +6,15 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createPrismaTx } from '../src/adapters/prisma/unit-of-work.js';
 import { createApp } from '../src/app.js';
 import type { AppRouter } from '../src/index.js';
-import { operatorCaller, secretOf } from '../src/testing/fleet.js';
+import type { ShipCaller } from '../src/domain/shared/caller.js';
+import { secretOf } from '../src/testing/fleet.js';
 import { unwrap } from '../src/testing/result.js';
 import { createPostgresCore, type PostgresCore } from './support/postgres-core.js';
+
+/** The installation-created fleet's operator, with the authority its console holds. */
+function operatorCaller(fleet: { fleetId: FleetId; operatorShipId: ShipId }): ShipCaller {
+  return { fleetId: fleet.fleetId, shipId: fleet.operatorShipId, kind: 'operator', scopes: [...SCOPES] };
+}
 
 const TOKEN = 'journey-test-installation-token';
 let core: PostgresCore;
@@ -63,6 +69,38 @@ describe('hosting service fleet journey contract', () => {
     expect(journey?.milestones).toEqual(before.journey?.milestones);
     expect((await installation().get.query({ fleetId: other.fleetId })).journey?.milestones.find((fact) => fact.key === 'first-value')?.state).toBe('not-yet');
     expect(JSON.stringify(journey)).not.toMatch(/private|sender|recipient|ship_|msg_/);
+  });
+
+  it('excludes infrastructure, pings, self messages and acknowledgements, and requires crew at both sends', async () => {
+    // Given one crewed customer agent, one not yet crewed agent and a plugin.
+    const fleet = unwrap(await core.useCases.createFleet({ requestId: 'qualification', name: 'qualification', operatorEmail: 'manager@example.com' }));
+    const argo = operatorCaller(fleet);
+    const a = unwrap(await core.useCases.commissionShip(argo, { name: 'a', type: 'builder', idempotencyKey: 'a' }));
+    const b = unwrap(await core.useCases.commissionShip(argo, { name: 'b', type: 'builder', idempotencyKey: 'b' }));
+    const plugin = unwrap(await core.useCases.commissionShip(argo, { name: 'plugin', type: 'plugin', kind: 'plugin', idempotencyKey: 'plugin' }));
+    const claim = async (ship: typeof a) => {
+      const { crewToken } = unwrap(await core.useCases.claimShip({ shipId: ship.shipId, secret: secretOf(ship.secret), location: { kind: 'CLOUD' } }));
+      return unwrap(await core.useCases.authenticate.byCrewToken(crewToken));
+    };
+    const alice = await claim(a);
+    const service = await claim(plugin);
+    // When infrastructure and self traffic is accepted, none of it proves customer messaging.
+    unwrap(await core.useCases.sendMessage(argo, { selector: { kind: 'ship', shipId: a.shipId }, payload: 'administration', idempotencyKey: 'argo' }));
+    unwrap(await core.useCases.sendMessage(service, { selector: { kind: 'ship', shipId: a.shipId }, payload: 'notice', idempotencyKey: 'plugin' }));
+    unwrap(await core.useCases.sendMessage(alice, { selector: { kind: 'ship', shipId: a.shipId }, payload: 'self', model: 'test', idempotencyKey: 'self' }));
+    unwrap(await core.useCases.pingShip(argo, { shipId: a.shipId }));
+    expect((await installation().get.query({ fleetId: fleet.fleetId })).journey?.milestones.find((fact) => fact.key === 'first-message')?.state).toBe('not-yet');
+    // And when a real message was sent before its recipient was crewed, then acknowledged and replied to.
+    const original = unwrap(await core.useCases.sendMessage(alice, { selector: { kind: 'ship', shipId: b.shipId }, payload: 'work', model: 'test', idempotencyKey: 'work' }));
+    core.clock.advance(60_000);
+    const bob = await claim(b);
+    const received = unwrap(await core.useCases.receiveDeliveries(bob, {}));
+    for (const delivery of received.deliveries) unwrap(await core.useCases.acknowledgeDelivery(bob, { deliveryId: delivery.deliveryId }));
+    unwrap(await core.useCases.sendMessage(bob, { selector: { kind: 'ship', shipId: a.shipId }, inReplyTo: original.messageId, payload: 'reply', model: 'test', idempotencyKey: 'reply' }));
+    // Then acceptance is First message, but the earlier missing crew prevents First value.
+    const journey = (await installation().get.query({ fleetId: fleet.fleetId })).journey;
+    expect(journey?.milestones.find((fact) => fact.key === 'first-message')?.state).toBe('reached');
+    expect(journey?.milestones.find((fact) => fact.key === 'first-value')?.state).toBe('not-yet');
   });
 
   it('recognises the original send time when a type delivery identifies its customer recipient later', async () => {
