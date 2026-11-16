@@ -32,9 +32,9 @@ function StepBody({ actions, index, total, onBack, onNext, onSkip, onFinish, chi
       </p>
       {children}
       {actions?.length ? (
-        <div className="mt-2 flex flex-wrap gap-2" data-testid="tour-step-actions">
-          {actions.map((action) => (
-            <Button key={action.href} size="sm" render={<a href={action.href}>{action.label}</a>} nativeButton={false} role="link">
+        <div className="mt-2 flex flex-col gap-2" data-testid="tour-step-actions">
+          {actions.map((action, index) => (
+            <Button key={action.href} variant={index === 0 ? 'primary' : 'secondary'} size="sm" render={<a href={action.href}>{action.label}</a>} nativeButton={false} role="link">
               {action.label}
             </Button>
           ))}
@@ -53,7 +53,7 @@ function StepBody({ actions, index, total, onBack, onNext, onSkip, onFinish, chi
           </Button>
         )}
         {isLast ? (
-          <Button size="sm" variant="primary" data-testid="tour-step-finish" onClick={onFinish}>
+          <Button size="sm" variant="secondary" data-testid="tour-step-finish" onClick={onFinish}>
             Finish
           </Button>
         ) : (
