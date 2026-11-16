@@ -724,6 +724,19 @@ export function scopedProcedure(scope: Scope) {
 }
 
 /**
+ * A fleet call any actor makes but a trierarch (a ship holding `crew:run`),
+ * refused before its input is read: a crewed session calls through its socket
+ * with its owning ship's credential, never with the trierarch's authority
+ * (design plugin-actor-contract, scenario 8).
+ */
+export const actorButTrierarchProcedure = actorProcedure.use(({ ctx, next }) => {
+  if (isShipCaller(ctx.caller) && ctx.caller.kind !== 'operator' && hasScope(ctx.caller, 'crew:run')) {
+    throw new TRPCError({ code: 'FORBIDDEN', message: "A trierarch makes this call for no session: the session calls with its own ship's credential" });
+  }
+  return next();
+});
+
+/**
  * A fleet call any actor makes with any one of the given scopes: the few a
  * trierarch makes with `crew:run` beside the scope the console uses
  * (decision 0029). Checked before any use case runs, as for one scope.

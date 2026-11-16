@@ -184,7 +184,7 @@ import { listedPayloadOutputOf } from './listed-payload.js';
 import { describedAcknowledged, describedHealth, describedPerHour, describedStuck } from './health.js';
 import { presentStartingPrompt } from './starting-prompt-text.js';
 import { schedulesPageOf } from './schedule-output.js';
-import { actorAllScopesProcedure, actorAnyScopeProcedure, actorProcedure, actorScopedProcedure, anyScopeProcedure, callerStillHolding, okOrThrow, ownPersonShipOrAnyScopeProcedure, router, scopedCrewCallerProcedure, scopedProcedure } from './trpc.js';
+import { actorAllScopesProcedure, actorAnyScopeProcedure, actorButTrierarchProcedure, actorProcedure, actorScopedProcedure, anyScopeProcedure, callerStillHolding, okOrThrow, ownPersonShipOrAnyScopeProcedure, router, scopedCrewCallerProcedure, scopedProcedure } from './trpc.js';
 import { isShipCaller } from '../../domain/shared/caller.js';
 
 /** A crew request as the API answers it: its times in ISO 8601, and when its session started as `startedAt`. */
@@ -684,8 +684,8 @@ export const fleetRouter = router({
    * call checks (decision 0034): the gateway asks it as an approver before it
    * changes what a proxy ship's tools need (design gateway-scopes 4.2).
    */
-  callPlugin: actorProcedure
-    .meta({ description: 'Call an explicitly exposed operation of a connected plugin in your fleet. Needs no additional core scope. Uses your current actor, scopes and send reach. Dispatches once with no retry; an outcome unknown refusal means read current plugin state before a new call.' })
+  callPlugin: actorButTrierarchProcedure
+    .meta({ description: 'Call an explicitly exposed operation of a connected plugin in your fleet. Needs no additional core scope; a ship holding crew:run is refused, as its sessions call with the credential of their own ship. Uses your current actor, scopes and send reach. Dispatches once with no retry; an outcome unknown refusal means read current plugin state before a new call.' })
     .input(callPluginInputSchema)
     .output(callPluginOutputSchema)
     .mutation(async ({ ctx, input }) => {
