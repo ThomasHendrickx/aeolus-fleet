@@ -1,6 +1,6 @@
-# After: proposed terminal mockups
+# After: approved terminal mockups
 
-Proposed text for approval, not running output. Example: a fresh computer, Claude Code and Codex installed and signed in, no flags answering wizard choices, one repository and no folders. Part numbers count parts, never questions. Input after each prompt is the example person's answer.
+Terminal wording and behaviour approved by Thomas. These mockups are not running output. Example: a fresh computer, Claude Code and Codex installed and signed in, no flags answering wizard choices, one repository and no folders. Part numbers count parts, never questions. Input after each prompt is the example person's answer.
 
 ## A1: explain before asking
 
