@@ -1,9 +1,10 @@
 import { accountIdSchema, type ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { applyNetworkRules, everyShipMay } from '../../../test/support/core-fixtures.js';
+import { applyNetworkRules, crewAboard, everyShipMay } from '../../../test/support/core-fixtures.js';
 import { labelIdOf, valueIdOf } from '../../../test/support/label-fixtures.js';
 import { readReachScenario, type ReadReachScenario } from '../../../test/support/read-reach-scenario.js';
+import { createAuthenticateInstallation } from '../identity/authenticate-installation.js';
 import { unwrap } from '../../testing/result.js';
 import type { AccountCaller, InstallationCaller } from '../shared/caller.js';
 
@@ -123,6 +124,54 @@ describe("an account's read reach", () => {
 });
 
 describe("the installation's manage reach", () => {
+  it('commissions a gateway plugin with its five scopes and resumes connecting it after a stopped pass', async () => {
+    // Given a hosted fleet with no manage rule for the installation.
+    const authenticate = createAuthenticateInstallation({ fleets: { isHosted: (fleetId) => Promise.resolve(fleetId === fleet.fleetId) } });
+    const caller = unwrap(await authenticate({ fleetId: fleet.fleetId }));
+    const scopes = ['fleet:read', 'fleet:commission', 'fleet:on-behalf', 'scopes:declare', 'fleet:verify'] as const;
+
+    // When the installation commissions the plugin, then a later pass needs a fresh secret.
+    const { shipId } = unwrap(await fleet.registry.commissionShip(caller, { idempotencyKey: 'hosted-gateway', name: 'gateway', type: 'gateway', kind: 'plugin', scopes }));
+    const prompt = unwrap(await fleet.registry.getStartingPrompt(caller, { shipId }));
+    const crew = crewAboard(fleet.core, { fleetId: fleet.fleetId, shipId });
+    const released = await fleet.registry.releaseShip(caller, { shipId });
+
+    // Then the same installation can recover the ship without argo or a network grant.
+    expect(fleet.core.state.ships.find((ship) => ship.id === shipId)?.scopes).toEqual(scopes);
+    expect(prompt.secret).toMatch(/^aeolus_sk_v1_/);
+    expect(released).toMatchObject({ isOk: true });
+    expect(fleet.core.state.leases.find((lease) => lease.id === crew.leaseId)?.endedAt).toEqual(fleet.core.clock.now());
+    expect(unwrap(await fleet.registry.getStartingPrompt(caller, { shipId })).secret).not.toBe(prompt.secret);
+    expect(fleet.core.state.events.filter((event) => ['ShipCommissioned', 'StartingPromptIssued', 'ShipReleased'].includes(event.type) && event.actor.kind === 'installation').length).toBeGreaterThan(0);
+  });
+
+  it('gets a starting prompt for and releases its commissioned plugin with manage closed', async () => {
+    // Given a gateway commissioned by the installation with the approved scopes.
+    const caller: InstallationCaller = { ...installation, scopes: [...installation.scopes, 'fleet:connect', 'fleet:commission', 'fleet:on-behalf', 'scopes:declare', 'fleet:verify'] };
+    const { shipId } = unwrap(await fleet.registry.commissionShip(caller, { idempotencyKey: 'gateway-recovery', name: 'gateway', type: 'gateway', kind: 'plugin' }));
+
+    // When a reconcile pass recovers its secret and releases a stranded crew.
+    const prompt = await fleet.registry.getStartingPrompt(caller, { shipId });
+    const crew = crewAboard(fleet.core, { fleetId: fleet.fleetId, shipId });
+    const released = await fleet.registry.releaseShip(caller, { shipId });
+
+    // Then both manage calls succeed without an explicit manage rule.
+    expect(prompt).toMatchObject({ isOk: true });
+    expect(released).toMatchObject({ isOk: true });
+    expect(fleet.core.state.leases.find((lease) => lease.id === crew.leaseId)?.endedAt).toEqual(fleet.core.clock.now());
+  });
+
+  it.each(['other-plugin', 'installation-agent'] as const)('does not extend installation manage reach to %s', async (target) => {
+    // Given a plugin commissioned by argo or an agent commissioned by the installation.
+    const commissioner = target === 'other-plugin' ? fleet.argo : { ...installation, scopes: [...installation.scopes, 'fleet:commission' as const] };
+    const { shipId } = unwrap(await fleet.registry.commissionShip(commissioner, { idempotencyKey: target, name: target, type: 'gateway', kind: target === 'other-plugin' ? 'plugin' : 'agent' }));
+    crewAboard(fleet.core, { fleetId: fleet.fleetId, shipId });
+
+    // When the installation tries to recover the ship, then both manage calls are refused.
+    await expect(fleet.registry.getStartingPrompt(installation, { shipId })).resolves.toEqual(NOT_REACHABLE);
+    await expect(fleet.registry.releaseShip(installation, { shipId })).resolves.toEqual(NOT_REACHABLE);
+  });
+
   it('manages a person ship by its built-in rule, with no manage rule', async () => {
     const personShipId = await aPersonShip('burak');
 
