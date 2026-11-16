@@ -2,7 +2,7 @@ import { randomInt, randomUUID } from 'node:crypto';
 import { once } from 'node:events';
 import { mkdir, readdir, unlink, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:net';
-import { tmpdir } from 'node:os';
+import { homedir } from 'node:os';
 import { join } from 'node:path';
 
 /**
@@ -29,7 +29,7 @@ export interface PortClaims {
 const DEFAULT_PORT_CLAIMS: PortClaims = {
   first: 20_000,
   last: 29_999,
-  claimsDirectory: join(tmpdir(), 'aeolus-fleet-e2e-ports'),
+  claimsDirectory: join(homedir(), '.cache', 'aeolus-fleet-e2e-ports'),
 };
 
 /** A port no other run claimed and nothing listens on, claimed for as long as this process lives. */

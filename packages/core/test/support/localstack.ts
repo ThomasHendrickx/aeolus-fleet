@@ -2,7 +2,7 @@ import { GenericContainer, Wait, type StartedTestContainer } from 'testcontainer
 import { inject } from 'vitest';
 
 import { LOCALSTACK_IMAGE } from '../../src/testing/container-images.js';
-import { TEST_RUN_LABEL } from '../../src/testing/container-sweeper.js';
+import { testContainerLabels } from '../../src/testing/container-sweeper.js';
 import { stopContainer } from '../../src/testing/stop-container.js';
 
 const KMS_PORT = 4566;
@@ -16,7 +16,7 @@ const KMS_PORT = 4566;
 class TestLocalStack extends GenericContainer {
   constructor() {
     super(LOCALSTACK_IMAGE);
-    this.withLabels({ [TEST_RUN_LABEL]: inject('testRun') });
+    this.withLabels(testContainerLabels(inject('testRun')));
     this.withEnvironment({ SERVICES: 'kms' });
     this.withExposedPorts(KMS_PORT);
     this.withWaitStrategy(Wait.forLogMessage(/^Ready\.$/m));
