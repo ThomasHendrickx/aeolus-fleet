@@ -193,7 +193,7 @@ describe('the limits at their boundary', () => {
     const commissioned = await core.commissionShip(argo, { idempotencyKey: newKey(), name: 'last-place', type: 'reviewer' });
 
     // Then only argo uses a place, and the viewer takes none of the remaining capacity.
-    expect(harbour.counts.ships).toBe(1);
+    expect(harbour.counts?.ships).toBe(1);
     expect(limits.ships).toEqual({ count: 1, limit: 2 });
     expect(described.shipCount).toBe(1);
     expect(listed.find((item) => item.fleetId === fleet.fleetId)?.shipCount).toBe(1);

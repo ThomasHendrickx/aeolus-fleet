@@ -142,7 +142,7 @@ function toFacts(row: unknown): InstallationFleetFacts {
 export function installationFleetsStatement(fleetId: FleetId | null, window: InstallationFleetWindow): Prisma.Sql {
   return Prisma.sql`
         SELECT f.id AS "fleetId", f.name, o.email AS "operatorEmail", f.created_at AS "createdAt",
-          (SELECT count(*) FROM ships s WHERE s.fleet_id = f.id AND s.retired_at IS NULL) AS "shipCount",
+          (SELECT count(*) FROM ships s WHERE s.fleet_id = f.id AND s.retired_at IS NULL AND s.kind <> 'viewer') AS "shipCount",
           -- The last 7 times 24 hours: the whole UTC days from the first one's start from the days each send counted on,
           -- and only the hours before it, the rest of the day the window starts in, from the messages.
           (SELECT coalesce(sum(md.messages), 0) FROM message_days md WHERE md.fleet_id = f.id AND md.day >= (${window.firstDay} AT TIME ZONE 'UTC')::date)
@@ -269,7 +269,7 @@ export function createPrismaFleetLimitReads(prisma: PrismaClient): FleetLimitRea
   const limits = { fleets: createPrismaFleetRepository(prisma), installationSettings: createPrismaInstallationSettings(prisma) };
   return {
     applied: (fleetId) => appliedLimits(limits, fleetId),
-    activeShips: (fleetId) => prisma.ship.count({ where: { fleetId, retiredAt: null } }),
+    activeShips: (fleetId) => prisma.ship.count({ where: { fleetId, retiredAt: null, kind: { not: 'viewer' } } }),
     messagesOn: async (fleetId, day) => {
       const row = await prisma.messageDay.findUnique({ where: { fleetId_day: { fleetId, day } }, select: { messages: true } });
       return row?.messages ?? 0;

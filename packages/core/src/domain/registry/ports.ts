@@ -125,7 +125,7 @@ export interface ShipRepository {
    * commissions at the ship limit never both see room for one more.
    */
   lockShipCount(fleetId: FleetId): Promise<void>;
-  /** The fleet's ships that are not retired, argo included. */
+  /** The fleet's ships that are not retired, argo included and the viewer excluded. */
   countActive(fleetId: FleetId): Promise<number>;
   /** The ship this commissioning actor commissioned under this idempotency key, retired or not. */
   findByCommissionKey(key: { fleetId: FleetId; by: Commissioner; idempotencyKey: string }): Promise<Ship | undefined>;
@@ -523,7 +523,7 @@ export interface InstallationFleetFacts {
   name: string;
   operatorEmail: string;
   createdAt: Date;
-  /** Its ships that are not retired, argo included. */
+  /** Its ships that are not retired, argo included and the viewer excluded. */
   shipCount: number;
   /** Every message stored in the fleet at or after the given time, whatever its kind or sender. */
   messagesSince: number;
