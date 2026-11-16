@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { startMaintenancePass } from './maintenance-pass.js';
 
-const TASKS = ['tellOverdueDeliveries', 'closeHealthSnapshots', 'removeDeletedFleets', 'pruneHistory', 'sealStoredPayloads', 'rotateDataKeys', 'sendDueSchedules'];
+const TASKS = ['tellOverdueDeliveries', 'closeHealthSnapshots', 'removeDeletedFleets', 'pruneHistory', 'expireJourneyActivity', 'sealStoredPayloads', 'rotateDataKeys', 'sendDueSchedules'];
 const START = new Date('2026-11-10T12:00:00Z');
 const NEXT_ATTEMPT = new Date('2026-11-10T12:01:00Z');
 const MARKER = 'harmless-maintenance-marker';
@@ -29,6 +29,7 @@ function aMaintenancePass(failedTask?: string) {
       closeHealthSnapshots: () => attempt('closeHealthSnapshots'),
       removeDeletedFleets: () => attempt('removeDeletedFleets'),
       pruneHistory: () => attempt('pruneHistory'),
+      expireJourneyActivity: () => attempt('expireJourneyActivity'),
       sealStoredPayloads: () => attempt('sealStoredPayloads'),
       rotateDataKeys: () => attempt('rotateDataKeys'),
       sendDueSchedules: async () => {
