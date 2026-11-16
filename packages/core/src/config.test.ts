@@ -6,10 +6,30 @@ const databaseUrl = 'postgresql://aeolus:s3cret@localhost:5432/aeolus';
 const publicUrl = 'https://fleet.example.com';
 const required = { DATABASE_URL: databaseUrl, PUBLIC_URL: publicUrl };
 
-describe('loadConfig', () => {
+describe('loadConfig', () => {  it('refuses plaintext plugin context dispatch outside the internal network without echoing the shared secret', () => {
+    // Given a deployment target carrying a shared secret on a public HTTP endpoint.
+    const secret = 'private-plugin-config-test-secret-1234';
+    const target = { fleetId: 'flt_00000000000000000000000001', pluginShipId: 'shp_00000000000000000000000002', url: 'http://203.0.113.10/internal/plugin-context', secret };
+    // When the server reads its deployment settings.
+    const load = () => loadConfig({ ...required, PLUGIN_TARGETS: JSON.stringify([target]) });
+    // Then it refuses without exposing the configured secret.
+    expect(load).toThrow(/PLUGIN_TARGETS/);
+    expect(load).not.toThrow(secret);
+  });
+
+  it('configures an internal plugin endpoint independently of fleet data', () => {
+    // Given a private-network endpoint and its per-plugin deployment secret.
+    const target = { fleetId: 'flt_00000000000000000000000001', pluginShipId: 'shp_00000000000000000000000002', url: 'http://10.1.2.3/internal/plugin-context', secret: 'private-plugin-config-test-secret-1234' };
+    // When core reads deployment configuration.
+    const config = loadConfig({ ...required, PLUGIN_TARGETS: JSON.stringify([target]) });
+    // Then it has exactly the server-configured target.
+    expect(config.pluginTargets).toEqual([target]);
+  });
+
   it('applies defaults for everything but the database URL and the public URL', () => {
     expect(loadConfig(required)).toEqual({
       databaseUrl,
+      pluginTargets: [],
       publicUrl,
       host: '127.0.0.1',
       port: 4000,

@@ -1,3 +1,6 @@
+import { randomUUID } from 'node:crypto';
+import { createCallPlugin } from '../../src/domain/registry/call-plugin.js';
+import { createHttpPluginCalls } from '../../src/adapters/http/plugin-calls.js';
 import { createApproveCommission } from '../../src/domain/registry/approve-commission.js';
 import { createWithdrawCommissionApproval } from '../../src/domain/registry/withdraw-commission-approval.js';
 import { FLEET_URL, OPERATOR } from '../../src/testing/fleet.js';
@@ -326,6 +329,7 @@ export function registryUseCases(core: InMemoryCore) {
     renameShip: createRenameShip(deps),
     setOwner: createSetOwner(deps),
     checkManage: createCheckManage(deps),
+    callPlugin: createCallPlugin({ ...deps, requestId: randomUUID, transport: createHttpPluginCalls({ targets: [], now: () => core.clock.now() }) }),
     setVerifiedFacts: createSetVerifiedFacts(deps),
     setExpectations: createSetExpectations(deps),
     raiseAlert: createRaiseAlert(deps),

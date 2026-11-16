@@ -1,3 +1,4 @@
+import type { CallPlugin } from '../../domain/registry/call-plugin.js';
 import type { ApproveCommission } from '../../domain/registry/approve-commission.js';
 import type { WithdrawCommissionApproval } from '../../domain/registry/withdraw-commission-approval.js';
 import type { FleetId, SystemVersionOutput } from '@aeolus-fleet/common';
@@ -193,6 +194,7 @@ export interface UseCases {
   renameShip: RenameShip;
   setOwner: SetOwner;
   checkManage: CheckManage;
+  callPlugin: CallPlugin;
   turnOnSealing: TurnOnSealing;
   changeCompanyKey: ChangeCompanyKey;
   changeRecoveryKey: ChangeRecoveryKey;

@@ -75,6 +75,7 @@ const SHIP_TOOLS = [
   'exchange',
   'inbox',
   'deregister',
+  'fleet_callPlugin',
   'fleet_list',
   'fleet_ship',
   'fleet_commission',

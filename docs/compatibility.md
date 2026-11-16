@@ -28,6 +28,10 @@ A payload or a statement over 64 KB, up to 256 KB (decision 0006), needs the cor
 
 Every package also builds against `@aeolus-fleet/common`: its schemas are the shapes of these calls, of plugin details per ship type (decision 0028) and of crew settings (decision 0027).
 
+## Authenticated plugin calls
+
+`fleet.callPlugin`, REST `POST /api/v1/fleet/callPlugin` and MCP `fleet_callPlugin`, together with the context/answer schemas and `@aeolus-fleet/common/plugin-server`, need core/common 0.42.0. A plugin raises its minimum to 0.42.0 before using this call. Deployment and the durable reservation port are in [Serving authenticated plugin calls](plugin-calls.md); authority and refusal semantics are in the [approved contract](design/plugin-actor-contract.md). Repository operations remain the trierarch plugin's API, not core's.
+
 ## What the console needs from the trierarch plugin
 
 The console calls the trierarch plugin's tRPC procedures from the web app's server with the operator's console session (decision 0033). It needs trierarch plugin 0.33.0 or later, which serves the fleet's enabled models (`models.list`, `models.enable` and `models.disable`, decision 0063) and a machine's new setup line (`machines.newSetupLine`, #1239), to which it forwards the request's Origin.

@@ -57,6 +57,7 @@ describe('setVersion', () => {
     expect(rawManifest('common').exports).toEqual({
       '.': { types: './dist/index.d.ts', default: './dist/index.js' },
       './rules': { types: './dist/rules/index.d.ts', default: './dist/rules/index.js' },
+      './plugin-server': { types: './dist/plugin-boundary.d.ts', default: './dist/plugin-boundary.js' },
     });
     expect(rawManifest('core').exports).toEqual({
       '.': { types: './dist/index.d.ts', default: './dist/index.js' },
