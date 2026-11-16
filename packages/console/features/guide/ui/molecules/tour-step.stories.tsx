@@ -76,6 +76,7 @@ export const LastStepWithActions: Story = {
     await expect(canvas.getByRole('button', { name: 'Back' })).toBeVisible();
     const finish = canvas.getByRole('button', { name: 'Finish' });
     await expect(finish).toBeVisible();
+    await expect(getComputedStyle(canvas.getByTestId('tour-step-actions')).flexDirection).toBe('column');
     await expect(signUp).toHaveClass('bg-primary');
     await expect(github).toHaveClass('bg-card');
     await expect(finish).toHaveClass('bg-card');
