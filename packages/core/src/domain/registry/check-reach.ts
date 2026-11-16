@@ -138,7 +138,7 @@ export type CheckManageTx = CheckReadTx;
  * Whether the manage rules let the manager manage the ship now (decision
  * 0034): every fleet:manage call is checked on its target ship, argo
  * reaching every ship, an owner's ship the ships it owns, and the
- * installation person ships and what they own. The manager is any actor
+ * installation person ships, what they own and plugin ships it commissioned. The manager is any actor
  * (decision 0057). A refusal is recorded here, in the call's unit of work,
  * with the verb manage: its caller commits only the record. A call that
  * already holds the fleet's network settings for update hands them in, so
@@ -240,7 +240,7 @@ export async function shipAsItIs(
 }
 
 export function reaching({ ship, labels, isOwnedByPerson }: ShipAsItIs): ReachingShip {
-  return { id: ship.id, owner: ship.owner, kind: ship.kind, isOwnedByPerson, labels: labels.map(({ labelId, valueId }) => ({ labelId, valueId })) };
+  return { id: ship.id, owner: ship.owner, kind: ship.kind, isOwnedByPerson, commissioner: ship.commission?.by ?? null, labels: labels.map(({ labelId, valueId }) => ({ labelId, valueId })) };
 }
 
 /** The label that carries an account's groups (decisions 0052, 0058): its token names the values by their texts. */

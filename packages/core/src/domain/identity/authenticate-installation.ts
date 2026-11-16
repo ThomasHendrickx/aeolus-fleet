@@ -9,9 +9,9 @@ import type { HostedFleets } from './ports.js';
  * The scopes the installation holds in every fleet it hosts (decision 0020):
  * what its jobs need of the catalogue, in its order (decision 0053): reading
  * the fleet, managing, defining and assigning labels, commissioning person
- * ships. Until a call lets argo change them, they are the same in every fleet.
+ * ships and connecting plugin ships with their scopes. Until a call lets argo change them, they are the same in every fleet.
  */
-export const INSTALLATION_SCOPES: readonly Scope[] = ['fleet:read', 'fleet:manage', 'labels:define', 'labels:assign', 'fleet:person', 'labels:any'];
+export const INSTALLATION_SCOPES: readonly Scope[] = ['fleet:read', 'fleet:manage', 'labels:define', 'labels:assign', 'fleet:person', 'labels:any', 'fleet:connect', 'fleet:commission', 'fleet:on-behalf', 'scopes:declare', 'fleet:verify'];
 
 export type AuthenticateInstallation = (call: { fleetId: FleetId }) => Promise<Result<InstallationCaller, DomainError<'FLEET_NOT_FOUND'>>>;
 

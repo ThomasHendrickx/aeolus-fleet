@@ -24,6 +24,7 @@ import {
   type ShipKind,
 } from '@aeolus-fleet/common';
 
+import type { Commissioner } from './ship.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import type { Actor, NewEvent } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
@@ -252,6 +253,8 @@ export interface ReachingShip {
   kind: ShipKind;
   /** Whether it is owned by a person ship, a person ship owning itself (decision 0045). */
   isOwnedByPerson: boolean;
+  /** The actor of its commission, absent only when the ship has no commission. */
+  commissioner: Commissioner | null;
   labels: readonly ReachingLabel[];
 }
 
@@ -267,7 +270,7 @@ export interface ReachingAccount {
   labels: readonly ReachingLabel[];
 }
 
-/** The installation as a check sees it: no labels, no owner; it manages person ships and what they own by its built-in rule. */
+/** The installation as a check sees it: no labels, no owner; it manages person ships, what they own and plugin ships it commissioned by its built-in rule. */
 export interface ReachingInstallation {
   kind: 'installation';
 }
@@ -306,7 +309,7 @@ function owningShipOf(actor: ReachingActor): ShipId | null {
  * a plugin ship reads every ship, by its kind (decision 0050), every ship
  * sends to a plugin ship and a plugin ship sends to every ship, so plugins
  * are always reachable; and the installation manages
- * person ships and the ships they own (decision 0020). The viewer reads
+ * person ships, the ships they own and plugin ships it commissioned (decision 0057). The viewer reads
  * every ship while that is on, and every actor reaches every ship by every
  * verb while open is. Otherwise a rule of the verb must match the sender
  * with its `from` and the recipient with its `to`: one of the fleet's own,
@@ -341,7 +344,7 @@ export function reachRuleOf(
   if (verb === 'read' && sender.kind === 'viewer' && inForce.isViewerReadOn) {
     return { builtIn: 'viewerRead' };
   }
-  if (verb === 'manage' && sender.kind === 'installation' && (recipient.kind === 'person' || recipient.isOwnedByPerson)) {
+  if (verb === 'manage' && sender.kind === 'installation' && (recipient.kind === 'person' || recipient.isOwnedByPerson || (recipient.kind === 'plugin' && recipient.commissioner?.kind === 'installation'))) {
     return { builtIn: 'installation' };
   }
   if (inForce.isOpen) {

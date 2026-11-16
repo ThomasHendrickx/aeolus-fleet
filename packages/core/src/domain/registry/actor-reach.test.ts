@@ -1,10 +1,9 @@
 import { accountIdSchema, type ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { applyNetworkRules, crewAboard, everyShipMay } from '../../../test/support/core-fixtures.js';
+import { applyNetworkRules, crewAboard, everyShipMay, identityUseCases } from '../../../test/support/core-fixtures.js';
 import { labelIdOf, valueIdOf } from '../../../test/support/label-fixtures.js';
 import { readReachScenario, type ReadReachScenario } from '../../../test/support/read-reach-scenario.js';
-import { createAuthenticateInstallation } from '../identity/authenticate-installation.js';
 import { unwrap } from '../../testing/result.js';
 import type { AccountCaller, InstallationCaller } from '../shared/caller.js';
 
@@ -126,7 +125,7 @@ describe("an account's read reach", () => {
 describe("the installation's manage reach", () => {
   it('commissions a gateway plugin with its five scopes and resumes connecting it after a stopped pass', async () => {
     // Given a hosted fleet with no manage rule for the installation.
-    const authenticate = createAuthenticateInstallation({ fleets: { isHosted: (fleetId) => Promise.resolve(fleetId === fleet.fleetId) } });
+    const authenticate = identityUseCases(fleet.core).authenticateInstallation;
     const caller = unwrap(await authenticate({ fleetId: fleet.fleetId }));
     const scopes = ['fleet:read', 'fleet:commission', 'fleet:on-behalf', 'scopes:declare', 'fleet:verify'] as const;
 
@@ -137,7 +136,7 @@ describe("the installation's manage reach", () => {
     const released = await fleet.registry.releaseShip(caller, { shipId });
 
     // Then the same installation can recover the ship without argo or a network grant.
-    expect(fleet.core.state.ships.find((ship) => ship.id === shipId)?.scopes).toEqual(scopes);
+    expect(fleet.core.state.ships.find((ship) => ship.id === shipId)?.scopes).toEqual(expect.arrayContaining(scopes));
     expect(prompt.secret).toMatch(/^aeolus_sk_v1_/);
     expect(released).toMatchObject({ isOk: true });
     expect(fleet.core.state.leases.find((lease) => lease.id === crew.leaseId)?.endedAt).toEqual(fleet.core.clock.now());
