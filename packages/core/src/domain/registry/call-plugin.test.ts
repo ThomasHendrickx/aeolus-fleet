@@ -11,7 +11,7 @@ describe('plugin actor contract slice 1: admission', () => {
     const fleet = await readReachScenario();
     const { shipId } = unwrap(await fleet.registry.commissionShip(fleet.argo, { name: 'sample-plugin', type: 'sample', kind: 'plugin', idempotencyKey: newKey() }));
     const dispatches: unknown[] = [];
-    const call = createCallPlugin({ ...fleet.core, transport: { dispatch: (context) => { dispatches.push(context); return Promise.resolve({ isOk: true, value: { accepted: true } }); } } });
+    const call = createCallPlugin({ ...fleet.core, requestId: () => 'f473fb19-52cd-445f-906b-7d6ef5e4b01f', transport: { dispatch: (context) => { dispatches.push(context); return Promise.resolve({ isOk: true, value: { accepted: true } }); } } });
     const caller = { ...fleet.reader, scopes: ['sample:change'] };
 
     // When the actor calls an arbitrary plugin operation.
@@ -28,7 +28,7 @@ describe('plugin actor contract slice 1: admission', () => {
     const other = await readReachScenario();
     const { shipId } = unwrap(await other.registry.commissionShip(other.argo, { name: 'other-plugin', type: 'sample', kind: 'plugin', idempotencyKey: newKey() }));
     const dispatches: unknown[] = [];
-    const call = createCallPlugin({ ...fleet.core, transport: { dispatch: (context) => { dispatches.push(context); return Promise.resolve({ isOk: true, value: {} }); } } });
+    const call = createCallPlugin({ ...fleet.core, requestId: () => 'f473fb19-52cd-445f-906b-7d6ef5e4b01f', transport: { dispatch: (context) => { dispatches.push(context); return Promise.resolve({ isOk: true, value: {} }); } } });
 
     // When that target is called from this fleet.
     const answer = await call(fleet.reader, { pluginShipId: shipId, procedure: 'widgets.list', input: {} });
