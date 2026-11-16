@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { useState } from 'react';
-import { expect, fn, within } from 'storybook/test';
+import { expect, fn, within, userEvent } from 'storybook/test';
 
 import { TourStep, type TourStepProps } from './tour-step';
 
@@ -62,7 +62,7 @@ export const LastStepWithActions: Story = {
       { label: 'GitHub', href: 'https://github.com/ThomasHendrickx/aeolus-fleet' },
     ],
   },
-  play: async ({ canvasElement }) => {
+  play: async ({ canvasElement, args }) => {
     // Given the last step configured with the approved actions.
     const canvas = within(canvasElement);
 
@@ -74,6 +74,14 @@ export const LastStepWithActions: Story = {
     await expect(signUp).toHaveAttribute('href', 'https://account.aeolus-fleet.dev/sign-in');
     await expect(github).toHaveAttribute('href', 'https://github.com/ThomasHendrickx/aeolus-fleet');
     await expect(canvas.getByRole('button', { name: 'Back' })).toBeVisible();
-    await expect(canvas.getByRole('button', { name: 'Finish' })).toBeVisible();
+    const finish = canvas.getByRole('button', { name: 'Finish' });
+    await expect(finish).toBeVisible();
+    await expect(getComputedStyle(canvas.getByTestId('tour-step-actions')).flexDirection).toBe('column');
+    await expect(signUp).toHaveClass('bg-primary');
+    await expect(github).toHaveClass('bg-card');
+    await expect(finish).toHaveClass('bg-card');
+    await expect(canvas.getByRole('button', { name: 'Back' })).toHaveClass('bg-card');
+    await userEvent.click(finish);
+    await expect(args.onFinish).toHaveBeenCalledOnce();
   },
 };
