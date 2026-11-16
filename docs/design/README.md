@@ -34,6 +34,7 @@ Feature designs, one folder each; the status of each is at its top:
 | [fleet-crew-mcp-page](fleet-crew-mcp-page/README.md) | A fleet manager sees and changes the fleet's MCP servers and secrets on a console page, under Trierarchs |
 | [fleet-overview](fleet-overview/README.md) | The fleet and its ships' status at a glance: Harbour; one view, cards or list, and Harbour shared with Bridge |
 | [gateway-scopes](gateway-scopes/gateway-scopes.md) | The gateway's tools by scope, and ships as Slack bots |
+| [getting-in](getting-in/README.md) | Stage 1, purpose proposed: a technical and a non-technical person of one company each get into the fleet on their own, done when a ship has reached the non-technical one (#1228) |
 | [header](header/README.md) | One header for every Aeolus app |
 | [headless](headless/headless.md) | The trierarch starts and talks to a session without a terminal |
 | [holding-scale](holding-scale.md) | Stage 1, purpose proposed: every read and start stays within budget at the target scale for every feature, and #1130 closes on a measured run |
