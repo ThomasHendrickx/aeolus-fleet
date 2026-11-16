@@ -1,7 +1,7 @@
 import type { ShipKind, ShipStatus } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { ConnectPluginError, connectPlugin, GATEWAY_SHIP, missingScopesOf, SQUADRONS_SHIP, TRIERARCH_PLUGIN_SHIP, type ConnectCalls, type PluginConnection } from './connect-plugin';
+import { ConnectPluginError, connectPlugin, GATEWAY_SHIP, missingScopesOf, SQUADRONS_SHIP, TRIERARCH_PLUGIN_SHIP, WATCH_PLUGIN_SHIP, type ConnectCalls, type PluginConnection } from './connect-plugin';
 
 interface FleetShip {
   id: string;
@@ -195,11 +195,23 @@ describe('connecting the gateway from the console', () => {
 
 });
 
+describe('connecting the watch plugin from the console', () => {
+  it("commissions watch-plugin with exactly the two scopes the watch plugin's connect checks for: fleet:read to compare the fleet's facts and fleet:alert to raise and clear alerts (decisions 0071, 0072; #1914)", async () => {
+    const { calls, state } = fakes();
+
+    await expect(connectPlugin(calls, { ship: WATCH_PLUGIN_SHIP, newKey })).resolves.toMatchObject({ state: 'connected', ship: { name: 'watch-plugin' } });
+
+    expect(state.done).toEqual(['commission watch-plugin']);
+    expect(state.scopes).toEqual([['fleet:read', 'fleet:alert']]);
+  });
+});
+
 describe("a plugin's ship kind (decision 0050)", () => {
   it.each([
     ['squadrons', SQUADRONS_SHIP],
     ['the trierarch plugin', TRIERARCH_PLUGIN_SHIP],
     ['the gateway', GATEWAY_SHIP],
+    ['the watch plugin', WATCH_PLUGIN_SHIP],
   ])('commissions %s as a plugin ship: its commission is its connect, and it reads every ship by its kind', async (_plugin, ship) => {
     const { calls, state } = fakes();
 

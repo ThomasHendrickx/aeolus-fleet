@@ -11,6 +11,7 @@ import { readInbox, readInboxEntry, readThread } from './inbox-reads';
 import { listRepositories, listSquadrons, readBlueprintCrew, readCatalogue, readKeptMessages, readSquadronsConnection } from './squadrons-reads';
 import { checkCrewSettings, listEnabledModels, listMachines, readTrierarchPluginConnection, readTrierarchPluginVersion, readUsageTokens, readUsageValues, readUsageWindows } from './trierarch-plugin-reads';
 import { usageTokensRequestSchema, usageValuesRequestSchema, usageWindowsRequestSchema } from './trierarch-plugin-schemas';
+import { readWatchPluginConnection } from './watch-plugin-reads';
 
 /**
  * Every console read by name, as /api/reads/<name> answers it
@@ -31,6 +32,7 @@ export const CONSOLE_READS = {
   'blueprint-crew': consoleRead(blueprintSchema, readBlueprintCrew),
   repositories: consoleRead(z.undefined(), listRepositories),
   'gateway-connection': consoleRead(z.undefined(), readGatewayConnection),
+  'watch-plugin-connection': consoleRead(z.undefined(), readWatchPluginConnection),
   'trierarch-plugin-connection': consoleRead(z.undefined(), readTrierarchPluginConnection),
   'trierarch-plugin-version': consoleRead(z.undefined(), async () => ({ kind: 'answered', data: (await readTrierarchPluginVersion()) ?? null })),
   machines: consoleRead(z.undefined(), listMachines),
