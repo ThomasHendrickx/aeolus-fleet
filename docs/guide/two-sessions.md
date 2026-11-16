@@ -21,7 +21,7 @@ flowchart LR
 ## What you need
 
 - A [fleet](words.md#fleet) you can sign in to in the [console](words.md#console).
-- The Aeolus Fleet [plugin](words.md#plugin) in the [harness](words.md#harness) of each session, once per computer: [Claude Code](claude-code.md#install-the-plugin) or [Codex](codex.md#install-the-plugin). The two sessions can use the same harness or different ones.
+- The Aeolus Fleet [plugin](words.md#plugin) in the [harness](words.md#harness) of each session, once per computer: [Claude Code](claude-code.md#install-the-plugin), [Codex](codex.md#install-the-plugin) or the GitHub Copilot CLI. Copilot has no page of its own here: install it with `copilot plugin marketplace add ThomasHendrickx/aeolus-fleet-trierarch` and `copilot plugin install aeolus-fleet@aeolus-fleet`. The two sessions can use the same harness or different ones. Codex means Codex Desktop or the Codex CLI on your own computer: Codex Cloud runs no plugin command hooks, so a session there cannot wake by itself and the steps that wake a session do not hold for it.
 - Two folders, one per session. One folder crews one ship. A git worktree is its own folder, so two worktrees of one repository will do.
 
 This page calls the ships `alpha` and `beta`. The names are yours to choose.
@@ -49,11 +49,11 @@ Start a session in alpha's folder and paste alpha's crew line. In Claude Code it
 /aeolus-fleet:crew <fleetUrl> <shipId> <secret>
 ```
 
-Then start a second session in beta's folder and paste beta's crew line. In Codex it starts with `$aeolus-fleet-crew` instead.
+Then start a second session in beta's folder and paste beta's crew line. In Codex it starts with `$aeolus-fleet-crew` instead. In the GitHub Copilot CLI, paste the Copilot crew line from the console: it reads as Claude Code's, `/aeolus-fleet:crew <fleetUrl> <shipId> <secret>`, and registers the ship with harness `copilot`.
 
 Each session [registers](words.md#register): it claims its ship with the secret, the secret is used up, and the session holds the ship's [lease](words.md#lease). From now on no other session can crew that ship until you release it. The plugin keeps the session's [crew token](words.md#crew-token) out of the model's sight.
 
-Both ships now show **Crewed** in the console, each with its harness. Each session then ends its turn and waits for messages, spending no tokens while nothing arrives.
+Both ships now show **Crewed** in the console, each with its harness. Each session then ends its turn and waits for messages, spending no tokens while nothing arrives. This is the wake of the plugin in Claude Code, in local Codex and in Copilot, where a session crewed by hand starts its watcher as a detached background shell. Codex Cloud cannot wake this way: a ship crewed there only sees a message when its session looks again.
 
 ## 3. Send one message
 
@@ -112,7 +112,7 @@ A session is not the ship. Close one session, send it a message while it is gone
 2. Tell alpha to send beta another message, such as asking for the time.
 3. The send is answered OK at once. The message waits in beta's inbox. alpha waits too.
 4. Start a new session in beta's folder. You paste no crew line: the folder still crews beta, so the new session holds beta's lease where the old one left it.
-5. A new session starts no turn by itself. Give it one: `/aeolus-fleet:wake` in Claude Code, `$aeolus-fleet-wake` in Codex.
+5. A new session starts no turn by itself. Give it one: `/aeolus-fleet:wake` in Claude Code, `$aeolus-fleet-wake` in Codex. The released plugin names no wake command for Copilot: start the Copilot session in the folder and send it any prompt, such as asking it to handle what waits for its ship. Codex Cloud cannot wake by itself, so a message there waits until its session looks again.
 6. The new session receives what waited, acknowledges it and replies. alpha wakes with the answer. From then on beta's session wakes by itself again.
 
 ```mermaid
