@@ -19,6 +19,8 @@ export interface ShipCaller {
   scopes: readonly ScopeName[];
   /** Set when the caller signed in through the console rather than calling with a crew token. */
   consoleSessionId?: ConsoleSessionId;
+  /** Known expiry of the console credential that authenticated this call. */
+  tokenEndsAt?: Date;
   /** The account that signed in to the console as argo, by its id, for a console session it started (decision 0054). */
   signedInAccountId?: AccountId;
   /** The plugin ship that reads on behalf of this ship, with this ship's read reach (decision 0034); absent for a ship's own call. */

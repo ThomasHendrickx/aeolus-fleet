@@ -1,3 +1,4 @@
+import { measureCall } from './adapters/telemetry/calls.js';
 import { randomUUID } from 'node:crypto';
 import { createCallPlugin, type CallPlugin } from './domain/registry/call-plugin.js';
 import { createHttpPluginCalls, type PluginDispatchLog } from './adapters/http/plugin-calls.js';
@@ -510,7 +511,10 @@ export function createUseCases(options: {
     retireShip: createRetireShip({ uow: bulkUow, clock, ids, hasher: sha256Hasher, sealing }),
     renameShip: createRenameShip({ uow, clock, ids }),
     setOwner: createSetOwner({ uow, clock, ids }),
-    callPlugin: createCallPlugin({ uow, clock, ids, requestId: randomUUID, transport: createHttpPluginCalls({ targets: options.pluginTargets ?? [], now: () => clock.now(), log: options.pluginLog }) }),
+    callPlugin: createCallPlugin({ uow: { run: (work) => measureCall('fleet.callPlugin.admission', async () => {
+      const value = await uow.run(work);
+      return { value, outcome: { code: value.isOk ? 'OK' : 'REFUSED', isServerFailure: false } };
+    }) }, clock, ids, requestId: randomUUID, transport: createHttpPluginCalls({ targets: options.pluginTargets ?? [], now: () => clock.now(), log: options.pluginLog }) }),
     checkManage: createCheckManage({ uow, clock, ids }),
     setVerifiedFacts: createSetVerifiedFacts({ uow, clock, ids }),
     setExpectations: createSetExpectations({ uow, clock, ids }),

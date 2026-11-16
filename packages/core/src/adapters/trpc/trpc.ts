@@ -469,7 +469,7 @@ async function resolveShip(ctx: Context): Promise<ShipCaller | undefined> {
     const use = await ctx.useCases.authenticate.byConsoleSession(sessionToken);
     if (use) {
       ctx.sessionCookie.set(sessionToken, use.expiresAt);
-      return use.caller;
+      return { ...use.caller, tokenEndsAt: use.expiresAt };
     }
     await refuseIfSignedInElsewhere(ctx, sessionToken);
   }

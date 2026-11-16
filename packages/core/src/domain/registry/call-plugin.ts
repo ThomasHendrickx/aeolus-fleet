@@ -36,7 +36,7 @@ export function createCallPlugin(deps: { uow: UnitOfWork<CheckReadTx>; clock: Cl
     if (!admitted.isOk) {
       return admitted;
     }
-    const credentialEndsAt = caller.kind === 'account' ? caller.tokenEndsAt?.getTime() : undefined;
+    const credentialEndsAt = caller.kind === 'installation' ? undefined : caller.tokenEndsAt?.getTime();
     const expiresAt = new Date(Math.min(authenticatedAt.getTime() + DISPATCH_LIFETIME_MS, credentialEndsAt ?? Infinity));
     const actor = actorOf(caller);
     // actorOf a Caller never produces system; keep that invariant explicit at the boundary.
