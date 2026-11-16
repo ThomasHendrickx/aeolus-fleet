@@ -5,6 +5,7 @@ import { GatewayConnection } from '../../../features/settings/ui/organisms/gatew
 import { SquadronsConnection } from '../../../features/settings/ui/organisms/squadrons-connection';
 import { TemplateRepositories } from '../../../features/settings/ui/organisms/template-repositories';
 import { TrierarchPluginConnection } from '../../../features/settings/ui/organisms/trierarch-plugin-connection';
+import { WatchPluginConnection } from '../../../features/settings/ui/organisms/watch-plugin-connection';
 import { ListPage } from '../../../components/organisms/list-page';
 import { useConsoleFrame } from '../../../lib/console-frame';
 import { useConnectGateway, useGatewaySettings } from '../../../lib/gateway';
@@ -17,6 +18,7 @@ import { useConnectSquadrons, useSquadronsConnection, useSquadronsSettings, useH
 import { useAddRepository, useCatalogue, useRefreshCatalogue, useRemoveRepository, useRepositories } from '../../../lib/squadrons-api';
 import { usePluginNav } from '../../../lib/plugin-nav';
 import { useConnectTrierarchPlugin, useTrierarchPluginSettings } from '../../../lib/trierarch-plugin';
+import { useConnectWatchPlugin, useWatchPluginSettings } from '../../../lib/watch-plugin';
 
 /**
  * Settings: the installation's own settings, argo's alone: where the console
@@ -24,7 +26,8 @@ import { useConnectTrierarchPlugin, useTrierarchPluginSettings } from '../../../
  * connecting it, and once connected, the repositories it reads; without,
  * nothing of squadrons. Whenever Settings is offered, the trierarch plugin:
  * not set up, connecting it, or connected. With the gateway on for the
- * fleet, connecting it, or the ship it is connected as.
+ * fleet, connecting it, or the ship it is connected as; the same for the
+ * watch plugin, after the gateway (design watch-connection).
  */
 export default function SettingsPage() {
   const now = useNow();
@@ -37,6 +40,8 @@ export default function SettingsPage() {
   const connectTrierarchPlugin = useConnectTrierarchPlugin();
   const gateway = useGatewaySettings();
   const connectGateway = useConnectGateway();
+  const watchPlugin = useWatchPluginSettings();
+  const connectWatchPlugin = useConnectWatchPlugin();
   const liveFleet = useLiveFleet();
   const connection = useSquadronsConnection();
   const repositories = useRepositories();
@@ -92,6 +97,19 @@ export default function SettingsPage() {
           hasConnected={connectGateway.isSuccess}
           onConnect={() => {
             connectGateway.mutate();
+          }}
+        />
+      )}
+      {pluginNav.hasSettings && (
+        <WatchPluginConnection
+          settings={watchPlugin.data}
+          loadError={watchPlugin.isError ? watchPlugin.error.message : undefined}
+          onRetry={() => watchPlugin.refetch()}
+          isConnecting={connectWatchPlugin.isPending}
+          connectError={connectWatchPlugin.isError ? connectWatchPlugin.error.message : undefined}
+          hasConnected={connectWatchPlugin.isSuccess}
+          onConnect={() => {
+            connectWatchPlugin.mutate();
           }}
         />
       )}

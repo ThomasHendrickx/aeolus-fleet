@@ -24,7 +24,7 @@ export const Unavailable: Story = {
 export const Loading: Story = {
   args: { settings: undefined },
   play: async ({ canvasElement }) => {
-    await expect(within(canvasElement).getByLabelText('Loading the watch plugin')).toBeVisible();
+    await expect(within(canvasElement).getByRole('status')).toHaveTextContent('Loading the watch plugin');
   },
 };
 /** The watch plugin or the fleet did not answer the read: the section error says so, and Try again reads it again. */
@@ -65,7 +65,7 @@ export const NotConnected: Story = {
 export const Connecting: Story = {
   args: { ...NotConnected.args, isConnecting: true },
   play: async ({ canvasElement }) => {
-    await expect(within(canvasElement).getByTestId('settings-watch-plugin-connect')).toBeDisabled();
+    await expect(within(canvasElement).getByTestId('settings-watch-plugin-connect')).toHaveAttribute('aria-busy', 'true');
   },
 };
 /** Connecting failed: the reason shows, as the plugin or the fleet says it, so the operator knows what to do. */
@@ -103,7 +103,7 @@ export const MissingScopes: Story = {
 export const Granting: Story = {
   args: { ...MissingScopes.args, isConnecting: true },
   play: async ({ canvasElement }) => {
-    await expect(within(canvasElement).getByTestId('settings-watch-plugin-grant-scopes')).toBeDisabled();
+    await expect(within(canvasElement).getByTestId('settings-watch-plugin-grant-scopes')).toHaveAttribute('aria-busy', 'true');
   },
 };
 export const GrantFailed: Story = {

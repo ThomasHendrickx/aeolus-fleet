@@ -8,3 +8,4 @@
 export const GATEWAY_NO_ANSWER = 'the gateway or the fleet did not answer: try again in a moment';
 export const SQUADRONS_NO_ANSWER = 'squadrons or the fleet did not answer: try again in a moment';
 export const TRIERARCH_PLUGIN_NO_ANSWER = 'the trierarch plugin or the fleet did not answer: try again in a moment';
+export const WATCH_PLUGIN_NO_ANSWER = 'the watch plugin or the fleet did not answer: try again in a moment';
