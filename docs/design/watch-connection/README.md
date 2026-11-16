@@ -71,3 +71,7 @@ Every link is a full Settings screen at the stated width and theme. Error reason
 | Grant failed | [Screenshot](mockups/grant-failed-375-light.png) | [Screenshot](mockups/grant-failed-375-dark.png) | [Screenshot](mockups/grant-failed-1440-light.png) | [Screenshot](mockups/grant-failed-1440-dark.png) |
 | Scopes granted | [Screenshot](mockups/granted-375-light.png) | [Screenshot](mockups/granted-375-dark.png) | [Screenshot](mockups/granted-1440-light.png) | [Screenshot](mockups/granted-1440-dark.png) |
 | Scopes read failed | [Screenshot](mockups/scopes-failed-375-light.png) | [Screenshot](mockups/scopes-failed-375-dark.png) | [Screenshot](mockups/scopes-failed-1440-light.png) | [Screenshot](mockups/scopes-failed-1440-dark.png) |
+
+## Built
+
+The built Settings, rendered with the same fixtures through the real `WatchPluginConnection`, at 1440 light in every state, and Not connected and Connected at 375, 1440 and 1920, light and dark: [built](built/). Every board above matches its built screen pixel for pixel, except the moving spinner and skeleton of Reading status, Connecting and Granting.
