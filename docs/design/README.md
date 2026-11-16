@@ -59,6 +59,7 @@ Feature designs, one folder each; the status of each is at its top:
 | [trierarch-kind](trierarch-kind/README.md) | Purpose proposed for a trierarch ship's own kind |
 | [ui-package](ui-package/README.md) | One set of UI parts for every Aeolus app |
 | [usage](usage/usage.md) | Usage over time: tokens across the fleet and its setup |
+| [watch-connection](watch-connection/README.md) | Approved: Settings connects the watch plugin, as the other plugins |
 | [vendor-platforms](vendor-platforms/README.md) | Aeolus beside vendor agent platforms |
 | [wake-a-person](wake-a-person/README.md) | Wake a person when something waits |
 
