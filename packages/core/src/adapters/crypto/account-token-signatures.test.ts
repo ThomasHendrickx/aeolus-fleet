@@ -42,6 +42,25 @@ describe('account token signatures', () => {
     expect(await signatures.verify(issuer.sign(claims(issuer)))).toMatchObject({ accountId: 'acc-charlotte', fleetId, scopes: ['fleet:read'], groupValues: ['sales'] });
   });
 
+  it('accepts concurrent first reads while signing keys load', async () => {
+    const issuer = createTestIssuer();
+    const keySet = Promise.withResolvers<unknown>();
+    const signatures = createAccountTokenSignatures({
+      issuer: issuer.issuer,
+      fetchKeySet: () => keySet.promise,
+      now: () => new Date('2026-10-19T10:00:00Z'),
+    });
+    const token = issuer.sign(claims(issuer));
+
+    const reads = [signatures.verify(token), signatures.verify(token)];
+    keySet.resolve(issuer.keySet());
+
+    expect(await Promise.all(reads)).toEqual([
+      expect.objectContaining({ accountId: 'acc-charlotte' }),
+      expect.objectContaining({ accountId: 'acc-charlotte' }),
+    ]);
+  });
+
   it('reads a token signed with an ES256 key', async () => {
     const issuer = createTestIssuer();
     issuer.rotate('ES256');
