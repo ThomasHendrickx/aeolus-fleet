@@ -5,14 +5,16 @@ ALTER TABLE "messages"
 ADD COLUMN "asked_question_id" TEXT,
 ADD COLUMN "answered_question_id" TEXT;
 
--- Plain payloads only: a sealed one does not open here.
-UPDATE "messages" SET "asked_question_id" = substring("payload" from '"id"\s*:\s*"([^"]*)"')
-WHERE "payload" IS NOT NULL
-  AND lower(btrim(split_part("content_type", ';', 1))) IN ('application/vnd.aeolus.question+json', 'application/vnd.aeolus.question-replacement+json');
-
-UPDATE "messages" SET "answered_question_id" = substring("payload" from '"questionId"\s*:\s*"([^"]*)"')
-WHERE "payload" IS NOT NULL
-  AND lower(btrim(split_part("content_type", ';', 1))) = 'application/vnd.aeolus.answer+json';
-
 -- CreateIndex
 CREATE INDEX "messages_fleet_id_sender_ship_id_id_asked_idx" ON "messages"("fleet_id", "sender_ship_id", "id") WHERE ("asked_question_id" IS NOT NULL);
+
+-- One cursor per fleet for the fill after start (docs/architecture.md,
+-- Backfills): the last message it visited by id and the last exchange by key,
+-- committed with each batch. Core builds the fill's indexes after start too.
+CREATE TABLE message_metadata_backfills (
+  fleet_id TEXT PRIMARY KEY REFERENCES fleets(id) ON DELETE CASCADE ON UPDATE CASCADE,
+  after_message_id TEXT,
+  after_ship_id TEXT,
+  after_other_ship_id TEXT,
+  is_complete BOOLEAN NOT NULL DEFAULT false
+);

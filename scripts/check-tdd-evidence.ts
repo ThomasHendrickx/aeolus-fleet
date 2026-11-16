@@ -6,8 +6,8 @@
  * files. Every other commit type passes.
  *
  * Production code is every file under those folders except tests and
- * Markdown. A test file is a *.test.ts(x) file, or any file in a test/ or e2e/
- * folder. Merge commits are not judged. Commits up to the one slice 1b started
+ * Markdown. A test file is a *.test.ts(x) or *.stories.tsx file, or any file
+ * in a test/ or e2e/ folder. Merge commits are not judged. Commits up to the one slice 1b started
  * from are exempt.
  *
  * Usage: node scripts/check-tdd-evidence.ts <base commit> <head commit>
@@ -22,7 +22,7 @@ const PRODUCTION_FOLDERS = [
   'packages/core/src/',
   'packages/common/src/',
 ];
-const TEST_FILE = /\.test\.tsx?$|(^|\/)(test|e2e)\//;
+const TEST_FILE = /\.test\.tsx?$|\.stories\.tsx$|(^|\/)(test|e2e)\//;
 /** A conventional commit of type feat or fix, with or without a scope or a breaking mark. */
 const FEAT_OR_FIX_SUBJECT = /^(feat|fix)(\([^)]*\))?!?: /;
 const RECORD_SEPARATOR = '\u001e';

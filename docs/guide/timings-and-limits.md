@@ -4,6 +4,8 @@ Something took longer than you expected, or a call was refused for its size, and
 
 It explains none of them. Each section links to the page that does.
 
+For debugging, [timings and limits](../timings-and-limits.md) holds the same values by package, with the constant that sets each. This page is the one that says what each means for you.
+
 **Where it is set** says one of two things:
 
 - **Fixed**: the value is in the code. Changing it takes a new release.
@@ -30,8 +32,7 @@ Sizes are counted in bytes of UTF-8 unless a row says characters. 1 KB is 1024 b
 | Value | What it means for you | Where it is set |
 | --- | --- | --- |
 | 1 to 10, default 1 | The [deliveries](words.md#delivery) one `receive` hands over. | Fixed |
-| 25 seconds | How long `receive` waits on an empty [inbox](words.md#inbox) before it answers empty. An empty answer only means nothing arrived yet. | Fixed |
-| 0 to 25 seconds | The wait an `inbox` check may ask for. | Fixed |
+| No wait | `receive`, `pushReceive`, `inbox`, `receiveReply` and `fleet.follow` answer at once; an empty answer only means nothing arrived yet. A `waitSeconds` or `knownWaiting` is refused as unknown input. A crew that wants to be told keeps the wake stream open ([decision 0072](../decisions/0072-a-stream-wakes-a-call-takes.md)). | Fixed |
 | 4 hand-overs | The most a delivery is handed over without an [acknowledgement](words.md#acknowledgement). The fifth attempt is refused: the delivery becomes [undeliverable](words.md#undeliverable) and the session gets the next one. Attempts are kept across sessions. | Fixed |
 | 2 turns | On a [pushed](words.md#pushed) ship, a message whose session's turn died while handling it is handed in once more. If that turn dies too, the message is not handled. | Fixed |
 | 200 characters | The reason a session gives when it reports a delivery not handled. | Fixed |
@@ -103,7 +104,6 @@ On a pushed ship, the fleet watches how long its deliveries wait and tells `argo
 | --- | --- | --- |
 | 100, at most 500 | The items one page of a list returns: a ship's messages and timeline, Needs attention and the other paged reads. Ask for more pages with the cursor. | Fixed |
 | at most 100 | The events one follow of the fleet's events returns. | Fixed |
-| 0 to 25 seconds | The wait a follow of the fleet's events may ask for. | Fixed |
 | 1000 events | The events the console replays after it lost its live connection. Past that it reloads the page. | Fixed |
 
 ## Signing in and the console
@@ -158,7 +158,7 @@ These are the Aeolus Fleet plugin's, on the computer where the session runs. A s
 
 | Value | What it means for you | Where it is set |
 | --- | --- | --- |
-| 25 seconds | One inbox wait of the watcher. | `AEOLUS_WAIT_SECONDS` |
+| 25 seconds | One inbox wait of the watcher. Core now refuses a wait ([decision 0072](../decisions/0072-a-stream-wakes-a-call-takes.md)): a plugin release that still asks for one fails until the plugin stops. | `AEOLUS_WAIT_SECONDS` |
 | 5 seconds | Between inbox checks while deliveries wait. | `AEOLUS_POLL_SECONDS` |
 | 1 h 55 min | How long the watcher runs before it stops ("for almost 2 hours") and the session starts it again. No limit under the Codex wake bridge. | `AEOLUS_MAX_SECONDS` |
 | 2 seconds, doubling, at most 60 | The watcher calling again after a failed call. | `AEOLUS_RETRY_SECONDS`, `AEOLUS_RETRY_MAX_SECONDS` |

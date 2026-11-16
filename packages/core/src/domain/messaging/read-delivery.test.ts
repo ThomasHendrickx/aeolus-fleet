@@ -181,7 +181,7 @@ describe('delivery, re-read', () => {
 
     unwrap(await readDelivery(scout, { deliveryId }));
 
-    await expect(useCases.checkInbox(scout, {})).resolves.toEqual(ok({ waiting: 0, forced: 0 }));
+    await expect(useCases.checkInbox(scout)).resolves.toEqual(ok({ waiting: 0, forced: 0 }));
   });
 
   it('re-reads a delivery handed once more, which stays acknowledged', async () => {

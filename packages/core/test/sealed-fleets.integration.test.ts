@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -66,6 +66,8 @@ let prisma: PrismaClient;
 let useCases: UseCases;
 let server: FastifyInstance;
 let address: string;
+/** The temp folders the tests made, removed at the end. */
+const recoveryFolders: string[] = [];
 
 beforeAll(async () => {
   localStack = await startLocalStack();
@@ -74,7 +76,7 @@ beforeAll(async () => {
   keyVault = createAwsKmsKeyVault({ region: REGION, endpoint: policy.endpoint, credentials: CREDENTIALS });
   databaseUrl = await createMigratedDatabase();
   prisma = createPrismaClient(databaseUrl);
-  useCases = createUseCases({ prisma, clock, keyVault, receiveWaitMs: 0 });
+  useCases = createUseCases({ prisma, clock, keyVault });
   server = createApp({ databaseUrl, publicUrl: FLEET_URL, clock, logger: false, installationToken: INSTALLATION_TOKEN, keyVault, hasMaintenancePass: false });
   address = await server.listen({ host: '127.0.0.1', port: 0 });
 });
@@ -85,6 +87,7 @@ afterAll(async () => {
   company.destroy();
   await policy.close();
   await localStack.stop();
+  await Promise.all(recoveryFolders.map((folder) => rm(folder, { recursive: true, force: true })));
 });
 
 function client(headers: Record<string, string>): TRPCClient<AppRouter> {
@@ -307,7 +310,7 @@ describe('sealed sends and receives on Postgres and a LocalStack KMS (decision 0
     }
     sent.push(...(await prisma.delivery.findMany({ where: { fleetId: fleet.fleetId }, orderBy: { id: 'asc' }, select: { id: true } })).map(({ id }) => idSchema('delivery').parse(id)));
     const restarted = createPrismaClient(databaseUrl);
-    const afterRestart = createUseCases({ prisma: restarted, clock, keyVault: createAwsKmsKeyVault({ region: REGION, endpoint: policy.endpoint, credentials: CREDENTIALS }), receiveWaitMs: 0 });
+    const afterRestart = createUseCases({ prisma: restarted, clock, keyVault: createAwsKmsKeyVault({ region: REGION, endpoint: policy.endpoint, credentials: CREDENTIALS }) });
 
     const { deliveries } = unwrap(await afterRestart.receiveDeliveries(scout, { max: 2 }));
     await restarted.$disconnect();
@@ -376,7 +379,7 @@ describe('every other payload sealed on Postgres and a LocalStack KMS (decision 
     const scout = await aCrewedReviewer(fleet, 'scout');
     // A month before the database's clock: a schedule an hour ahead here is due by the claim's now().
     const monthEarlier = createTestClock('2026-09-29T12:00:00.000Z');
-    const scheduling = createUseCases({ prisma, clock: monthEarlier, keyVault, receiveWaitMs: 0 });
+    const scheduling = createUseCases({ prisma, clock: monthEarlier, keyVault });
     const { scheduleId } = unwrap(
       await scheduling.scheduleMessage(scout, { selector: { kind: 'ship', name: 'argo' }, payload: PAYLOAD, model: 'claude-opus-5-5', idempotencyKey: newKey(), timing: { kind: 'once', at: new Date('2026-09-29T13:00:00.000Z') } }),
     );
@@ -420,7 +423,7 @@ async function aSealedFleetWithItsKey(): Promise<HostedFleet & { companyKey: str
 /** One server with its own data key cache and its own clock, from the given time. */
 function aServerAt(iso: string) {
   const at = createTestClock(iso);
-  return { clock: at, useCases: createUseCases({ prisma, clock: at, keyVault, receiveWaitMs: 0 }) };
+  return { clock: at, useCases: createUseCases({ prisma, clock: at, keyVault }) };
 }
 
 async function disableKey(companyKey: string): Promise<void> {
@@ -1185,7 +1188,9 @@ describe('recovery on Postgres and a LocalStack KMS (decision 0068, B15)', () =>
     const fleet = await aHostedFleet();
     const companyKey = await aKeyBoundTo(fleet.fleetId);
     const identity = await generateX25519Identity();
-    const identityFile = join(await mkdtemp(join(tmpdir(), 'aeolus-recovery-')), 'recovery-key.txt');
+    const identityFolder = await mkdtemp(join(tmpdir(), 'aeolus-recovery-'));
+    recoveryFolders.push(identityFolder);
+    const identityFile = join(identityFolder, 'recovery-key.txt');
     await writeFile(identityFile, `# created: 2026-10-29T12:00:00Z\n# public key: ${await identityToRecipient(identity)}\n${identity}\n`, { mode: 0o600 });
     unwrap(await useCases.turnOnSealing(fleet.argo, { companyKey, recoveryKey: await identityToRecipient(identity) }));
     const scout = await aCrewedReviewer(fleet, 'scout');

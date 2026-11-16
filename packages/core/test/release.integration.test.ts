@@ -3,7 +3,6 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/client.js';
 import { listenForPendingDeliveries, type DeliveryListener } from '../src/adapters/prisma/delivery-notices.js';
-import { createReceiverWakeups, type ReceiverWakeupHub } from '../src/adapters/prisma/receiver-wakeups.js';
 import { createPrismaUnitOfWork, type PrismaTx } from '../src/adapters/prisma/unit-of-work.js';
 import { createReceiveDeliveries } from '../src/domain/messaging/receive-deliveries.js';
 import { createDeregister } from '../src/domain/registry/deregister.js';
@@ -20,32 +19,23 @@ import { createMigratedDatabase } from '../src/testing/database.js';
 import { everyRow, heldUnitOfWork } from './support/postgres-core.js';
 import { unwrap } from '../src/testing/result.js';
 import { newKey } from '../src/testing/keys.js';
-import { waitingWakeups } from './support/waiting-wakeups.js';
 import { aCrewSettings } from './support/crew-fixtures.js';
 import { withOperatorLogin } from './support/operator-login.js';
 import { unsealedFleetsOnly } from './support/sealing.js';
 
-// Releasing a ship and deregistering on a real Postgres, with the listener and
-// the wake-ups the server runs: the lease, the secret and the crew token end
-// together; what the lease held in flight goes back to its ship or its type,
-// attempts kept, and the next crew receives it, and a receive of another ship
-// of the type that waits gets it at once; a session its trierarch stops
+// Releasing a ship and deregistering on a real Postgres, with the listener the
+// server runs: the lease, the secret and the crew token end together; what the
+// lease held in flight goes back to its ship or its type, attempts kept, and
+// the next crew receives it, as does another ship of the type; a session its trierarch stops
 // before it acks has its delivery received again by the next session the
 // trierarch crews; a release racing a receive never
-// leaves a delivery claimed by an ended lease; a waiting receive never holds a
-// release up; a failed release stores nothing and wakes nobody.
+// leaves a delivery claimed by an ended lease; a failed release stores
+// nothing and wakes nobody.
 
 const newId = createIdGenerator();
-/** How long a receive waits on an empty inbox in these tests: short, so an empty receive costs little. */
-const WAIT_MS = 2_000;
-/** The wait of a receive that must end early: it proves a wake-up, not a timeout. */
-const LONG_WAIT_MS = 15_000;
-/** A test that waits out a long receive, with room for a loaded machine. */
-const LONG_WAIT_TEST_MS = 4 * LONG_WAIT_MS;
 
 let databaseUrl: string;
 let prisma: PrismaClient;
-let wakeups: ReceiverWakeupHub;
 let listener: DeliveryListener;
 /** Every notice the listener heard, in commit order. */
 let notices: DeliveryNotice[];
@@ -65,20 +55,15 @@ interface Crewed {
 beforeEach(async () => {
   databaseUrl = await createMigratedDatabase();
   prisma = createPrismaClient(databaseUrl);
-  wakeups = createReceiverWakeups();
   notices = [];
   listener = listenForPendingDeliveries({
     databaseUrl,
     onNotice: (notice) => {
       notices.push(notice);
-      wakeups.deliveryPending(notice);
-    },
-    onListening: () => {
-      wakeups.wakeAll();
     },
   });
   await listener.listening;
-  useCases = createUseCases({ prisma, clock: systemClock, wakeups, receiveWaitMs: WAIT_MS });
+  useCases = createUseCases({ prisma, clock: systemClock });
   const fleet = unwrap(await withOperatorLogin(prisma, useCases.initialiseFleet({ name: 'home fleet' })));
   ({ fleetId } = fleet);
   argo = operatorCaller(fleet);
@@ -132,22 +117,6 @@ async function receive(crewed: Crewed): Promise<DeliveryId[]> {
 
 function stored(deliveryId: DeliveryId) {
   return prisma.delivery.findUniqueOrThrow({ where: { id: deliveryId } });
-}
-
-/**
- * A receive by the crew that waits up to the given time on an empty inbox, and
- * `waiting`, which settles once it waits: it has looked at the inbox, holding
- * the lease, and found nothing. A receive that has not looked yet when the
- * lease ends is refused (LEASE_ENDED), so a test that ends the lease under a
- * waiting receive waits for this, not for a fixed time (#499).
- */
-function receiveWaiting(crewed: Crewed, waitMs: number) {
-  const { wakeups: watched, waiting } = waitingWakeups(wakeups);
-  const answer = createReceiveDeliveries({ sealing: unsealedFleetsOnly, uow: createPrismaUnitOfWork(prisma), clock: systemClock, ids: newId, wakeups: watched, waitMs })(
-    crewed.crew,
-    {},
-  );
-  return { answer, waiting };
 }
 
 /**
@@ -274,31 +243,14 @@ describe.each(endings)('$name on Postgres', ({ reason, end }) => {
     ]);
   });
 
-  it('wakes a receive of another ship of the type waiting on an empty inbox: it gets the returned type delivery at once', async () => {
+  it('gives the returned type delivery to another ship of the type at its next look', async () => {
     const deliveryId = await sendTo(toReviewers);
     expect(await receive(scout)).toEqual([deliveryId]);
-    const startedAt = performance.now();
-    const receiving = receiveWaiting(lookout, LONG_WAIT_MS);
-    await receiving.waiting;
 
     unwrap(await end(scout));
 
-    expect(unwrap(await receiving.answer).deliveries.map((delivery) => delivery.deliveryId)).toEqual([deliveryId]);
-    expect(performance.now() - startedAt).toBeLessThan(LONG_WAIT_MS / 2);
+    expect(await receive(lookout)).toEqual([deliveryId]);
   });
-
-  it('completes promptly while a receive of the crew waits, and the receive answers without deliveries', async () => {
-    const receiving = receiveWaiting(scout, LONG_WAIT_MS);
-    await receiving.waiting;
-
-    const startedAt = performance.now();
-    unwrap(await end(scout));
-    const tookMs = performance.now() - startedAt;
-
-    // Held up, the release would end only with the receive's wait.
-    expect(tookMs).toBeLessThan(LONG_WAIT_MS / 2);
-    await expect(receiving.answer).resolves.toEqual({ isOk: true, value: { deliveries: [] } });
-  }, LONG_WAIT_TEST_MS);
 });
 
 describe('a trierarch releases a crewed ship with an open crew request (#1308)', () => {
@@ -403,7 +355,7 @@ describe('a deregister that fails', () => {
 
 describe('a release racing a receive', () => {
   function receiveWith(uow: UnitOfWork<PrismaTx>) {
-    return createReceiveDeliveries({ sealing: unsealedFleetsOnly, uow, clock: systemClock, ids: newId, wakeups, waitMs: WAIT_MS });
+    return createReceiveDeliveries({ sealing: unsealedFleetsOnly, uow, clock: systemClock, ids: newId });
   }
 
   it('waits for a receive holding the lease, then returns what it claimed: nothing stays claimed by the ended lease', async () => {

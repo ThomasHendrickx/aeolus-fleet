@@ -9,7 +9,7 @@ Harbour as built (0.37) is below. [One view: cards or list](#one-view-cards-or-l
 ## What it shows
 
 - **Numbers on top:** ships, then a ship's five states ([state-colours](../state-colours/state-colours.md), "Five states"), each with its icon and word. Only Alert is filled in its tone.
-- **One tile per ship below**, grouped by kind: People, Agents, Plugins, Through the gateway (the proxy ships the gateway crews). In each group: in the order of the five states.
+- **One tile per ship below**, grouped by kind: People, Agents, Trierarchs, Plugins, Through the gateway (the proxy ships the gateway crews). In each group: in the order of the five states.
 - **A tile** holds the ship's name and its state: icon and word in the tone, the tile filled in the tone ([state-colours](../state-colours/state-colours.md), "One meaning per colour"). Idle tiles stay plain, so colour marks only what is going on.
 - **What a ship is doing** (its report) shows in the tile's title on hover and on tap; long names truncate.
 - **Phone:** the same numbers in one row, tiles three across.
@@ -93,7 +93,7 @@ Props only: no fetching, router, live wiring or filters. It lays itself out by i
 | --- | --- |
 | `Harbour` | `counts: HarbourCounts \| undefined`, `groups: readonly HarbourGroup[] \| undefined` (undefined draws the loading shape), `now: Date`, `hrefOf?: (shipId) => string` (none: tiles are not links), `between?: ReactNode` (the console's filter bar; Bridge passes none), `empty?: ReactNode` (stands in for the groups: no match, argo alone), `state: 'ready' \| 'loading' \| 'error'`, `onRetry` |
 | `HarbourNumbers` | `counts: { ships, alert, awaitingCrew, blocked, working, idle } \| undefined` |
-| `HarbourGroup` | `kind: 'people' \| 'agents' \| 'plugins' \| 'gateway'`, `tiles` in the order given |
+| `HarbourGroup` | `kind: 'people' \| 'agents' \| 'trierarchs' \| 'plugins' \| 'gateway'`, `tiles` in the order given |
 | `HarbourTile` | `{ id, name, state, note, lastActivityAt }` with its group's kind, `href` and `now`; the time words are formatted inside the part, so both apps say them alike |
 
 The tile's shape and `HarbourState` stay `@aeolus-fleet/common`'s (`rules/harbour`, `schemas/harbour`).

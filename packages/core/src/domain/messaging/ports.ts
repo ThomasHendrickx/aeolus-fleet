@@ -322,28 +322,11 @@ export interface DeliveryRepository {
   markUnread(read: { fleetId: FleetId; deliveryId: DeliveryId }): Promise<void>;
 }
 
-/** Where a waiting receive listens: its ship, and the queue of its type, in its fleet. */
+/** Where a wake stream listens: its ship, and the queue of its type, in its fleet. */
 export interface ReceiverAddress {
   fleetId: FleetId;
   shipId: ShipId;
   type: string;
-}
-
-/**
- * Outbound port: wakes a waiting receive when a delivery may be pending for its
- * ship or its type. A wake-up is a hint to look again, never a delivery: the
- * receive finds out in the database whether one is there for it.
- */
-export interface ReceiverWakeups {
-  /** Starts watching. A wake-up that comes before the next wait is kept for it. */
-  watch(address: ReceiverAddress): ReceiverWatch;
-}
-
-export interface ReceiverWatch {
-  /** Settles when the receive is woken, or once `waitMs` has passed. */
-  next(waitMs: number): Promise<'woken' | 'timedOut'>;
-  /** Stops watching. */
-  stop(): void;
 }
 
 /**
@@ -477,4 +460,43 @@ export interface FleetSealingRepository {
   changeCompanyKey(fleetId: FleetId, change: { companyKey: CompanyKeyReference; dataKeys: readonly { id: DataKeyId; wrappedByCompanyKey: WrappedDataKey }[] }): Promise<void>;
   /** Names the fleet's new recovery key and stores each data key's wrap to it. */
   changeRecoveryKey(fleetId: FleetId, change: { recoveryKey: RecoveryKey; dataKeys: readonly { id: DataKeyId; wrappedByRecoveryKey: WrappedDataKey }[] }): Promise<void>;
+}
+
+/** An exchange's key in its fleet: the person ship and the ship it exchanged with. */
+export interface ExchangeKey {
+  shipId: ShipId;
+  otherShipId: ShipId;
+}
+
+/**
+ * Where a fleet's metadata fill stands (docs/architecture.md, Backfills): the
+ * last message it visited by id, the last exchange it visited by key, and
+ * whether both walks reached the end.
+ */
+export interface MetadataFillCursor {
+  afterMessageId: MessageId | null;
+  afterExchange: ExchangeKey | null;
+  isComplete: boolean;
+}
+
+/**
+ * Outbound port: the fill after start of what the question id and unseen
+ * plain message migrations left empty, always within one fleet. A message
+ * stored since then holds its question ids and an exchange made since then
+ * its count, so each walk ends.
+ */
+export interface MessageMetadataFill {
+  /** The fleet's cursor, held for update until the unit of work ends; a fleet never visited starts at the beginning. */
+  lockCursor(fleetId: FleetId): Promise<MetadataFillCursor>;
+  /** Fills the question ids of the next messages by id after `after`, at most limit; the ids it visited, in order. */
+  fillQuestionIds(fleetId: FleetId, query: { after: MessageId | null; limit: number }): Promise<MessageId[]>;
+  /** Counts the unseen plain messages of each of the next exchanges by key after `after` that holds none, at most limit; the keys it visited, in order. */
+  fillUnseenPlainMessages(fleetId: FleetId, query: { after: ExchangeKey | null; limit: number }): Promise<ExchangeKey[]>;
+  saveCursor(fleetId: FleetId, cursor: MetadataFillCursor): Promise<void>;
+}
+
+/** Outbound port: the indexes the fill and the reads of what it has not filled yet use, built while core serves, without holding writes. */
+export interface MetadataFillIndexes {
+  /** Builds each one that is not there or not valid; false means a build stopped or another core holds it. */
+  build(): Promise<boolean>;
 }

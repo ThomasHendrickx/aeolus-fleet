@@ -3,7 +3,9 @@ import { createIdGenerator, idSchema, type DeliveryId, type MessageId, type Ship
 import { z } from 'zod';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { createApp } from '../src/app.js';
 import { sha256Hasher } from '../src/adapters/crypto/secrets.js';
+import { createPrismaMetadataFillIndexes } from '../src/adapters/prisma/message-metadata-fill.js';
 import { createPrismaUnitOfWork, type PrismaTx } from '../src/adapters/prisma/unit-of-work.js';
 import { createAcknowledgeDelivery } from '../src/domain/messaging/acknowledge-delivery.js';
 import { createAcknowledgeUpTo } from '../src/domain/messaging/acknowledge-up-to.js';
@@ -15,8 +17,9 @@ import { executeSqlFile } from '../src/testing/database.js';
 import { newKey } from '../src/testing/keys.js';
 import { unwrap } from '../src/testing/result.js';
 import { operatorCaller, secretOf } from './support/core-fixtures.js';
+import { fillUntilComplete, metadataFillOf } from './support/metadata-fill.js';
 import { withOperatorLogin } from './support/operator-login.js';
-import { createPostgresCore, type PostgresCore } from './support/postgres-core.js';
+import { createPostgresCore, heldUnitOfWork, type PostgresCore } from './support/postgres-core.js';
 import { unsealedFleetsOnly } from './support/sealing.js';
 
 // The rollup of the list of exchanges on a real Postgres
@@ -87,6 +90,15 @@ async function rollup(): Promise<{ shipId: string; otherShipId: string; newestMe
     );
 }
 
+/** The metadata fill's indexes there are, by name, and whether each is valid. */
+async function fillIndexes(): Promise<{ name: string; isValid: boolean }[]> {
+  return z.array(z.object({ name: z.string(), isValid: z.boolean() })).parse(
+    await core.prisma.$queryRaw`
+      SELECT c.relname AS name, i.indisvalid AS "isValid" FROM pg_index i JOIN pg_class c ON c.oid = i.indexrelid
+      WHERE c.relname IN ('deliveries_open_exchange_idx', 'messages_unfilled_questions_idx') ORDER BY c.relname`,
+  );
+}
+
 /** What a recount from the deliveries says each person ship's rows hold: the deliveries from the other ship still open, and the newest message both ways. */
 async function recount(): Promise<{ shipId: string; otherShipId: string; newestMessageId: string; unacknowledged: number; unseenPlainMessages: number }[]> {
   return z
@@ -132,14 +144,131 @@ describe('the rollup of exchanges on Postgres', () => {
     const before = unwrap(await core.useCases.readExchanges(thomas, {}));
     await core.prisma.$executeRaw`ALTER TABLE exchanges DROP COLUMN unseen_plain_messages`;
     await executeSqlFile(core.databaseUrl, fileURLToPath(new URL('../src/adapters/prisma/migrations/20261115100000_unseen_plain_messages/migration.sql', import.meta.url)));
+    const partial = unwrap(await core.useCases.readExchanges(thomas, {}));
+    // Each batch commits separately; restarting from the beginning is harmless.
+    await fillUntilComplete(core, 1);
+    await expect(rollup()).resolves.toEqual(await recount());
     const backfilled = unwrap(await core.useCases.readExchanges(thomas, {}));
     unwrap(await core.useCases.acknowledgeUpTo(thomas, { otherShipId: lookout.shipId, messageId: last }));
     const after = unwrap(await core.useCases.readExchanges(thomas, {}));
 
     // Then the count held two plain messages before and after the backfill, and the question stays unacknowledged but adds no unseen plain message.
     expect(before.items).toMatchObject([{ unacknowledged: 3, unseenPlainMessages: 2 }]);
+    expect(partial.items).toMatchObject([{ unacknowledged: 3, unseenPlainMessages: 2 }]);
     expect(backfilled.items).toMatchObject([{ unacknowledged: 3, unseenPlainMessages: 2 }]);
     expect(after.items).toMatchObject([{ unacknowledged: 1, unseenPlainMessages: 0 }]);
+  });
+
+  it('starts serving before filling old exchanges and finishes the fill while serving', async () => {
+    // Given an old exchange and a server that has not started listening.
+    const thomas = await crewed({ name: 'thomas', kind: 'person', type: 'person' });
+    const lookout = await crewed({ name: 'lookout', kind: 'agent', type: 'reviewer' });
+    await send(lookout, { to: { kind: 'ship', shipId: thomas.shipId }, payload: 'One' });
+    await core.prisma.$executeRaw`UPDATE exchanges SET unseen_plain_messages = NULL`;
+    const server = createApp({ databaseUrl: core.databaseUrl, publicUrl: 'http://localhost', clock: core.clock, logger: false });
+    try {
+      const before = await core.prisma.exchange.findFirstOrThrow();
+      const indexesBefore = await fillIndexes();
+      // When core starts listening, its background pass builds the fill's indexes and fills the exchange.
+      await server.listen({ host: '127.0.0.1', port: 0 });
+      await expect.poll(async () => (await core.prisma.messageMetadataBackfill.findUnique({ where: { fleetId: argo.fleetId } }))?.isComplete).toBe(true);
+      // Then neither the migrations nor anything before listen built an index or filled a count, and the serving core built both valid and committed the right count.
+      expect(before.unseenPlainMessages).toBeNull();
+      expect(indexesBefore).toEqual([]);
+      await expect(fillIndexes()).resolves.toEqual([
+        { name: 'deliveries_open_exchange_idx', isValid: true },
+        { name: 'messages_unfilled_questions_idx', isValid: true },
+      ]);
+      await expect(rollup()).resolves.toEqual(await recount());
+    } finally {
+      await server.close();
+    }
+  });
+
+  it('rolls back a failed batch with its cursor and resumes without doubling the count', async () => {
+    // Given an old exchange with a pending plain message and no filled count.
+    const thomas = await crewed({ name: 'thomas', kind: 'person', type: 'person' });
+    const lookout = await crewed({ name: 'lookout', kind: 'agent', type: 'reviewer' });
+    await send(lookout, { to: { kind: 'ship', shipId: thomas.shipId }, payload: 'One' });
+    await core.prisma.$executeRaw`UPDATE exchanges SET unseen_plain_messages = NULL`;
+    await core.prisma.$executeRawUnsafe(`CREATE FUNCTION fail_cursor() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'cursor disk full'; END $$`);
+    await core.prisma.$executeRawUnsafe(`CREATE TRIGGER fail_cursor BEFORE UPDATE ON message_metadata_backfills FOR EACH ROW EXECUTE FUNCTION fail_cursor()`);
+
+    // When the batch fails after recounting but before committing its cursor.
+    const failures: unknown[] = [];
+    await expect(metadataFillOf(core)((_, error) => failures.push(error))).resolves.toEqual({ isComplete: false });
+    const failed = await core.prisma.exchange.findFirstOrThrow();
+    await core.prisma.$executeRawUnsafe('DROP TRIGGER fail_cursor ON message_metadata_backfills');
+    await fillUntilComplete(core);
+
+    // Then the failed transaction changed nothing and its retry counted exactly once.
+    expect(String(failures)).toContain('cursor disk full');
+    expect(failed.unseenPlainMessages).toBeNull();
+    await expect(rollup()).resolves.toEqual(await recount());
+    expect(unwrap(await core.useCases.readExchanges(thomas, {})).items).toMatchObject([{ unseenPlainMessages: 1 }]);
+  });
+
+  it('keeps the filled count correct when a batch runs before an acknowledgement commits', async () => {
+    // Given a pending plain message in an unfilled old exchange.
+    const thomas = await crewed({ name: 'thomas', kind: 'person', type: 'person' });
+    const lookout = await crewed({ name: 'lookout', kind: 'agent', type: 'reviewer' });
+    const messageId = await send(lookout, { to: { kind: 'ship', shipId: thomas.shipId }, payload: 'One' });
+    unwrap(await core.useCases.pushReceiveDeliveries(thomas, {}));
+    await core.prisma.$executeRaw`UPDATE exchanges SET unseen_plain_messages = NULL`;
+    // As core serves once its first pass built the fill's indexes: a build waits for every open transaction, the held ack's too.
+    await createPrismaMetadataFillIndexes(core.databaseUrl).build();
+    const { uow } = heldUnitOfWork(core.prisma, (tx, hold) => ({
+      ...tx,
+      deliveries: {
+        ...tx.deliveries,
+        update: async (delivery) => {
+          await tx.deliveries.update(delivery);
+          await hold(metadataFillOf(core)().then(() => undefined));
+        },
+      },
+    }));
+    // When the batch counts the committed delivery while its ack is uncommitted.
+    const acknowledge = createAcknowledgeDelivery({ uow, clock: core.clock, ids: newId });
+    unwrap(await acknowledge(thomas, { deliveryId: await deliveryOf(messageId, thomas.shipId) }));
+    // Then the ack's subsequent delta clears the filled count exactly once.
+    await expect(rollup()).resolves.toEqual(await recount());
+    expect(unwrap(await core.useCases.readExchanges(thomas, {})).items).toMatchObject([{ unseenPlainMessages: 0 }]);
+  });
+
+  it('fills an exchange whose newest message the walk by message id already passed, as when pruning moves it back or a send commits late', async () => {
+    // Given two old exchanges, the message walk already past every message, and the exchange walk not started.
+    const thomas = await crewed({ name: 'thomas', kind: 'person', type: 'person' });
+    const lookout = await crewed({ name: 'lookout', kind: 'agent', type: 'reviewer' });
+    const scout = await crewed({ name: 'scout', kind: 'agent', type: 'reviewer' });
+    await send(lookout, { to: { kind: 'ship', shipId: thomas.shipId }, payload: 'One' });
+    const newest = await send(scout, { to: { kind: 'ship', shipId: thomas.shipId }, payload: 'Two' });
+    await core.prisma.$executeRaw`UPDATE exchanges SET unseen_plain_messages = NULL`;
+    await core.prisma.$executeRaw`INSERT INTO message_metadata_backfills (fleet_id, after_message_id) VALUES (${argo.fleetId}, ${newest})`;
+
+    // When the fill runs, one exchange a batch, until it says it is complete.
+    await fillUntilComplete(core, 1);
+
+    // Then every exchange from before holds its count, and none is left to recount on each read.
+    await expect(core.prisma.exchange.count({ where: { unseenPlainMessages: null } })).resolves.toBe(0);
+    await expect(rollup()).resolves.toEqual(await recount());
+  });
+
+  it('builds an index a failed build left invalid again, and builds none twice', async () => {
+    // Given a failed build left the open deliveries index invalid, on the wrong columns.
+    await core.prisma.$executeRaw`CREATE INDEX deliveries_open_exchange_idx ON deliveries (id)`;
+    await core.prisma.$executeRaw`UPDATE pg_index SET indisvalid = false WHERE indexrelid = 'deliveries_open_exchange_idx'::regclass`;
+
+    // When the fill runs twice.
+    await fillUntilComplete(core);
+    await fillUntilComplete(core);
+
+    // Then both indexes are valid, the open deliveries one on its own columns.
+    await expect(fillIndexes()).resolves.toEqual([
+      { name: 'deliveries_open_exchange_idx', isValid: true },
+      { name: 'messages_unfilled_questions_idx', isValid: true },
+    ]);
+    const [definition] = await core.prisma.$queryRaw<{ indexdef: string }[]>`SELECT indexdef FROM pg_indexes WHERE indexname = 'deliveries_open_exchange_idx'`;
+    expect(definition?.indexdef).toContain('(fleet_id, reached_ship_id, sender_ship_id, id) WHERE');
   });
 
   it('is kept as messages are sent, claimed, acknowledged and returned when a lease ends', async () => {

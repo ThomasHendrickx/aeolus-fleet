@@ -143,3 +143,24 @@ export const Failed: Story = {
     await expect(args.onRetry).toHaveBeenCalledOnce();
   },
 };
+
+/** The approved trierarch-kind group, shared with Bridge, keeps the plugin separate. */
+export const Trierarchs: Story = {
+  args: { groups: [
+    { kind: 'agents', tiles: [aTile('builder-core', ['working', 'Building the fleet', 1])] },
+    { kind: 'trierarchs', tiles: [aTile('mac-studio', ['working', 'Crewing 4 ships', 0])] },
+    { kind: 'plugins', tiles: [aTile('trierarch-plugin', ['working', 'Watching crew requests', 0])] },
+  ] },
+  play: async ({ canvasElement }) => {
+    // Given an app hands Harbour agents, trierarchs and plugins.
+    const canvas = within(canvasElement);
+
+    // When the shared Harbour renders the groups.
+    const groups = canvas.getAllByRole('region');
+
+    // Then the approved heading and tile kind are visible between Agents and Plugins.
+    await expect(groups.map((group) => group.getAttribute('aria-label'))).toEqual(['Harbour', 'Agents', 'Trierarchs', 'Plugins']);
+    await expect(canvas.getByTestId('harbour-group-trierarchs')).toHaveTextContent('mac-studio');
+    await expect(canvas.getByTestId('harbour-group-trierarchs')).toHaveTextContent('Trierarch');
+  },
+};

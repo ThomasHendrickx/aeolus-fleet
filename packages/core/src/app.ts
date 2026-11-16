@@ -6,7 +6,11 @@ import { createAccountTokenSignatures } from './adapters/crypto/account-token-si
 import { checkDatabase, createPrismaClient, latestMigration } from './adapters/prisma/client.js';
 import { listenForPendingDeliveries } from './adapters/prisma/delivery-notices.js';
 import { failureForLog } from './adapters/prisma/failure-log.js';
-import { createFleetEventWakeups, fleetEventWakeupsOf } from './adapters/prisma/fleet-event-wakeups.js';
+import { createFleetEventWakeups } from './adapters/prisma/fleet-event-wakeups.js';
+import { createPrismaMetadataFillIndexes } from './adapters/prisma/message-metadata-fill.js';
+import { createPrismaFleetRepository } from './adapters/prisma/registry.js';
+import { createPrismaUnitOfWork } from './adapters/prisma/unit-of-work.js';
+import { createFillMessageMetadata } from './domain/messaging/fill-message-metadata.js';
 import { ensureIndexAfterStart } from './adapters/prisma/index-after-start.js';
 import { createReceiverWakeups } from './adapters/prisma/receiver-wakeups.js';
 import { ensureHealthBootstrapIndex } from './adapters/prisma/health-bootstrap-index.js';
@@ -33,12 +37,12 @@ export interface AppOptions {
    * Unset: the public URL's origin, for web and server behind one host.
    */
   consoleOrigin?: string;
-  /** How long a receive waits on an empty inbox; about 25 seconds unless a test says otherwise. */
-  receiveWaitMs?: number;
   /** The installation token that opens the installation procedures; unset, they are off. */
   installationToken?: string;
   /** How often the 10 and 60 minute clocks and the schedules' fallback pass run; every 30 seconds unless a test says otherwise. */
   overduePassMs?: number;
+  /** How long after listening, and after each batch, the metadata fill takes its next batch; 100 ms unless a test says otherwise. */
+  metadataFillPassMs?: number;
   /** Whether the maintenance pass runs at all: false, only what a test calls runs passes (#1836). Unset, it runs. */
   hasMaintenancePass?: boolean;
   /** pagasae's URL, the issuer whose account tokens core trusts (decision 0058); unset, it trusts none. */
@@ -49,6 +53,8 @@ export interface AppOptions {
 
 /** How often core runs the 10 and 60 minute clocks: argo hears of an overdue delivery within this of its clock running out. */
 const OVERDUE_PASS_MS = 30_000;
+/** How often core takes the metadata fill's next batches, until every fleet's fill is complete (docs/architecture.md, Backfills). */
+const METADATA_FILL_PASS_MS = 100;
 const BOOTSTRAP_INDEX_RETRY_MS = 1_000;
 const PLAIN_PAYLOAD_INDEX_RETRY_MS = 1_000;
 
@@ -76,7 +82,7 @@ function accountTokenSignaturesOf(issuer: string | undefined, clock: Clock) {
 
 /**
  * Wires adapters to use cases and returns the HTTP server, not yet listening.
- * The delivery listener starts at once and wakes waiting receives and live
+ * The delivery listener starts at once and wakes the wake streams and live
  * subscriptions, and tells the schedule timer of new and advanced schedules;
  * the timer sends each schedule at its time (decision 0062). The 10 and 60
  * minute clocks, the stuck snapshot's close and the schedules' fallback
@@ -86,16 +92,13 @@ function accountTokenSignaturesOf(issuer: string | undefined, clock: Clock) {
 export function createApp(options: AppOptions): FastifyInstance {
   const prisma = createPrismaClient(options.databaseUrl);
   const clock = options.clock ?? systemClock;
-  const wakeups = createReceiverWakeups();
+  const wakeStreams = createReceiverWakeups();
   const fleetEvents = createFleetEventWakeups();
 
   const useCases = createUseCases({
     prisma,
     clock,
-    wakeups,
-    wakeStreams: wakeups,
-    fleetEventWakeups: fleetEventWakeupsOf(fleetEvents),
-    receiveWaitMs: options.receiveWaitMs,
+    wakeStreams,
     accountTokenSignatures: accountTokenSignaturesOf(options.accountTokenIssuer, clock),
     ...(options.keyVault === undefined ? {} : { keyVault: options.keyVault }),
     hasInstallation: options.installationToken !== undefined,
@@ -130,7 +133,7 @@ export function createApp(options: AppOptions): FastifyInstance {
   const listener = listenForPendingDeliveries({
     databaseUrl: options.databaseUrl,
     onNotice: (notice) => {
-      wakeups.deliveryPending(notice);
+      wakeStreams.deliveryPending(notice);
     },
     onFleetEvent: (notice) => {
       fleetEvents.eventCommitted(notice);
@@ -139,7 +142,7 @@ export function createApp(options: AppOptions): FastifyInstance {
       scheduleTimer.told(notice.attemptAt);
     },
     onListening: () => {
-      wakeups.wakeAll();
+      wakeStreams.wakeAll();
       fleetEvents.wakeAll();
     },
     onError: (error) => {
@@ -155,8 +158,31 @@ export function createApp(options: AppOptions): FastifyInstance {
     everyMs: options.overduePassMs ?? OVERDUE_PASS_MS,
   });
 
-  // Closing aborts both builds, so a stop never waits for them; the next start builds them again.
+  // Closing aborts index builds, so a stop never waits for them; the next start builds them again.
   const indexBuild = new AbortController();
+  const fillMessageMetadata = createFillMessageMetadata({ fleets: createPrismaFleetRepository(prisma), indexes: createPrismaMetadataFillIndexes(options.databaseUrl, indexBuild.signal), uow: createPrismaUnitOfWork(prisma) });
+
+  // After listening, so no fill holds start: one batch of each fleet per
+  // pass, until every fleet's fill is complete.
+  let metadataFill: RepeatingPass | undefined;
+  server.addHook('onListen', (done) => {
+    metadataFill = repeatPass({
+      pass: async () => {
+        const { isComplete } = await fillMessageMetadata((fleetId, error) => {
+          server.log.warn({ ...failureForLog(error), fleetId }, 'the metadata fill failed for a fleet: taking its batch again next pass');
+        });
+        if (isComplete) {
+          void metadataFill?.stop();
+        }
+      },
+      everyMs: options.metadataFillPassMs ?? METADATA_FILL_PASS_MS,
+      onError: (error) => {
+        server.log.warn(failureForLog(error), 'the metadata fill failed: passing again shortly');
+      },
+    });
+    done();
+  });
+
   let plainPayloadIndex: RepeatingPass | undefined;
   server.addHook('onListen', (done) => {
     plainPayloadIndex = repeatPass({
@@ -191,15 +217,14 @@ export function createApp(options: AppOptions): FastifyInstance {
   });
 
   // Before the server stops taking requests and waits for the ones it holds:
-  // a waiting receive answers no deliveries at once instead of holding it up,
-  // and a live subscription and every wake stream end.
+  // every wake stream and live subscription ends.
   // Connections idle at that moment close at once (Fastify's default); one
   // whose request ends later is told to close with its answer, or it would
   // stay open, idle, until its keep-alive timeout.
   let isStopping = false;
   server.addHook('preClose', (done) => {
     isStopping = true;
-    wakeups.endAll();
+    wakeStreams.endAll();
     fleetEvents.endAll();
     done();
   });
@@ -211,6 +236,7 @@ export function createApp(options: AppOptions): FastifyInstance {
 
   server.addHook('onClose', async () => {
     indexBuild.abort();
+    await metadataFill?.stop();
     await bootstrapIndex?.stop();
     await plainPayloadIndex?.stop();
     await overduePasses?.stop();

@@ -277,7 +277,7 @@ describe('the OpenAPI spec at /api/v1/openapi.json', () => {
       expect(described?.operationId, call.name).toBe(call.name);
       expect(described?.description, call.name).toBe(call.description);
     }
-    expect(paths['/ship/receive']?.post?.description).toMatch(/about 25 seconds/);
+    expect(paths['/ship/receive']?.post?.description).toMatch(/answers at once/);
   });
 
   it('asks every operation but register for the crew token as a bearer', async () => {
@@ -795,7 +795,6 @@ describe('a ship call at /api/v1', () => {
 
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({ deliveries: [] });
-    expect(core.wakeups.waits).toHaveLength(1);
   });
 
   it('counts a failed register against the client address, in one budget with /trpc', async () => {

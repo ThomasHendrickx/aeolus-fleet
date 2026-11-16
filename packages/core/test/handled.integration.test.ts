@@ -2,7 +2,6 @@ import { createIdGenerator, idSchema, type DeliveryId, type FleetId } from '@aeo
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/client.js';
-import { createReceiverWakeups } from '../src/adapters/prisma/receiver-wakeups.js';
 import { createPrismaUnitOfWork, type PrismaTx } from '../src/adapters/prisma/unit-of-work.js';
 import { createHandOverDelivery } from '../src/domain/messaging/hand-over-delivery.js';
 import { createReportHandled } from '../src/domain/messaging/report-handled.js';
@@ -23,8 +22,6 @@ import { withOperatorLogin } from './support/operator-login.js';
 // midway stores nothing, and that a restart of the server keeps the once more.
 
 const newId = createIdGenerator();
-/** How long a receive waits on an empty inbox in these tests: short, so an empty receive costs little. */
-const WAIT_MS = 500;
 
 let databaseUrl: string;
 let prisma: PrismaClient;
@@ -36,7 +33,7 @@ let scout: Crew;
 beforeEach(async () => {
   databaseUrl = await createMigratedDatabase();
   prisma = createPrismaClient(databaseUrl);
-  useCases = createUseCases({ prisma, clock: systemClock, wakeups: createReceiverWakeups(), receiveWaitMs: WAIT_MS });
+  useCases = createUseCases({ prisma, clock: systemClock });
   const fleet = unwrap(await withOperatorLogin(prisma, useCases.initialiseFleet({ name: 'home fleet' })));
   ({ fleetId } = fleet);
   argo = operatorCaller(fleet);
@@ -259,7 +256,7 @@ describe('a restart of the server', () => {
 
     const restarted = createPrismaClient(databaseUrl);
     try {
-      const afterRestart = createUseCases({ prisma: restarted, clock: systemClock, wakeups: createReceiverWakeups(), receiveWaitMs: WAIT_MS });
+      const afterRestart = createUseCases({ prisma: restarted, clock: systemClock });
 
       const repeat = await afterRestart.handOverDelivery(scout, { deliveryId, handOverNumber: 2, isOnceMore: true });
       const second = await afterRestart.handOverDelivery(scout, { deliveryId, handOverNumber: 3, isOnceMore: true });

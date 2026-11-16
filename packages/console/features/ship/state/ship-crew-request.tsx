@@ -53,9 +53,10 @@ export function ShipCrewRequest({ ship, timeline, now }: { ship: ShipDetail; tim
   const [replacedPrompt, setReplacedPrompt] = useState<{ issuedAt: string }>();
   // The request's settings, parsed on the web app's server: the fleet stores them without meaning.
   const [settings] = useCrewSettings(ship.crewRequest === null ? [] : [ship.crewRequest.settings]) ?? [];
-  const requestFlow = useRequestCrewFlow(ship.kind === 'agent' && ship.status !== 'retired' ? { shipId: ship.id, shipName: ship.name, heldSettings: ship.crewRequest?.settings } : undefined);
+  const canRequestCrew = (ship.kind === 'agent' || ship.kind === 'trierarch') && ship.status !== 'retired';
+  const requestFlow = useRequestCrewFlow(canRequestCrew ? { shipId: ship.id, shipName: ship.name, heldSettings: ship.crewRequest?.settings } : undefined);
 
-  if (ship.kind !== 'agent' || ship.status === 'retired') {
+  if (!canRequestCrew) {
     return null;
   }
   const stage = crewRequestStage(ship);

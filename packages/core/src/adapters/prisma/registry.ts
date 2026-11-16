@@ -753,7 +753,7 @@ function agentKindOfShip(pluginShipIds: readonly ShipId[]): Prisma.Sql {
     CASE
       WHEN s.kind IN ('operator', 'viewer') THEN 'console'
       WHEN s.id = ANY(${[...pluginShipIds]}::text[]) THEN 'plugin'
-      WHEN s.type = 'trierarch' THEN 'trierarch'
+      WHEN s.kind = 'trierarch' THEN 'trierarch'
       ELSE COALESCE((SELECT CASE ol.harness WHEN 'claude-code' THEN 'claudeCode' WHEN 'codex' THEN 'codex' END
                      FROM leases ol WHERE ol.fleet_id = s.fleet_id AND ol.ship_id = s.id AND ol.ended_at IS NULL), 'other')
     END`;
@@ -896,7 +896,7 @@ function shownSortValueOfShip(sort: ShipSort | undefined): Prisma.Sql {
     case 'status':
       return statusWordOfShip;
     case 'report':
-      return Prisma.sql`CASE WHEN s.kind IN ('agent', 'plugin') AND ${statusOfShip} = 'crewed' THEN lower(COALESCE(l.report_note, '')) ELSE '' END`;
+      return Prisma.sql`CASE WHEN s.kind IN ('agent', 'plugin', 'trierarch') AND ${statusOfShip} = 'crewed' THEN lower(COALESCE(l.report_note, '')) ELSE '' END`;
     case 'runsOn':
       return Prisma.sql`CASE WHEN ${statusOfShip} = 'crewed' AND s.kind <> 'viewer'
                              THEN CASE WHEN s.kind = 'operator' THEN 'console' ELSE lower(COALESCE(l.harness, '')) END

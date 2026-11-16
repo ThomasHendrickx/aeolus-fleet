@@ -14,6 +14,7 @@ export type { OwnerChoice };
 export interface OwnerFailure {
   message: string;
   onRetry: () => void;
+  isRetrying: boolean;
 }
 
 export interface CommissionOwner {
@@ -36,6 +37,7 @@ export interface CommissionOwner {
 export function useCommissionOwner(isOpen: boolean): CommissionOwner | undefined {
   const trpc = useTRPC();
   const [query, setQuery] = useState('');
+  const [isRetrying, setIsRetrying] = useState(false);
   const account = useQuery(trpc.console.account.queryOptions());
   const isArgo = account.data?.kind === 'operator';
   const nameQuery = query.trim();
@@ -51,18 +53,15 @@ export function useCommissionOwner(isOpen: boolean): CommissionOwner | undefined
   }
   const failed = personShips.isError ? personShips : lastNamed.isError ? lastNamed : undefined;
   const failure =
-    failed === undefined
+    failed === undefined && !isRetrying
       ? {}
       : {
           failure: {
-            message: failed.error.message,
+            message: failed?.error.message ?? 'Reading the person ships again. Nothing you typed is lost.',
+            isRetrying,
             onRetry: () => {
-              if (personShips.isError) {
-                void personShips.refetch();
-              }
-              if (lastNamed.isError) {
-                void lastNamed.refetch();
-              }
+              setIsRetrying(true);
+              void Promise.all([...(personShips.isError ? [personShips.refetch()] : []), ...(lastNamed.isError ? [lastNamed.refetch()] : [])]).finally(() => { setIsRetrying(false); });
             },
           },
         };

@@ -2,7 +2,6 @@ import { createIdGenerator, type FleetId } from '@aeolus-fleet/common';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/client.js';
-import { createReceiverWakeups } from '../src/adapters/prisma/receiver-wakeups.js';
 import { createPrismaUnitOfWork, type PrismaTx } from '../src/adapters/prisma/unit-of-work.js';
 import { createReportTurn } from '../src/domain/registry/report-turn.js';
 import type { ShipCaller, Crew } from '../src/domain/shared/caller.js';
@@ -19,8 +18,6 @@ import { withOperatorLogin } from './support/operator-login.js';
 // midway stores nothing, and that a restart of the server keeps the turn.
 
 const newId = createIdGenerator();
-/** How long a receive waits on an empty inbox in these tests: short, so an empty receive costs little. */
-const WAIT_MS = 500;
 
 let databaseUrl: string;
 let prisma: PrismaClient;
@@ -32,7 +29,7 @@ let scout: Crew;
 beforeEach(async () => {
   databaseUrl = await createMigratedDatabase();
   prisma = createPrismaClient(databaseUrl);
-  useCases = createUseCases({ prisma, clock: systemClock, wakeups: createReceiverWakeups(), receiveWaitMs: WAIT_MS });
+  useCases = createUseCases({ prisma, clock: systemClock });
   const fleet = unwrap(await withOperatorLogin(prisma, useCases.initialiseFleet({ name: 'home fleet' })));
   ({ fleetId } = fleet);
   argo = operatorCaller(fleet);
@@ -137,7 +134,7 @@ describe('a restart of the server', () => {
 
     const restarted = createPrismaClient(databaseUrl);
     try {
-      const afterRestart = createUseCases({ prisma: restarted, clock: systemClock, wakeups: createReceiverWakeups(), receiveWaitMs: WAIT_MS });
+      const afterRestart = createUseCases({ prisma: restarted, clock: systemClock });
 
       unwrap(await afterRestart.reportTurn(scout, { turn: 'busy', at: secondsAgo(60) }));
 

@@ -24,6 +24,10 @@ export const guideStepSchema = z.object({
     .optional(),
   title: z.string().trim().min(1).max(GUIDE_STEP_TITLE_MAX),
   text: z.string().trim().min(1).max(GUIDE_STEP_TEXT_MAX),
+  actions: z.array(z.object({
+    label: z.string().trim().min(1),
+    href: z.url({ protocol: /^https?$/ }),
+  })).optional(),
 });
 
 export type GuideStep = z.infer<typeof guideStepSchema>;

@@ -17,6 +17,7 @@ import { ShipWayLines } from '../../../../features/ship/ui/molecules/ship-way-li
 import { shipWayView } from '../../../../features/ship/services/ship-way';
 import { gatewayReaderOf, gatewayShipOf } from '../../../../features/ship/services/gateway-reader';
 import { ShipPageLabels } from '../../../../features/ship/state/ship-page-labels';
+import { ShipPagePermissions } from '../../../../features/ship/state/ship-page-permissions';
 import { ShipPageOwner } from '../../../../features/ship/state/ship-page-owner';
 import { ShipTimeline } from '../../../../features/ship/ui/organisms/ship-timeline';
 import { MessageDeliveries } from '../../../../features/ship/ui/organisms/message-deliveries';
@@ -103,7 +104,7 @@ export function ShipPageFor({ shipId, tab, messageId }: { shipId: ShipId; tab: S
   // A ship the session does not read whole shows as one it cannot find (decision 0034).
   const isNotFound = trpcErrorCode(ship.error) === 'NOT_FOUND' || ship.data === null;
   // argo's own side is this console; a ship no session crews has none.
-  const wayView = way.data && ship.data?.kind === 'agent' ? shipWayView(way.data, { now, machines: machines.data ?? [] }) : undefined;
+  const wayView = way.data && (ship.data?.kind === 'agent' || ship.data?.kind === 'trierarch') ? shipWayView(way.data, { now, machines: machines.data ?? [] }) : undefined;
   // In a sealed fleet, a ship the gateway reads says so (decision 0068, B19); nothing until the sealing is read.
   const gatewayReader = ship.data
     ? gatewayReaderOf({
@@ -146,6 +147,7 @@ export function ShipPageFor({ shipId, tab, messageId }: { shipId: ShipId; tab: S
           actions={ship.data ? <ShipActions ship={ship.data} compose={ComposeMessage} crewLineFlow={NewCrewLineFlow} /> : undefined}
           crewRequest={ship.data ? <ShipCrewRequest ship={ship.data} timeline={timeline.items ?? []} now={now} /> : undefined}
           labels={ship.data ? <ShipPageLabels ship={ship.data} /> : undefined}
+          permissions={ship.data ? <ShipPagePermissions ship={ship.data} /> : undefined}
           owner={ship.data && ship.data.ownerShipId !== null ? <ShipPageOwner ship={ship.data} /> : undefined}
           isPluginShip={pluginShipIds.has(shipId)}
           way={wayView && way.data?.lease ? <ShipWayLines view={wayView} onOpenMessage={openMessageAt} /> : undefined}

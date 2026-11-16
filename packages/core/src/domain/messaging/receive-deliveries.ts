@@ -11,7 +11,7 @@ import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { unsealed, withDataKeys, type DataKeysNeeded, type HeldDataKeys, type PayloadSealing } from './data-keys.js';
 import { handDelivery } from './delivery.js';
 import type { Delivery, Message } from './message.js';
-import type { DeliveryRepository, ReceiverWakeups, ReceiverWatch } from './ports.js';
+import type { DeliveryRepository } from './ports.js';
 import { receiveMax } from './receive-max.js';
 
 export interface ReceiveDeliveriesTx extends HoldLeaseTx, FindSenderTx {
@@ -51,7 +51,7 @@ export interface ReceivedDelivery {
 }
 
 export interface DeliveriesReceived {
-  /** None when the wait ended without a delivery. */
+  /** None when nothing was there for the crew. */
   deliveries: ReceivedDelivery[];
 }
 
@@ -61,9 +61,6 @@ export type ReceiveDeliveries = (
   crew: Crew,
   input: { max?: number },
 ) => Promise<Result<DeliveriesReceived, ReceiveRefusal>>;
-
-/** How long a receive waits for a delivery when none is there: about 25 seconds, then it returns empty. */
-export const RECEIVE_WAIT_MS = 25_000;
 
 /**
  * The delivery as its crew gets it: with its message, its payload unsealed
@@ -187,71 +184,23 @@ export async function claimForCrew(
  * does not give refuses KEY_UNAVAILABLE, nothing claimed and no attempt
  * counted, and the deliveries wait pending.
  *
- * When nothing is there it waits, about 25 seconds, for a wake-up for its ship
- * or its type (ADR 0003: LISTEN/NOTIFY after commit), then returns empty. It
- * starts watching before it looks a second time, so a delivery that commits
- * between its first look and its watch is found by that second look. A
- * wake-up that brings nothing for it, a type delivery another ship took,
- * leaves it waiting for the rest of its time.
+ * When nothing is there it answers empty at once: no call waits (decision
+ * 0072); a crew is told to look by its wake stream.
  */
 export function createReceiveDeliveries(deps: {
   uow: UnitOfWork<ReceiveDeliveriesTx>;
   clock: Clock;
   ids: IdGenerator;
   sealing: PayloadSealing;
-  wakeups: ReceiverWakeups;
-  /** How long a receive waits on an empty inbox; about 25 seconds unless a test says otherwise. */
-  waitMs?: number;
 }): ReceiveDeliveries {
-  const waitMs = deps.waitMs ?? RECEIVE_WAIT_MS;
   return async (crew, input) => {
     const max = receiveMax(input.max);
     if (!max.isOk) {
       return max;
     }
-
-    return waitForDeliveries(
-      { clock: deps.clock, wakeups: deps.wakeups, waitMs },
-      { crew, look: () => withDataKeys({ sealing: deps.sealing, fleetId: crew.fleetId }, (keys) => deps.uow.run((tx) => claimForCrew({ tx, ids: deps.ids, at: deps.clock.now(), keys }, { crew, max: max.value }))) },
+    const claimed = await withDataKeys({ sealing: deps.sealing, fleetId: crew.fleetId }, (keys) =>
+      deps.uow.run((tx) => claimForCrew({ tx, ids: deps.ids, at: deps.clock.now(), keys }, { crew, max: max.value })),
     );
+    return claimed.isOk ? ok({ deliveries: claimed.value.deliveries }) : claimed;
   };
-}
-
-/**
- * Looks for the crew's deliveries, one unit of work per `look`, and
- * when there are none waits for a wake-up for its ship or its type, until
- * `waitMs` has passed. It starts watching before it looks a second time, so a
- * delivery that commits between its first look and its watch is found by that
- * second look. A wake-up that brings nothing for it leaves it waiting for the
- * rest of its time.
- */
-export async function waitForDeliveries<Found, Refusal>(
-  deps: { clock: Clock; wakeups: ReceiverWakeups; waitMs: number },
-  wait: { crew: Crew; look: () => Promise<Result<{ ship: Ship; deliveries: Found[] }, Refusal>> },
-): Promise<Result<{ deliveries: Found[] }, Refusal>> {
-  const { crew, look } = wait;
-  const until = deps.clock.now().getTime() + deps.waitMs;
-  let watch: ReceiverWatch | undefined;
-  try {
-    for (;;) {
-      const attempt = await look();
-      if (!attempt.isOk) {
-        return attempt;
-      }
-      const { ship, deliveries } = attempt.value;
-      if (deliveries.length > 0) {
-        return ok({ deliveries });
-      }
-      if (watch === undefined) {
-        watch = deps.wakeups.watch({ fleetId: crew.fleetId, shipId: crew.shipId, type: ship.type });
-        continue;
-      }
-      const remainingMs = until - deps.clock.now().getTime();
-      if (remainingMs <= 0 || (await watch.next(remainingMs)) === 'timedOut') {
-        return ok({ deliveries: [] });
-      }
-    }
-  } finally {
-    watch?.stop();
-  }
 }

@@ -23,6 +23,7 @@ Feature designs, one folder each; the status of each is at its top:
 | [argo-inbox](argo-inbox/README.md) | argo's inbox reaches the people who may act as argo |
 | [ask-and-step](ask-and-step/ask-and-step.md) | Approved: typed ask, step and withdraw calls, with questions and steps checked at send time |
 | [bridge](bridge/README.md) | Bridge: a person's one place to work with their fleet, and where else each job shows |
+| [commission-ship](commission-ship/README.md) | Commission form and live ship permissions; behaviour agreed, screens await approval |
 | [computer-setup](computer-setup/README.md) | Approved: purpose, choices, detailed flow and terminal mockups |
 | [crew-mcp-servers](crew-mcp-servers/README.md) | A crew request's MCP servers in the crew settings forms and the crew request card |
 | [e2e-encryption](e2e-encryption/e2e-encryption.md) | Who can read a fleet's messages: sealed fleets |
@@ -55,6 +56,7 @@ Feature designs, one folder each; the status of each is at its top:
 | [ship-repositories](ship-repositories/README.md) | Mockups: the crew settings name a main repository and sub-repositories, shown on the ship and trierarch pages |
 | [working-band](working-band/README.md) | Shared UI working band: approved motion reference, integration proposal and simulated comparison evidence |
 | [state-colours](state-colours/state-colours.md) | One meaning per colour for a ship's state, in every app |
+| [trierarch-kind](trierarch-kind/README.md) | Purpose proposed for a trierarch ship's own kind |
 | [ui-package](ui-package/README.md) | One set of UI parts for every Aeolus app |
 | [usage](usage/usage.md) | Usage over time: tokens across the fleet and its setup |
 | [vendor-platforms](vendor-platforms/README.md) | Aeolus beside vendor agent platforms |

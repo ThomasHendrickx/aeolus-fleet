@@ -31,6 +31,7 @@ function cleanEnvironment(settings: Record<string, string>): Record<string, stri
   return { PATH, HOME, NEXT_TELEMETRY_DISABLED: '1', ...settings };
 }
 
+let tarballsFolder: string;
 let installFolder: string;
 let databaseUrl: string;
 let serverUrl: string;
@@ -91,13 +92,13 @@ async function healthStatus(url: string): Promise<number | undefined> {
 beforeAll(async () => {
   await run('npm', ['run', 'build'], { cwd: repositoryRoot, env: { ...process.env, NEXT_TELEMETRY_DISABLED: '1' } });
 
-  const tarballs = await mkdtemp(join(tmpdir(), 'aeolus-tarballs-'));
+  tarballsFolder = await mkdtemp(join(tmpdir(), 'aeolus-tarballs-'));
   await run(
     'npm',
     [
       'pack',
       '--pack-destination',
-      tarballs,
+      tarballsFolder,
       '--workspace',
       '@aeolus-fleet/common',
       '--workspace',
@@ -107,7 +108,7 @@ beforeAll(async () => {
     ],
     { cwd: repositoryRoot },
   );
-  const packed = (await readdir(tarballs)).filter((name) => name.endsWith('.tgz')).map((name) => join(tarballs, name));
+  const packed = (await readdir(tarballsFolder)).filter((name) => name.endsWith('.tgz')).map((name) => join(tarballsFolder, name));
   expect(packed).toHaveLength(3);
 
   // Common from its tarball too: npm would otherwise take the 0.0.0 placeholder from the registry.
@@ -133,6 +134,7 @@ afterAll(async () => {
   }
   await Promise.all(running.filter((child) => child.exitCode === null).map((child) => once(child, 'exit')));
   await rm(installFolder, { recursive: true, force: true });
+  await rm(tarballsFolder, { recursive: true, force: true });
 });
 
 describe('installed from npm', () => {

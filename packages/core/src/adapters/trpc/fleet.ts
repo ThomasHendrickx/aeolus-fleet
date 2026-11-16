@@ -259,7 +259,7 @@ export const fleetRouter = router({
         'valueIds gives it label values from the start, each a value of a label you defined or a value you carry yourself (decision 0053).',
         "ownerOf, which needs fleet:on-behalf, names the ship that asked it for this one: the new ship gets that ship's owner instead of yours.",
         'approval names a kept approvalId and matching subjectDigest. Only its permitted commissioner may use it, for a subset of its scopes, with ownerOf still naming requester ownership. Withdrawal stops new commissions and leaves completed retries unchanged.',
-        'kind is agent unless you state person, app or plugin: a person ship needs fleet:person instead and owns itself, an app ship needs fleet:on-behalf as well, and a plugin ship needs fleet:connect instead, which connects it (decision 0050).',
+        'kind is agent unless you state person, app, plugin or trierarch: a person ship needs fleet:person instead and owns itself, an app ship needs fleet:on-behalf as well, and a plugin ship needs fleet:connect instead, which connects it (decision 0050). A trierarch ship needs fleet:commission and crews its computer’s assigned ships.',
         "owner, which needs fleet:on-behalf and only for an app ship, names the owner argo picked for it: a person's ship or argo, never beside ownerOf.",
         'Answers its shipId, its first starting prompt, one crew line per harness (claude-code, codex, copilot) and its secret, shown only this once.',
         'idempotencyKey is a new unique string for every commission. Reuse one only to retry the same commission after an error or a lost answer:',
@@ -1489,8 +1489,8 @@ export const fleetRouter = router({
 
   /**
    * The fleet's committed events after a position, for a client that is no
-   * browser: the same numbers the live stream sends, waiting up to
-   * waitSeconds while none has come. A query: it changes nothing.
+   * browser: the same numbers the live stream sends, answered at once (no
+   * call waits, decision 0072). A query: it changes nothing.
    */
   follow: actorScopedProcedure('fleet:read')
     .meta({
@@ -1499,7 +1499,7 @@ export const fleetRouter = router({
         'each with its seq, type, time, the ship that caused it and the ship, message and delivery it concerns, never its details. Only the events in your read reach (decision 0034): a message\'s through its sender or recipient, any other through the ship it concerns.',
         'Pass the lastSeq it answers as afterSeq next, so you miss nothing across reconnects: it counts the events you do not read too.',
         'Without afterSeq it answers no events and the current lastSeq to start from; so does an afterSeq past the fleet\'s last event, as after a restore, at once.',
-        'With waitSeconds (0 to 25) it waits while none has come, and answers as soon as one commits.',
+        'It answers at once and does not wait: with none come it answers no events and the same lastSeq.',
       ].join(' '),
     })
     .input(followFleetInputSchema)

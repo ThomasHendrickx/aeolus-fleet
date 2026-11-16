@@ -6,8 +6,8 @@ import { FOLLOW_MAX_DEFAULT, FOLLOW_MAX_LIMIT, followFleetInputSchema, followFle
 const newId = createIdGenerator();
 
 describe('followFleetInputSchema', () => {
-  it.each([undefined, {}, { afterSeq: 0 }, { afterSeq: 42, max: 1, waitSeconds: 25 }, { max: 100, waitSeconds: 0 }])(
-    'accepts %j: where to follow from, how many at most, how long to wait',
+  it.each([undefined, {}, { afterSeq: 0 }, { afterSeq: 42, max: 1 }, { max: 100 }])(
+    'accepts %j: where to follow from, and how many at most',
     (input) => {
       expect(followFleetInputSchema.safeParse(input).success).toBe(true);
     },
@@ -18,7 +18,7 @@ describe('followFleetInputSchema', () => {
     ['a position that is not whole', { afterSeq: 1.5 }],
     ['no event at most', { max: 0 }],
     ['more than 100 at most', { max: 101 }],
-    ['a wait over 25 seconds', { waitSeconds: 26 }],
+    ['a wait, as unknown input: no call waits (decision 0072)', { afterSeq: 0, waitSeconds: 0 }],
   ])('rejects %s', (_label, input) => {
     expect(followFleetInputSchema.safeParse(input).success).toBe(false);
   });

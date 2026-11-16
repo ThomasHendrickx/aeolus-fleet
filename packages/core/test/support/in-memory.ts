@@ -32,7 +32,6 @@ import type {
   OverdueDeliveryRepository,
   PushedCrews,
   ReceiverAddress,
-  ReceiverWakeups,
   WakeStreamOutcome,
   WakeStreams,
   ScheduleAttempts,
@@ -99,7 +98,7 @@ import { NO_EXPECTATIONS, type Expectations } from '../../src/domain/registry/ex
 import type { ClearRequest } from '../../src/domain/registry/clear-request.js';
 import type { CrewRequest } from '../../src/domain/registry/crew-request.js';
 import type { Clock } from '../../src/domain/shared/clock.js';
-import type { EventLog, FleetEvent, FleetEventFeed, FleetEventWakeups, SequencedEvent } from '../../src/domain/shared/events.js';
+import type { EventLog, FleetEvent, FleetEventFeed, SequencedEvent } from '../../src/domain/shared/events.js';
 import { deliveryStepOf, type StandingOverdue, type WayCrew, type WayLease } from '../../src/domain/shared/delivery-way.js';
 import {
   isKeptBy,
@@ -294,23 +293,6 @@ export interface InMemoryTx {
 }
 
 /**
- * Wake-ups for a waiting receive, played by the test. A wait takes the next
- * scripted step, which may send a message or move the clock and says whether
- * it woke the receive; without one, the whole wait passes on the clock and
- * times out.
- */
-export interface InMemoryWakeups extends ReceiverWakeups {
-  /** Every ship and type a receive watched, in order. */
-  watched: ReceiverAddress[];
-  /** Every wait a receive began, in milliseconds. */
-  waits: number[];
-  /** What the next waits do, first one first. */
-  nextWaits: (() => Promise<'woken' | 'timedOut'>)[];
-  /** How many watches have not stopped. */
-  watching(): number;
-}
-
-/**
  * The wake streams' hub, played by the test: `wake` wakes every open stream
  * once, `passKeepAlive` lets each stream's wait run out, and `stop` ends every
  * stream and refuses new ones, as a stopping server does.
@@ -325,17 +307,6 @@ export interface InMemoryWakeStreams extends WakeStreams {
   wake(reason: 'notice' | 'reconnect'): void;
   passKeepAlive(): void;
   stop(): void;
-}
-
-export interface InMemoryFleetNews extends FleetEventWakeups {
-  /** Every fleet a wait watched for news, in order. */
-  watched: FleetId[];
-  /** Every wait begun, in milliseconds. */
-  waits: number[];
-  /** What the next waits do, first one first. */
-  nextWaits: (() => Promise<'woken' | 'timedOut'>)[];
-  /** How many watches have not stopped. */
-  watching(): number;
 }
 
 export interface InMemoryCore {
@@ -405,10 +376,7 @@ export interface InMemoryCore {
   hasher: SecretHasher;
   passwords: PasswordHasher;
   random: RandomTokens;
-  wakeups: InMemoryWakeups;
   wakeStreams: InMemoryWakeStreams;
-  /** Wakes a wait on news of its fleet: any committed event. */
-  fleetNews: InMemoryFleetNews;
 }
 
 /** Whether a receive or a push receive holds the delivery: received or handed, in flight with its crew. */
@@ -2266,46 +2234,6 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
   }
 
 
-  /**
-   * A watch that runs each wait's step when one is queued, and otherwise lets
-   * the wait pass on the clock: the receiver wake-ups and the fleet news alike.
-   */
-  const recordedWatches = <Address>(watched: Address[]) => {
-    const waits: number[] = [];
-    const nextWaits: (() => Promise<'woken' | 'timedOut'>)[] = [];
-    let watches = 0;
-    return {
-      watched,
-      waits,
-      nextWaits,
-      watching: () => watches,
-      watch: (address: Address) => {
-        watched.push(address);
-        watches += 1;
-        let isStopped = false;
-        return {
-          next: (waitMs: number) => {
-            waits.push(waitMs);
-            const step = nextWaits.shift();
-            if (step) {
-              return step();
-            }
-            clock.advance(waitMs);
-            return Promise.resolve<'woken' | 'timedOut'>('timedOut');
-          },
-          stop: () => {
-            if (!isStopped) {
-              isStopped = true;
-              watches -= 1;
-            }
-          },
-        };
-      },
-    };
-  };
-  const receiverWatches = recordedWatches<ReceiverAddress>([]);
-  const wakeups: InMemoryWakeups = { ...receiverWatches, watch: (address) => receiverWatches.watch({ ...address }) };
-  const fleetNews: InMemoryFleetNews = recordedWatches<FleetId>([]);
   const wakeStreams = inMemoryWakeStreams();
 
   const numbered = (fleetId: FleetId) => numberedEvents(state, fleetId);
@@ -2769,7 +2697,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     },
   };
 
-  return { state, uow, fleets: tx.fleets, scheduleAttempts, pushedCrews, ships: tx.ships, leases: tx.leases, crewRequests: tx.crewRequests, clearRequests: tx.clearRequests, labels: tx.labels, reachRefusals: tx.reachRefusals, declaredNetworkRules: tx.declaredNetworkRules, scopeNamespaces: tx.scopeNamespaces, commissionApprovals: tx.commissionApprovals, definedScopes: tx.definedScopes, sealings: tx.sealings, featureFlags: tx.featureFlags, featureFlagReads: { source: { kind: 'installation' }, flags: tx.featureFlags }, keyVault, recoveryKeys: inMemoryRecoveryKeys, sealing: { sealer: inMemoryPayloadSealer, dataKeys: createFleetDataKeys({ sealings: tx.sealings, vault: keyVault.vault, sealer: inMemoryPayloadSealer, recoveryKeys: inMemoryRecoveryKeys, clock, uow, ids }) }, callers, accounts, listing, installationFleets, installationSettings: installationSettingsRepository, fleetLimitReads, feed, history, health: healthRecords, healthSnapshots, notices, noticeDismissals, guide, guideProgress, clock, ids, hasher, passwords, random, wakeups, wakeStreams, fleetNews };
+  return { state, uow, fleets: tx.fleets, scheduleAttempts, pushedCrews, ships: tx.ships, leases: tx.leases, crewRequests: tx.crewRequests, clearRequests: tx.clearRequests, labels: tx.labels, reachRefusals: tx.reachRefusals, declaredNetworkRules: tx.declaredNetworkRules, scopeNamespaces: tx.scopeNamespaces, commissionApprovals: tx.commissionApprovals, definedScopes: tx.definedScopes, sealings: tx.sealings, featureFlags: tx.featureFlags, featureFlagReads: { source: { kind: 'installation' }, flags: tx.featureFlags }, keyVault, recoveryKeys: inMemoryRecoveryKeys, sealing: { sealer: inMemoryPayloadSealer, dataKeys: createFleetDataKeys({ sealings: tx.sealings, vault: keyVault.vault, sealer: inMemoryPayloadSealer, recoveryKeys: inMemoryRecoveryKeys, clock, uow, ids }) }, callers, accounts, listing, installationFleets, installationSettings: installationSettingsRepository, fleetLimitReads, feed, history, health: healthRecords, healthSnapshots, notices, noticeDismissals, guide, guideProgress, clock, ids, hasher, passwords, random, wakeStreams };
 }
 
 /** The tables whose rows belong to a fleet by their fleet id: all but the fleets and the installation's requests. */

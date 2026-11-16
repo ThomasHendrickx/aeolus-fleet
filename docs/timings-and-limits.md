@@ -79,8 +79,6 @@ Defined in `@aeolus-fleet/common`, checked by core on every call and by the clie
 
 | Value | What it guards | Set in | Behind |
 | --- | --- | --- | --- |
-| 0 to 25 s | The wait an inbox check may ask for | [schemas/delivery.ts](../packages/common/src/schemas/delivery.ts) `INBOX_WAIT_MAX_SECONDS` | [blueprint.md](blueprint.md) |
-| 0 to 25 s | The wait a `fleet.follow` may ask for | [schemas/follow.ts](../packages/common/src/schemas/follow.ts) `FOLLOW_WAIT_MAX_SECONDS` | none recorded |
 | 7 days, by the hour | The stuck trend on Health | [schemas/health.ts](../packages/common/src/schemas/health.ts) `STUCK_TREND_HOURS` | [0042](decisions/0042-stuck-deliveries.md) |
 | 24 hours | The acknowledged deliveries Health counts | [schemas/health.ts](../packages/common/src/schemas/health.ts) `ACKNOWLEDGED_HOURS` | [0041](decisions/0041-fleet-health.md) |
 | 2 minutes | The longest a capability may ask the gateway to hold an outside call for its reply | [schemas/statement.ts](../packages/common/src/schemas/statement.ts) `CAPABILITY_WAIT_MAX_MS` | [0060](decisions/0060-a2a-through-the-gateway.md) |
@@ -94,7 +92,6 @@ Defined in `@aeolus-fleet/common`, checked by core on every call and by the clie
 
 | Value | What it guards | Set in | Behind |
 | --- | --- | --- | --- |
-| 25 s | How long a receive waits on an empty inbox before it answers empty (long poll) | [messaging/receive-deliveries.ts](../packages/core/src/domain/messaging/receive-deliveries.ts) `RECEIVE_WAIT_MS` | [architecture.md](architecture.md), [blueprint.md](blueprint.md) |
 | 5th attempt | A delivery received this often without an ack is refused, handed to no one: it becomes undeliverable and is stuck on Health | [messaging/delivery.ts](../packages/core/src/domain/messaging/delivery.ts) `UNDELIVERABLE_AT_ATTEMPT` | [blueprint.md](blueprint.md), [architecture.md](architecture.md) |
 | 10 min | A delivery handed on a pushed ship and not confirmed this long is overdue: argo is told once per lease and oldest delivery, whatever the turn | [messaging/overdue.ts](../packages/core/src/domain/messaging/overdue.ts) `NOT_CONFIRMED_MINUTES` | [0040](decisions/0040-delivery-protocol.md), #586 |
 | 10 min | A delivery pending or received for a pushed ship this long while its session is idle is overdue | [messaging/overdue.ts](../packages/core/src/domain/messaging/overdue.ts) `IDLE_MINUTES` | [0040](decisions/0040-delivery-protocol.md), #586 |
