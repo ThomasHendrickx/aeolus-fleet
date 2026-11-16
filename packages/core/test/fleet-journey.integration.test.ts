@@ -64,6 +64,31 @@ describe('hosting service fleet journey contract', () => {
     expect(JSON.stringify(journey)).not.toMatch(/private|sender|recipient|ship_|msg_/);
   });
 
+  it('recognises the original send time when a type delivery identifies its customer recipient later', async () => {
+    // Given two crewed customer ships and a message addressed to the second ship's type.
+    const fleet = unwrap(await core.useCases.createFleet({ requestId: 'type-fleet', name: 'type fleet', operatorEmail: 'manager@example.com' }));
+    const argo = operatorCaller(fleet);
+    const a = unwrap(await core.useCases.commissionShip(argo, { name: 'writer', type: 'writer', idempotencyKey: 'writer' }));
+    const b = unwrap(await core.useCases.commissionShip(argo, { name: 'reader', type: 'reader', idempotencyKey: 'reader' }));
+    const claim = async (ship: typeof a) => {
+      const { crewToken } = unwrap(await core.useCases.claimShip({ shipId: ship.shipId, secret: secretOf(ship.secret), location: { kind: 'CLOUD' } }));
+      return unwrap(await core.useCases.authenticate.byCrewToken(crewToken));
+    };
+    const alice = await claim(a);
+    const bob = await claim(b);
+    const sentAt = core.clock.now().toISOString();
+    const original = unwrap(await core.useCases.sendMessage(alice, { selector: { kind: 'type', type: 'reader' }, payload: 'private', model: 'test', idempotencyKey: 'to-type' }));
+    // When the recipient is known three days later and replies explicitly.
+    core.clock.advance(3 * 86_400_000);
+    unwrap(await core.useCases.receiveDeliveries(bob, {}));
+    const repliedAt = core.clock.now().toISOString();
+    unwrap(await core.useCases.sendMessage(bob, { selector: { kind: 'ship', shipId: a.shipId }, inReplyTo: original.messageId, payload: 'private reply', model: 'test', idempotencyKey: 'type-reply' }));
+    // Then the original source time and late computation stay distinct, and the reply proves value.
+    const journey = (await installation().get.query({ fleetId: fleet.fleetId })).journey;
+    expect(journey?.milestones.find((fact) => fact.key === 'first-message')).toMatchObject({ state: 'reached', occurredAt: sentAt, computedAt: repliedAt });
+    expect(journey?.milestones.find((fact) => fact.key === 'first-value')).toMatchObject({ state: 'reached', occurredAt: repliedAt });
+  });
+
   it('pages twenty fleet resources and safely replays a deletion-aware changes cursor behind installation authentication', async () => {
     // Given more fleets than a default page, including equal creation timestamps.
     for (let index = 0; index < 21; index += 1) unwrap(await core.useCases.createFleet({ requestId: `page-${index}`, name: `fleet-${index}`, operatorEmail: 'manager@example.com' }));
