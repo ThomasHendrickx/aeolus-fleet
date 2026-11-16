@@ -61,7 +61,9 @@ describe('hosting service fleet journey contract', () => {
       for (const delivery of received.deliveries) unwrap(await core.useCases.acknowledgeDelivery(caller, { deliveryId: delivery.deliveryId }));
     }
     core.clock.advance(3 * 24 * 60 * 60 * 1000);
+    await core.useCases.closeHealthSnapshots();
     await core.useCases.pruneHistory();
+    expect(await core.prisma.message.count({ where: { fleetId: fleet.fleetId } })).toBe(0);
 
     // Then only this fleet reached First value; no content or party identifiers cross the journey API.
     const journey = (await installation().get.query({ fleetId: fleet.fleetId })).journey;
@@ -164,22 +166,18 @@ describe('hosting service fleet journey contract', () => {
     // When the hosting service reads two pages and resumes after a saved changes cursor.
     const first = await installation().page.query({});
     const second = await installation().page.query({ cursor: first.nextCursor ?? undefined });
-    const initial = await installation().changes.query({});
-    let cursor = initial.nextCursor;
-    while (cursor !== null) {
-      const page = await installation().changes.query({ cursor });
-      if (!page.hasMore) { cursor = page.nextCursor; break; }
-      cursor = page.nextCursor;
-    }
+    let checkpoint = await installation().changes.query({});
+    while (checkpoint.hasMore) checkpoint = await installation().changes.query({ cursor: checkpoint.nextCursor });
+    const cursor = checkpoint.nextCursor;
     const doomed = second.items[0];
     if (!doomed) throw new Error('Expected the second page to hold a fleet');
     unwrap(await core.useCases.deleteFleet({ requestId: 'delete-journey', fleetId: doomed.fleetId }));
-    const changes = await installation().changes.query({ cursor: cursor ?? undefined });
+    const changes = await installation().changes.query({ cursor });
     // Then stable pages never overlap, replay is safe, deletion is explicit, and another actor cannot read it.
     expect(first.items).toHaveLength(20);
     expect(second.items.every((item) => !first.items.some((seen) => seen.fleetId === item.fleetId))).toBe(true);
     expect(changes.items).toEqual([expect.objectContaining({ fleetId: doomed.fleetId, isDeleted: true, journey: null })]);
-    expect(await installation().changes.query({ cursor: cursor ?? undefined })).toEqual(changes);
+    expect(await installation().changes.query({ cursor })).toEqual(changes);
     await expect(installation('wrong').changes.query({})).rejects.toMatchObject({ data: { code: 'UNAUTHORIZED' } });
     await expect(installation('wrong').page.query({})).rejects.toMatchObject({ data: { code: 'UNAUTHORIZED' } });
   });

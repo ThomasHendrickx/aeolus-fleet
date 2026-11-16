@@ -22,3 +22,4 @@ export {
   UNREADABLE_PAYLOAD,
 } from './data-keys.js';
 export { isSealedPayload, type StoredPayload } from './sealed-payload.js';
+export { qualifyJourneyMessage } from './journey-message.js';

@@ -6,3 +6,4 @@ export * from './trierarch/index.js';
 export * from './schemas/commission-approval.js';
 
 export * from './schemas/plugin-call.js';
+export { fleetJourneySummarySchema, installationFleetPageInputSchema, installationFleetPageOutputSchema, installationFleetChangesOutputSchema, type FleetJourneySummary } from './schemas/fleet-journey.js';

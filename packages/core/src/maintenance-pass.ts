@@ -6,7 +6,7 @@ import type { ScheduleTimer } from './schedule-timer.js';
 import type { UseCases } from './wiring.js';
 
 type MaintenanceUseCases = Pick<UseCases,
-  'tellOverdueDeliveries' | 'closeHealthSnapshots' | 'removeDeletedFleets' | 'pruneHistory' | 'sealStoredPayloads' | 'rotateDataKeys' | 'sendDueSchedules'
+  'tellOverdueDeliveries' | 'closeHealthSnapshots' | 'removeDeletedFleets' | 'pruneHistory' | 'expireJourneyActivity' | 'sealStoredPayloads' | 'rotateDataKeys' | 'sendDueSchedules'
 >;
 
 /** The app's periodic maintenance, with the same task boundaries in memory and in production. */
@@ -37,6 +37,7 @@ export function startMaintenancePass(options: {
         pruneHistory: () => useCases.pruneHistory((fleetId, error) => {
           options.log.warn({ ...failureForLog(error), fleetId }, 'the pruning pass failed for a fleet: pruning it again next hour');
         }),
+        expireJourneyActivity: () => useCases.expireJourneyActivity(),
         sealStoredPayloads: () => useCases.sealStoredPayloads((fleetId, error) => {
           options.log.warn({ ...failureForLog(error), fleetId }, 'the sealing pass failed for a fleet: sealing it again next pass');
         }),

@@ -1,4 +1,4 @@
-import type { FleetFeatureFlag, FleetId } from '@aeolus-fleet/common';
+import type { FleetFeatureFlag, FleetId, FleetJourneySummary } from '@aeolus-fleet/common';
 
 import type { Health } from '../shared/health.js';
 import { fleetFeatureFlags } from './feature-flag.js';
@@ -16,6 +16,7 @@ export const MESSAGE_WINDOW_MS = MESSAGE_WINDOW_DAYS * DAY_MS;
  * of the last 7 days, today last, the limits that apply to it and its health.
  */
 export interface InstallationFleet {
+  journey?: FleetJourneySummary;
   fleetId: FleetId;
   name: string;
   operatorEmail: string;

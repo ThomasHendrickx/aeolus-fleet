@@ -1,4 +1,8 @@
 import {
+  installationFleetPageInputSchema,
+  installationFleetPageOutputSchema,
+  installationFleetChangesOutputSchema,
+  idSchema,
   installationAccountsCutOffInputSchema,
   installationAccountsCutOffOutputSchema,
   installationAccountsSignOutInputSchema,
@@ -25,6 +29,7 @@ import {
   setNoticesInputSchema,
 } from '@aeolus-fleet/common';
 import { TRPCError } from '@trpc/server';
+import { z } from 'zod';
 
 import type { Guide, GuideStep } from '../../domain/identity/guide.js';
 import type { Notice } from '../../domain/identity/notice.js';
@@ -66,6 +71,26 @@ function described(fleet: InstallationFleet) {
       ...describedHealth({ stuck, stuckPerHour, acknowledged }),
     },
   };
+}
+
+const pagePositionSchema = z.object({ createdAt: z.iso.datetime(), fleetId: idSchema('fleet') });
+
+function pagePosition(cursor: string | undefined) {
+  if (cursor === undefined) return undefined;
+  try {
+    const position = pagePositionSchema.parse(JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8')));
+    return { ...position, createdAt: new Date(position.createdAt) };
+  } catch {
+    throw new TRPCError({ code: 'BAD_REQUEST', message: 'Use the fleet page cursor returned by core' });
+  }
+}
+
+function changePosition(cursor: string | undefined): bigint {
+  if (cursor === undefined) return 0n;
+  if (!/^[0-9]{1,19}$/.test(cursor)) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Use the fleet changes cursor returned by core' });
+  const position = BigInt(cursor);
+  if (position > 9223372036854775807n) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Invalid fleet changes cursor' });
+  return position;
 }
 
 /** A guide's steps as the API answers them. */
@@ -151,6 +176,16 @@ export const installationRouter = router({
     list: installationProcedure.output(installationFeatureFlagsListOutputSchema).query(() => FEATURE_FLAGS.map((flag) => ({ ...flag }))),
   }),
   fleets: router({
+    /** Compact fleet resources, twenty at a time, for the hosting service's reconciliation. */
+    page: installationProcedure.input(installationFleetPageInputSchema).output(installationFleetPageOutputSchema).query(async ({ ctx, input }) => {
+      const { next, ...page } = await ctx.useCases.installationJourneys.page(pagePosition(input.cursor));
+      return { ...page, nextCursor: next ? Buffer.from(JSON.stringify({ ...next, createdAt: next.createdAt.toISOString() })).toString('base64url') : null };
+    }),
+    /** Current changed summaries and durable deletion tombstones, ordered by commit cursor. */
+    changes: installationProcedure.input(installationFleetPageInputSchema).output(installationFleetChangesOutputSchema).query(async ({ ctx, input }) => {
+      const { next, ...page } = await ctx.useCases.installationJourneys.changes(changePosition(input.cursor));
+      return { ...page, nextCursor: next.toString() };
+    }),
     /**
      * Turns one feature flag on or off for one fleet (decision 0069); refused
      * FEATURE_FLAG_IN_USE, changing nothing, while the fleet uses its feature.

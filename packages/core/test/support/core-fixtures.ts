@@ -1,3 +1,4 @@
+import { createReadInstallationJourneys } from '../../src/domain/registry/read-installation-journeys.js';
 import { randomUUID } from 'node:crypto';
 import { createCallPlugin } from '../../src/domain/registry/call-plugin.js';
 import { createHttpPluginCalls } from '../../src/adapters/http/plugin-calls.js';
@@ -339,6 +340,9 @@ export function registryUseCases(core: InMemoryCore) {
     deregister: createDeregister(deps),
     createFleet: createCreateFleet({ ...deps, hasher: core.hasher }),
     deleteFleet: createDeleteFleet({ ...deps, hasher: core.hasher }),
+    installationJourneys: createReadInstallationJourneys({ clock: core.clock, reads: {
+      find: () => Promise.resolve(undefined), page: () => Promise.resolve([]), changes: () => Promise.resolve([]),
+    } }),
     listInstallationFleets: createListInstallationFleets({ fleets: core.installationFleets, settings: core.installationSettings, health: core.health, snapshots: core.healthSnapshots, clock: core.clock }),
     getInstallationSettings: createGetInstallationSettings({ settings: core.installationSettings }),
     setInstallationSettings: createSetInstallationSettings({ uow: core.uow }),

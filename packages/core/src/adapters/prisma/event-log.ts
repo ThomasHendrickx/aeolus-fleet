@@ -13,8 +13,10 @@
  */
 import type { FleetId } from '@aeolus-fleet/common';
 
+import type { Clock } from '../../domain/shared/clock.js';
 import type { Actor, EventLog, FleetEvent, FleetEventFeed } from '../../domain/shared/events.js';
 import type { Db } from './client.js';
+import { projectJourneyEvents } from './fleet-journeys.js';
 import { toLastEventSeq, toSequencedEvent } from './rows.js';
 
 /** The one channel every committed event is announced on, with its fleet and the last number. */
@@ -25,7 +27,7 @@ export interface BufferedEventLog extends EventLog {
   flush(): Promise<void>;
 }
 
-export function createPrismaEventLog(db: Db): BufferedEventLog {
+export function createPrismaEventLog(db: Db, clock: Clock = { now: () => new Date() }): BufferedEventLog {
   const held: FleetEvent[] = [];
 
   return {
@@ -36,14 +38,14 @@ export function createPrismaEventLog(db: Db): BufferedEventLog {
     flush: async () => {
       const fleets = [...new Set(held.map((event) => event.fleetId))].toSorted();
       for (const fleetId of fleets) {
-        await writeNumbered(db, { fleetId, events: held.filter((event) => event.fleetId === fleetId) });
+        await writeNumbered(db, { fleetId, events: held.filter((event) => event.fleetId === fleetId), computedAt: clock.now().toISOString() });
       }
       held.length = 0;
     },
   };
 }
 
-async function writeNumbered(db: Db, of: { fleetId: FleetId; events: FleetEvent[] }): Promise<void> {
+async function writeNumbered(db: Db, of: { fleetId: FleetId; events: FleetEvent[]; computedAt: string }): Promise<void> {
   const { fleetId, events } = of;
   const [row] = await db.$queryRaw<unknown[]>`
     UPDATE fleets SET last_event_seq = last_event_seq + ${events.length}
@@ -65,6 +67,7 @@ async function writeNumbered(db: Db, of: { fleetId: FleetId; events: FleetEvent[
       seq: BigInt(firstSeq + index),
     })),
   });
+  await projectJourneyEvents(db, { fleetId, events, lastSeq, computedAt: of.computedAt });
   await db.$executeRaw`SELECT pg_notify(${FLEET_EVENT_CHANNEL}, ${JSON.stringify({ fleetId, seq: lastSeq })})`;
 }
 

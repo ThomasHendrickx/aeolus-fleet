@@ -1,4 +1,4 @@
-import type { AlertId, AlertSignal, DeliveryId, DeliveryState, FeatureFlag, FleetId, LabelId, LabelValueId, LeaseId, LeaseWaker, MessageId, ReachRefusalId, ScopeName, ShipId, ShipPosition, ShipStatus } from '@aeolus-fleet/common';
+import type { AlertId, AlertSignal, DeliveryId, DeliveryState, FeatureFlag, FleetId, FleetJourneySummary, LabelId, LabelValueId, LeaseId, LeaseWaker, MessageId, ReachRefusalId, ScopeName, ShipId, ShipPosition, ShipStatus } from '@aeolus-fleet/common';
 
 import type { Page, PageQuery } from '../shared/page.js';
 import type { Recipient } from '../shared/selector.js';
@@ -519,6 +519,7 @@ export interface ShipFacts {
  */
 /** A fleet as the installation sees it (docs/architecture.md, "Installation"). */
 export interface InstallationFleetFacts {
+  journey?: FleetJourneySummary;
   fleetId: FleetId;
   name: string;
   operatorEmail: string;

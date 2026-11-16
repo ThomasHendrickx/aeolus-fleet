@@ -35,3 +35,7 @@ Every package also builds against `@aeolus-fleet/common`: its schemas are the sh
 ## What the console needs from the trierarch plugin
 
 The console calls the trierarch plugin's tRPC procedures from the web app's server with the operator's console session (decision 0033). It needs trierarch plugin 0.33.0 or later, which serves the fleet's enabled models (`models.list`, `models.enable` and `models.disable`, decision 0063) and a machine's new setup line (`machines.newSetupLine`, #1239), to which it forwards the request's Origin.
+
+## Hosting service journey reads
+
+`installation.fleets.get` with optional `journey`, and `installation.fleets.page` and `installation.fleets.changes`, need core/common 0.42.0. Missing `journey` means unavailable. The hosting service validates the contract before reconciling; it never interprets an absent field as zero. See [Installation](architecture.md#installation) for cursors and [fleet journey milestones](blueprint.md#fleet-journey-milestones) for definitions and coverage.

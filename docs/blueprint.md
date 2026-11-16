@@ -623,6 +623,23 @@ A hosting service such as pagasae drives the installation with its token (docs/a
 9. Cut off an account's tokens: core refuses that account's tokens issued before now until the longest has ended (0058).
 10. Set a feature flag: the installation turns one of a fleet's feature flags on or off (0069), with its event; list and get answer each flag on or off and whether it can go off now. A flag never goes off while the fleet uses its feature: sealed fleets keep sealing. Off, the console shows nothing of the feature and core refuses its procedures. A server without a token has each flag's own value: sealing on when it has a KMS.
 
+#### Fleet journey milestones
+
+The hosting service reads versioned fleet achievements derived from core's records, without payloads, emails, message ids or ship names. Core knows fleets, never organisations. Customer ships are kinds `agent` and `app`; operator, viewer, person, plugin and trierarch never qualify. A qualifying accepted message connects two distinct customer ships of the same fleet, excluding pings, resends and traffic sent as the system. A type delivery identifies its recipient when claimed; its occurrence remains the acceptance time.
+
+| Key | Achievement | Definition version |
+| --- | --- | --- |
+| `fleet-ready` | Fleet creation committed, with its original creation time | `v1` |
+| `first-ship-crewed` | First customer ship acquired an actual lease | `v1` |
+| `two-ships-crewed` | Two distinct customer ships acquired leases, even if no longer online together | `v1` |
+| `first-message` | First qualifying accepted message | `v1` |
+| `first-value` | **First value**: B replies using `inReplyTo` to A's message, back to A, with both ships crewed at each send | `round-trip-v1` |
+| `repeat-value` | Another qualifying round trip on a later UTC date within seven days of First value | `round-trip-v1` |
+
+Milestones are independent, never gated by an earlier projection. Each carries `key`, `label`, `definitionVersion`, `occurredAt`, `computedAt`, `coverageFrom` and `state` (`reached`, `not-yet`, `unknown`). `not-yet` requires coverage since fleet creation. Existing fleets retain their known Fleet ready time; missing acceptance-time evidence leaves older operational history unknown. Replaying source facts preserves achievements and their original dates; a correction must be explicit. A future First value definition needs its own version and effective date, preserving old results.
+
+Achievements survive finished-history retention and go with fleet deletion. Qualifying activity retains at most 90 UTC dates, with 7-day and 28-day windows and the latest qualifying activity time. `computedAt` and `processedThrough` expose projection freshness and the fleet event watermark. A missing journey means unavailable. These facts enable no notifications or identified follow-up themselves; the hosting service owns consent, organisation aggregation and notification rollout.
+
 ### Accounts
 
 The flows of accounts, each with its happy and unhappy paths, are in [the accounts flows](design/accounts/phase-2/flows.md): sign-up, an account joins a group, a group's rights change, an admin acts as their account, gateway sign-in, console sign-in as argo, a trierarch joins for an account, an account is disabled, an outside MCP client waits, a person asks for an outside MCP server, an account token is checked (0051 to 0058).
