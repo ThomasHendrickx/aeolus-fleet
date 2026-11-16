@@ -1,3 +1,7 @@
+import { randomUUID } from 'node:crypto';
+import { createCallPlugin, type CallPlugin } from './domain/registry/call-plugin.js';
+import { createHttpPluginCalls, type PluginDispatchLog } from './adapters/http/plugin-calls.js';
+import type { PluginTarget } from './adapters/http/plugin-targets.js';
 import { createApproveCommission, type ApproveCommission } from './domain/registry/approve-commission.js';
 import { createWithdrawCommissionApproval, type WithdrawCommissionApproval } from './domain/registry/withdraw-commission-approval.js';
 import { createIdGenerator, type IdGenerator } from '@aeolus-fleet/common';
@@ -237,6 +241,7 @@ export interface UseCases {
   renameShip: RenameShip;
   setOwner: SetOwner;
   checkManage: CheckManage;
+  callPlugin: CallPlugin;
   setVerifiedFacts: SetVerifiedFacts;
   setExpectations: SetExpectations;
   raiseAlert: RaiseAlert;
@@ -419,6 +424,8 @@ const NO_ACCOUNT_TOKEN_SIGNATURES: AccountTokenSignatures = { verify: () => Prom
  */
 export function createUseCases(options: {
   prisma: PrismaClient;
+  pluginTargets?: readonly PluginTarget[];
+  pluginLog?: (facts: PluginDispatchLog) => void;
   clock?: Clock;
   ids?: IdGenerator;
   /** Feed the wake streams (long-poll design, W1); without them a stream wakes only at open and sends keep-alives. */
@@ -503,6 +510,7 @@ export function createUseCases(options: {
     retireShip: createRetireShip({ uow: bulkUow, clock, ids, hasher: sha256Hasher, sealing }),
     renameShip: createRenameShip({ uow, clock, ids }),
     setOwner: createSetOwner({ uow, clock, ids }),
+    callPlugin: createCallPlugin({ uow, clock, ids, requestId: randomUUID, transport: createHttpPluginCalls({ targets: options.pluginTargets ?? [], now: () => clock.now(), log: options.pluginLog }) }),
     checkManage: createCheckManage({ uow, clock, ids }),
     setVerifiedFacts: createSetVerifiedFacts({ uow, clock, ids }),
     setExpectations: createSetExpectations({ uow, clock, ids }),

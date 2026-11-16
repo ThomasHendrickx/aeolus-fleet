@@ -1,3 +1,5 @@
+import { callPluginInputSchema, callPluginOutputSchema } from '@aeolus-fleet/common';
+import { TRPCError } from '@trpc/server';
 import { approveCommissionInputSchema, approveCommissionOutputSchema, withdrawCommissionApprovalInputSchema, withdrawCommissionApprovalOutputSchema } from '@aeolus-fleet/common';
 import { alertOutputOf } from './alert-output.js';
 import {
@@ -682,6 +684,18 @@ export const fleetRouter = router({
    * call checks (decision 0034): the gateway asks it as an approver before it
    * changes what a proxy ship's tools need (design gateway-scopes 4.2).
    */
+  callPlugin: actorProcedure
+    .meta({ description: 'Call an explicitly exposed operation of a connected plugin in your fleet. Needs no additional core scope. Uses your current actor, scopes and send reach. Dispatches once with no retry; an outcome unknown refusal means read current plugin state before a new call.' })
+    .input(callPluginInputSchema)
+    .output(callPluginOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      const answer = await ctx.useCases.callPlugin(ctx.caller, input);
+      if (answer.isOk) return answer.value;
+      const error = answer.error;
+      if (error.kind === 'PLUGIN_REFUSED') throw new TRPCError({ code: error.code, message: error.message });
+      throw new TRPCError({ code: error.kind === 'PLUGIN_NOT_FOUND' ? 'NOT_FOUND' : 'FORBIDDEN', message: error.message });
+    }),
+
   checkManage: actorProcedure
     .meta({
       description: [

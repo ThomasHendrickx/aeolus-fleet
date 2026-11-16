@@ -1,3 +1,4 @@
+import type { PluginTarget } from './adapters/http/plugin-targets.js';
 import type { FastifyInstance, FastifyServerOptions } from 'fastify';
 
 import type { RateLimit } from './adapters/http/rate-limiter.js';
@@ -23,6 +24,7 @@ import type { KeyVault } from './domain/messaging/key-vault.js';
 
 export interface AppOptions {
   databaseUrl: string;
+  pluginTargets?: readonly PluginTarget[];
   /** Where ships reach the fleet: every starting prompt carries the fleet MCP URL under it. */
   publicUrl: string;
   clock?: Clock;
@@ -97,6 +99,8 @@ export function createApp(options: AppOptions): FastifyInstance {
 
   const useCases = createUseCases({
     prisma,
+    pluginTargets: options.pluginTargets,
+    pluginLog: (facts) => { server.log.info(facts, 'plugin dispatch'); },
     clock,
     wakeStreams,
     accountTokenSignatures: accountTokenSignaturesOf(options.accountTokenIssuer, clock),

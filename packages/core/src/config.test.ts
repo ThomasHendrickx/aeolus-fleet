@@ -10,6 +10,7 @@ describe('loadConfig', () => {
   it('applies defaults for everything but the database URL and the public URL', () => {
     expect(loadConfig(required)).toEqual({
       databaseUrl,
+      pluginTargets: [],
       publicUrl,
       host: '127.0.0.1',
       port: 4000,

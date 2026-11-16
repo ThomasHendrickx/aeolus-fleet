@@ -16,6 +16,7 @@ export async function start(): Promise<void> {
   const telemetry = await startTelemetry(process.env);
   const server = createApp({
     databaseUrl: config.databaseUrl,
+    pluginTargets: config.pluginTargets,
     publicUrl: config.publicUrl,
     logger: { level: config.logLevel },
     shouldTrustProxy: config.shouldTrustProxy,

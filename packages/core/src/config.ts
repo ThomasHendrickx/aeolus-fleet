@@ -1,3 +1,4 @@
+import { pluginTargetsSchema, type PluginTarget } from './adapters/http/plugin-targets.js';
 import { plainHttpWarning } from '@aeolus-fleet/common/rules';
 import { z } from 'zod';
 
@@ -23,6 +24,9 @@ function isOrigin(value: string): boolean {
 const INSTALLATION_TOKEN_MIN_LENGTH = 32;
 
 const environmentSchema = z.object({
+  PLUGIN_TARGETS: z.string().default('[]').transform((value, context): unknown => {
+    try { return JSON.parse(value); } catch { context.addIssue({ code: 'custom', message: 'must be a JSON array' }); return z.NEVER; }
+  }).pipe(pluginTargetsSchema),
   DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/, error: 'must be a postgres:// or postgresql:// URL' }),
   PUBLIC_URL: z.url({ protocol: /^https?$/, error: 'must be an http:// or https:// URL' }),
   HOST: z.string().min(1).default('127.0.0.1'),
@@ -49,6 +53,7 @@ const databaseEnvironmentSchema = z.object({ DATABASE_URL: environmentSchema.sha
 
 export interface Config {
   databaseUrl: string;
+  pluginTargets: readonly PluginTarget[];
   /** Where ships reach the fleet: every starting prompt carries the fleet MCP URL under it. */
   publicUrl: string;
   host: string;
@@ -122,6 +127,7 @@ export function loadConfig(environment: Record<string, string | undefined>): Con
   const { DATABASE_URL, PUBLIC_URL, HOST, PORT, LOG_LEVEL, TRUST_PROXY, COOKIE_DOMAIN, CONSOLE_ORIGIN, INSTALLATION_TOKEN, ACCOUNT_TOKEN_ISSUER, KMS_REGION, KMS_ENDPOINT } = result.data;
   return {
     databaseUrl: DATABASE_URL,
+    pluginTargets: result.data.PLUGIN_TARGETS,
     publicUrl: PUBLIC_URL,
     host: HOST,
     port: PORT,

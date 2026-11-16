@@ -109,6 +109,7 @@ function outputSchemaOf(parser: z.ZodType): JsonSchema {
  * scope of each; the other fleet procedures stay the console's.
  */
 const FLEET_ACTIONS = [
+  'callPlugin',
   'list',
   'ship',
   'commission',

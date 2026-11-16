@@ -32,10 +32,10 @@ async function scenario() {
   let isCutOff = false;
   const claims = accountTokenClaimsSchema.parse({ iss: 'https://issuer.example', aud: fleet.fleetId, sub: 'account-1', org: 'organisation-1', scope: 'sample:change', group: [], iat: 1794830399, exp: 1794830410 });
   const authenticateAccount = createAuthenticateAccount({ clock: core.clock, signatures: { verify: () => Promise.resolve(claims) }, cutOffs: { cutOffAt: () => Promise.resolve(isCutOff ? core.clock.now() : undefined) }, fleets: { isHosted: () => Promise.resolve(core.state.fleets.some((held) => held.id === fleet.fleetId)) } });
-  const server = buildHttpServer({ clock: core.clock, fleetUrl: FLEET_URL, logger: false, checkDatabase: () => Promise.resolve(), latestMigration: () => Promise.resolve(null), useCases: { ...identityUseCases(core), ...registry, ...messagingUseCases(core), ...historyUseCases(core), authenticateAccount, callPlugin, ping: () => Promise.resolve({ serverTime: core.clock.now(), fleetCount: 1 }) } });
+  const server = buildHttpServer({ clock: core.clock, fleetUrl: FLEET_URL, consoleOrigin: new URL(FLEET_URL).origin, logger: false, checkDatabase: () => Promise.resolve(), latestMigration: () => Promise.resolve(null), useCases: { ...identityUseCases(core), ...registry, ...messagingUseCases(core), ...historyUseCases(core), authenticateAccount, callPlugin, ping: () => Promise.resolve({ serverTime: core.clock.now(), fleetCount: 1 }) } });
   servers.push(server);
   const input = { pluginShipId: plugin.shipId, procedure: 'widgets.change', input: { value: 1 } };
-  const call = (body: unknown = input, token: string | undefined = crewToken) => server.inject({ method: 'POST', url: '/api/v1/fleet/callPlugin', headers: token === undefined ? {} : { authorization: `Bearer ${token}` }, payload: body });
+  const call = (body: unknown = input) => server.inject({ method: 'POST', url: '/api/v1/fleet/callPlugin', headers: { 'content-type': 'application/json', authorization: `Bearer ${crewToken}` }, payload: JSON.stringify(body) });
   const grant = (scopes: readonly string[]) => {
     const ship = core.state.ships.find((ship) => ship.id === agent.shipId);
     if (ship) ship.scopes = scopes;

@@ -1,4 +1,4 @@
-import { createServer, type Server } from 'node:http';
+import { createServer, type Server, type RequestListener } from 'node:http';
 
 import type { PluginCallContext } from '@aeolus-fleet/common';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -7,8 +7,8 @@ import { createHttpPluginCalls } from './plugin-calls.js';
 
 const context: PluginCallContext = { requestId: 'f473fb19-52cd-445f-906b-7d6ef5e4b01f', fleetId: 'flt_00000000000000000000000001', pluginShipId: 'shp_00000000000000000000000002', actor: { kind: 'installation' }, scopes: [], procedure: 'widgets.change', input: { private: 'never in errors' }, expiresAt: new Date(Date.now() + 30_000).toISOString() };
 const servers: Server[] = [];
-afterEach(async () => { await Promise.all(servers.splice(0).map((server) => new Promise<void>((resolve) => { server.closeAllConnections(); server.close(() => resolve()); }))); });
-async function endpoint(handle: Parameters<typeof createServer>[0]) {
+afterEach(async () => { await Promise.all(servers.splice(0).map((server) => new Promise<void>((resolve) => { server.closeAllConnections(); server.close(() => { resolve(); }); }))); });
+async function endpoint(handle: RequestListener) {
   const server = createServer(handle);
   servers.push(server);
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
@@ -42,7 +42,11 @@ describe('plugin actor contract slice 1: configured server transport', () => {
     // When core dispatches.
     const answer = await createHttpPluginCalls({ targets: [target(plugin.url)], now: () => new Date() }).dispatch(context);
     // Then no redirect is followed and the error describes uncertainty safely.
-    expect(answer).toMatchObject({ isOk: false, error: { code: 'BAD_GATEWAY', message: expect.stringContaining('outcome unknown') } });
+    expect(answer.isOk).toBe(false);
+    if (!answer.isOk) {
+      expect(answer.error.code).toBe('BAD_GATEWAY');
+      expect(answer.error.message).toContain('outcome unknown');
+    }
     expect(hits).toEqual([]);
     expect(JSON.stringify(answer)).not.toContain('never in errors');
   });
@@ -55,7 +59,11 @@ describe('plugin actor contract slice 1: configured server transport', () => {
     const answer = await createHttpPluginCalls({ targets: [target(plugin.url)], now: () => new Date() }).dispatch(context);
     // Then the committed state exists but core makes no second attempt.
     expect(version).toBe(1);
-    expect(answer).toMatchObject({ isOk: false, error: { code: 'BAD_GATEWAY', message: expect.stringContaining('outcome unknown') } });
+    expect(answer.isOk).toBe(false);
+    if (!answer.isOk) {
+      expect(answer.error.code).toBe('BAD_GATEWAY');
+      expect(answer.error.message).toContain('outcome unknown');
+    }
     expect(JSON.stringify(answer)).not.toContain('never in errors');
   });
 
@@ -65,6 +73,10 @@ describe('plugin actor contract slice 1: configured server transport', () => {
     // When an immediate dispatch cannot begin.
     const answer = await transport.dispatch(context);
     // Then core does not claim a plugin operation started.
-    expect(answer).toMatchObject({ isOk: false, error: { code: 'NOT_FOUND', message: expect.stringContaining('no operation started') } });
+    expect(answer.isOk).toBe(false);
+    if (!answer.isOk) {
+      expect(answer.error.code).toBe('NOT_FOUND');
+      expect(answer.error.message).toContain('no operation started');
+    }
   });
 });

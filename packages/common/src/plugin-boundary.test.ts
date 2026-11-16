@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { createPluginBoundary } from './plugin-boundary.js';
+import { createPluginBoundary, type PluginBoundaryRequest } from './plugin-boundary.js';
 import type { PluginCallContext } from './schemas/plugin-call.js';
 
 const CURRENT = 'current-secret-for-plugin-test-only';
@@ -33,15 +33,15 @@ async function plugin() {
         throw error;
       }
     } },
-    procedures: { 'widgets.change': async (verified) => {
-      if (!verified.scopes.includes('sample:change')) return { error: { data: { code: 'FORBIDDEN' } } };
+    procedures: { 'widgets.change': (verified) => {
+      if (!verified.scopes.includes('sample:change')) return Promise.resolve({ error: { data: { code: 'FORBIDDEN' } } });
       changes.push({ actor: verified.actor, input: verified.input, requestId: verified.requestId });
-      return { result: { data: { version: changes.length } } };
+      return Promise.resolve({ result: { data: { version: changes.length } } });
     } },
   });
   return { restart, changes, expire: () => { now = new Date(context.expiresAt); }, close: () => rm(directory, { recursive: true, force: true }) };
 }
-const request = (body: unknown = context, secret: string | undefined = CURRENT) => ({ body, secret, isInternal: true, isPublic: false });
+const request = (body: unknown = context, secret: string | undefined = CURRENT): PluginBoundaryRequest => ({ body, secret, isInternal: true, isPublic: false });
 
 describe('plugin actor contract slice 1: verified boundary', () => {
   it('accepts the current and next secret during rotation and drops the old secret after restart', async () => {
@@ -78,7 +78,7 @@ describe('plugin actor contract slice 1: verified boundary', () => {
     } finally { await fixture.close(); }
   });
 
-  it.each([
+  it.each(([
     ['missing secret', { ...request(), secret: undefined }, 'UNAUTHORIZED'],
     ['wrong secret', request(context, 'wrong'), 'UNAUTHORIZED'],
     ['public endpoint', { ...request(), isPublic: true }, 'UNAUTHORIZED'],
@@ -88,7 +88,10 @@ describe('plugin actor contract slice 1: verified boundary', () => {
     ['expired context', request({ ...context, expiresAt: '2026-11-16T11:59:59.000Z' }), 'UNAUTHORIZED'],
     ['unexposed procedure', request({ ...context, procedure: 'installation.delete' }), 'NOT_FOUND'],
     ['missing plugin scope', request({ ...context, scopes: ['fleet:manage', 'trierarch:join'] }), 'FORBIDDEN'],
-  ])('refuses %s without executing', async (_name, input, code) => {
+  ] satisfies [string, ReturnType<typeof request>, string][]).map((entry) => {
+    const [name, input, code] = entry;
+    return { name, input, code };
+  }))('refuses $name without executing', async ({ input, code }) => {
     // Given a connected thin plugin.
     const fixture = await plugin();
     try {

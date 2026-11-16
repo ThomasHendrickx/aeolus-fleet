@@ -26,6 +26,11 @@
       "@aeolus-fleet/source": "./src/rules/index.ts",
       "types": "./dist/rules/index.d.ts",
       "default": "./dist/rules/index.js"
+    },
+    "./plugin-server": {
+      "@aeolus-fleet/source": "./src/plugin-boundary.ts",
+      "types": "./dist/plugin-boundary.d.ts",
+      "default": "./dist/plugin-boundary.js"
     }
   },
   "files": [
