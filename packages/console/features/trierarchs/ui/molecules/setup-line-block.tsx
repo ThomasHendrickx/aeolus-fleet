@@ -20,6 +20,9 @@ interface SetupLineBlockProps {
 export function SetupLineBlock({ name, setupLine, testIdPrefix, onCopied, onCopyFailed }: SetupLineBlockProps) {
   return (
     <>
+      <p className="text-body text-muted-foreground max-sm:text-body-touch">
+        This installs the trierarch, which runs agent sessions on this computer. Setup explains permissions, workspaces, limits and starting the background service. If your line uses npm, npm may first ask to download the trierarch package; that confirmation installs the package and does not answer the setup choices.
+      </p>
       <p className="flex gap-2 rounded-lg border border-border bg-muted px-3 py-2 text-meta text-foreground">
         <Info aria-hidden className="mt-0.5 size-(--size-icon-sm) shrink-0 text-muted-foreground" />
         <span>

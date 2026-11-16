@@ -88,7 +88,11 @@ export const FailedMaybeReleased: Story = {
 export const Line: Story = {
   args: { setupLine: JOINED.setupLine },
   play: async () => {
+    // Given a replacement setup line has been issued.
+    // When the console shows it, before it is run on the computer.
     await expect(await screen.findByTestId('new-setup-line-setup-line')).toHaveTextContent(JOINED.setupLine);
+    // Then the same approved introduction explains setup and distinguishes npm's confirmation from setup choices.
+    await waitFor(async () => { await expect(screen.getByText('This installs the trierarch, which runs agent sessions on this computer. Setup explains permissions, workspaces, limits and starting the background service. If your line uses npm, npm may first ask to download the trierarch package; that confirmation installs the package and does not answer the setup choices.')).toBeVisible(); });
     await expect(screen.getByTestId('new-setup-line-dialog')).toHaveTextContent('If you lose it, get a new setup line on trierarch-mac’s card.');
   },
 };
