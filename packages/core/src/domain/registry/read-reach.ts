@@ -96,7 +96,7 @@ function labelsByShip(carried: readonly ShipLabel[]): Map<ShipId, ReachingShip['
 /** A ship as a read check sees it, its owner's kind and its labels taken from the fleet's reads rather than read again. */
 function reachingOf(of: { ship: Ship; ownerKind: ShipKind | undefined; labels: ReachingShip['labels'] }): ReachingShip {
   const { ship, ownerKind, labels } = of;
-  return { id: ship.id, owner: ship.owner, kind: ship.kind, isOwnedByPerson: ownerKind === 'person', labels };
+  return { id: ship.id, owner: ship.owner, kind: ship.kind, isOwnedByPerson: ownerKind === 'person', commissioner: ship.commission?.by ?? null, labels };
 }
 
 export function readsShip(reach: ReadReach, shipId: ShipId): boolean {

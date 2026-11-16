@@ -172,7 +172,7 @@ Two questions decide whether an actor (a ship, an account or the installation, 0
 - Plugins are always reachable: every ship sends to a ship of kind plugin, and a ship of kind plugin sends to every ship.
 - The participants of a meeting reach each other (0061).
 - The viewer reads every ship, until an actor holding `fleet:network` turns that off.
-- The installation manages person ships and what they own.
+- The installation manages person ships, what they own and plugin ships it commissioned (0057).
 - Open: every ship reaches every ship, by every verb, while the fleet has no rules of its own applied. Once rules are applied, open is off: the fleet's rules, and the rules ships declare on their own labels, decide.
 
 Every built-in rule but the viewer reading and open is never off, so argo can never be locked out and a sender always gets its answer.

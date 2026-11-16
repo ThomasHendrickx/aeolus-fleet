@@ -98,7 +98,7 @@ export const discardNetworkRulesDraftOutputSchema = z.object({});
  * are never off; the participants of a meeting reaching each other within it,
  * never off (decision 0061); the viewer reading every ship,
  * which an actor holding fleet:network turns off or on; the installation
- * managing person ships and the ships they own, never off (decision 0020); and
+ * managing person ships, the ships they own and plugins it commissioned, never off (decision 0057); and
  * open, every ship to every ship by every verb, on exactly while the fleet has
  * no rules applied.
  */

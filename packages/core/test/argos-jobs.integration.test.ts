@@ -349,8 +349,15 @@ describe('a person ship the installation commissions for an account (decisions 0
     await expect(database.ship.findUnique({ where: { id: helper.shipId }, select: { commissionedBy: true, commissionedByKind: true } })).resolves.toEqual({ commissionedBy: 'acc-01charlotte', commissionedByKind: 'account' });
   });
 
-  it('refuses the installation an agent ship, as it does not hold fleet:commission', async () => {
-    await expect(refusalOf(asInstallation().fleet.commission.mutate({ name: 'not-a-person', type: 'helper', idempotencyKey: newKey() }))).resolves.toMatchObject({ code: 'FORBIDDEN' });
+  it('commissions an agent ship with its fleet:commission scope (0057)', async () => {
+    // Given the installation holds fleet:commission in this hosted fleet.
+    const installation = asInstallation();
+
+    // When it commissions an agent through the ordinary fleet call.
+    const helper = await installation.fleet.commission.mutate({ name: 'installation-helper', type: 'helper', idempotencyKey: newKey() });
+
+    // Then the stored commission names the installation.
+    await expect(database.ship.findUnique({ where: { id: helper.shipId }, select: { kind: true, commissionedByKind: true } })).resolves.toEqual({ kind: 'agent', commissionedByKind: 'installation' });
   });
 });
 
@@ -401,5 +408,30 @@ describe('recorded commission approval by an account (0046)', () => {
 
     await expect(database.commissionApproval.findUnique({ where: { id: approvalId } })).resolves.toMatchObject({ approver: { kind: 'account', accountId: 'acc-approval-author', throughShipId: null }, withdrawnAt: clock.now() });
     await expect(lastEventAbout(commissionerId, 'CommissionApprovalWithdrawn')).resolves.toMatchObject({ actorKind: 'account', actorAccountId: 'acc-approval-withdrawer' });
+  });
+});
+
+
+describe('installation-connect for a hosted plugin (0057)', () => {
+  it('commissions a gateway with its five scopes and recovers its starting prompt and crew', async () => {
+    // Given the account app acts as the installation in its hosted fleet.
+    const installation = asInstallation();
+    const scopes = ['fleet:read', 'fleet:commission', 'fleet:on-behalf', 'scopes:declare', 'fleet:verify'] as const;
+
+    // When one pass commissions the gateway and a later pass recovers it.
+    const gateway = await installation.fleet.commission.mutate({ name: 'hosted-gateway', type: 'gateway', kind: 'plugin', scopes: [...scopes], idempotencyKey: newKey() });
+    const prompt = await installation.fleet.getStartingPrompt.mutate({ shipId: gateway.shipId });
+    unwrap(await useCases.claimShip({ shipId: gateway.shipId, secret: prompt.secret, location: { kind: 'CLOUD' }, harness: 'claude-code' }));
+    await installation.fleet.release.mutate({ shipId: gateway.shipId });
+    const recovered = await installation.fleet.getStartingPrompt.mutate({ shipId: gateway.shipId });
+
+    // Then core keeps the requested scopes and names the installation in each change.
+    const stored = await database.ship.findUnique({ where: { id: gateway.shipId }, select: { scopes: true, commissionedByKind: true } });
+    expect(stored?.scopes).toEqual(expect.arrayContaining([...scopes]));
+    expect(stored?.commissionedByKind).toBe('installation');
+    expect(recovered.secret).not.toBe(prompt.secret);
+    await expect(lastEventAbout(gateway.shipId, 'ShipCommissioned')).resolves.toMatchObject({ actorKind: 'installation' });
+    await expect(lastEventAbout(gateway.shipId, 'StartingPromptIssued')).resolves.toMatchObject({ actorKind: 'installation' });
+    await expect(lastEventAbout(gateway.shipId, 'LeaseRevoked')).resolves.toMatchObject({ actorKind: 'installation' });
   });
 });

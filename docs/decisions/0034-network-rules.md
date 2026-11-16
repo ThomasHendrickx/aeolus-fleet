@@ -13,7 +13,7 @@
   - a ship of kind plugin reads every ship (0050). Connect in the console commissions the plugin's ship as kind plugin (`fleet:connect` (0053), `PluginConnected`); only a retire of the ship ends it (`PluginDisconnected`), a release ends nothing. Never off, so saving rules never narrows what a plugin reads.
   - plugins are always reachable: every ship sends to every ship of kind plugin, and every ship of kind plugin sends to every ship, send. Never off, so a ship always reaches the plugins that serve it and a plugin always reaches the ships it serves, with nothing declared.
   - the viewer reads every ship. An actor holding `fleet:network` may turn it off.
-  - the installation manages person ships and the ships they own. Never off: a leaver is always released (0055).
+  - the installation manages person ships, the ships they own and plugin ships it commissioned (0057). Never off: a leaver is always released (0055).
   - open: every ship to every ship, every verb. On exactly while the fleet has no rules of its own applied: applying rules turns it off, applying none turns it on, and it is never turned by itself.
   Turning the viewer read off or on is its own action with an event, never a side effect of setting other rules.
 - The rules beside the built-ins are the fleet's own, drafted and applied whole by any actor holding `fleet:network` (0035), and the ones its ships declared (0037), merged at each check: the fleet's own first, then the declared ones. Every change of the rules in force moves the settings version.
