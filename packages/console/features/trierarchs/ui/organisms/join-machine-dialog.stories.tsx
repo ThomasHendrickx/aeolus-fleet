@@ -189,7 +189,8 @@ export const AfterJoinedComplete: Story = {
     const line = await screen.findByTestId('join-machine-setup-line');
     // When the plugin answers with its setup line.
     await expect(line).toHaveTextContent(JOINED_COMPLETE.setupLine);
-    // Then only that line is shown, with what it does and that it asks nothing.
+    // Then setup is explained before the line, even when options came from the console.
+    await expect(screen.getByText('This installs the trierarch, which runs agent sessions on this computer. Setup explains permissions, workspaces, limits and starting the background service. If your line uses npm, npm may first ask to download the trierarch package; that confirmation installs the package and does not answer the setup choices.')).toBeVisible();
     await waitFor(async () => { await expect(screen.getByText(COMPLETE_DESCRIPTION)).toBeVisible(); });
     await expect(screen.queryByTestId('join-machine-prompt')).not.toBeInTheDocument();
     await expect(screen.queryByTestId('join-machine-crew-line-claude-code')).not.toBeInTheDocument();
@@ -204,7 +205,8 @@ export const AfterJoinedAsks: Story = {
     const line = await screen.findByTestId('join-machine-setup-line');
     // When the plugin answers.
     await expect(line).toHaveTextContent(JOINED_ASKS.setupLine);
-    // Then the description says the machine asks for harnesses and repositories.
+    // Then the approved introduction explains the purpose, choices and npm confirmation before running setup.
+    await expect(screen.getByText('This installs the trierarch, which runs agent sessions on this computer. Setup explains permissions, workspaces, limits and starting the background service. If your line uses npm, npm may first ask to download the trierarch package; that confirmation installs the package and does not answer the setup choices.')).toBeVisible();
     await waitFor(async () => { await expect(screen.getByText(ASKS_DESCRIPTION)).toBeVisible(); });
     await expect(screen.queryByTestId('join-machine-prompt')).not.toBeInTheDocument();
   },
