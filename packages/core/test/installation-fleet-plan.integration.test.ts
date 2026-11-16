@@ -1,6 +1,10 @@
 import type { FleetId } from '@aeolus-fleet/common';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
+import { createPrismaClientTellingStatements } from '../src/adapters/prisma/client.js';
+import { createPrismaShipRepository } from '../src/adapters/prisma/registry.js';
+import { createPrismaFleetLimitReads } from '../src/adapters/prisma/installation.js';
+import { assertIndexedPlan } from './support/assert-indexed-plan.js';
 import { Prisma } from '../src/adapters/prisma/generated/client.js';
 import { installationFleetsStatement } from '../src/adapters/prisma/installation.js';
 import { messageWindow } from '../src/domain/registry/installation-fleet.js';
@@ -41,7 +45,29 @@ describe('an installation fleet on a fleet with a long history (#1126)', () => {
     const rows = await core.prisma.$queryRaw<{ 'QUERY PLAN': string }[]>(Prisma.sql`EXPLAIN ${installationFleetsStatement(fleetId, messageWindow(core.clock.now()))}`);
     const plan = rows.map((row) => row['QUERY PLAN']).join('\n');
 
+    await assertIndexedPlan(core.prisma, installationFleetsStatement(fleetId, messageWindow(core.clock.now())));
     expect(plan).toContain('messages_fleet_id_created_at_idx');
     expect(plan).not.toContain('Seq Scan on messages');
   });
 });
+
+ it('reads quota usage and enforcement counts through the fleet ship index', async () => {
+   // Given the fleet and a client recording the actual count statements.
+   const statements: { query: string; params: string }[] = [];
+   const client = createPrismaClientTellingStatements(core.databaseUrl, (query, params) => statements.push({ query, params }));
+   try {
+     // When quota usage and enforcement read their active count.
+     await createPrismaShipRepository(client).countActive(fleetId);
+     await createPrismaFleetLimitReads(client).activeShips(fleetId);
+
+     // Then both counts stay fleet-scoped and use its ship index.
+     expect(statements).toHaveLength(2);
+     for (const statement of statements) {
+       const plan = await assertIndexedPlan(core.prisma, statement);
+       expect(plan).toContain('Index');
+       expect(plan).toContain('fleet_id');
+     }
+   } finally {
+     await client.$disconnect();
+   }
+ });

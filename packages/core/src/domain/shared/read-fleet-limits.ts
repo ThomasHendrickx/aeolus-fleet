@@ -8,7 +8,7 @@ import { nextUtcDayStart, utcDayStart } from './utc-day.js';
 export interface FleetLimitReads {
   /** The ship and daily message limits and the retention in days that apply to the fleet now; null where none does. */
   applied(fleetId: FleetId): Promise<{ ships: number | null; dailyMessages: number | null; retention: number | null }>;
-  /** Its ships that are not retired, argo included. */
+  /** Its ships that are not retired, argo included and the viewer excluded. */
   activeShips(fleetId: FleetId): Promise<number>;
   /** The messages it stored on the UTC day that starts at `day`, of any kind and from any sender. */
   messagesOn(fleetId: FleetId, day: Date): Promise<number>;
@@ -28,7 +28,7 @@ export type ReadFleetLimits = (caller: Caller) => Promise<FleetLimitsRead>;
 /**
  * Use case: the caller's fleet's ship and daily message limits, with what
  * each counts by the same measures the limits are enforced by: its ships that
- * are not retired, argo included, and the messages it stored since 00:00 UTC,
+ * are not retired, argo included and the viewer excluded, and the messages it stored since 00:00 UTC,
  * which count again from the next 00:00 UTC; and its retention, so every
  * fleet manager sees how long the fleet keeps its finished history and where
  * it begins (the timeline, the thread and Health say so). The

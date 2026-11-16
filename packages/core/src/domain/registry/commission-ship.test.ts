@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import {
   addAgentShip,
+  addViewerShip,
   initialiseFleet,
   operatorCaller,
   registryUseCases,
@@ -1193,6 +1194,19 @@ describe('a commission that comes again', () => {
 });
 
 describe("commissioning at the fleet's ship limit", () => {
+  it('leaves the viewer out of the ship limit', async () => {
+    // Given argo, a viewer and room for one more counted ship.
+    addViewerShip(core, { fleetId });
+    withInstallationSettings(core, { defaultShipLimit: 2 });
+
+    // When an agent is commissioned.
+    const result = await commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' });
+
+    // Then the viewer has taken none of its capacity.
+    expect(result).toMatchObject({ isOk: true });
+    await expect(commissionShip(argo, { idempotencyKey: newKey(), name: 'extra', type: 'reviewer' })).resolves.toMatchObject({ isOk: false, error: { kind: 'SHIP_LIMIT_REACHED' } });
+  });
+
   it('takes ships up to the limit, argo included, then refuses the next and stores nothing', async () => {
     withInstallationSettings(core, { defaultShipLimit: 3 });
     unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));

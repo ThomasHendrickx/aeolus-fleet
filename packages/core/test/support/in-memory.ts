@@ -762,7 +762,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       lockName: () => Promise.resolve(),
       // One test runs one unit of work at a time: nothing to wait for.
       lockShipCount: () => Promise.resolve(),
-      countActive: (fleetId) => Promise.resolve(state.ships.filter((ship) => ship.fleetId === fleetId && ship.retiredAt === null).length),
+      countActive: (fleetId) => Promise.resolve(state.ships.filter((ship) => ship.fleetId === fleetId && ship.retiredAt === null && ship.kind !== 'viewer').length),
       lockCommissionKey: () => Promise.resolve(),
       findByCommissionKey: ({ fleetId, by, idempotencyKey }) =>
         Promise.resolve(
@@ -2059,7 +2059,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       name: fleet.name,
       operatorEmail: state.operatorAccounts.find((account) => account.fleetId === fleet.id)?.email ?? '',
       createdAt: fleet.createdAt,
-      shipCount: state.ships.filter((held) => held.fleetId === fleet.id && held.retiredAt === null).length,
+      shipCount: state.ships.filter((held) => held.fleetId === fleet.id && held.retiredAt === null && held.kind !== 'viewer').length,
       messagesSince: state.messages.filter((message) => message.fleetId === fleet.id && message.createdAt >= window.since).length,
       lastActivityAt: times.length === 0 ? null : new Date(Math.max(...times)),
       storage: state.messages.filter((message) => message.fleetId === fleet.id).reduce((bytes, message) => bytes + plainBytesOf(message.payload), 0),
@@ -2088,7 +2088,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
 
   const fleetLimitReads: FleetLimitReads = {
     applied: (fleetId) => appliedLimits(tx, fleetId),
-    activeShips: (fleetId) => Promise.resolve(state.ships.filter((ship) => ship.fleetId === fleetId && ship.retiredAt === null).length),
+    activeShips: (fleetId) => Promise.resolve(state.ships.filter((ship) => ship.fleetId === fleetId && ship.retiredAt === null && ship.kind !== 'viewer').length),
     messagesOn: (fleetId, day) => Promise.resolve(state.messages.filter((message) => message.fleetId === fleetId && utcDayStart(message.createdAt).getTime() === day.getTime()).length),
     keptFrom: (fleetId) => Promise.resolve(state.fleetPrunes.find((row) => row.fleetId === fleetId)?.keptFrom ?? null),
   };

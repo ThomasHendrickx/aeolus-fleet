@@ -176,6 +176,33 @@ describe("a fleet's limits", () => {
 });
 
 describe('the limits at their boundary', () => {
+  it('excludes the viewer from unfiltered ship totals, quota usage and enforcement', async () => {
+    // Given a viewer fleet, a retired ship and another fleet outside its snapshot.
+    const fleet = await installation().fleets.create.mutate({ requestId: newKey(), name: 'viewer-counts', operatorEmail: 'viewer-counts@example.com', viewer: true });
+    const argo = argoOf(fleet);
+    await newFleet('outside-viewer-counts');
+    const retired = unwrap(await core.commissionShip(argo, { idempotencyKey: newKey(), name: 'retired', type: 'reviewer' }));
+    unwrap(await core.retireShip(argo, { shipId: retired.shipId }));
+    await installation().fleets.setLimits.mutate({ fleetId: fleet.fleetId, ships: { kind: 'fleet', limit: 2 } });
+
+    // When the same unfiltered snapshot is read and its last place is commissioned.
+    const harbour = await core.readHarbour(argo);
+    const limits = await core.readFleetLimits(argo);
+    const described = await installation().fleets.get.query({ fleetId: fleet.fleetId });
+    const listed = await installation().fleets.list.query();
+    const commissioned = await core.commissionShip(argo, { idempotencyKey: newKey(), name: 'last-place', type: 'reviewer' });
+
+    // Then only argo uses a place, and the viewer takes none of the remaining capacity.
+    expect(harbour.counts?.ships).toBe(1);
+    expect(limits.ships).toEqual({ count: 1, limit: 2 });
+    expect(described.shipCount).toBe(1);
+    expect(listed.find((item) => item.fleetId === fleet.fleetId)?.shipCount).toBe(1);
+    expect(commissioned).toMatchObject({ isOk: true });
+    await expect(core.readFleetLimits(argo)).resolves.toMatchObject({ ships: { count: 2, limit: 2 } });
+    await expect(core.readHarbour(argo)).resolves.toMatchObject({ counts: { ships: 2 } });
+    await expect(core.commissionShip(argo, { idempotencyKey: newKey(), name: 'over-limit', type: 'reviewer' })).resolves.toMatchObject({ isOk: false, error: { kind: 'SHIP_LIMIT_REACHED' } });
+  });
+
   it('commission ships up to the limit, argo included, however many race, and refuse the rest saying so', async () => {
     const fleet = await newFleet('shipyard');
     await installation().fleets.setLimits.mutate({ fleetId: fleet.fleetId, ships: { kind: 'fleet', limit: 4 } });
