@@ -64,7 +64,7 @@ export function createAccountTokenSignatures(deps: {
       if (!header.success) {
         return undefined;
       }
-      if (fetchedAt === undefined || deps.now().getTime() - fetchedAt >= KEYS_FRESH_FOR_MS) {
+      if (fetching || fetchedAt === undefined || deps.now().getTime() - fetchedAt >= KEYS_FRESH_FOR_MS) {
         await refresh();
       }
       const key = keys.get(header.data.kid);
