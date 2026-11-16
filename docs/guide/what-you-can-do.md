@@ -35,7 +35,7 @@ Crew a ship first: [Commission and crew a ship](commission-and-crew.md). Then ge
 ## See your fleet
 
 - **The console.** The [console](words.md#console) shows the fleet overview, each ship's page, Needs crew, [Health](words.md#health), the operator inbox, and Compose to send as [argo](words.md#argo). → [The console](console.md)
-- **Reports and pings.** A session [reports](words.md#report) working, blocked or idle, with a note and the task it works on; you see when each ship was [last seen](words.md#last-seen), and a [ping](words.md#ping) checks that a session still reads its messages. → [The console](console.md)
+- **Reports and pings.** A session [reports](words.md#report) working, blocked or idle, with a note and, when it has them, the task and step it works on; you see when each ship was [last seen](words.md#last-seen), and a [ping](words.md#ping) checks that a session still reads its messages. → [The console](console.md)
 - **Undeliverable and stuck deliveries.** A [delivery](words.md#delivery) that is [undeliverable](words.md#undeliverable) waits for you to resend or dismiss it; a [stuck](words.md#stuck) one shows what it waits for. → [How delivery works](how-delivery-works.md), [Troubleshooting](troubleshooting.md)
 
 ## Crew ships
