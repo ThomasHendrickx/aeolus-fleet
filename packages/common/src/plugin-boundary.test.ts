@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -39,7 +39,7 @@ async function plugin() {
       return Promise.resolve({ result: { data: { version: changes.length } } });
     } },
   });
-  return { restart, changes, expire: () => { now = new Date(context.expiresAt); }, close: () => rm(directory, { recursive: true, force: true }) };
+  return { resetReservations: async () => { await rm(directory, { recursive: true, force: true }); await mkdir(directory); }, restart, changes, expire: () => { now = new Date(context.expiresAt); }, close: () => rm(directory, { recursive: true, force: true }) };
 }
 const request = (body: unknown = context, secret: string | undefined = CURRENT): PluginBoundaryRequest => ({ body, secret, isInternal: true, isPublic: false });
 
@@ -68,6 +68,7 @@ describe('plugin actor contract slice 1: verified boundary', () => {
       const race = await Promise.all([boundary(request()), boundary(request())]);
       const replay = await fixture.restart()(request({ ...context, input: { value: 2 } }));
       fixture.expire();
+      await fixture.resetReservations();
       const expired = await fixture.restart()(request());
       // Then exactly one operation executed, without forgetting the live reservation.
       expect(race).toContainEqual({ result: { data: { version: 1 } } });

@@ -1,3 +1,8 @@
+import { mkdtemp, rm } from 'node:fs/promises';
+import { createServer, request as socketRequest } from 'node:http';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import { randomUUID } from 'node:crypto';
 
 import { accountTokenClaimsSchema, type PluginCallContext } from '@aeolus-fleet/common';
@@ -5,7 +10,7 @@ import { createAuthenticateAccount } from '../../domain/identity/authenticate-ac
 import { afterEach, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 
-import { addAgentShip, crewShip, FLEET_URL, historyUseCases, identityUseCases, initialiseFleet, messagingUseCases, operatorCaller, registryUseCases } from '../../../test/support/core-fixtures.js';
+import { addAgentShip, crewShip, FLEET_URL, historyUseCases, identityUseCases, initialiseFleet, messagingUseCases, operatorCaller, OPERATOR, registryUseCases } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore } from '../../../test/support/in-memory.js';
 import { createCallPlugin } from '../../domain/registry/call-plugin.js';
 import { newKey } from '../../testing/keys.js';
@@ -31,7 +36,7 @@ async function scenario() {
   } } });
   let isCutOff = false;
   const claims = accountTokenClaimsSchema.parse({ iss: 'https://issuer.example', aud: fleet.fleetId, sub: 'account-1', org: 'organisation-1', scope: 'sample:change', group: [], iat: 1794830399, exp: 1794830410 });
-  const authenticateAccount = createAuthenticateAccount({ clock: core.clock, signatures: { verify: () => Promise.resolve(claims) }, cutOffs: { cutOffAt: () => Promise.resolve(isCutOff ? core.clock.now() : undefined) }, fleets: { isHosted: () => Promise.resolve(core.state.fleets.some((held) => held.id === fleet.fleetId)) } });
+  const authenticateAccount = createAuthenticateAccount({ clock: core.clock, signatures: { verify: () => Promise.resolve(claims) }, cutOffs: { cutOffAt: () => Promise.resolve(isCutOff ? core.clock.now() : undefined) }, fleets: { isHosted: () => Promise.resolve(core.state.fleets.some((held) => held.id === fleet.fleetId) && !core.state.deletedFleets.some((held) => held.fleetId === fleet.fleetId)) } });
   const server = buildHttpServer({ clock: core.clock, fleetUrl: FLEET_URL, consoleOrigin: new URL(FLEET_URL).origin, logger: false, checkDatabase: () => Promise.resolve(), latestMigration: () => Promise.resolve(null), useCases: { ...identityUseCases(core), ...registry, ...messagingUseCases(core), ...historyUseCases(core), authenticateAccount, callPlugin, ping: () => Promise.resolve({ serverTime: core.clock.now(), fleetCount: 1 }) } });
   servers.push(server);
   const input = { pluginShipId: plugin.shipId, procedure: 'widgets.change', input: { value: 1 } };
@@ -102,6 +107,94 @@ describe('plugin actor contract slice 1: fleet.callPlugin doors', () => {
     expect(fixture.dispatches[0]?.expiresAt).toBe('2026-11-16T12:00:10.000Z');
     expect(cutOff.statusCode).toBe(401);
     expect(fixture.dispatches).toHaveLength(1);
+  });
+  it('bounds a console dispatch by the known sign-in expiry and retains Origin refusals', async () => {
+    // Given a console sign-in that ends in ten seconds.
+    const fixture = await scenario();
+    const signedIn = await fixture.server.inject({ method: 'POST', url: '/trpc/console.signIn', payload: OPERATOR, headers: { origin: new URL(FLEET_URL).origin } });
+    const cookie = signedIn.headers['set-cookie']?.toString().split(';')[0] ?? '';
+    const session = fixture.core.state.consoleSessions.find((held) => held.endedAt === null);
+    if (!session) throw new Error('No console sign-in');
+    session.endsBy = new Date('2026-11-16T12:00:10.000Z');
+    session.expiresAt = session.endsBy;
+    const argo = fixture.core.state.ships.find((ship) => ship.id === fixture.argo.shipId);
+    if (!argo) throw new Error('No argo');
+    argo.scopes = [...argo.scopes, 'sample:change'];
+    // When the sign-in calls from an untrusted Origin, then the console's own.
+    const refused = await fixture.server.inject({ method: 'POST', url: '/trpc/fleet.callPlugin', headers: { cookie, origin: 'https://attacker.example' }, payload: fixture.input });
+    const answer = await fixture.server.inject({ method: 'POST', url: '/trpc/fleet.callPlugin', headers: { cookie, origin: new URL(FLEET_URL).origin }, payload: fixture.input });
+    // Then the normal Origin guard remains and the server context cannot outlive the sign-in.
+    expect(refused.statusCode).toBe(403);
+    expect(answer.statusCode).toBe(200);
+    expect(fixture.dispatches).toHaveLength(1);
+    expect(fixture.dispatches[0]?.expiresAt).toBe('2026-11-16T12:00:10.000Z');
+  });
+
+  it('calls the MCP tool as the owning ship rather than the ship in connection headers', async () => {
+    // Given the normal MCP connection and a plugin-scoped owning ship.
+    const fixture = await scenario();
+    fixture.grant(['sample:change']);
+    const address = await fixture.server.listen({ port: 0, host: '127.0.0.1' });
+    const client = new Client({ name: 'plugin-contract-test', version: '1' });
+    await client.connect(new StreamableHTTPClientTransport(new URL(`${address}/mcp`), { requestInit: { headers: { authorization: 'Bearer a-trierarch-connection-credential' } } }));
+    try {
+      // When a socket's owning-ship credential is forwarded as the tool argument.
+      const answer = await client.callTool({ name: 'fleet_callPlugin', arguments: { ...fixture.input, crewToken: fixture.crewToken } });
+      // Then core uses that ship and returns no credential in its result.
+      expect(answer.isError).not.toBe(true);
+      expect(fixture.dispatches[0]?.actor).toEqual({ kind: 'ship', shipId: fixture.agent.shipId });
+      expect(JSON.stringify(answer)).not.toContain(fixture.crewToken);
+    } finally { await client.close(); }
+  });
+
+  it('authenticates a fresh account call again after the fleet is deleted', async () => {
+    // Given a checked account token calling directly, without a ship credential.
+    const fixture = await scenario();
+    const request = () => fixture.server.inject({ method: 'POST', url: '/api/v1/fleet/callPlugin', headers: { 'aeolus-account-token': 'checked-account-token' }, payload: fixture.input });
+    expect((await request()).statusCode).toBe(200);
+    // When the installation deletes that fleet before the next call.
+    unwrap(await fixture.registry.deleteFleet({ fleetId: fixture.fleet.fleetId, requestId: newKey() }));
+    const answer = await request();
+    // Then the prior scope snapshot grants nothing in a deleted fleet.
+    expect(answer.statusCode).toBe(401);
+    expect(fixture.dispatches).toHaveLength(1);
+  });
+
+  it('accepts a socket-forwarded operation under the owning ship credential without exposing it to the socket caller', async () => {
+    // Given a thin socket adapter that holds the owning ship's credential on the server.
+    const fixture = await scenario();
+    fixture.grant(['sample:change']);
+    const directory = await mkdtemp(join(tmpdir(), 'plugin-socket-'));
+    const socketPath = join(directory, 'ship.sock');
+    const proxy = createServer((request, response) => {
+      const chunks: Buffer[] = [];
+      request.on('data', (data: unknown) => { if (Buffer.isBuffer(data)) chunks.push(data); });
+      request.on('end', () => {
+        void fixture.server.inject({ method: 'POST', url: '/api/v1/fleet/callPlugin', headers: { authorization: `Bearer ${fixture.crewToken}`, 'content-type': 'application/json' }, payload: Buffer.concat(chunks).toString() }).then((answer) => { response.writeHead(answer.statusCode); response.end(answer.body); });
+      });
+    });
+    await new Promise<void>((resolve) => { proxy.listen(socketPath, resolve); });
+    try {
+      // When a session calls over the socket with only the public envelope.
+      const answer = await new Promise<string>((resolve, reject) => {
+        const request = socketRequest({ socketPath, path: '/fleet/callPlugin', method: 'POST', headers: { 'content-type': 'application/json' } }, (response) => {
+          let body = '';
+          response.setEncoding('utf8');
+          response.on('data', (chunk: string) => { body += chunk; });
+          response.on('end', () => { resolve(body); });
+        });
+        request.on('error', reject);
+        request.end(JSON.stringify(fixture.input));
+      });
+      // Then the verified actor is the owning ship and its credential stays on the server.
+      const body: unknown = JSON.parse(answer);
+      expect(body).toMatchObject({ actor: { kind: 'ship', shipId: fixture.agent.shipId } });
+      expect(answer).not.toContain(fixture.crewToken);
+      expect(JSON.stringify(fixture.input)).not.toContain(fixture.crewToken);
+    } finally {
+      await new Promise<void>((resolve) => { proxy.close(() => { resolve(); }); });
+      await rm(directory, { recursive: true, force: true });
+    }
   });
 
 });

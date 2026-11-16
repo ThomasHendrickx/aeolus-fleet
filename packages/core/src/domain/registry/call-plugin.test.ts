@@ -37,4 +37,21 @@ describe('plugin actor contract slice 1: admission', () => {
     expect(answer).toEqual({ isOk: false, error: { kind: 'PLUGIN_NOT_FOUND', message: 'Target is not a connected plugin in this fleet' } });
     expect(dispatches).toEqual([]);
   });
+  it('uses the same relay for a second plugin with unrelated exposed operations and refuses it after disconnect', async () => {
+    // Given two plugins with unrelated operations.
+    const fleet = await readReachScenario();
+    const first = unwrap(await fleet.registry.commissionShip(fleet.argo, { name: 'first-plugin', type: 'sample', kind: 'plugin', idempotencyKey: newKey() }));
+    const second = unwrap(await fleet.registry.commissionShip(fleet.argo, { name: 'second-plugin', type: 'other', kind: 'plugin', idempotencyKey: newKey() }));
+    const dispatches: unknown[] = [];
+    const call = createCallPlugin({ ...fleet.core, requestId: () => 'f473fb19-52cd-445f-906b-7d6ef5e4b01f', transport: { dispatch: (context) => { dispatches.push(context.procedure); return Promise.resolve({ isOk: true, value: {} }); } } });
+    // When both are called and the second is subsequently retired.
+    await call(fleet.reader, { pluginShipId: first.shipId, procedure: 'widgets.list', input: {} });
+    await call(fleet.reader, { pluginShipId: second.shipId, procedure: 'reports.read', input: {} });
+    unwrap(await fleet.registry.retireShip(fleet.argo, { shipId: second.shipId }));
+    const disconnected = await call(fleet.reader, { pluginShipId: second.shipId, procedure: 'reports.read', input: {} });
+    // Then no core operation catalogue intervenes, and the disconnected plugin is never dispatched again.
+    expect(dispatches).toEqual(['widgets.list', 'reports.read']);
+    expect(disconnected).toMatchObject({ isOk: false, error: { kind: 'PLUGIN_NOT_FOUND' } });
+  });
+
 });

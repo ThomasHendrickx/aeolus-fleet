@@ -78,5 +78,46 @@ describe('plugin actor contract slice 1: configured server transport', () => {
       expect(answer.error.code).toBe('NOT_FOUND');
       expect(answer.error.message).toContain('no operation started');
     }
+  });  it('starts no operation when the configured plugin has stopped', async () => {
+    // Given a configured plugin whose listener is stopped.
+    const plugin = await endpoint((_request, response) => { response.end('{}'); });
+    await new Promise<void>((resolve) => { plugin.server.close(() => { resolve(); }); });
+    // When core attempts an immediate dispatch.
+    const answer = await createHttpPluginCalls({ targets: [target(plugin.url)], now: () => new Date() }).dispatch(context);
+    // Then the refusal explicitly distinguishes failure before admission.
+    expect(answer.isOk).toBe(false);
+    if (!answer.isOk) {
+      expect(answer.error.code).toBe('BAD_GATEWAY');
+      expect(answer.error.message).toContain('no operation started');
+    }
   });
+
+  it('returns timeout uncertainty without retrying a slow plugin', async () => {
+    // Given a plugin that starts but never answers before the immediate deadline.
+    let started = 0;
+    const plugin = await endpoint(() => { started += 1; });
+    const delayed = { ...context, expiresAt: new Date(Date.now() + 500).toISOString() };
+    // When the answer deadline passes.
+    const answer = await createHttpPluginCalls({ targets: [target(plugin.url)], now: () => new Date() }).dispatch(delayed);
+    // Then there is one attempt and the caller is told to read state before retrying.
+    expect(started).toBe(1);
+    expect(answer.isOk).toBe(false);
+    if (!answer.isOk) {
+      expect(answer.error.code).toBe('TIMEOUT');
+      expect(answer.error.message).toContain('outcome unknown');
+    }
+  });
+
+  it('sanitizes an invalid upstream answer without input or diagnostic leakage', async () => {
+    // Given a plugin that answers with an internal diagnostic instead of the contract.
+    const plugin = await endpoint((_request, response) => { response.end(JSON.stringify({ diagnostic: 'private database diagnostic', input: context.input })); });
+    // When core validates the answer.
+    const answer = await createHttpPluginCalls({ targets: [target(plugin.url)], now: () => new Date() }).dispatch(context);
+    // Then it reports uncertainty without forwarding that diagnostic or input.
+    expect(answer.isOk).toBe(false);
+    if (!answer.isOk) expect(answer.error.code).toBe('BAD_GATEWAY');
+    expect(JSON.stringify(answer)).not.toContain('private database diagnostic');
+    expect(JSON.stringify(answer)).not.toContain('never in errors');
+  });
+
 });
