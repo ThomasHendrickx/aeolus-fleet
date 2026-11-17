@@ -1,15 +1,17 @@
 /** Durable compact projections and a commit-ordered installation change cursor. */
+import { isDeepStrictEqual } from 'node:util';
+
 import { fleetJourneySummarySchema, idSchema, type FleetId } from '@aeolus-fleet/common';
 import { z } from 'zod';
 
 import type { JourneyActivityExpiry } from '../../domain/shared/expire-journey-activity.js';
-import { JOURNEY_ACTIVITY_DAYS, newFleetJourney, fleetJourneySummary, type FleetJourney, type JourneyFact } from '../../domain/shared/fleet-journey.js';
-import { createRecordFleetJourney, type JourneyRecords } from '../../domain/shared/record-fleet-journey.js';
+import { JOURNEY_ACTIVITY_DAYS, newFleetJourney, fleetJourneySummary, projectFleetJourney, type FleetJourney } from '../../domain/shared/fleet-journey.js';
+import type { JourneyRecords } from '../../domain/shared/record-fleet-journey.js';
 import type { FleetEvent } from '../../domain/shared/events.js';
 import type { InstallationJourneyReads, JourneyPagePosition } from '../../domain/registry/read-installation-journeys.js';
 import type { Db } from './client.js';
 import { Prisma } from './generated/client.js';
-import { journeySourceFact } from './journey-source-facts.js';
+import { journeySourceFacts } from './journey-source-facts.js';
 
 const privateJourney = fleetJourneySummarySchema.omit({ activityDatesLast7Days: true, activityDatesLast28Days: true }).extend({ crewedShipIds: z.array(idSchema('ship')).max(2) });
 const projectionRow = z.object({ fleetId: idSchema('fleet'), createdAt: z.date(), coverageFrom: z.date(), processedThrough: z.bigint(), data: z.unknown() });
@@ -41,16 +43,27 @@ export async function projectJourneyEvents(db: Db, input: { fleetId: FleetId; ev
   if (created) {
     await db.$executeRaw`INSERT INTO fleet_journeys(fleet_id, created_at, coverage_from) VALUES (${fleetId}, ${created.occurredAt}, ${created.occurredAt}) ON CONFLICT DO NOTHING`;
   }
+  if (!events.some((event) => ['FleetInitialised', 'ShipClaimed', 'MessageAccepted', 'DeliveryReceived', 'DeliveryHanded'].includes(event.type))) {
+    await db.$executeRaw`UPDATE fleet_journeys SET processed_through = ${lastSeq},
+      data = data || jsonb_build_object('processedThrough', ${lastSeq}::bigint, 'computedAt', ${input.computedAt}::text)
+      WHERE fleet_id = ${fleetId}`;
+    return;
+  }
   const [row] = z.array(projectionRow).parse(await db.$queryRaw`SELECT fleet_id AS "fleetId", created_at AS "createdAt", coverage_from AS "coverageFrom", processed_through AS "processedThrough", data FROM fleet_journeys WHERE fleet_id = ${fleetId}`);
   if (!row) return;
-  const facts: JourneyFact[] = [];
-  for (const event of events) {
-    const fact = await journeySourceFact(db, event);
-    if (fact) facts.push(fact);
+  const state = journeyOf(row);
+  const facts = await journeySourceFacts(db, events);
+  const journey = projectFleetJourney(state, { facts, computedAt: input.computedAt, processedThrough: lastSeq });
+  await createPrismaJourneyRecords(db).save(fleetId, journey);
+  // Watermarks stay fleet-local. The installation cursor only advertises changed facts.
+  if (created || !isDeepStrictEqual(journeyFacts(state), journeyFacts(journey))) {
+    await recordJourneyChange(db, { fleetId, isDeleted: false });
   }
-  const computedAt = input.computedAt;
-  await createRecordFleetJourney({ records: createPrismaJourneyRecords(db) })({ fleetId, createdAt: row.createdAt.toISOString(), coverageFrom: row.coverageFrom.toISOString(), computedAt, processedThrough: lastSeq, facts });
-  await recordJourneyChange(db, { fleetId, isDeleted: false });
+}
+
+function journeyFacts(journey: FleetJourney) {
+  return { milestones: journey.milestones, crewedShipIds: journey.crewedShipIds,
+    activityDates: journey.activityDates, latestQualifyingActivityAt: journey.latestQualifyingActivityAt };
 }
 
 /** The single installation clock is locked last. Lower cursors always commit before higher ones. */

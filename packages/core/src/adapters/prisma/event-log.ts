@@ -8,8 +8,9 @@
  * The log holds a unit of work's events until it is about to commit, then
  * takes their numbers from `fleets.last_event_seq` as the transaction's last
  * statements. The row lock on the fleet is held until commit, so a lower
- * number always commits first and the numbers have no gaps; nothing is locked
- * after it, so it adds no deadlock. The notice goes out on commit only.
+ * number always commits first and the numbers have no gaps. Multi-fleet batches
+ * lock every source fleet before the journey change clock, so lock ordering
+ * stays consistent. The notice goes out on commit only.
  */
 import type { FleetId } from '@aeolus-fleet/common';
 
@@ -37,6 +38,9 @@ export function createPrismaEventLog(db: Db, clock: Clock = { now: () => new Dat
     },
     flush: async () => {
       const fleets = [...new Set(held.map((event) => event.fleetId))].toSorted();
+      if (fleets.length > 1) {
+        await db.$queryRaw`SELECT id FROM fleets WHERE id = ANY(${fleets}::text[]) ORDER BY id FOR UPDATE`;
+      }
       for (const fleetId of fleets) {
         await writeNumbered(db, { fleetId, events: held.filter((event) => event.fleetId === fleetId), computedAt: clock.now().toISOString() });
       }

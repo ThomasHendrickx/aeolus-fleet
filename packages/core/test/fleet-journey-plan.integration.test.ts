@@ -9,7 +9,8 @@ import { projectJourneyEvents, journeyPageStatement, journeyChangesStatement, cr
 import { journeySourceFact } from '../src/adapters/prisma/journey-source-facts.js';
 import { createPrismaFleetRepository } from '../src/adapters/prisma/registry.js';
 import { messageWindow } from '../src/domain/registry/installation-fleet.js';
-import { createIdGenerator, idSchema } from '@aeolus-fleet/common';
+import { SCOPES, createIdGenerator, idSchema } from '@aeolus-fleet/common';
+import type { ShipCaller } from '../src/domain/shared/caller.js';
 import { operatorCaller } from '../src/testing/fleet.js';
 import { unwrap } from '../src/testing/result.js';
 import { createPostgresCore, type PostgresCore } from './support/postgres-core.js';
@@ -78,9 +79,10 @@ it('reads compact fleet pages, changes and source metadata through indexes at lo
 
 it('delivery events in one fleet do not wait for another fleet and fan-out qualification has a constant statement budget', async () => {
   // Given thirty deliveries that cannot change customer milestones, and another fleet holding the change clock.
-  const fleet = unwrap(await core.useCases.initialiseFleet({ name: 'delivery budget' }));
-  const sent = unwrap(await core.useCases.sendMessage(operatorCaller(fleet), { selector: { kind: 'ship', shipId: fleet.operatorShipId }, payload: 'system', idempotencyKey: 'budget' }));
-  const events = Array.from({ length: 30 }, () => ({ id: ids('event'), fleetId: fleet.fleetId, type: 'MessageAccepted', occurredAt: core.clock.now(), actor: { kind: 'ship' as const, shipId: fleet.operatorShipId }, shipId: ids('ship'), messageId: sent.messageId, deliveryId: ids('delivery'), details: {} }));
+  const fleet = unwrap(await core.useCases.createFleet({ requestId: 'delivery-budget', name: 'delivery budget', operatorEmail: 'manager@example.com' }));
+  const argo: ShipCaller = { fleetId: fleet.fleetId, shipId: fleet.operatorShipId, kind: 'operator', scopes: [...SCOPES] };
+  const sent = unwrap(await core.useCases.sendMessage(argo, { selector: { kind: 'ship', shipId: fleet.operatorShipId }, payload: 'system', idempotencyKey: 'budget' }));
+  const events = Array.from({ length: 30 }, () => ({ id: ids('event'), fleetId: fleet.fleetId, type: 'MessageAccepted' as const, occurredAt: core.clock.now(), actor: { kind: 'ship' as const, shipId: fleet.operatorShipId }, shipId: ids('ship'), messageId: sent.messageId, deliveryId: ids('delivery'), details: {} }));
   await core.prisma.ship.createMany({ data: events.map((event, index) => ({ id: event.shipId, fleetId: fleet.fleetId, name: `recipient-${index}`, type: 'reader', kind: 'agent', scopes: [], createdAt: core.clock.now() })) });
   await core.prisma.delivery.createMany({ data: events.map((event) => ({ id: event.deliveryId, fleetId: fleet.fleetId, messageId: sent.messageId, senderShipId: fleet.operatorShipId, recipientShipId: event.shipId, state: 'pending', createdAt: core.clock.now() })) });
   const statements: { query: string; params: string }[] = [];

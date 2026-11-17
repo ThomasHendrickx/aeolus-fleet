@@ -21,40 +21,62 @@ async function party(db: Db, input: { event: FleetEvent; shipId: string }) {
   return row;
 }
 
-const envelopeRow = z.object({ senderShipId: idSchema('ship'), contentType: z.string(), inReplyTo: idSchema('message').nullable(), resendOf: idSchema('message').nullable(), createdAt: z.date(), isCustomerSend: z.boolean(), isProjected: z.boolean() });
+const sourceRow = z.object({
+  fleetId: idSchema('fleet'), deliveryId: idSchema('delivery'), senderShipId: idSchema('ship'), recipientShipId: idSchema('ship'),
+  senderKind: shipKindSchema, recipientKind: shipKindSchema, senderCrewed: z.boolean(), recipientCrewed: z.boolean(),
+  contentType: z.string(), createdAt: z.date(), isCustomerSend: z.boolean(), isReturnToSender: z.boolean(),
+});
 
-/** Every referenced row is looked up by fleet and id; no payload column is selected. */
-export async function journeySourceFact(db: Db, event: FleetEvent): Promise<JourneyFact | undefined> {
-  const at = event.occurredAt.toISOString();
-  if (event.type === 'ShipClaimed' && event.shipId) {
-    const ship = await party(db, { event, shipId: event.shipId });
-    return ship ? { kind: 'crewed', at, shipId: ship.id, shipKind: ship.kind } : undefined;
+/** All recipients of a source batch share one indexed metadata read and one metadata write. */
+export async function journeySourceFacts(db: Db, events: readonly FleetEvent[]): Promise<JourneyFact[]> {
+  const facts: JourneyFact[] = [];
+  for (const event of events.filter((event) => event.type === 'ShipClaimed' && event.shipId)) {
+    const ship = await party(db, { event, shipId: event.shipId ?? '' });
+    if (ship) facts.push({ kind: 'crewed', at: event.occurredAt.toISOString(), shipId: ship.id, shipKind: ship.kind });
   }
-  if (!['MessageAccepted', 'DeliveryReceived', 'DeliveryHanded'].includes(event.type) || !event.messageId || !event.deliveryId || !event.shipId) return undefined;
-  const [envelope] = z.array(envelopeRow).parse(await db.$queryRaw`
-    SELECT m.sender_ship_id AS "senderShipId", m.content_type AS "contentType", m.in_reply_to_message_id AS "inReplyTo", m.resend_of_message_id AS "resendOf", m.created_at AS "createdAt",
-      EXISTS (SELECT 1 FROM deliveries d WHERE d.fleet_id = m.fleet_id AND d.id = ${event.deliveryId} AND d.journey_qualifying IS NOT NULL) AS "isProjected",
+  const sources = events.flatMap((event, position) =>
+    ['MessageAccepted', 'DeliveryReceived', 'DeliveryHanded'].includes(event.type) && event.messageId && event.deliveryId && event.shipId
+      ? [{ fleetId: event.fleetId, messageId: event.messageId, deliveryId: event.deliveryId, shipId: event.shipId, position }] : []);
+  if (sources.length === 0) return facts;
+  const rows = z.array(sourceRow).parse(await db.$queryRaw`
+    SELECT m.fleet_id AS "fleetId", d.id AS "deliveryId", s.id AS "senderShipId", r.id AS "recipientShipId",
+      s.kind AS "senderKind", r.kind AS "recipientKind", m.content_type AS "contentType", m.created_at AS "createdAt",
+      EXISTS (SELECT 1 FROM (
+        SELECT l.ended_at FROM leases l WHERE l.fleet_id = s.fleet_id AND l.ship_id = s.id AND l.started_at <= m.created_at
+        ORDER BY l.started_at DESC, l.id DESC LIMIT 1
+      ) latest WHERE latest.ended_at IS NULL OR latest.ended_at > m.created_at) AS "senderCrewed",
+      EXISTS (SELECT 1 FROM (
+        SELECT l.ended_at FROM leases l WHERE l.fleet_id = r.fleet_id AND l.ship_id = r.id AND l.started_at <= m.created_at
+        ORDER BY l.started_at DESC, l.id DESC LIMIT 1
+      ) latest WHERE latest.ended_at IS NULL OR latest.ended_at > m.created_at) AS "recipientCrewed",
       EXISTS (SELECT 1 FROM events e WHERE e.fleet_id = m.fleet_id AND e.message_id = m.id AND e.type = 'MessageAccepted'
-        AND e.actor_kind = 'ship' AND e.actor_ship_id = m.sender_ship_id) AS "isCustomerSend"
-    FROM messages m WHERE m.fleet_id = ${event.fleetId} AND m.id = ${event.messageId}`);
-  if (envelope?.resendOf !== null || envelope.isProjected) return undefined;
-  const accepted = { ...event, occurredAt: envelope.createdAt };
-  const [sender, recipient] = await Promise.all([
-    party(db, { event: accepted, shipId: envelope.senderShipId }), party(db, { event: accepted, shipId: event.shipId }),
-  ]);
-  if (!sender || !recipient) return undefined;
-  const [original] = z.array(z.object({ isReturnToSender: z.boolean() })).parse(await db.$queryRaw`
-    SELECT EXISTS (
-      SELECT 1 FROM messages m JOIN deliveries d ON d.fleet_id = m.fleet_id AND d.message_id = m.id
-      WHERE m.fleet_id = ${event.fleetId} AND m.id = ${envelope.inReplyTo}
-        AND m.sender_ship_id = ${recipient.id} AND COALESCE(d.recipient_ship_id, d.claimed_by_ship_id) = ${sender.id}
-        AND d.journey_qualifying = true AND d.journey_both_crewed = true
-    ) AS "isReturnToSender"`);
-  const qualified = qualifyJourneyMessage({ sender, recipient, contentType: envelope.contentType,
-    isSystem: !envelope.isCustomerSend,
-    isReturnToSender: original?.isReturnToSender ?? false,
-  });
-  await db.$executeRaw`UPDATE deliveries SET journey_qualifying = ${qualified.isQualifying}, journey_both_crewed = ${qualified.isCrewedAtBothEnds}
-    WHERE fleet_id = ${event.fleetId} AND id = ${event.deliveryId}`;
-  return { kind: 'message', at: envelope.createdAt.toISOString(), isQualifying: qualified.isQualifying, isRoundTrip: qualified.isRoundTrip };
+        AND e.actor_kind = 'ship' AND e.actor_ship_id = m.sender_ship_id) AS "isCustomerSend",
+      EXISTS (SELECT 1 FROM messages original JOIN deliveries accepted ON accepted.fleet_id = original.fleet_id AND accepted.message_id = original.id
+        WHERE original.fleet_id = m.fleet_id AND original.id = m.in_reply_to_message_id AND original.sender_ship_id = r.id
+          AND COALESCE(accepted.recipient_ship_id, accepted.claimed_by_ship_id) = s.id
+          AND accepted.journey_qualifying = true AND accepted.journey_both_crewed = true) AS "isReturnToSender"
+    FROM jsonb_to_recordset(${JSON.stringify(sources)}::jsonb) AS source("fleetId" text, "messageId" text, "deliveryId" text, "shipId" text, position integer)
+    JOIN messages m ON m.fleet_id = source."fleetId" AND m.id = source."messageId"
+    JOIN deliveries d ON d.fleet_id = m.fleet_id AND d.id = source."deliveryId" AND d.message_id = m.id
+    JOIN ships s ON s.fleet_id = m.fleet_id AND s.id = m.sender_ship_id
+    JOIN ships r ON r.fleet_id = m.fleet_id AND r.id = source."shipId"
+    WHERE d.journey_qualifying IS NULL AND m.resend_of_message_id IS NULL
+    ORDER BY source.position`);
+  const qualified = rows.map((row) => ({ ...row, ...qualifyJourneyMessage({
+    sender: { id: row.senderShipId, kind: row.senderKind, isCrewed: row.senderCrewed },
+    recipient: { id: row.recipientShipId, kind: row.recipientKind, isCrewed: row.recipientCrewed },
+    contentType: row.contentType, isSystem: !row.isCustomerSend, isReturnToSender: row.isReturnToSender,
+  }) }));
+  if (qualified.length > 0) {
+    const metadata = qualified.map((row) => ({ fleetId: row.fleetId, deliveryId: row.deliveryId, isQualifying: row.isQualifying, isCrewedAtBothEnds: row.isCrewedAtBothEnds }));
+    await db.$executeRaw`UPDATE deliveries d SET journey_qualifying = source."isQualifying", journey_both_crewed = source."isCrewedAtBothEnds"
+      FROM jsonb_to_recordset(${JSON.stringify(metadata)}::jsonb) AS source("fleetId" text, "deliveryId" text, "isQualifying" boolean, "isCrewedAtBothEnds" boolean)
+      WHERE d.fleet_id = source."fleetId" AND d.id = source."deliveryId"`;
+  }
+  return [...facts, ...qualified.map((row) => ({ kind: 'message' as const, at: row.createdAt.toISOString(), isQualifying: row.isQualifying, isRoundTrip: row.isRoundTrip }))];
+}
+
+/** A single source uses the same bounded batch path as a fan-out send. */
+export async function journeySourceFact(db: Db, event: FleetEvent): Promise<JourneyFact | undefined> {
+  return (await journeySourceFacts(db, [event]))[0];
 }
