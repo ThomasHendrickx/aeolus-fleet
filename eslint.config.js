@@ -342,6 +342,7 @@ export default defineConfig(
     '**/coverage/',
     '**/storybook-static/',
     '**/next-env.d.ts',
+    'docs/design/hosted-onboarding/mockups/',
     'packages/core/src/adapters/prisma/generated/',
   ]),
 
