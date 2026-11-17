@@ -2,7 +2,7 @@
 
 Detailed design for [#1228](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1228), priority 1. Docs and mockups only. The responsive [mockup index](mockups/artboards/index.html) and [screen coverage, numbered persona paths and slice acceptance](mockups/coverage.md) are for approval before implementation.
 
-Status: purpose, five initial picks and all nine picks in section 10 are decided by Thomas. Mockups await approval. Today's paths were walked on staging on 17 Nov (gateway 0.40.2, core 0.40.0): [walk.md](walk.md).
+Status: purpose, five initial picks and all nine picks in section 10 are decided by Thomas, and he approved the mockups (17 Nov). Today's paths were walked on staging on 17 Nov (gateway 0.40.2, core 0.40.0): [walk.md](walk.md).
 
 ## 1. Purpose (approved)
 
