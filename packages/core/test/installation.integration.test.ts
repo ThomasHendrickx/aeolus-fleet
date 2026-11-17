@@ -205,7 +205,8 @@ describe('the installation procedures on a hosting server', () => {
     unwrap(await core.sendMessage(argo, { selector: { kind: 'ship', shipId }, payload: 'Review the pull request', idempotencyKey: newKey() }));
 
     const described = await installation().get.query({ fleetId: created.fleetId });
-    const { health, ...measured } = described;
+    const { health, journey, ...measured } = described;
+    expect(journey?.milestones.find((milestone) => milestone.key === 'fleet-ready')).toMatchObject({ state: 'reached', occurredAt: clock.now().toISOString() });
 
     expect(measured).toEqual({
       fleetId: created.fleetId,
@@ -237,7 +238,9 @@ describe('the installation procedures on a hosting server', () => {
       overdue: 0,
       stuck: [{ cause: 'waitingForCrew', place: { kind: 'ship', ship: { id: shipId, name: 'scout' }, machine: null }, count: 1, oldestSince: clock.now().toISOString() }],
     });
-    await expect(installation().list.query()).resolves.toContainEqual(described);
+    const { journey: listedJourney, ...listed } = described;
+    expect(listedJourney).toBeDefined();
+    await expect(installation().list.query()).resolves.toContainEqual(listed);
   });
 
   it('answer storage and messages per UTC day from the days counted, not from the stored messages', async () => {
@@ -289,7 +292,9 @@ describe('the installation procedures on a hosting server', () => {
     expect(described.health.stuck).toMatchObject([{ cause: 'noShipCanTake', place: { kind: 'type', type: 'builder' }, count: 1, oldestSince: sentAt.toISOString() }]);
     expect(described.health.stuckPerHour.at(-1)).toEqual({ at: clock.now().toISOString(), count: 1 });
     expect(described.health.acknowledged).toMatchObject({ count: 0, medianMs: null });
-    await expect(installation().list.query()).resolves.toContainEqual(described);
+    const { journey: listedJourney, ...listed } = described;
+    expect(listedJourney).toBeDefined();
+    await expect(installation().list.query()).resolves.toContainEqual(listed);
   });
 
   it('delete a busy fleet and leave no row with its fleet_id, and every other fleet as it was', async () => {
