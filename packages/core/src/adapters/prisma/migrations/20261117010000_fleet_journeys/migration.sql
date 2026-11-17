@@ -1,7 +1,7 @@
 -- A compact projection survives finished message and lease retention. Its private
 -- state holds only the first two crew ids, six achievements and at most 90 dates.
 CREATE TABLE fleet_journeys (
-  fleet_id text PRIMARY KEY REFERENCES fleets(id) ON DELETE CASCADE,
+  fleet_id text PRIMARY KEY REFERENCES fleets(id) ON DELETE CASCADE ON UPDATE CASCADE,
   created_at timestamptz(3) NOT NULL,
   coverage_from timestamptz(3) NOT NULL,
   processed_through bigint NOT NULL DEFAULT 0,
