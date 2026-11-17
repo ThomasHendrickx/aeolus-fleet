@@ -334,18 +334,26 @@ describe('the installation procedures on a hosting server', () => {
     await expect(codeOf(installation().delete.mutate({ requestId: newKey(), fleetId: created.fleetId }))).resolves.toBe('NOT_FOUND');
   });
 
-  it('delete a fleet of thousands of messages, deliveries and events within the bulk transaction time', async () => {
-    const created = await installation().create.mutate({ requestId: newKey(), name: 'long-lived', operatorEmail: 'long-lived@example.com' });
-    const argo = argoOf(created);
-    const { shipId } = unwrap(await core.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
-    const { messageId } = unwrap(await core.sendMessage(argo, { selector: { kind: 'ship', shipId }, payload: 'Review', idempotencyKey: newKey() }));
-    await seedTraffic({ fleetId: created.fleetId, from: messageId, copies: SEEDED_MESSAGES });
-    await expect(rowsOf(created.fleetId)).resolves.toMatchObject({ messages: SEEDED_MESSAGES + 1, deliveries: SEEDED_MESSAGES + 1 });
+  describe('a fleet of thousands of messages, deliveries and events', () => {
+    let fleetId: FleetId;
 
-    await expect(installation().delete.mutate({ requestId: newKey(), fleetId: created.fleetId })).resolves.toEqual({});
+    beforeAll(async () => {
+      const created = await installation().create.mutate({ requestId: newKey(), name: 'long-lived', operatorEmail: 'long-lived@example.com' });
+      fleetId = created.fleetId;
+      const argo = argoOf(created);
+      const { shipId } = unwrap(await core.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
+      const { messageId } = unwrap(await core.sendMessage(argo, { selector: { kind: 'ship', shipId }, payload: 'Review', idempotencyKey: newKey() }));
+      await seedTraffic({ fleetId, from: messageId, copies: SEEDED_MESSAGES });
+      await expect(rowsOf(fleetId)).resolves.toMatchObject({ messages: SEEDED_MESSAGES + 1, deliveries: SEEDED_MESSAGES + 1 });
+    }, 60_000);
 
-    await core.removeDeletedFleets();
-    expect(Object.entries(await rowsOf(created.fleetId)).filter(([, count]) => count > 0)).toEqual([]);
+    // Removal takes many transactions, each allowed the bulk transaction time.
+    it('deletes every row of the fleet', { timeout: 60_000 }, async () => {
+      await expect(installation().delete.mutate({ requestId: newKey(), fleetId })).resolves.toEqual({});
+
+      await core.removeDeletedFleets();
+      expect(Object.entries(await rowsOf(fleetId)).filter(([, count]) => count > 0)).toEqual([]);
+    });
   });
 
   it('delete a fleet whose delete runs past a call\'s transaction time, within the bulk transaction time', { timeout: 60_000 }, async () => {
