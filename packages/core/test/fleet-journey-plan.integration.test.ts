@@ -5,7 +5,7 @@ import { createPrismaUnitOfWork } from '../src/adapters/prisma/unit-of-work.js';
 import { ok } from '../src/domain/shared/result.js';
 import { createPrismaEventLog } from '../src/adapters/prisma/event-log.js';
 import { createPrismaInstallationFleets } from '../src/adapters/prisma/installation.js';
-import { journeyPageStatement, journeyChangesStatement, createPrismaInstallationJourneyReads, createPrismaJourneyActivityExpiry } from '../src/adapters/prisma/fleet-journeys.js';
+import { projectJourneyEvents, journeyPageStatement, journeyChangesStatement, createPrismaInstallationJourneyReads, createPrismaJourneyActivityExpiry } from '../src/adapters/prisma/fleet-journeys.js';
 import { journeySourceFact } from '../src/adapters/prisma/journey-source-facts.js';
 import { createPrismaFleetRepository } from '../src/adapters/prisma/registry.js';
 import { messageWindow } from '../src/domain/registry/installation-fleet.js';
@@ -73,5 +73,32 @@ it('reads compact fleet pages, changes and source metadata through indexes at lo
     expect(page).not.toContain('messages');
     expect(changes).not.toContain('messages');
     expect(statements.some((statement) => statement.query.includes('fleet_journeys'))).toBe(true);
+  } finally { await client.$disconnect(); }
+});
+
+it('delivery events in one fleet do not wait for another fleet and fan-out qualification has a constant statement budget', async () => {
+  // Given thirty deliveries that cannot change customer milestones, and another fleet holding the change clock.
+  const fleet = unwrap(await core.useCases.initialiseFleet({ name: 'delivery budget' }));
+  const sent = unwrap(await core.useCases.sendMessage(operatorCaller(fleet), { selector: { kind: 'ship', shipId: fleet.operatorShipId }, payload: 'system', idempotencyKey: 'budget' }));
+  const events = Array.from({ length: 30 }, () => ({ id: ids('event'), fleetId: fleet.fleetId, type: 'MessageAccepted', occurredAt: core.clock.now(), actor: { kind: 'ship' as const, shipId: fleet.operatorShipId }, shipId: ids('ship'), messageId: sent.messageId, deliveryId: ids('delivery'), details: {} }));
+  await core.prisma.ship.createMany({ data: events.map((event, index) => ({ id: event.shipId, fleetId: fleet.fleetId, name: `recipient-${index}`, type: 'reader', kind: 'agent', scopes: [], createdAt: core.clock.now() })) });
+  await core.prisma.delivery.createMany({ data: events.map((event) => ({ id: event.deliveryId, fleetId: fleet.fleetId, messageId: sent.messageId, senderShipId: fleet.operatorShipId, recipientShipId: event.shipId, state: 'pending', createdAt: core.clock.now() })) });
+  const statements: { query: string; params: string }[] = [];
+  const client = createPrismaClientTellingStatements(core.databaseUrl, (query, params) => statements.push({ query, params }));
+  try {
+    // When the installation cursor remains locked, unrelated delivery facts must still commit.
+    await core.prisma.$transaction(async (held) => {
+      await held.$executeRaw`UPDATE installation_journey_clock SET seq = seq + 1 WHERE id = 1`;
+      await client.$transaction(async (db) => {
+        await db.$executeRaw`SET LOCAL lock_timeout = '500ms'`;
+        await projectJourneyEvents(db, { fleetId: fleet.fleetId, events, lastSeq: 1000, computedAt: core.clock.now().toISOString() });
+        await projectJourneyEvents(db, { fleetId: fleet.fleetId, events: events.map((event) => ({ ...event, type: 'DeliveryReceived' })), lastSeq: 1030, computedAt: core.clock.now().toISOString() });
+        await projectJourneyEvents(db, { fleetId: fleet.fleetId, events: events.map((event) => ({ ...event, type: 'DeliveryAcknowledged' })), lastSeq: 1060, computedAt: core.clock.now().toISOString() });
+      });
+    });
+    // Then qualification costs two statements for all recipients, and no delivery takes the shared clock.
+    expect(statements.filter(({ query }) => query.includes('installation_journey_clock'))).toEqual([]);
+    expect(statements.filter(({ query }) => /(?:FROM|JOIN) messages m|UPDATE deliveries/.test(query))).toHaveLength(3);
+    expect(await core.prisma.delivery.count({ where: { fleetId: fleet.fleetId, journeyQualifying: false } })).toBe(31);
   } finally { await client.$disconnect(); }
 });
