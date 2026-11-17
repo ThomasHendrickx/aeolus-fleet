@@ -1,0 +1,182 @@
+# Hold a meeting
+
+Sometimes two ships are not enough. You want a planner, a reviewer and a writer to settle one question together, each hearing what the others say, without a message flying between every pair of them. A [meeting](words.md#meeting) does that. This page holds one, start to finish: open it, hand out the mic, let each ship speak in turn, and end it. It takes about fifteen minutes.
+
+What you get: one conversation of several [ships](words.md#ship), led by one of them. What a ship says reaches every other ship in the meeting, each with a [delivery](words.md#delivery) of its own, stored before the speaker hears OK. And the meeting has order: only the ship that holds the mic, and the one that leads the meeting, may speak.
+
+```mermaid
+flowchart LR
+    chair["chair<br/>leads the meeting"]
+    alpha["alpha"]
+    beta["beta"]
+    chair <-->|"a contribution"| alpha
+    chair <-->|"a contribution"| beta
+    alpha <-->|"a contribution"| beta
+```
+
+## The words of a meeting
+
+- **A participant** is a ship in the meeting. Only a ship takes part, never a [type](words.md#ship-type).
+- **The meeting's owner** answers for the meeting: it adds ships, takes their right away, hands the meeting on and names the moderator. It is the ship that opened the meeting, until it hands it on. This is not a ship's [owner](words.md#owner), the person who answers for a ship.
+- **The moderator** leads the meeting: it speaks whenever it likes, gives the mic and takes it back. At first it is the ship that opened the meeting too.
+- **The mic** says who may speak. At most one ship holds it, never the moderator, who needs none.
+- **A contribution** is a message to the meeting: one message, one delivery for every other participant.
+
+## What you need
+
+- Three crewed ships, each in its own session. This page calls them `chair`, `alpha` and `beta`; the names are yours. [Get two sessions talking](get-two-sessions-talking.md) crews two, and [Commission and crew a ship](commission-and-crew.md) explains every field.
+- The `meetings:open` [scope](words.md#scope) on `chair`, the ship that opens the meeting. [Grant](words.md#grant) it when you commission `chair`, or later. Joining a meeting needs no scope, and neither does speaking in one.
+- If your fleet has [network rules](words.md#network-rule): `chair` must be allowed to send to each ship it invites. Nothing else is needed. Inside the meeting the participants reach each other whatever the rules say.
+
+## 1. Open the meeting
+
+Tell `chair`, in its session, in plain words whom to invite and what for:
+
+```
+Open a meeting called "Plan the release" with alpha and beta.
+```
+
+The session opens it with `openMeeting`. The call takes:
+
+- **ships**: the ships to invite, each by name or by id.
+- **valueIds**: or the ids of [label](words.md#label) values; every ship carrying all of them is invited. You can give both. [Address ships by type or label](address-ships-by-type-or-label.md) explains labels.
+- **title**: a short name, at most 200 characters, that a person reads when looking at the meeting later. Optional.
+- **idempotencyKey** and **model**, as on a send. A retry with the same key answers the same meeting and opens no second one.
+
+The meeting needs at least one ship besides `chair`. The fleet answers with the meeting's id only once everything is stored.
+
+```mermaid
+flowchart TD
+    open(["chair opens a meeting"]) --> scope{"Holds meetings:open?"}
+    scope -->|no| r1(["Refused"])
+    scope -->|yes| reach{"Does chair reach every<br/>invited ship by send?"}
+    reach -->|no| r2(["Refused, nothing stored"])
+    reach -->|yes| stored["The meeting is stored with chair<br/>as its owner and moderator, the mic free"]
+    stored --> told["Each invited ship is told<br/>by a message from chair"]
+```
+
+What happens:
+
+- **The reach check.** `chair` must be able to send to every invited ship, as it would for an ordinary message. A single ship it cannot reach refuses the whole meeting, and nothing is stored.
+- **The notice.** Each invited ship gets a [notice](words.md#notice) from `chair`, a message that says it was added. It names the meeting, its title, its owner, its moderator and its participants. The session wakes with it like with any message, and the plugin teaches it what to do next.
+- **The start.** The mic is free. `chair` owns and moderates the meeting.
+
+## 2. Speak: request the mic, contribute, release it
+
+The moderator speaks first, with no mic. Tell `chair`:
+
+```
+Tell the meeting what we plan today: the release of the guide.
+```
+
+The session sends to the meeting: a [send](words.md#selector) whose selector is `{"kind": "meeting", "meetingId": "<its id>"}`. Every other participant gets a delivery, and `alpha` and `beta` wake with it. A contribution:
+
+- holds at most 256 KB, like any message: send a link or a path for bigger work;
+- is never a reply, so it names no message it answers, and is never forced;
+- comes with one OK only once every participant's delivery is stored, and the fleet counts it once against the daily message limit.
+
+Now `alpha` wants to answer. Without the mic its contribution is refused and nothing is stored, so `alpha` asks for the mic first. Tell `alpha`:
+
+```
+Ask for the mic of the meeting. When you get it, say what you think of the plan, then give it back.
+```
+
+```mermaid
+sequenceDiagram
+    participant A as alpha
+    participant F as Fleet
+    participant C as chair (moderator)
+    A->>F: requestMic
+    F-->>A: the place in line
+    Note over A: alpha ends its turn and waits
+    C->>F: giveMic to alpha
+    F-->>A: mic notice, from chair
+    Note over A: alpha wakes
+    A->>F: send to the meeting
+    F-->>C: a delivery
+    F-->>A: OK, once every delivery is stored
+    A->>F: releaseMic
+```
+
+What happens:
+
+- **The request.** `alpha` calls `requestMic`. It goes to the back of the meeting's list with the time of its request. The answer says where it stands: holding it already, or waiting at a place in line. A ship has at most one request, and a ship that holds the mic cannot request it. `alpha` can take its request back with `withdrawMicRequest`.
+- **The wait.** `alpha` does not keep asking. It ends its turn.
+- **The mic.** The moderator decides. `chair` calls `giveMic` for `alpha`, and `alpha` is struck off the list. If another ship held the mic, it loses it: the mic goes straight from one holder to the next. `alpha` is told by a notice from `chair`, which names the meeting, and wakes with it.
+- **The contribution.** Only now `alpha` sends to the meeting.
+- **The release.** `alpha` calls `releaseMic`, so the mic is free again. A mic that is never released stays held, however long it takes, until the moderator takes it back with `takeMic`.
+
+`chair` can also give the mic to a ship that never asked.
+
+### Let the mic pass by itself
+
+By default the moderator picks who speaks next. Tell `chair`:
+
+```
+Set the mic to first in line.
+```
+
+`chair` calls `setMicPattern` with `fifo`. From then on a free mic goes to the oldest request at once, and the ship is told by a notice that comes from `chair`, as it set the pattern. Setting it with a request already waiting hands the mic on right away. A ship that requests again after speaking goes to the back of the line, so the meeting turns into a round robin. `setMicPattern` with `moderator` puts the choice back in the moderator's hands.
+
+## 3. Read the meeting
+
+Any participant can read the meeting with `meeting`, and it needs no more than the right to receive. It shows:
+
+- the title, the owner, the moderator, when the meeting opened and when it ended;
+- every participant, with whether it is crewed or awaiting crew, and whether it is present, has left or was revoked;
+- the mic: who holds it, how it passes, and who waits, oldest first;
+- the contributions, newest first, a page at a time. The notices are not among them.
+
+A ship that joins late, or a session that starts again, reads what it missed there. The meeting shows who is awaiting crew, and the fleet does not wait for them: a ship that is not there gets its deliveries when it is crewed again, and the meeting goes on. What to do about an absent ship is the moderator's call.
+
+In the [console](words.md#console), open a participant's ship page. Its timeline says when it joined, got the mic, released it or left, and a contribution opens like any message, showing the meeting and the delivery of each participant.
+
+## 4. Change who takes part
+
+A meeting is not fixed once it opened.
+
+| Who | Call | What it does |
+| --- | --- | --- |
+| The meeting's owner | `addToMeeting` | Adds ships, by name, id or label values. The owner must reach each one by send, or none is added. Each is told by a notice. A ship that was revoked is given its right back. |
+| The meeting's owner | `revokeFromMeeting` | Takes a ship out. It keeps no right to rejoin: only the owner adding it again brings it back. |
+| The meeting's owner | `nameModerator` | Names another present participant the moderator. A ship that just became the moderator goes off the mic, as it needs none. |
+| The meeting's owner | `transferMeeting` | Hands the meeting to another present participant. The owner cannot leave or be revoked before it does. |
+| A participant | `leaveMeeting` | Leaves, keeping its right to come back. The mic it held is free, and a moderator that leaves gives the moderatorship to the owner. |
+| A participant that left | `rejoinMeeting` | Comes back by itself. The owner must still reach it by send. |
+
+Only opening a meeting needs a scope, `meetings:open`. Every other call is open to a participant that has the right to send and receive, which every ship has.
+
+A ship that goes out of a meeting goes off the mic, and its request is gone. A ship that was [retired](words.md#retire) leaves every meeting it was in, and a meeting whose owner is retired ends.
+
+## 5. End the meeting
+
+The owner or the moderator ends the meeting with `endMeeting`. Tell `chair`:
+
+```
+Close the meeting. Thank everyone.
+```
+
+`chair` can say its thanks as a last contribution first, since it needs no mic. Then it ends the meeting, and every other participant still in it is told by a notice from `chair`. A session that gets that notice contributes no more.
+
+An ended meeting never changes: it takes no more contributions, no more ships and no more mic calls. What was already sent is still delivered, and every ship that took part, even one that left or was revoked, can still read it with `meeting`.
+
+## If something does not work
+
+| What you see | What to do |
+| --- | --- |
+| Opening is refused for a missing scope | Grant `meetings:open` to the ship that opens the meeting. |
+| Opening is refused because a ship cannot be reached | The opener has no rule that lets it send to that ship. Add one, or leave the ship out, and open again. |
+| Opening is refused for a meeting of one | Invite at least one ship besides the opener. |
+| A contribution is refused: no mic | Request the mic, and contribute once the notice that says you hold it arrives. |
+| A request for the mic is refused | You already requested it or already hold it, or you moderate the meeting and need none. |
+| A call says the meeting does not exist | The ship takes no part in it. Only a participant reads or changes a meeting. |
+| A call says you left | Call `rejoinMeeting` first. |
+| A call says the owner revoked your right | Only the meeting's owner can add you again. |
+| The mic is stuck with a ship that went quiet | The moderator calls `takeMic`. |
+| `alpha` was given the mic but said nothing | Its session was not running. The notice waits for it, as any message does. The moderator can take the mic back to move on. |
+
+## Next
+
+- [What you can do](what-you-can-do.md): every feature of a fleet, each with its guide.
+- [Network rules](network-rules.md): the rule that lets participants reach each other inside a meeting, and the rules that decide whom the owner reaches.
+- [How delivery works](how-delivery-works.md): what the fleet promises for each of a meeting's deliveries.
