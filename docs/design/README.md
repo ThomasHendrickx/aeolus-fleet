@@ -38,7 +38,7 @@ Feature designs, one folder each; the status of each is at its top:
 | [header](header/README.md) | One header for every Aeolus app |
 | [headless](headless/headless.md) | The trierarch starts and talks to a session without a terminal |
 | [holding-scale](holding-scale.md) | Stage 1, purpose proposed: every read and start stays within budget at the target scale for every feature, and #1130 closes on a measured run |
-| [linear-demo](linear-demo/README.md) | A demo that walks one path, screen to screen, with nothing real behind it; purpose and questions await approval |
+| [linear-demo](linear-demo/README.md) | A demo that walks one path, screen to screen, with nothing real behind it; purpose and five decisions approved; flow mockups proposed |
 | [meetings](meetings/meetings.md) | Ships and people in one moderated conversation |
 | [model-governance](model-governance/model-governance.md) | The models a fleet may run |
 | [monitoring](monitoring/monitoring.md) | The owner sees when distribution or progress stops |

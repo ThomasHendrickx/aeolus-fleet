@@ -2,7 +2,7 @@
 
 Design step for [#1228](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1228), following the [hosted onboarding design](../hosted-onboarding/README.md) ([#1925](https://github.com/ThomasHendrickx/aeolus-fleet/pull/1925)). The purpose and all five decisions are approved. The demo belongs to the marketing site.
 
-Status: purpose approved; Q1, Q3, Q4 and Q5 accepted as written, Q2 decided for the marketing site (Thomas, 17 Nov). Detailed screens await clarification from orchestrator-1.
+Status: purpose approved; Q1, Q3, Q4 and Q5 accepted as written, Q2 decided for the marketing site (Thomas, 17 Nov). The numbered before/after screens and slice acceptance criteria below are proposals for Thomas to approve by looking.
 
 ## 1. Purpose
 
@@ -95,3 +95,37 @@ Decided: 1. Thomas finds it "not really that useful"; it costs a running fleet (
 2. **D2 goes**: a Decider alone is sent to ask a builder; the demo only shows.
 
 Decided: 1. It keeps onboarding pick 3 (the demo as the lone Decider's fallback, L10) with what Thomas asked for, and ends at the real next path. Option 2 leaves a lone Decider with nothing to do.
+
+## 4. Choices drawn for approval
+
+These are proposals, not new product decisions. The task sender directed drawing complete proposals for Thomas to judge. The demo is a sequence of fabricated screens and local transitions, with no account, fleet, API, writes or hosted-app deployment. It lives on the marketing site. The pattern remains generic: ordered screens, a short narrative beside the relevant content, visitor action or navigation to advance, then a next step into the real path.
+
+1. Public addresses are `/demo`, `/demo/decider`, `/demo/flow-owner` and `/demo/builder`. The index offers all three independently. Direct links start that flow at step 1.
+2. Home's current “A real fleet, live.” entry and shared footer's “Try the live demo” link become links to the index or the matching persona. Quick start offers previews beside real setup. `/start` and its HTML rendering, plus the D2, F1 and B4 guides, name the matching flow. This extends the approved onboarding picker rather than replacing its real paths.
+3. Each step has Back, Next and Restart. Back on the first step keeps step 1; Next on the final step keeps the closing screen. Restart resets that flow to step 1. The displayed step name and simulated-demo badge stay visible. No timers or typing animation are required for this proposal.
+4. Narrative is a small bordered panel above the content, not an overlay covering controls. The phone layout stacks content and uses touch buttons; desktop uses the same parts with more room. Long questions and exchanges scroll vertically. No visitor must supply data.
+5. D2 uses the approved M15/M18 tide-alert question, both choices and the existing recommended pick. It starts with a waiting question, opens it, shows the answer sent, shows the asking ship continuing, then explains D1. Steps 3b and 4b depict the second choice. The first continuation reuses approved copy; the second is proposed copy matching the selected zone.
+6. D2's closing card gives the exact proposed message to a builder: add my email, grant Talk with the fleet rights, and send a question in Bridge. No sign-up or terminal is offered to the lone Decider.
+7. F1 is a fictional invoice flow: `invoice-app`, `invoice-check`, Mira and Cedar Workshop. Invoice 1042 is £240 and matches its order. No names or data refer to a real company.
+8. F1 first shows the flow and app hand-off. The visitor acts as Mira in Bridge and chooses Approve payment or Hold payment. Both answer outcomes and agent hand-offs are drawn. Then they inspect app-to-agent, agent-to-person and person-to-agent, and agent-to-app exchanges, with the same invoice number throughout. The inspection frames explicitly display the two alternative outcomes; they are alternatives, not two decisions on one invoice.
+9. F1 ends by offering the real F1 first step: name the steps and which is an app, agent or person. G is a prerequisite if needed. Its later real next paths remain D1, then B4.
+10. B4 starts with `steering` crewed and Mira's computer joined. The simulated terminal asks for a reviewer. A new `reviewer` is awaiting crew, is crewed on that computer, receives its first review request, returns findings and is named in a Bridge notice. The person's ownership and steering's commission are visible. The visitor installs nothing and sees no secret or crew line.
+11. B4 closes at the real B4 first step, joining the person's own computer with Claude Code and a chosen repository or folder, with G first if needed. The real path's next path after its first value stays D1. Setup and manual steering commission are not additional demo steps.
+12. Fabricated answer transitions complete locally and immediately. There is no network submission to fail, so these demo flows have no invented server failure, loading or unavailable-fleet screens. The read-only “before” remains a historical comparison. Production path failures stay in the onboarding design.
+13. The mockups are static HTML generated from real Button, Badge and Harbour parts. The question mockups reuse the same QuestionReader renderer as approved M15/M18, with fabricated props and inert callbacks. This is a design rendering dependency only: implementation composes the ui package's parts in the site as Q3 decides, without exporting or changing console screens.
+14. The before frames reconstruct today's Home demo section, Quick start/footer entry and read-only demo destination. `/start` and persona guides do not exist today; their before frames say so and show the available live-demo entry. No matching before persona flow exists, so each flow step repeats the same read-only destination with that fact outside the product frame. These are not screenshots of a deployed site or claims that today's demo has the proposed steps.
+
+## 5. Numbered screens and flow steps
+
+[Open every before/after screen at phone and desktop widths](mockups/artboards/index.html). [Coverage and thin slices](mockups/coverage.md) name the visual acceptance criteria. Each responsive artboard has a sheet with 375 × 812 and 1440 × 1000 frames and full-page PNG previews at both widths. Controls inside question fixtures are inert; linked answer buttons and Back, Next and Restart connect the proposed review frames. In production the question control itself advances the local demo state.
+
+The proposed walk order is:
+
+- Site: Home (site-01), Quick start (site-02), `/start` (site-03), the matching persona guide, or the demo index (site-04). These are alternative entries, not a forced sequence.
+- Decider: steps 01 to 05; 03b and 04b replace 03 and 04 for the second answer.
+- Flow owner: steps 01 to 09; 04b and 05b replace 04 and 05 for Hold payment. Steps 06 to 08 inspect the hand-offs.
+- Builder: steps 01 to 07, starting after setup and ending with a link to the real setup path.
+
+## 6. Slice order
+
+Production starts only after mockup approval. Each slice below is one thin PR. The exact mockup ids and before/after links in [coverage](mockups/coverage.md#slice-order) are that slice's acceptance criteria. This design adds no production code. Retire the old demo only after all three public flows and their entry links are available; core's viewer and ticket capabilities stay.

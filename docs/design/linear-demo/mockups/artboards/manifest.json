@@ -1,0 +1,194 @@
+[
+  {
+    "id": "site-01",
+    "title": "Home",
+    "area": "site",
+    "alternate": false
+  },
+  {
+    "id": "site-02",
+    "title": "Quick start",
+    "area": "site",
+    "alternate": false
+  },
+  {
+    "id": "site-03",
+    "title": "Start page",
+    "area": "site",
+    "alternate": false
+  },
+  {
+    "id": "guide-decider",
+    "title": "D2 guide",
+    "area": "site",
+    "alternate": false
+  },
+  {
+    "id": "guide-flow-owner",
+    "title": "F1 guide",
+    "area": "site",
+    "alternate": false
+  },
+  {
+    "id": "guide-builder",
+    "title": "B4 guide",
+    "area": "site",
+    "alternate": false
+  },
+  {
+    "id": "site-04",
+    "title": "Demo index",
+    "area": "site",
+    "alternate": false
+  },
+  {
+    "id": "decider-01",
+    "title": "A question reaches you",
+    "area": "Bridge",
+    "alternate": false
+  },
+  {
+    "id": "decider-02",
+    "title": "Choose your answer",
+    "area": "Bridge",
+    "alternate": false
+  },
+  {
+    "id": "decider-03",
+    "title": "Answer sent: published zone",
+    "area": "Bridge",
+    "alternate": false
+  },
+  {
+    "id": "decider-03b",
+    "title": "Answer sent: own zone",
+    "area": "Bridge",
+    "alternate": true
+  },
+  {
+    "id": "decider-04",
+    "title": "The work continues",
+    "area": "planner",
+    "alternate": false
+  },
+  {
+    "id": "decider-04b",
+    "title": "The work continues: own zone",
+    "area": "planner",
+    "alternate": true
+  },
+  {
+    "id": "decider-05",
+    "title": "Bring your builder",
+    "area": "site",
+    "alternate": false
+  },
+  {
+    "id": "flow-owner-01",
+    "title": "One ordinary flow",
+    "area": "site",
+    "alternate": false
+  },
+  {
+    "id": "flow-owner-02",
+    "title": "The app sends the item",
+    "area": "Exchange",
+    "alternate": false
+  },
+  {
+    "id": "flow-owner-03",
+    "title": "The agent asks you",
+    "area": "Bridge",
+    "alternate": false
+  },
+  {
+    "id": "flow-owner-04",
+    "title": "Your approval is sent",
+    "area": "Bridge",
+    "alternate": false
+  },
+  {
+    "id": "flow-owner-04b",
+    "title": "Your hold is sent",
+    "area": "Bridge",
+    "alternate": true
+  },
+  {
+    "id": "flow-owner-05",
+    "title": "The agent hands it on",
+    "area": "Exchange",
+    "alternate": false
+  },
+  {
+    "id": "flow-owner-05b",
+    "title": "The agent hands on the hold",
+    "area": "Exchange",
+    "alternate": true
+  },
+  {
+    "id": "flow-owner-06",
+    "title": "Inspect the first hand-off",
+    "area": "Console",
+    "alternate": false
+  },
+  {
+    "id": "flow-owner-07",
+    "title": "Inspect question and answer",
+    "area": "Console",
+    "alternate": false
+  },
+  {
+    "id": "flow-owner-08",
+    "title": "Inspect the final hand-off",
+    "area": "Console",
+    "alternate": false
+  },
+  {
+    "id": "flow-owner-09",
+    "title": "Connect your own flow",
+    "area": "site",
+    "alternate": false
+  },
+  {
+    "id": "builder-01",
+    "title": "Ready to build",
+    "area": "Console",
+    "alternate": false
+  },
+  {
+    "id": "builder-02",
+    "title": "Tell steering what to build",
+    "area": "Terminal",
+    "alternate": false
+  },
+  {
+    "id": "builder-03",
+    "title": "A new ship awaits crew",
+    "area": "Console",
+    "alternate": false
+  },
+  {
+    "id": "builder-04",
+    "title": "The trierarch crews reviewer",
+    "area": "Console",
+    "alternate": false
+  },
+  {
+    "id": "builder-05",
+    "title": "Work comes back",
+    "area": "Exchange",
+    "alternate": false
+  },
+  {
+    "id": "builder-06",
+    "title": "You hear what was built",
+    "area": "Bridge",
+    "alternate": false
+  },
+  {
+    "id": "builder-07",
+    "title": "Build with your own steering ship",
+    "area": "site",
+    "alternate": false
+  }
+]
