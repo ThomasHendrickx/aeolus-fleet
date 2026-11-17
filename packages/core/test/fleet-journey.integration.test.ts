@@ -1,8 +1,11 @@
+import { fileURLToPath } from 'node:url';
+
 import { SCOPES, createIdGenerator, type FleetId, type ShipId } from '@aeolus-fleet/common';
 import { createTRPCClient, httpBatchLink } from '@trpc/client';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
+import { executeSqlFile } from '../src/testing/database.js';
 import { createPrismaTx } from '../src/adapters/prisma/unit-of-work.js';
 import { createApp } from '../src/app.js';
 import type { AppRouter } from '../src/index.js';
@@ -181,4 +184,40 @@ describe('hosting service fleet journey contract', () => {
     await expect(installation('wrong').changes.query({})).rejects.toMatchObject({ data: { code: 'UNAUTHORIZED' } });
     await expect(installation('wrong').page.query({})).rejects.toMatchObject({ data: { code: 'UNAUTHORIZED' } });
   });
+});
+
+it("an existing fleet's milestones start unknown and only evidence after the cut-off reaches them", async () => {
+  // Given a fleet and backlog that exist before the actual journey migration runs.
+  const fleet = unwrap(await core.useCases.createFleet({ requestId: 'before-coverage', name: 'existing fleet', operatorEmail: 'manager@example.com' }));
+  const argo = operatorCaller(fleet);
+  const a = unwrap(await core.useCases.commissionShip(argo, { name: 'old-writer', type: 'writer', idempotencyKey: 'old-writer' }));
+  const b = unwrap(await core.useCases.commissionShip(argo, { name: 'old-reader', type: 'reader', idempotencyKey: 'old-reader' }));
+  const claim = async (ship: typeof a) => {
+    const { crewToken } = unwrap(await core.useCases.claimShip({ shipId: ship.shipId, secret: secretOf(ship.secret), location: { kind: 'CLOUD' } }));
+    return unwrap(await core.useCases.authenticate.byCrewToken(crewToken));
+  };
+  const alice = await claim(a);
+  const bob = await claim(b);
+  const old = unwrap(await core.useCases.sendMessage(alice, { selector: { kind: 'ship', shipId: b.shipId }, payload: 'old work', model: 'test', idempotencyKey: 'old-work' }));
+  await core.prisma.$executeRaw`DROP TABLE fleet_journeys, installation_journey_changes, installation_journey_clock`;
+  await core.prisma.$executeRaw`ALTER TABLE deliveries DROP COLUMN journey_qualifying, DROP COLUMN journey_both_crewed`;
+  await core.prisma.$executeRaw`DROP INDEX leases_fleet_id_ship_id_started_at_id_idx`;
+  await executeSqlFile(core.databaseUrl, fileURLToPath(new URL('../src/adapters/prisma/migrations/20261117010000_fleet_journeys/migration.sql', import.meta.url)));
+  const [baseline] = await core.prisma.$queryRaw<{ data: unknown; coverageFrom: Date }[]>`SELECT data, coverage_from AS "coverageFrom" FROM fleet_journeys WHERE fleet_id = ${fleet.fleetId}`;
+  expect(baseline?.data).toBeNull();
+  expect(await core.prisma.delivery.findFirst({ where: { messageId: old.messageId } })).toMatchObject({ journeyQualifying: null });
+  core.clock.set(new Date(Date.now() + 1000).toISOString());
+
+  // When that old delivery is received and acknowledged after coverage began.
+  const received = unwrap(await core.useCases.receiveDeliveries(bob, {}));
+  for (const delivery of received.deliveries) unwrap(await core.useCases.acknowledgeDelivery(bob, { deliveryId: delivery.deliveryId }));
+  const afterBacklog = (await installation().get.query({ fleetId: fleet.fleetId })).journey;
+
+  // Then history proves no operational milestone or activity; only a fresh send can reach First message.
+  expect(afterBacklog?.milestones.filter((milestone) => milestone.key !== 'fleet-ready').map((milestone) => milestone.state)).toEqual(['unknown', 'unknown', 'unknown', 'unknown', 'unknown']);
+  expect(afterBacklog?.activityDates).toEqual([]);
+  unwrap(await core.useCases.sendMessage(alice, { selector: { kind: 'ship', shipId: b.shipId }, payload: 'new work', model: 'test', idempotencyKey: 'new-work' }));
+  const afterNew = (await installation().get.query({ fleetId: fleet.fleetId })).journey;
+  expect(afterNew?.milestones.find((milestone) => milestone.key === 'first-message')).toMatchObject({ state: 'reached', occurredAt: core.clock.now().toISOString() });
+  expect(afterNew?.coverageFrom).toBe(baseline?.coverageFrom.toISOString());
 });
