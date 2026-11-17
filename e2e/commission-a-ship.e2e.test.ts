@@ -144,6 +144,42 @@ async function isValid(shipSecret: string): Promise<boolean> {
 }
 
 describe('commissioning a ship in the console', () => {
+  it('offers a person ship commissioned after Commission a ship opened (#1922)', async () => {
+    // Given an open Owner search that has already read an empty result.
+    const page = await signedInPage();
+    await page.getByTestId('fleet-commission').click();
+    const owner = page.getByTestId('commission-dialog').getByTestId('commission-owner');
+    await owner.fill('later-commission-owner');
+    await page.getByText('No person ship is named later-commission-owner.').waitFor();
+    await page.waitForLoadState('networkidle');
+
+    // When the account app commissions the person ship while the dialog stays open.
+    unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'later-commission-owner', type: 'person', kind: 'person' }));
+
+    // Then the same search offers it without reopening or changing the input.
+    await page.getByRole('option', { name: 'later-commission-owner', exact: true }).waitFor({ timeout: 45_000 });
+    await expect(owner.inputValue()).resolves.toBe('later-commission-owner');
+  });
+
+  it('offers a person ship commissioned after Change owner opened (#1922)', async () => {
+    // Given an open Change owner search that has already read an empty result.
+    const ship = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'owner-refresh-subject', type: 'reviewer' }));
+    const page = await signedInPage();
+    await page.goto(`/ships/${ship.shipId}`);
+    await page.getByRole('button', { name: 'Change owner', exact: true }).click();
+    const owner = page.getByTestId('change-owner-field');
+    await owner.fill('later-change-owner');
+    await page.getByText('No person ship is named later-change-owner.').waitFor();
+    await page.waitForLoadState('networkidle');
+
+    // When the account app commissions the person ship while the dialog stays open.
+    unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'later-change-owner', type: 'person', kind: 'person' }));
+
+    // Then the same search offers it without reopening or changing the input.
+    await page.getByRole('option', { name: 'later-change-owner', exact: true }).waitFor({ timeout: 45_000 });
+    await expect(owner.inputValue()).resolves.toBe('later-change-owner');
+  });
+
   it('commissions a ship owned by the person ship picked, preselected at the next commission (#1777)', async () => {
     const page = await signedInPage();
 

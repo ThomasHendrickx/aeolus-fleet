@@ -6,7 +6,7 @@ import { skipToken, useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import { useAccess } from '../../../lib/access';
-import { useSetOwner } from '../../../lib/fleet';
+import { LAST_SEEN_REFRESH_MS, useSetOwner } from '../../../lib/fleet';
 import { useTRPC } from '../../../lib/trpc';
 import { CONSOLE_PAGE_SIZE, nextCursorOf } from '../../../lib/paged-list';
 import type { OwnerChoice } from '../ui/organisms/change-owner-dialog';
@@ -35,7 +35,8 @@ export interface ShipOwnerControl {
  * owner's ship by name, and, while Change owner is open, the fleet's active
  * person ships whose names hold what was typed and argo, the fallback. A
  * person ship owns itself and is never changed; a retired ship keeps the
- * owner it had.
+ * owner it had. Open choices refresh every 30 seconds so later person
+ * ships become available.
  */
 export function useShipOwner(ship: ShipDetail, isDialogOpen: boolean): ShipOwnerControl {
   const trpc = useTRPC();
@@ -52,7 +53,7 @@ export function useShipOwner(ship: ShipDetail, isDialogOpen: boolean): ShipOwner
   const personShips = useInfiniteQuery(
     trpc.fleet.list.infiniteQueryOptions(
       { shipKind: ['person'], status: ['awaitingCrew', 'crewed'], limit: CONSOLE_PAGE_SIZE, ...(nameQuery === '' ? {} : { nameQuery }) },
-      { enabled: isReading, getNextPageParam: nextCursorOf },
+      { enabled: isReading, getNextPageParam: nextCursorOf, refetchInterval: LAST_SEEN_REFRESH_MS },
     ),
   );
   // argo is read with Change owner offered, so the dialog opens with it in the list.

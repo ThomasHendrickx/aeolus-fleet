@@ -5,6 +5,7 @@ import { RECORD_PAGE_SIZE_DEFAULT } from '@aeolus-fleet/common/rules';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 
+import { LAST_SEEN_REFRESH_MS } from '../../../lib/fleet';
 import { useTRPC } from '../../../lib/trpc';
 import { ownerChoicesOf, type OwnerChoice } from '../services/owner-choices';
 
@@ -32,7 +33,8 @@ export interface CommissionOwner {
  * is offered wherever the search stands). Undefined when the console is not
  * signed in as argo: an account's commission is owned by its person ship and
  * names no owner. Read only while the dialog is open; choices are undefined
- * until read.
+ * until read. Open choices refresh every 30 seconds so a person ship
+ * commissioned later by the account app becomes available.
  */
 export function useCommissionOwner(isOpen: boolean): CommissionOwner | undefined {
   const trpc = useTRPC();
@@ -44,7 +46,7 @@ export function useCommissionOwner(isOpen: boolean): CommissionOwner | undefined
   const personShips = useQuery(
     trpc.fleet.list.queryOptions(
       { shipKind: ['person'], limit: RECORD_PAGE_SIZE_DEFAULT, ...(nameQuery === '' ? {} : { nameQuery }) },
-      { enabled: isOpen && isArgo, placeholderData: keepPreviousData },
+      { enabled: isOpen && isArgo, placeholderData: keepPreviousData, refetchInterval: LAST_SEEN_REFRESH_MS },
     ),
   );
   const lastNamed = useQuery(trpc.fleet.lastNamedOwner.queryOptions(undefined, { enabled: isOpen && isArgo }));
