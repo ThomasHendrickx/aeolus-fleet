@@ -50,11 +50,11 @@ export const CEDAR = {
   app: party('invoice-app', 'f002'),
   agent: party('invoice-check', 'f003'),
   supplier: 'Alder & Pine Timber',
-  invoice: { number: '1042', amount: '£240.00', order: 'PO-1042', lines: '12 oak battens, 2 m · fixings' },
+  invoice: { number: '1042', amount: '€ 240,00', order: 'PO-1042', lines: '12 oak battens, 2 m · fixings' },
   question: {
     id: '7a2c4e6f-1b3d-4f5a-8c7e-9d0b2a4c6e81',
     title: 'May we pay invoice 1042?',
-    context: 'Alder & Pine Timber sent invoice 1042 for £240.00. It matches order PO-1042 line for line: 12 oak battens and fixings, delivered on 14 Nov. Payment is due on 1 Dec.',
+    context: 'Alder & Pine Timber sent invoice 1042 for € 240,00. It matches order PO-1042 line for line: 12 oak battens and fixings, delivered on 14 Nov. Payment is due on 1 Dec.',
     options: [
       { key: 1, label: 'Approve payment', detail: 'invoice-app schedules it for the next payment run.' },
       { key: 2, label: 'Hold payment', detail: 'invoice-app asks the supplier to clarify first.' },
@@ -62,8 +62,8 @@ export const CEDAR = {
     pick: { option: 1, why: 'the invoice matches the order and the delivery note.' },
   },
   handOn: {
-    1: 'Mira approved invoice 1042 (£240.00, Alder & Pine Timber). Schedule it for the 1 Dec payment run.',
-    2: 'Mira held invoice 1042 (£240.00, Alder & Pine Timber). Ask the supplier to clarify before payment.',
+    1: 'Mira approved invoice 1042 (€ 240,00, Alder & Pine Timber). Schedule it for the 1 Dec payment run.',
+    2: 'Mira held invoice 1042 (€ 240,00, Alder & Pine Timber). Ask the supplier to clarify before payment.',
   },
 };
 

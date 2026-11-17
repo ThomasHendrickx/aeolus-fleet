@@ -2,7 +2,7 @@
 
 Design step for [#1228](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1228), following the [hosted onboarding design](../hosted-onboarding/README.md) ([#1925](https://github.com/ThomasHendrickx/aeolus-fleet/pull/1925)). The purpose and all five decisions are approved. The demo belongs to the marketing site.
 
-Status: purpose approved; Q1, Q3, Q4 and Q5 accepted as written, Q2 decided for the marketing site (Thomas, 17 Nov). The numbered before/after screens and slice acceptance criteria below are proposals for Thomas to approve by looking.
+Status: purpose approved; Q1, Q3, Q4 and Q5 accepted as written, Q2 decided for the marketing site (Thomas, 17 Nov). Thomas approved the redrawn mockups (17 Nov). The slice acceptance criteria below remain proposals.
 
 ## 1. Purpose
 
@@ -106,7 +106,7 @@ These are proposals, not new product decisions. The task sender directed drawing
 4. The tour is a marketing-site page in the site's own brand: the site header and footer, a tour head with the persona, the flow's title and the site's navy sea panel, where the flow's ships bob as marks with name tags and each hand-off travels as a sea-blue light to the tag it lights. On desktop the narrative sits beside the product, in a browser frame like the site's live-demo frame; on phone it stacks above the product, shown in a device frame at phone layout. The narrative points at one element of the screen with a numbered marker, and question steps offer both answers beside the screen as well. No visitor must supply data.
 5. D2 uses the approved M15/M18 tide-alert question, both choices and the existing recommended pick. It starts with a waiting question, opens it, shows the answer sent, shows the asking ship continuing, then explains D1. Steps 3b and 4b depict the second choice. The first continuation reuses approved copy; the second is proposed copy matching the selected zone.
 6. D2's closing card gives the exact proposed message to a builder: add my email, grant Talk with the fleet rights, and send a question in Bridge. No sign-up or terminal is offered to the lone Decider.
-7. F1 is a fictional invoice flow: `invoice-app`, `invoice-check`, Mira and Cedar Workshop. Invoice 1042 is £240 and matches its order. No names or data refer to a real company.
+7. F1 is a fictional invoice flow: `invoice-app`, `invoice-check`, Mira and Cedar Workshop. Invoice 1042 is € 240,00 and matches its order. No names or data refer to a real company.
 8. F1 first shows the flow and app hand-off. The visitor acts as Mira in Bridge and chooses Approve payment or Hold payment. Both answer outcomes and agent hand-offs are drawn. Then they inspect app-to-agent, agent-to-person and person-to-agent, and agent-to-app exchanges, with the same invoice number throughout. The inspection frames explicitly display the two alternative outcomes; they are alternatives, not two decisions on one invoice.
 9. F1 ends by offering the real F1 first step: name the steps and which is an app, agent or person. G is a prerequisite if needed. Its later real next paths remain D1, then B4.
 10. B4 starts with `steering` crewed and Mira's computer joined. The simulated terminal asks for a reviewer. A new `reviewer` is awaiting crew, is crewed on that computer, receives its first review request, returns findings and is named in a Bridge notice. The person's ownership and steering's commission are visible. The visitor installs nothing and sees no secret or crew line.

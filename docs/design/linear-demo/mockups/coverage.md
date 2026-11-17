@@ -1,6 +1,6 @@
 # Linear demo mockups and slice acceptance
 
-Status: proposed screens for Thomas to approve, redrawn in the site's brand from the real parts. All five design decisions are recorded in the [design](../README.md#3-decisions).
+Status: Thomas approved the redrawn mockups (17 Nov), in the site's brand from the real parts. All five design decisions are recorded in the [design](../README.md#3-decisions).
 
 [Open review index](artboards/index.html). Every row links before/after at 375 × 812 and 1440 × 1000. PNGs are full page so content below the first viewport is visible. Before means today’s entry or the same read-only destination, with no corresponding persona action. After means the simulated marketing-site proposal.
 
