@@ -8,13 +8,16 @@
  * The log holds a unit of work's events until it is about to commit, then
  * takes their numbers from `fleets.last_event_seq` as the transaction's last
  * statements. The row lock on the fleet is held until commit, so a lower
- * number always commits first and the numbers have no gaps; nothing is locked
- * after it, so it adds no deadlock. The notice goes out on commit only.
+ * number always commits first and the numbers have no gaps. Multi-fleet batches
+ * lock every source fleet before the journey change clock, so lock ordering
+ * stays consistent. The notice goes out on commit only.
  */
 import type { FleetId } from '@aeolus-fleet/common';
 
+import type { Clock } from '../../domain/shared/clock.js';
 import type { Actor, EventLog, FleetEvent, FleetEventFeed } from '../../domain/shared/events.js';
 import type { Db } from './client.js';
+import { projectJourneyEvents } from './fleet-journeys.js';
 import { toLastEventSeq, toSequencedEvent } from './rows.js';
 
 /** The one channel every committed event is announced on, with its fleet and the last number. */
@@ -25,7 +28,7 @@ export interface BufferedEventLog extends EventLog {
   flush(): Promise<void>;
 }
 
-export function createPrismaEventLog(db: Db): BufferedEventLog {
+export function createPrismaEventLog(db: Db, clock: Clock = { now: () => new Date() }): BufferedEventLog {
   const held: FleetEvent[] = [];
 
   return {
@@ -35,15 +38,18 @@ export function createPrismaEventLog(db: Db): BufferedEventLog {
     },
     flush: async () => {
       const fleets = [...new Set(held.map((event) => event.fleetId))].toSorted();
+      if (fleets.length > 1) {
+        await db.$queryRaw`SELECT id FROM fleets WHERE id = ANY(${fleets}::text[]) ORDER BY id FOR UPDATE`;
+      }
       for (const fleetId of fleets) {
-        await writeNumbered(db, { fleetId, events: held.filter((event) => event.fleetId === fleetId) });
+        await writeNumbered(db, { fleetId, events: held.filter((event) => event.fleetId === fleetId), computedAt: clock.now().toISOString() });
       }
       held.length = 0;
     },
   };
 }
 
-async function writeNumbered(db: Db, of: { fleetId: FleetId; events: FleetEvent[] }): Promise<void> {
+async function writeNumbered(db: Db, of: { fleetId: FleetId; events: FleetEvent[]; computedAt: string }): Promise<void> {
   const { fleetId, events } = of;
   const [row] = await db.$queryRaw<unknown[]>`
     UPDATE fleets SET last_event_seq = last_event_seq + ${events.length}
@@ -65,6 +71,7 @@ async function writeNumbered(db: Db, of: { fleetId: FleetId; events: FleetEvent[
       seq: BigInt(firstSeq + index),
     })),
   });
+  await projectJourneyEvents(db, { fleetId, events, lastSeq, computedAt: of.computedAt });
   await db.$executeRaw`SELECT pg_notify(${FLEET_EVENT_CHANNEL}, ${JSON.stringify({ fleetId, seq: lastSeq })})`;
 }
 

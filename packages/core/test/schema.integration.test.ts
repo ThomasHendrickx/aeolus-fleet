@@ -143,12 +143,15 @@ describe('migrations', () => {
       'events',
       'exchanges',
       'fleet_feature_flags',
+      'fleet_journeys',
       'fleets',
       'guide_progress',
       'guides',
       'health_snapshot_deliveries',
       'health_snapshots',
       'installation_declared_network_rules',
+      'installation_journey_changes',
+      'installation_journey_clock',
       'installation_requests',
       'installation_settings',
       'label_values',
@@ -178,7 +181,7 @@ describe('migrations', () => {
       'worktree_clear_requests',
     ]);
     // The installation's settings, notices, guide and cut-off accounts belong to no fleet (decisions 0020, 0023, 0024 and 0058).
-    expect(tables.filter((table) => !table.hasFleetId).map((table) => table.table_name)).toEqual(['account_cut_offs', 'fleets', 'guides', 'installation_settings', 'notices']);
+    expect(tables.filter((table) => !table.hasFleetId).map((table) => table.table_name)).toEqual(['account_cut_offs', 'fleets', 'guides', 'installation_journey_changes', 'installation_journey_clock', 'installation_settings', 'notices']);
   });
 
   it('index every foreign key by its columns, so a delete checks each row it removes with an index, never a scan', async () => {

@@ -44,6 +44,7 @@ import { limitSettingsOf } from './fleet-limit-settings.js';
 import { readShipCounts } from './ship-counts.js';
 import { alertOf } from './alerts.js';
 import { shipExpectationsOf } from './expectations.js';
+import { deleteFleetJourney } from './fleet-journeys.js';
 import { NO_EXPECTATIONS } from '../../domain/registry/expectations.js';
 import { shownAlertOf, type ShownAlert } from '../../domain/registry/alert.js';
 
@@ -117,6 +118,7 @@ export function createPrismaFleetRepository(db: Db): FleetRepository {
       await db.$executeRaw`DELETE FROM crew_requests WHERE fleet_id = ${fleetId}`;
       // Its data keys are shredded, so nothing it sealed opens again; the rows stay until the batches, as every message and schedule sealed under one restricts its delete.
       await db.$executeRaw`UPDATE data_keys SET wrapped_by_company_key = ''::bytea, wrapped_by_recovery_key = NULL, check_value = ''::bytea WHERE fleet_id = ${fleetId}`;
+      await deleteFleetJourney(db, fleetId);
     },
     listDeleted: async () => (await db.fleet.findMany({ where: { deletedAt: { not: null } }, orderBy: { deletedAt: 'asc' } })).map(toFleet),
   };

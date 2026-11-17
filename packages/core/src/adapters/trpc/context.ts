@@ -1,3 +1,4 @@
+import type { createReadInstallationJourneys } from '../../domain/registry/read-installation-journeys.js';
 import type { CallPlugin } from '../../domain/registry/call-plugin.js';
 import type { ApproveCommission } from '../../domain/registry/approve-commission.js';
 import type { WithdrawCommissionApproval } from '../../domain/registry/withdraw-commission-approval.js';
@@ -166,6 +167,7 @@ import type { RecoverKeys } from '../../domain/messaging/recover-keys.js';
 
 /** The use cases procedures can call. Wired once at startup. */
 export interface UseCases {
+  installationJourneys: ReturnType<typeof createReadInstallationJourneys>;
   ping: Ping;
   signIn: SignIn;
   signOut: SignOut;

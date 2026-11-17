@@ -161,6 +161,8 @@ describe('sending a message on Postgres', () => {
       handOverNumber: null,
       handedOnceMoreAt: null,
       isForced: false,
+      journeyQualifying: false,
+      journeyBothCrewed: false,
       reachableShipIds: [],
       senderShipId: argoId,
       isInExchange: true,

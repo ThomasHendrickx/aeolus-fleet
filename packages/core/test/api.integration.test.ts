@@ -311,6 +311,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_fleet_deleted_at$/),
       expect.stringMatching(/^\d{14}_trierarch_kind$/),
       expect.stringMatching(/^\d{14}_trierarch_kind_backfill$/),
+      expect.stringMatching(/^\d{14}_fleet_journeys$/),
     ]);
   });
 });

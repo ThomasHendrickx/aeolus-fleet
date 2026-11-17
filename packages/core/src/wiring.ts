@@ -1,3 +1,6 @@
+import { createExpireJourneyActivity } from './domain/shared/expire-journey-activity.js';
+import { createReadInstallationJourneys } from './domain/registry/read-installation-journeys.js';
+import { createPrismaInstallationJourneyReads } from './adapters/prisma/fleet-journeys.js';
 import { measureCall } from './adapters/telemetry/calls.js';
 import { randomUUID } from 'node:crypto';
 import { createCallPlugin, type CallPlugin } from './domain/registry/call-plugin.js';
@@ -230,6 +233,8 @@ import { createReadShipMessages, type ReadShipMessages } from './domain/shared/r
 import { createReadShipTimeline, type ReadShipTimeline } from './domain/shared/read-ship-timeline.js';
 
 export interface UseCases {
+  expireJourneyActivity: () => Promise<void>;
+  installationJourneys: ReturnType<typeof createReadInstallationJourneys>;
   ping: Ping;
   initialiseFleet: InitialiseFleet;
   listFleets: ListFleets;
@@ -443,10 +448,10 @@ export function createUseCases(options: {
   const { prisma } = options;
   const clock = options.clock ?? systemClock;
   const ids = options.ids ?? createIdGenerator();
-  const uow = createPrismaUnitOfWork(prisma);
+  const uow = createPrismaUnitOfWork(prisma, clock);
   const readReach = createReadReachOf({ uow });
   // A fleet delete and a retire grow with the fleet's history and the ship's pending deliveries.
-  const bulkUow = createPrismaBulkUnitOfWork(prisma);
+  const bulkUow = createPrismaBulkUnitOfWork(prisma, clock);
   const secrets = { hasher: sha256Hasher, random: cryptoRandomTokens };
   const wakeStreams = options.wakeStreams ?? createReceiverWakeups();
   const notices = createPrismaNoticeRepository(prisma);
@@ -622,8 +627,10 @@ export function createUseCases(options: {
     pauseSchedule: createPauseSchedule({ uow, clock, ids }),
     resumeSchedule: createResumeSchedule({ uow, clock, ids }),
     sendDueSchedules: createSendDueSchedules({ fleets: createPrismaFleetRepository(prisma), scheduleAttempts: createPrismaScheduleAttempts(prisma), uow, clock, ids, hasher: sha256Hasher, sealing }),
-    closeHealthSnapshots: createCloseHealthSnapshots({ fleets: createPrismaFleetRepository(prisma), uow: createPrismaSnapshotUnitOfWork(prisma), clock }),
+    closeHealthSnapshots: createCloseHealthSnapshots({ fleets: createPrismaFleetRepository(prisma), uow: createPrismaSnapshotUnitOfWork(prisma, clock), clock }),
     removeDeletedFleets: createRemoveDeletedFleets({ fleets: createPrismaFleetRepository(prisma), uow: bulkUow, clock }),
+    expireJourneyActivity: createExpireJourneyActivity({ uow, clock }),
+    installationJourneys: createReadInstallationJourneys({ reads: createPrismaInstallationJourneyReads(prisma), clock }),
     pruneHistory: createPruneHistory({ fleets: createPrismaFleetRepository(prisma), uow: bulkUow, clock, ids, budgetMs: options.pruneBudgetMs }),
     sealStoredPayloads: createSealStoredPayloads({ sealings, uow, clock, ids, hasher: sha256Hasher, sealing }),
     rotateDataKeys: createRotateDataKeys({ sealings, uow, clock, ids, dataKeys: sealing.dataKeys }),

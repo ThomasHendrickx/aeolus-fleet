@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { fleetJourneySummarySchema } from './fleet-journey.js';
+
 import { idSchema } from '../ids/index.js';
 import { accountIdSchema } from './account-token.js';
 import { featureFlagSchema, fleetFeatureFlagSchema } from './feature-flags.js';
@@ -64,6 +66,7 @@ export const installationFleetsCreateOutputSchema = z.object({
  * storage, the UTF-8 bytes of every payload it ever stored.
  */
 export const installationFleetSchema = z.object({
+  journey: fleetJourneySummarySchema.optional(),
   fleetId: idSchema('fleet'),
   name: z.string(),
   operatorEmail: z.string(),

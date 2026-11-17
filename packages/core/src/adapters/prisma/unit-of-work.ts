@@ -1,3 +1,6 @@
+import type { JourneyActivityExpiry } from '../../domain/shared/expire-journey-activity.js';
+import { createPrismaJourneyActivityExpiry } from './fleet-journeys.js';
+import type { Clock } from '../../domain/shared/clock.js';
 import type { CommissionApprovalRepository } from '../../domain/registry/commission-approval.js';
 import { createPrismaCommissionApprovalRepository } from './commission-approvals.js';
 import type {
@@ -76,6 +79,7 @@ import {
 
 /** Every port a use case can ask for in its unit of work, bound to one transaction. */
 export interface PrismaTx {
+  journeyActivity: JourneyActivityExpiry;
   fleets: FleetRepository;
   ships: ShipRepository;
   leases: LeaseRepository;
@@ -119,9 +123,10 @@ export interface PrismaTx {
   fleetRemoval: FleetRemoval;
 }
 
-export function createPrismaTx(db: Db): PrismaTx {
+export function createPrismaTx(db: Db, clock?: Clock): PrismaTx {
   const exchangeRollups = createPrismaExchangeRollups(db);
   return {
+    journeyActivity: createPrismaJourneyActivityExpiry(db),
     exchangeRollups,
     exchanges: createPrismaExchangeList(db),
     prunedExchanges: createPrismaPrunedExchanges(db),
@@ -153,7 +158,7 @@ export function createPrismaTx(db: Db): PrismaTx {
     featureFlags: createPrismaFeatureFlagRepository(db),
     schedules: createPrismaScheduleRepository(db),
     overdueDeliveries: createPrismaOverdueDeliveryRepository(db),
-    events: createPrismaEventLog(db),
+    events: createPrismaEventLog(db, clock),
     installationRequests: createPrismaInstallationRequestRepository(db),
     installationSettings: createPrismaInstallationSettings(db),
     notifier: createPrismaNotifier(db),
@@ -179,13 +184,13 @@ class Refused extends Error {
  * all of it back; Prisma rolls back only on a throw, so a refusal is thrown
  * inside the transaction and returned outside it.
  */
-export function createPrismaUnitOfWork(prisma: PrismaClient): UnitOfWork<PrismaTx> {
-  return createUnitOfWork(prisma, {});
+export function createPrismaUnitOfWork(prisma: PrismaClient, clock?: Clock): UnitOfWork<PrismaTx> {
+  return createUnitOfWork(prisma, { clock });
 }
 
 /** The same unit of work for a bulk operation, such as a fleet delete: it may run up to BULK_TRANSACTION_TIME_MS. */
-export function createPrismaBulkUnitOfWork(prisma: PrismaClient): UnitOfWork<PrismaTx> {
-  return createUnitOfWork(prisma, { timeout: BULK_TRANSACTION_TIME_MS });
+export function createPrismaBulkUnitOfWork(prisma: PrismaClient, clock?: Clock): UnitOfWork<PrismaTx> {
+  return createUnitOfWork(prisma, { timeout: BULK_TRANSACTION_TIME_MS, clock });
 }
 
 /**
@@ -193,18 +198,19 @@ export function createPrismaBulkUnitOfWork(prisma: PrismaClient): UnitOfWork<Pri
  * events, ships, leases and deliveries it folds and replays are one moment's,
  * and the events up to a seq are all there; it may run as long as a bulk one.
  */
-export function createPrismaSnapshotUnitOfWork(prisma: PrismaClient): UnitOfWork<PrismaTx> {
-  return createUnitOfWork(prisma, { timeout: BULK_TRANSACTION_TIME_MS, isolationLevel: 'RepeatableRead' });
+export function createPrismaSnapshotUnitOfWork(prisma: PrismaClient, clock?: Clock): UnitOfWork<PrismaTx> {
+  return createUnitOfWork(prisma, { timeout: BULK_TRANSACTION_TIME_MS, isolationLevel: 'RepeatableRead', clock });
 }
 
 /** A unit of work whose transactions take the given options over the client's. */
-function createUnitOfWork(prisma: PrismaClient, options: { timeout?: number; isolationLevel?: 'RepeatableRead' }): UnitOfWork<PrismaTx> {
+function createUnitOfWork(prisma: PrismaClient, options: { timeout?: number; isolationLevel?: 'RepeatableRead'; clock?: Clock }): UnitOfWork<PrismaTx> {
+  const { clock, ...transactionOptions } = options;
   return {
     run: async <T, E>(work: (tx: PrismaTx) => Promise<Result<T, E>>): Promise<Result<T, E>> => {
       const outcome: { refusal?: Result<T, E> } = {};
       try {
         return await prisma.$transaction(async (tx) => {
-          const unit = createPrismaTx(tx);
+          const unit = createPrismaTx(tx, clock);
           const result = await work(unit);
           if (!result.isOk) {
             outcome.refusal = result;
@@ -214,7 +220,7 @@ function createUnitOfWork(prisma: PrismaClient, options: { timeout?: number; iso
           await unit.messages.flush();
           await unit.exchangeRollups.flush();
           return result;
-        }, options);
+        }, transactionOptions);
       } catch (error) {
         if (error instanceof Refused && outcome.refusal) {
           return outcome.refusal;

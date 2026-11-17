@@ -8,6 +8,7 @@ import { appliedLimits } from '../../domain/registry/applied-limits.js';
 import { NO_INSTALLATION_SETTINGS } from '../../domain/registry/limits.js';
 import type { FleetLimitReads } from '../../domain/shared/read-fleet-limits.js';
 import { limitSettingsOf } from './fleet-limit-settings.js';
+import { readFleetJourney } from './fleet-journeys.js';
 import { createPrismaFleetRepository } from './registry.js';
 import type {
   InstallationFleetFacts,
@@ -202,7 +203,12 @@ export function createPrismaInstallationFleets(prisma: PrismaClient): Installati
   };
   return {
     list: (window) => read(null, window),
-    find: async (fleetId, window) => (await read(fleetId, window))[0],
+    find: async (fleetId, window) => {
+      const [facts] = await read(fleetId, window);
+      if (!facts) return undefined;
+      const journey = await readFleetJourney(prisma, { fleetId, now: new Date(window.since.getTime() + 7 * 86_400_000) });
+      return { ...facts, ...(journey ? { journey } : {}) };
+    },
   };
 }
 
