@@ -2,7 +2,7 @@
 
 Detailed design for [#1228](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1228), priority 1. Docs only: nothing here is built until Thomas approves it. Screens come later, as mockups for Thomas; this file names what each screen must do, never how it looks.
 
-Status: purpose and five picks approved by Thomas on 17 Nov (#1228's latest comment). The detail below is proposed; the questions in section 10 are open. Today's paths, walked on staging, are in [walk.md](walk.md).
+Status: purpose and five picks approved by Thomas on 17 Nov (#1228's latest comment). The detail below is proposed; the questions in section 10 are open. Today's paths were walked on staging on 17 Nov (gateway 0.40.2, core 0.40.0): [walk.md](walk.md).
 
 ## 1. Purpose (approved)
 
@@ -47,37 +47,43 @@ Not the purpose: self-hosting (its own path, [one-line-setup](../one-line-setup.
 
 ## 3. Today's paths and where people get stuck
 
-Walked on staging as brand-new people, one per persona path that exists today. The walk, step by step with what each person and their agent met, is in [walk.md](walk.md). What exists today, read from the live site, llms.txt and the repositories:
+Walked on staging as brand-new people, one per persona path that exists today. The walk, step by step with what each person and their agent met, is in [walk.md](walk.md). What exists today, read from the live site, llms.txt and the repositories, and how far the walk got:
 
-| Persona | Path today | Where it starts |
-| --- | --- | --- |
-| Builder | An agent asks them a question | aeolus-fleet.dev Quick start (5 steps, "about 5 minutes") |
-| Builder | Two agents hand work to each other | [Hand work between agents](https://aeolus-fleet.dev/docs/hand-work-between-agents/); the start-to-finish [two sessions](../../guide/two-sessions.md) guide is in the repository, not on the site |
-| Builder | Their own app sends work | [Ship contract](https://aeolus-fleet.dev/docs/ship-contract/) and the home page's REST snippet |
-| Builder | Build your fleet with a steering ship | None |
-| Decider | Invited by a builder | The added email from the account app |
-| Decider | Alone | The live demo, read-only |
-| Flow owner | One flow, connected | aeolus-fleet.com: "Step one is an email"; no self-serve path |
-| Any, through an agent | The agent is pointed at Aeolus | llms.txt: about 40 links in one list, no start page; `/start` answers 404 |
-
-Where a person or their agent gets stuck, before the walk (each checked on the walk, its result in walk.md):
-
-| # | Where | Who is stuck | What happens |
+| Persona | Path today | Where it starts | Walked: first value reached? |
 | --- | --- | --- | --- |
-| S1 | llms.txt | Agent | No page says where to begin or asks which path; the agent picks Quick start or reads everything |
-| S2 | Site | Person | One path (Quick start) for every persona; nothing for a Decider or a Flow owner |
-| S3 | Sign-up | Both | The agent cannot open the mailed link; the person must, within 15 minutes, at most 3 links per 15 minutes. A sign-up cap puts a new organisation on the waiting list with no time given |
-| S4 | First console open | Person | "Can't reach the sign-in service" once in two sign-ups (#1248) |
-| S5 | Plugin install | Agent | `/plugin` commands are typed by the person; an agent in the session cannot run them for them |
-| S6 | Commission | Person | 17 scope switches and an owner to pick before the first ship (#1245) |
-| S7 | Crew line | Both | Shown once; an agent guiding from a chat cannot receive it safely (L5) |
-| S8 | Bridge | Builder, Decider | A new fleet may have no gateway, so Bridge and the chat connector do not open, and nobody in the organisation can switch it on (#1233) |
-| S9 | Added email | Decider | Does not name who added them; the link lasts 15 minutes (#1247) |
-| S10 | Decider alone | Decider | The demo is read-only: there is no question to answer |
-| S11 | REST snippet | Builder | Shows `send` with `$CREW_TOKEN` and skips `register`, where the crew token comes from |
-| S12 | Flow owner | Flow owner | No path to connect one flow alone; where hand-offs show in the console is not said anywhere |
-| S13 | Steering ship | Builder | No starter ship, no list of the rights it needs, no step that joins the computer first |
-| S14 | Every path | Both | No path ends by naming the next one, except Quick start's "Add the next" |
+| Builder | An agent asks them a question | aeolus-fleet.dev Quick start (5 steps, "about 5 minutes") | Yes, after connecting the gateway by hand in the console's Settings, which nothing points to (S8, S15) |
+| Builder | Two agents hand work to each other | [Hand work between agents](https://aeolus-fleet.dev/docs/hand-work-between-agents/); the start-to-finish [two sessions](../../guide/two-sessions.md) guide is in the repository, not on the site | Yes |
+| Builder | Their own app sends work | [Ship contract](https://aeolus-fleet.dev/docs/ship-contract/) and the home page's REST snippet | Only from Ship contract: the snippet fails as written (S11) |
+| Builder | Build your fleet with a steering ship | None | No path (S13) |
+| Decider | Invited by a builder | The added email from the account app | No: no rights until the builder finds groups (S18), then the question's page stays blank (S19) |
+| Decider | Alone | The live demo, read-only | No: nothing to answer (S10) |
+| Flow owner | One flow, connected | aeolus-fleet.com: "Discuss a flow that gets stuck"; no self-serve path | No path (S12) |
+| Any, through an agent | The agent is pointed at Aeolus | llms.txt: about 40 links in one list, no start page; `/start` answers 404 | No start (S1) |
+
+Where a person or their agent gets stuck, as the walk found it (S1 to S14 named before the walk and checked on it, S15 to S20 found on it; each step in walk.md):
+
+| # | Where | Who is stuck | What happens | On the walk |
+| --- | --- | --- | --- | --- |
+| S1 | llms.txt | Agent | No page says where to begin or asks which path; the agent picks Quick start or reads everything | Confirmed |
+| S2 | Site | Person | One path (Quick start) for every persona; nothing for a Decider or a Flow owner | Confirmed |
+| S3 | Sign-up | Both | The agent cannot open the mailed link; the person must, within 15 minutes, at most 3 links per 15 minutes. A sign-up cap puts a new organisation on the waiting list with no time given | Confirmed: link works, cap not reached on staging |
+| S4 | First console open | Person | "Can't reach the sign-in service" once in two sign-ups (#1248) | Not met; #1248 stays open |
+| S5 | Plugin install | Agent | `/plugin` commands are typed by the person; an agent in the session cannot run them for them | Not walked (shared computer) |
+| S6 | Commission | Person | 17 scope switches and an owner to pick before the first ship (#1245) | Gone: one dialog, scopes picked from a list (#1245 closed) |
+| S7 | Crew line | Both | Shown once; an agent guiding from a chat cannot receive it safely (L5) | Confirmed; a new prompt is one click on the ship page |
+| S8 | Bridge | Builder, Decider | A new fleet may have no gateway, so Bridge and the chat connector do not open, and nobody in the organisation can switch it on (#1233) | Blocks B1: Bridge says "the fleet did not answer" ([gateway#405](https://github.com/ThomasHendrickx/aeolus-fleet-gateway/issues/405)); the fleet manager can connect it in the console's Settings |
+| S9 | Added email | Decider | Does not name who added them; the link lasts 15 minutes (#1247) | Half: says what Aeolus is, "An admin of" the organisation, not who |
+| S10 | Decider alone | Decider | The demo is read-only: there is no question to answer | Confirmed |
+| S11 | REST snippet | Builder | Shows `send` with `$CREW_TOKEN` and skips `register`, where the crew token comes from | Worse: fails as written, no `model` and no JSON content type (filed on the site's repository, 17 Nov) |
+| S12 | Flow owner | Flow owner | No path to connect one flow alone; where hand-offs show in the console is not said anywhere | Confirmed |
+| S13 | Steering ship | Builder | No starter ship, no list of the rights it needs, no step that joins the computer first | Confirmed |
+| S14 | Every path | Both | No path ends by naming the next one, except Quick start's "Next" cards | Confirmed |
+| S15 | New fleet | Builder, Flow owner | The fleet starts with the gateway and the trierarch plugin switched on and not connected; the account app says "Needs a look" and not what to do. Connecting each is a button in the console's Settings | Found |
+| S16 | Fleet overview | Person | Their own person ship shows "awaiting crew" until Bridge first opens | Found, minor |
+| S17 | Ship page | Person | The timeline says "Owner set: argo by default" while the owner shown is the person ship | Found, minor |
+| S18 | Added Decider | Decider, Builder | "You have no rights here yet"; the builder must make a group, switch the Decider in, tick "Talk with the fleet" and press Save rights, and nothing says so | Found, blocks D1 |
+| S19 | Decider's Bridge | Decider | With only the "Talk with the fleet" rights, the question's page stays blank ([gateway#404](https://github.com/ThomasHendrickx/aeolus-fleet-gateway/issues/404)) | Found, blocks D1 |
+| S20 | Commission dialog | Builder | Says the rights "cannot be changed later" | Fixed on main (#1899), unreleased |
 
 ## 4. The paths
 
@@ -90,7 +96,7 @@ Every Builder and Flow owner path begins with **Get a fleet** (G): sign up at th
 | B1 | Builder | An agent asks them a question; they answer in Bridge and the agent carries on with the answer | B2 |
 | B2 | Builder | Two agents hand work to each other: one sends, the other answers, and a restart of either loses nothing | B4, or B3 |
 | B3 | Builder | Their own app sends work, and an agent acts on it and answers the app | F1 |
-| B4 | Builder | Their steering ship builds a second ship, which runs on their computer and hands its first work back, shown on Harbour | Add a Decider (D1) |
+| B4 | Builder | Their steering ship builds a second ship, which runs on their computer and hands its first work back, shown on the fleet overview | Add a Decider (D1) |
 | D1 | Decider | Added by a builder, they answer a real question from the builder's agent in Bridge or their chat | F1, with the builder |
 | D2 | Decider | Alone, they answer a question in the demo fleet | Ask a builder to add them (D1) |
 | F1 | Flow owner | One flow they run, with an app, an agent and a person, connected; each hand-off shown in the console | Add a Decider (D1), then B4 |
@@ -99,7 +105,8 @@ Every Builder and Flow owner path begins with **Get a fleet** (G): sign up at th
 
 1. Person opens the account app from the site or the link the agent gives, enters their email. Agent waits: it cannot open mail.
 2. Person opens the mailed link within 15 minutes, accepts the terms, names the fleet.
-3. Person opens the console. Agent checks with them that Harbour shows argo, their person ship and the plugin ships.
+3. Person opens the console. Agent checks with them that the fleet overview shows argo and their person ship.
+4. Until Q8 is settled: person connects the gateway in the console's Settings (and the trierarch plugin, for B4). Agent checks the account app no longer says "Needs a look".
 
 ```mermaid
 flowchart TD
@@ -115,7 +122,10 @@ flowchart TD
     f --> g[Open console]
     g --> h{Console opens?}
     h -->|sign-in service error| h1[Try again; agent says nothing changed] --> g
-    h -->|yes| i[Harbour: argo, person ship, plugin ships]
+    h -->|yes| i[Fleet overview: argo, person ship]
+    i --> j{Gateway connected?}
+    j -->|no, Q8 option 2| j1[Console Settings: Connect gateway] --> k
+    j -->|yes| k[Bridge opens]
 ```
 
 ### B1. An agent asks them a question
@@ -166,7 +176,7 @@ flowchart TD
     a[Commission second ship] --> b[Crew second session]
     b --> c[First sends task by name]
     c --> d{Delivered?}
-    d -->|second not crewed| d1[Delivery waits; Harbour shows awaiting crew; crew it] --> b
+    d -->|second not crewed| d1[Delivery waits; the fleet overview shows awaiting crew; crew it] --> b
     d -->|wrong name| d2[Refused naming the ship; discover lists who it may send to] --> c
     d -->|yes| e[Second acks and replies]
     e --> f{Second session dies?}
@@ -208,7 +218,7 @@ Needs: a computer that stays on while it works; Claude Code; a repository or fol
 4. The trierarch crews the new ship on their computer. The steering ship sends it its first work; the new ship hands it back.
 5. The steering ship sends the person a notice per ship it built; questions that need them go to their person ship.
 
-First value: a ship they did not commission by hand runs on their computer and hands work back, and they see it on Harbour with who commissioned it. Next path: add a Decider (D1).
+First value: a ship they did not commission by hand runs on their computer and hands work back, and they see it on the fleet overview with who commissioned it. Next path: add a Decider (D1).
 
 Where its ships run, how the person sees and steers what it built: section 6.
 
@@ -229,7 +239,7 @@ flowchart TD
     h -->|computer off| h2[Waits until the computer is back]
     h -->|yes| i[New ship crewed on the person's computer]
     i --> j[First work handed back]
-    j --> k[Notice in Bridge; tile on Harbour]
+    j --> k[Notice in Bridge; card on the fleet overview]
     k --> l[Next: D1]
 ```
 
@@ -237,9 +247,9 @@ flowchart TD
 
 Needs: nothing installed. A builder (B1 to B4) or a Flow owner with an organisation admin's right.
 
-1. The builder adds the Decider's email to the organisation and gives their group the rights to use the gateway.
+1. The builder adds the Decider's email to the organisation, puts them in a group and gives the group "Talk with the fleet from Claude or ChatGPT" (`messages:send`, `messages:receive`), then saves; their agent names each of these from `/start#d1` (S18).
 2. The Decider opens the added email's link, accepts the terms, and lands where their question waits.
-3. The builder's agent asks the Decider's person ship a question with `ask`.
+3. The builder's agent finds the Decider's person ship with `discover` and asks it a question with `ask`.
 4. The Decider answers in Bridge, or in their own chat (claude.ai, ChatGPT) through the gateway's connector, their agent guiding them from `/start`.
 
 First value: their answer changes what the builder's agent does next, and they never saw a terminal. Next path: F1, with the builder.
@@ -250,11 +260,15 @@ flowchart TD
     b --> c{Link within 15 min?}
     c -->|expired| c1[Sign-in page: new link to the same address] --> d
     c -->|yes| d[Accept terms]
-    d --> e{Gateway on for the fleet?}
+    d --> d2{Rights in the fleet?}
+    d2 -->|none yet| d3[Account home says what to ask the builder for; builder's agent names the group step] --> d2
+    d2 -->|Talk with the fleet| e{Gateway connected to the fleet?}
     e -->|no| e1[Home says why and who can turn it on; builder is told]
     e -->|yes| f{Question waiting?}
     f -->|not yet| f1[Bridge says nothing waits and that the builder's agents ask here]
-    f -->|yes| g[Answer in Bridge or chat]
+    f -->|yes| f2{Question opens?}
+    f2 -->|blank page| f3[Blocked until the gateway fixes it, issue 404]
+    f2 -->|yes| g[Answer in Bridge or chat]
     g --> h{Reach: may the agent ask them?}
     h -->|no, other group| h1[Ask refused naming reach; builder puts them in a group the agent reaches]
     h -->|yes| i[Agent acts on the answer]
@@ -298,7 +312,7 @@ flowchart TD
     b --> c[Crew each: B1 for agents, B3 for apps]
     c --> d[App sends first item]
     d --> e{Agent crewed?}
-    e -->|no| e1[Delivery waits; Harbour shows awaiting crew] --> c
+    e -->|no| e1[Delivery waits; the fleet overview shows awaiting crew] --> c
     e -->|yes| f[Agent asks the person]
     f --> g{Answered?}
     g -->|waiting| g1[Question waits in Bridge; flow stops there, visibly]
@@ -353,7 +367,7 @@ On the trierarch on the person's own computer (pick 5), joined in step 1 of B4 b
 
 ### How the person sees what it built
 
-- **Harbour**: each new ship shows as a tile the moment it is commissioned, awaiting crew, then crewed; its page names who commissioned it (the event's actor) and its owner (the person's ship).
+- **The fleet overview**: each new ship shows as a card the moment it is commissioned, awaiting crew, then crewed; its page names who commissioned it (the event's actor) and its owner (the person's ship).
 - **Bridge**: one notice from the steering ship per ship it built, and per change to one (release, retire, rights), with a link to the ship's page. Questions come there too.
 - **The ship's timeline**: every event names whether the steering ship or the person did it.
 
@@ -395,7 +409,7 @@ Each is walked on staging by a brand-new person with their own agent pointed at 
 | A4 | Given a new person with Claude Code and no fleet, when their agent guides them through G and B1, then within 15 minutes they answer a question in Bridge and the agent acts on the answer, with no step done by argo and no secret pasted outside the session it crews |
 | A5 | Given B1 done, when they follow B2, then a reply from the second session arrives in the first, and after the second session is closed and started again a message sent meanwhile is received |
 | A6 | Given B1 done, when they follow B3 with a curl or a short script, then their code registers, sends, and receives the agent's reply |
-| A7 | Given a new person with Claude Code and a computer that stays on, when they follow B4, then their computer is joined, `steering` is crewed in their session, and a ship that `steering` commissioned runs on their computer and hands work back; Harbour shows it with `steering` as its commissioner and a notice waits in Bridge |
+| A7 | Given a new person with Claude Code and a computer that stays on, when they follow B4, then their computer is joined, `steering` is crewed in their session, and a ship that `steering` commissioned runs on their computer and hands work back; the fleet overview shows it with `steering` as its commissioner and a notice waits in Bridge |
 | A8 | Given B4 under way, when the steering ship tries something outside its rights, then the fleet refuses naming the scope, nothing changes, and the person gets a question rather than an error in a terminal |
 | A9 | Given B4 done, when the person releases or retires a ship the steering ship built, or revokes one of its rights, from the console, then it takes effect and the steering ship is told as any ship is |
 | A10 | Given a builder who adds a Decider's email, when the Decider opens the added email and answers the builder agent's question in Bridge, then the email named who added them, they met no terminal, no id and no JSON, and the agent acts on the answer |
@@ -413,10 +427,10 @@ In order; each its own PR in the repository named, each closing its scenarios. A
 | --- | --- | --- | --- |
 | 1 | aeolus-site | The one source for paths G, B1, B2, B3 (paths that work today); `/start` built from it; llms.txt's first line and entry; the "point your agent here" line. Pulls the two sessions guide onto the site for B2 | A1, A4, A5, A6, A14 for B paths |
 | 2 | aeolus-site | The picker on Home and Quick start from the same source; Quick start becomes B1 | A2, A3 |
-| 3 | per finding | The blocks the walk finds on G and B1 to B3 (today #1233 no gateway, #1248 first console open, S11 REST snippet), each its own issue and PR | A4 to A6, A15 |
-| 4 | pagasae, aeolus-site | D1: the added email names who added them (#1247) and the Decider lands where their question waits; `/start#d1` for a chat-guided Decider | A10, A11 |
+| 3 | per finding | The blocks the walk found on G and B1 to B3, each its own issue and PR: the gateway not connected in a new fleet as Q8 picks (#1233), Bridge naming it ([gateway#405](https://github.com/ThomasHendrickx/aeolus-fleet-gateway/issues/405)), the REST snippet (filed on the site's repository, 17 Nov); #1248 if the next walk meets it | A4 to A6, A15 |
+| 4 | aeolus-fleet-gateway, the account app, the site | D1: a Decider with the "Talk with the fleet" rights opens and answers a question ([gateway#404](https://github.com/ThomasHendrickx/aeolus-fleet-gateway/issues/404)); the welcome names who added them; their account home says what to ask the builder for while they have no rights (S18); `/start#d1` for the builder's agent and a chat-guided Decider | A10, A11 |
 | 5 | aeolus-site, aeolus-fleet docs | F1 in the source; a guide for connecting one flow and where its hand-offs show in the console | A13 |
-| 6 | per Q1, Q2 | B4's starter ship as Thomas picks; `/start#b4` | A7, A8, A9 |
+| 6 | per Q1, Q2, Q8 | B4's starter ship as Thomas picks, with the trierarch plugin connected as Q8 picks; `/start#b4`. Needs core 0.41.0's live permission editing (#1899) on staging for A9 | A7, A8, A9 |
 | 7 | pagasae | D2 as Q4 picks | A12 |
 
 Later, as issues once this design is approved: a single view of one flow's hand-offs across its ships (if F1's walk shows the exchanges are not enough); `/start` in the console for a person already signed in; the product metrics of #1228's priority 2 at each path's first value.
@@ -441,12 +455,12 @@ Pick: 1. It shows the magic (a ship it built runs and hands work back) with ever
 
 ### Q2. How the starter ship is made
 
-Context: commissioning today asks for scopes switch by switch (#1245). The steering ship needs a set of them at once.
+Context: the commission dialog lets the person pick any scope beyond send and receive from a searchable list (walk, B4); the steering ship needs several at once, picked right.
 
 Options:
 1. **A ship template the hosted fleet starts with** (`steering`, its charter and scopes), offered when commissioning; needs squadrons' templates in every new fleet.
 2. **The person commissions it by hand,** `/start#b4` naming each scope to switch on.
-3. **A button on Harbour, "Commission a steering ship",** with the rights preset.
+3. **A button on the fleet overview, "Commission a steering ship",** with the rights preset.
 
 Pick: 2 for slice 6, no product change, and 1 as the issue that follows once the walk shows how long step 2 of B4 takes. Option 3 adds a console part for one path.
 
@@ -496,3 +510,25 @@ Options:
 2. **No cap during early access** while each path is walked.
 
 Pick: 1 until Thomas says otherwise; the cap is his to set.
+
+### Q8. The plugins a new hosted fleet starts with
+
+Context: a new fleet starts with the gateway and the trierarch plugin switched on and not connected (S15). Until the gateway is connected Bridge does not open, so B1 and D1 stop; until the trierarch plugin is, no computer joins, so B4 stops. The fleet manager connects each with one button in the console's Settings. #1233 asks the same for a colleague.
+
+Options:
+1. **Connected when the fleet is made:** sign-up connects every plugin it switches on, as the staging seed does by hand. G stays three steps.
+2. **One step on the path:** G gets step 4, "Connect the gateway in Settings", and B4 a step for the trierarch plugin; `/start` names them, and Bridge and the account app say where (gateway#405).
+3. **Switched off until connected:** nothing shows "Needs a look" for a plugin nobody connected; the path connects it when it needs it.
+
+Pick: 1. Every path stops at it, a new person cannot know it, and the person who could press the button is the one signing up. Option 2 is what slice 1 writes until option 1 ships; gateway#405 is needed either way, for a fleet whose gateway was disconnected.
+
+### Q9. How a Decider gets the gateway rights
+
+Context: an added account has no rights in a fleet until a group or their own give them (S18). A builder makes a group, switches the Decider in, ticks "Talk with the fleet from Claude or ChatGPT" and saves; nothing on the add step says so, and the Decider sees "You have no rights here yet".
+
+Options:
+1. **`/start#d1` names the steps** for the builder's agent, and the Decider's account home says what to ask the builder for; no product change beyond that line.
+2. **The add step offers the "Talk with the fleet" rights:** adding an account asks whether they may talk with the fleet, and gives it to that account.
+3. **Every new account in an organisation gets the "Talk with the fleet" rights** in its organisation's fleets.
+
+Pick: 1 for slice 4, and 2 as an issue once the D1 walk shows how many builders miss it. Option 3 gives rights nobody chose, against "Scopes say what" ([blueprint](../../blueprint.md)).
