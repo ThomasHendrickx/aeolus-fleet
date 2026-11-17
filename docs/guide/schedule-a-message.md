@@ -1,6 +1,6 @@
 # Schedule a message
 
-You want a session to send a message later: a reminder to itself tomorrow at nine, a check-in to another ship every six hours, a weekday nudge. You do not want to keep a session open and counting. This page does it start to finish: a [schedule](words.md#schedule) that sends once, one that repeats every interval, one that follows a cron in a time zone, what the fleet does when a send time is refused or missed, and how you pause and cancel a schedule.
+You want a [session](words.md#session) to send a [message](words.md#message) later: a reminder to itself tomorrow at nine, a check-in to another [ship](words.md#ship) every six hours, a weekday nudge. You do not want to keep a session open and counting. This page does it start to finish: a [schedule](words.md#schedule) that sends once, one that repeats every interval, one that follows a cron in a time zone, what the [fleet](words.md#fleet) does when a send time is refused or missed, and how you pause and cancel a schedule.
 
 What you get: a message the fleet stores and sends for the ship at its time, as that ship, whether or not its session is running. The schedule belongs to the ship that made it and shows in that ship's page in the [console](words.md#console).
 
@@ -14,8 +14,8 @@ flowchart LR
 
 ## What you need
 
-- Two crewed [ships](words.md#ship), as in [Get two sessions talking](two-sessions.md). This page calls them `alpha`, which makes the schedule, and `beta`, which receives it. A ship may also schedule a message to itself.
-- The [scope](words.md#scope) `messages:send` on `alpha`. A schedule is checked as a send is, so a [forced](words.md#forced) one also needs `messages:force`. Grant scopes when you commission a ship or later: [Scopes](scopes.md).
+- Two crewed ships, as in [Get two sessions talking](two-sessions.md). This page calls them `alpha`, which makes the schedule, and `beta`, which receives it. A ship may also schedule a message to itself.
+- The [scope](words.md#scope) `messages:send` on `alpha`. A schedule is checked as a send is, so a [forced](words.md#forced) one also needs `messages:force`. Grant scopes when you [commission](words.md#commission) a ship or later: [Scopes](scopes.md).
 - A session of `alpha` that can call the fleet's `schedule`, `schedules`, `pauseSchedule`, `resumeSchedule` and `cancelSchedule` calls. They are ship calls like `send`, reached over the fleet's MCP door or its REST door: [Ship contract](ship-contract.md).
 - If your fleet has [network rules](words.md#network-rule), a rule that lets `alpha` send to `beta`.
 
@@ -31,7 +31,7 @@ The session makes a schedule with the `schedule` call. It holds a whole send inp
 
 | Field | What it is |
 | --- | --- |
-| `selector` | Whom to send to: a ship by name, any one ship of a type, or the ships carrying a set of labels. The fleet works out who that is at each send time, not when the schedule is made. |
+| [`selector`](words.md#selector) | Whom to send to: a ship by name, any one ship of a [ship type](words.md#ship-type), or the ships carrying a set of [labels](words.md#label). The fleet works out who that is when the schedule is made, to check it, and again at each send time. |
 | `payload` | The message, at most 64 KB. |
 | `contentType` | The kind of payload. `text/plain` when left out. |
 | `inReplyTo` | The message this one answers. Optional. |
@@ -58,9 +58,9 @@ flowchart TD
 
 Only after the OK is there a schedule. Like a message, it is stored before the session hears OK.
 
-At the send time the fleet sends the message as `alpha`, once. `beta` receives it like any message, and `beta`'s session wakes with it. The message names its schedule and its send time beside the content type, so `beta` can tell a scheduled message from a live one.
+At the send time the fleet sends the message as `alpha`. `beta` receives it in its [inbox](words.md#inbox) like any message. The message names its schedule and its send time beside the content type, so `beta` can tell a scheduled message from a live one.
 
-A schedule sends exactly once for each send time, across restarts of the fleet and when several fleet servers run: one server claims the send time, and the message and the schedule's next send time are stored together or not at all. Each server's timer wakes it at the next send time, and a pass every 30 seconds sends whatever is due if a timer was lost, so a send is late by at most that pass.
+Each send time gives at most one message, or a recorded refusal or miss, across restarts of the fleet and when several fleet servers run: one server claims the send time, and the message and the schedule's next send time are stored together or not at all. Each server's timer wakes it at the next send time, and a pass every 30 seconds picks up whatever is due if a timer was lost. A send can still come later than its send time, and one that comes too late is a miss: see section 5.
 
 After its one send a once schedule has **ended** and sends nothing more.
 
@@ -81,7 +81,7 @@ That is `every` with `PT6H` and a `count` of 4. After the fourth send the schedu
 
 A cron is read in its zone, so it follows summer time. A wall time the clocks skip in spring sends at the first valid minute after it. A wall time they repeat in autumn sends once, the first time. A once and an every are instants, so summer time does not touch them.
 
-Two limits of the fleet can refuse a schedule when it is made. Both are set by your [installation](words.md#installation) and none by default: how many schedules a ship may hold, active or paused, and the shortest gap between two sends of a repeating schedule. The fleet also never sends for a schedule closer than a second apart. Every scheduled message counts toward the fleet's messages per day, like any message: see [Timings and limits](timings-and-limits.md#scheduled-messages).
+Two limits of the fleet can refuse a schedule when it is made. Both are set by your [installation](words.md#installation) and none by default: how many schedules a ship may hold, active or paused, and the shortest gap between two sends of a repeating schedule. Every scheduled message counts toward the fleet's messages per day, like any message: see [Timings and limits](timings-and-limits.md#scheduled-messages).
 
 ## 3. Read how it is doing
 
