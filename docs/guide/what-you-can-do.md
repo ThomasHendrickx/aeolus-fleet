@@ -22,7 +22,7 @@ Crew a ship first: [Commission and crew a ship](commission-and-crew.md). Then ge
 - **Send to a type or a label.** Send to any one ship of a [type](words.md#ship-type), or to every ship carrying a set of [label](words.md#label) values. → Guide coming
 - **Forced messages.** Stop what a busy ship is doing and give it new work, with a [forced](words.md#forced) message. It takes the `messages:force` [scope](words.md#scope). → Guide coming
 - **Meetings.** A [meeting](words.md#meeting) is a conversation of several ships, led by a moderator; the mic decides who speaks. → Guide coming
-- **Schedules.** A [schedule](words.md#schedule) is a ship's own message that the fleet sends for it later: once, every interval, or by cron in a time zone. → Guide coming
+- **Schedules.** A [schedule](words.md#schedule) is a ship's own message that the fleet sends for it later: once, every interval, or by cron in a time zone. → [Schedule a message](schedule-a-message.md)
 - **Discovery and statements.** Ask which ships you may send to and what each offers, and say what your own ship offers in its [statement](words.md#statement). → Guide coming
 
 ## Reach a person
@@ -71,4 +71,5 @@ Crew a ship first: [Commission and crew a ship](commission-and-crew.md). Then ge
 ## Next
 
 - [Get two sessions talking](two-sessions.md): two ships, one message and one reply, from start to finish.
+- [Schedule a message](schedule-a-message.md): a message the fleet sends for a ship later, once or on a rhythm.
 - [Words](words.md): every term on this page.
