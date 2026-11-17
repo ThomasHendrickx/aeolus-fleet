@@ -1,8 +1,8 @@
 # Hosted onboarding: paths per persona
 
-Detailed design for [#1228](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1228), priority 1. Docs only: nothing here is built until Thomas approves it. Screens come later, as mockups for Thomas; this file names what each screen must do, never how it looks.
+Detailed design for [#1228](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1228), priority 1. Docs and mockups only. The responsive [mockup index](mockups/artboards/index.html) and [screen coverage, numbered persona paths and slice acceptance](mockups/coverage.md) are for approval before implementation.
 
-Status: purpose and five picks approved by Thomas on 17 Nov (#1228's latest comment). The detail below is proposed; the questions in section 10 are open. Today's paths were walked on staging on 17 Nov (gateway 0.40.2, core 0.40.0): [walk.md](walk.md).
+Status: purpose, five initial picks and all nine picks in section 10 are decided by Thomas. Mockups await approval. Today's paths were walked on staging on 17 Nov (gateway 0.40.2, core 0.40.0): [walk.md](walk.md).
 
 ## 1. Purpose (approved)
 
@@ -106,7 +106,7 @@ Every Builder and Flow owner path begins with **Get a fleet** (G): sign up at th
 1. Person opens the account app from the site or the link the agent gives, enters their email. Agent waits: it cannot open mail.
 2. Person opens the mailed link within 15 minutes, accepts the terms, names the fleet.
 3. Person opens the console. Agent checks with them that the fleet overview shows argo and their person ship.
-4. Until Q8 is settled: person connects the gateway in the console's Settings (and the trierarch plugin, for B4). Agent checks the account app no longer says "Needs a look".
+4. The hosted fleet connects every plugin it switches on when it is made (Q8, decided). Existing fleets whose plugin was disconnected still use Console Settings; a new fleet needs no manual connect step.
 
 ```mermaid
 flowchart TD
@@ -357,7 +357,7 @@ Every path's persona, first value, time, needs, steps, checks, "If it fails" and
 
 ### Its starter ship
 
-An agent ship named `steering`, owned by the person's ship, commissioned with the bounded rights Thomas picks (Q1) and made as Q2 picks. Its charter (the first message the person gives it, or its ship template's charter with Q2 option 1) says what it is for: build and grow this fleet with the person, ask them before anything their rights do not cover, and tell them what it built.
+An agent ship named `steering`, owned by the person's ship, commissioned with the bounded rights in decided Q1 and made by hand as decided Q2. Its charter (the first message the person gives it, or its ship template's charter with Q2 option 1) says what it is for: build and grow this fleet with the person, ask them before anything their rights do not cover, and tell them what it built.
 
 The person crews it in the session they are already talking to, so the agent guiding them becomes the steering ship. It holds the lease like any session (0010); recrewed, a new session takes over with its inbox waiting.
 
@@ -421,6 +421,8 @@ Each is walked on staging by a brand-new person with their own agent pointed at 
 
 ## 8. Thin slices
 
+The [screen-linked slice order](mockups/coverage.md#slice-order) is the implementation order. Every slice names its screens and the mockups that form its visual acceptance criteria. The table below records scenario ownership; it does not permit combining the separate PRs in the screen-linked order.
+
 In order; each its own PR in the repository named, each closing its scenarios. A slice that needs a product change the walk does not yet prove needed waits for the walk's finding.
 
 | Slice | Repository | What | Closes |
@@ -430,7 +432,7 @@ In order; each its own PR in the repository named, each closing its scenarios. A
 | 3 | per finding | The blocks the walk found on G and B1 to B3, each its own issue and PR: the gateway not connected in a new fleet as Q8 picks (#1233), Bridge naming it ([gateway#405](https://github.com/ThomasHendrickx/aeolus-fleet-gateway/issues/405)), the REST snippet (filed on the site's repository, 17 Nov); #1248 if the next walk meets it | A4 to A6, A15 |
 | 4 | aeolus-fleet-gateway, the account app, the site | D1: a Decider with the "Talk with the fleet" rights opens and answers a question ([gateway#404](https://github.com/ThomasHendrickx/aeolus-fleet-gateway/issues/404)); the welcome names who added them; their account home says what to ask the builder for while they have no rights (S18); `/start#d1` for the builder's agent and a chat-guided Decider | A10, A11 |
 | 5 | aeolus-site, aeolus-fleet docs | F1 in the source; a guide for connecting one flow and where its hand-offs show in the console | A13 |
-| 6 | per Q1, Q2, Q8 | B4's starter ship as Thomas picks, with the trierarch plugin connected as Q8 picks; `/start#b4`. Needs core 0.41.0's live permission editing (#1899) on staging for A9 | A7, A8, A9 |
+| 6 | Q1, Q2 and Q8, decided | B4's starter ship as Thomas picks, with the trierarch plugin connected as Q8 picks; `/start#b4`. Needs core 0.41.0's live permission editing (#1899) on staging for A9 | A7, A8, A9 |
 | 7 | pagasae | D2 as Q4 picks | A12 |
 
 Later, as issues once this design is approved: a single view of one flow's hand-offs across its ships (if F1's walk shows the exchanges are not enough); `/start` in the console for a person already signed in; the product metrics of #1228's priority 2 at each path's first value.
@@ -439,7 +441,9 @@ Later, as issues once this design is approved: a single view of one flow's hand-
 
 The sign-in, the account app's organisation and rights model, scopes, reach, crew requests and the trierarch: every path uses them as they are. A change any path needs is a slice above with its own issue.
 
-## 10. Questions
+## 10. Decisions (all nine picks accepted)
+
+Thomas accepted each pick as written. The alternatives below explain the choice; they are not open questions. Q4’s illustrative demo copy and Q7’s waiting-list timing remain copy points for mockup approval, not reopened decisions.
 
 ### Q1. The steering ship's bounded rights (Thomas's call)
 
@@ -451,7 +455,7 @@ Options:
 3. **Everything the person holds as fleet manager:** the fastest magic, the way Thomas set up Aeolus; bounded only by the fleet's limits and the person's own scopes.
 4. **Commission only:** `fleet:read`, `fleet:commission`, send and receive. The person releases and retires by hand.
 
-Pick: 1. It shows the magic (a ship it built runs and hands work back) with every action one the person can undo, and nothing it does changes who reaches whom. Note: `fleet:manage` reaches every ship it reaches, not only the ones it built; bounding it to its own ships needs a network rule or a later change, raised as an issue if Thomas wants that bound.
+Decided: 1. It shows the magic (a ship it built runs and hands work back) with every action one the person can undo, and nothing it does changes who reaches whom. Note: `fleet:manage` reaches every ship it reaches, not only the ones it built; bounding it to its own ships needs a network rule or a later change, raised as an issue if Thomas wants that bound.
 
 ### Q2. How the starter ship is made
 
@@ -462,7 +466,7 @@ Options:
 2. **The person commissions it by hand,** `/start#b4` naming each scope to switch on.
 3. **A button on the fleet overview, "Commission a steering ship",** with the rights preset.
 
-Pick: 2 for slice 6, no product change, and 1 as the issue that follows once the walk shows how long step 2 of B4 takes. Option 3 adds a console part for one path.
+Decided: 2 for slice 6, no product change, and 1 as the issue that follows once the walk shows how long step 2 of B4 takes. Option 3 adds a console part for one path.
 
 ### Q3. Where the one source lives
 
@@ -470,7 +474,7 @@ Options:
 1. **A data file in aeolus-site** (`src/data/paths.ts`), as Home's copy already is; commands pulled from the repositories at build.
 2. **A Markdown file in aeolus-fleet** (`docs/guide/start.md`), pulled by the site as the docs are, and parsed for the picker.
 
-Pick: 1. The paths cross every repository and the site already keeps copy as data and pulls commands; a parsed Markdown file makes the picker depend on headings.
+Decided: 1. The paths cross every repository and the site already keeps copy as data and pulls commands; a parsed Markdown file makes the picker depend on headings.
 
 ### Q4. What the demo gives a Decider alone
 
@@ -481,7 +485,7 @@ Options:
 2. **The demo shows a question answered by its scripted person,** and says what to send a builder; the first value then waits for D1.
 3. **No demo step:** the picker sends a Decider alone to ask a builder.
 
-Pick: 1. It is the only option where a Decider alone reaches the first value; slice 7 is last, so the paths that work today come first.
+Decided: 1. It is the only option where a Decider alone reaches the first value; slice 7 is last, so the paths that work today come first.
 
 ### Q5. The earlier onboarding PRs
 
@@ -491,7 +495,7 @@ Options:
 1. **Close #1317;** its lessons are cited here and its first-round answers stay readable on it. Merge #1232 as the record of the 0.31.0 walk.
 2. **Keep #1317 open** for its screen questions, mockups following this design.
 
-Pick: 1. The approved purpose replaces #1317's; the mockups for this design follow from section 4.
+Decided: 1. The approved purpose replaces #1317's; the mockups for this design follow from section 4.
 
 ### Q6. Harnesses on the paths
 
@@ -499,7 +503,7 @@ Options:
 1. **The guiding agent is any agent that reads the web; the crewing steps are written and walked for Claude Code and Codex,** Copilot and Cursor named where their crew lines exist.
 2. **Claude Code only** walked, the others named.
 
-Pick: 1. Codex is on the site's install tabs and Quick start today; a Builder who uses it must not fall off at step 1.
+Decided: 1. Codex is on the site's install tabs and Quick start today; a Builder who uses it must not fall off at step 1.
 
 ### Q7. The sign-up cap
 
@@ -509,7 +513,7 @@ Options:
 1. **Keep the cap;** `/start` and the waiting list page say what happens next and when.
 2. **No cap during early access** while each path is walked.
 
-Pick: 1 until Thomas says otherwise; the cap is his to set.
+Decided: 1 the cap is Thomas’s to set.
 
 ### Q8. The plugins a new hosted fleet starts with
 
@@ -520,7 +524,7 @@ Options:
 2. **One step on the path:** G gets step 4, "Connect the gateway in Settings", and B4 a step for the trierarch plugin; `/start` names them, and Bridge and the account app say where (gateway#405).
 3. **Switched off until connected:** nothing shows "Needs a look" for a plugin nobody connected; the path connects it when it needs it.
 
-Pick: 1. Every path stops at it, a new person cannot know it, and the person who could press the button is the one signing up. Option 2 is what slice 1 writes until option 1 ships; gateway#405 is needed either way, for a fleet whose gateway was disconnected.
+Decided: 1. Every path stops at it, a new person cannot know it, and the person who could press the button is the one signing up. Option 2 is what slice 1 writes until option 1 ships; gateway#405 is needed either way, for a fleet whose gateway was disconnected.
 
 ### Q9. How a Decider gets the gateway rights
 
@@ -531,4 +535,4 @@ Options:
 2. **The add step offers the "Talk with the fleet" rights:** adding an account asks whether they may talk with the fleet, and gives it to that account.
 3. **Every new account in an organisation gets the "Talk with the fleet" rights** in its organisation's fleets.
 
-Pick: 1 for slice 4, and 2 as an issue once the D1 walk shows how many builders miss it. Option 3 gives rights nobody chose, against "Scopes say what" ([blueprint](../../blueprint.md)).
+Decided: 1 for slice 4, and 2 as an issue once the D1 walk shows how many builders miss it. Option 3 gives rights nobody chose, against "Scopes say what" ([blueprint](../../blueprint.md)).
