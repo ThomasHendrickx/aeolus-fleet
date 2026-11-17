@@ -57,6 +57,7 @@ export async function journeySourceFacts(db: Db, events: readonly FleetEvent[]):
           AND accepted.journey_qualifying = true AND accepted.journey_both_crewed = true) AS "isReturnToSender"
     FROM jsonb_to_recordset(${JSON.stringify(sources)}::jsonb) AS source("fleetId" text, "messageId" text, "deliveryId" text, "shipId" text, position integer)
     JOIN messages m ON m.fleet_id = source."fleetId" AND m.id = source."messageId"
+    JOIN fleet_journeys journey ON journey.fleet_id = m.fleet_id AND m.created_at >= journey.coverage_from
     JOIN deliveries d ON d.fleet_id = m.fleet_id AND d.id = source."deliveryId" AND d.message_id = m.id
     JOIN ships s ON s.fleet_id = m.fleet_id AND s.id = m.sender_ship_id
     JOIN ships r ON r.fleet_id = m.fleet_id AND r.id = source."shipId"
