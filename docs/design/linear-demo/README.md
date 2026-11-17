@@ -1,8 +1,8 @@
 # Linear demo
 
-Design step for [#1228](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1228), following the [hosted onboarding design](../hosted-onboarding/README.md) ([#1925](https://github.com/ThomasHendrickx/aeolus-fleet/pull/1925)). Purpose, lessons and questions only: no screens, steps or slices until Thomas approves the purpose.
+Design step for [#1228](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1228), following the [hosted onboarding design](../hosted-onboarding/README.md) ([#1925](https://github.com/ThomasHendrickx/aeolus-fleet/pull/1925)). The purpose and all five decisions are approved. The demo belongs to the marketing site.
 
-Status: purpose and questions for approval.
+Status: purpose approved; Q1, Q3, Q4 and Q5 accepted as written, Q2 decided for the marketing site (Thomas, 17 Nov). Detailed screens await clarification from orchestrator-1.
 
 ## 1. Purpose
 
@@ -48,7 +48,7 @@ Not the purpose: a sandbox to try the product in; teaching every screen of the c
 
 ### The linear-demo pattern Thomas points at
 
-As it works in the product he names, described generically:
+The pattern, described generically:
 
 | # | Lesson |
 | --- | --- |
@@ -59,7 +59,7 @@ As it works in the product he names, described generically:
 | L18 | The step logic is pure and unit-tested; each demo screen and the narrative parts have stories |
 | L19 | It reuses the product's real views because they are props-only; where a view was not, the demo shows a simulated one rather than change the product for it |
 
-## 3. Questions
+## 3. Decisions
 
 ### Q1. Which paths get a demo
 
@@ -67,15 +67,11 @@ As it works in the product he names, described generically:
 2. **One per persona**: a Decider answers an agent's question (D2); a Flow owner sees one flow's hand-offs (F1); a Builder watches a steering ship build a ship that hands work back (B4).
 3. **Only the Decider's** (D2), the one path with no first value alone.
 
-Pick: 2. Each persona gets the first value it cannot reach without signing up or being added, and the Builder sees the big path, where Aeolus is hardest to imagine; B1 to B3 are quick to do for real. Option 1 is six flows to keep up for zero customers (L12); option 3 leaves a Flow owner with no way to see the flow before connecting one.
+Decided: 2. Each persona gets the first value it cannot reach without signing up or being added, and the Builder sees the big path, where Aeolus is hardest to imagine; B1 to B3 are quick to do for real. Option 1 is six flows to keep up for zero customers (L12); option 3 leaves a Flow owner with no way to see the flow before connecting one.
 
 ### Q2. Where it lives
 
-1. **The hosted app**, at `/demo`, where the live demo opens today: Next.js on the ui package already, public, its own release.
-2. **The site (aeolus-site)**, next to the picker and the docs.
-3. **The console**, as a route with no sign-in.
-
-Pick: 1. It already serves `/demo`, so the site's and `/start`'s links stay; it renders the ui package's parts as they are (L19); and it needs no fleet behind it, so it can run on staging too (L5). Option 2 means bringing React and the ui package into an Astro site for one page; option 3 ships the demo with every self-hosted installation, which is not what core is for ([0043](../../decisions/0043-core-surface.md)).
+Decided: **the marketing site**, next to the picker and the docs. Thomas: "Why 'runs on staging'??? This demo is marketing website .." The demo needs no staging, hosted app, sign-in or fleet. Its screens compose the ui package's real parts with fabricated data, as Q3 decides. The site and `/start` link to the marketing site's demo flows.
 
 ### Q3. Which real parts it renders
 
@@ -83,19 +79,19 @@ Pick: 1. It already serves `/demo`, so the site's and `/start`'s links stay; it 
 2. **The product's real screens** (fleet overview, ship page, Bridge's question), made props-only and exported for the demo.
 3. **Pictures**: the mockups' previews, clickable.
 
-Pick: 1. It looks and feels real with no product change (Thomas: no "changes to our product for a demo"); a screen that later moves into the ui package for its own reasons, such as the questions UI ([0043](../../decisions/0043-core-surface.md)), is then used as it is. Option 2 changes core, the console and the gateway for the demo; option 3 does not feel real and cannot be acted on.
+Decided: 1. It looks and feels real with no product change (Thomas: no "changes to our product for a demo"); a screen that later moves into the ui package for its own reasons, such as the questions UI ([0043](../../decisions/0043-core-surface.md)), is then used as it is. Option 2 changes core, the console and the gateway for the demo; option 3 does not feel real and cannot be acted on.
 
 ### Q4. What happens to the live demo and its runner
 
-1. **Retire both when the linear demo ships**: the hosted app's demo runner, the demo fleet, its viewer ticket route, notice and guide go; `/demo` serves the linear demo. The viewer ship, viewer tickets, notices and guides stay in core (L6).
+1. **Retire both when the linear demo ships**: the hosted app's demo runner, the demo fleet, its viewer ticket route, notice and guide go; the marketing site serves the linear demo and the site and `/start` point there. The viewer ship, viewer tickets, notices and guides stay in core (L6).
 2. **Keep both**, the live fleet as "see a real fleet" beside the linear demo.
 3. **Retire both now**, before the linear demo ships.
 
-Pick: 1. Thomas finds it "not really that useful"; it costs a running fleet (L5) and two demos to keep up. Option 3 leaves the site's and `/start`'s demo links dead until then.
+Decided: 1. Thomas finds it "not really that useful"; it costs a running fleet (L5) and two demos to keep up. Option 3 leaves the site's and `/start`'s demo links dead until then.
 
 ### Q5. What path D2 becomes
 
 1. **D2 is the Decider's demo**: they answer the question in the demo and see the work go on; the first value is seen, not real, and the closing card says what to send a builder (D1).
 2. **D2 goes**: a Decider alone is sent to ask a builder; the demo only shows.
 
-Pick: 1. It keeps onboarding pick 3 (the demo as the lone Decider's fallback, L10) with what Thomas asked for, and ends at the real next path. Option 2 leaves a lone Decider with nothing to do.
+Decided: 1. It keeps onboarding pick 3 (the demo as the lone Decider's fallback, L10) with what Thomas asked for, and ends at the real next path. Option 2 leaves a lone Decider with nothing to do.
