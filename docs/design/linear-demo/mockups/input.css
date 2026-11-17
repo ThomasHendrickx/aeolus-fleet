@@ -1,7 +1,10 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 @import "../../../../packages/ui/src/theme.css";
+@import "../../../../packages/ui/src/brand.css";
 @source "../../../../packages/ui/src";
 @source "../../../../packages/console/components";
-@source "../../../../packages/console/features/inbox/ui";
-@source "../../../../packages/console/features/fleet/ui";
+@source "../../../../packages/console/features";
+@source "./product.jsx";
 @source "./screens.jsx";
+@source "./site.jsx";

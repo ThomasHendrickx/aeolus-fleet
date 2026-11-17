@@ -1,74 +1,991 @@
-/** Documentation fixtures. Static frames, no requests and no product code. */
-import React from 'react';
+/** Documentation fixtures: the numbered tour steps and site entries, rendered to static frames. No requests, no product code. */
 import { renderToStaticMarkup } from 'react-dom/server';
-import { writeFileSync, mkdirSync } from 'node:fs';
-import { Button, Badge } from './parts';
-import { Harbour } from '../../../../packages/ui/src/organisms/harbour';
-import { QuestionReader } from '../../../../packages/console/features/inbox/ui/organisms/question-reader';
-const noop = () => {};
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { Button, HarbourTile, ShipState, ToastCard } from '@aeolus-fleet/ui';
+import { Copy } from 'lucide-react';
+import { CEDAR, KESTREL, NOW, TIDEWATER, at } from './fixtures';
+import { Bridge, BridgeMessage, BridgeQuestion, BridgeRow, ConsoleOverview, ConsoleShipPage, NoticeBanner, event, listed, shipDetail, tile } from './product';
+import { SitePage, TourCard, TourStep } from './site';
+
 const out = process.argv[2];
-mkdirSync(out,{recursive:true});
-const card=(title,text)=><section className="card"><h2>{title}</h2><p>{text}</p></section>;
-const action=(label,href)=><Button render={<a href={href}/>} size="touch">{label}</Button>;
-const frames=[];
-function add(id,title,area,body,narrative,options={}){frames.push({id,title,area,body,narrative,...options});}
-function question(flow,state='open',option=1){
- const invoice=flow==='invoice';
- const q={kind:'question',deliveryId:'dlv_fixture',messageId:'msg_fixture',state:state==='answered'?'acknowledged':'pending',readAt:null,doneAt:null,model:null,sealing:'plain',stale:null,replaces:null,sender:{id:'shp_fixture',name:invoice?'invoice-check':'planner',type:'agent',isNameShared:false},sentAt:'2026-11-17T10:00:00Z',question:{id:'00000000-0000-4000-8000-000000000001',title:invoice?'May we pay invoice 1042?':'Which time zone do tide alerts use for a harbour on a border?',context:invoice?'Cedar Workshop supplied the agreed materials. Invoice 1042 is for £240. The order and invoice match.':'Two harbours sit on an estuary between two time zones. Their published tide tables use different zones.',options:invoice?[{key:1,label:'Approve payment',detail:'Send this invoice on for payment.'},{key:2,label:'Hold payment',detail:'Ask for clarification before payment.'}]:[{key:1,label:'The harbour’s published zone',detail:'Alerts match the tables the harbour master prints.'},{key:2,label:'The user’s own zone',detail:'Alerts match the phone, but differ from the printed tables.'}],pick:{option:1,why:invoice?'The invoice matches the agreed order.':'Harbour masters check alerts against the printed tables.'},answer:state==='answered'?{messageId:'msg_answer_fixture',sentAt:'2026-11-17T10:01:00Z',option,note:null}:null}};
- return <>{[false,true].map(phone=><div key={String(phone)} className={`question-reader ${phone?'phone-reader':'desktop-reader'}`}><QuestionReader question={q} position={{number:1,count:1,left:0}} isPhone={phone} onAnswer={noop} onSelect={noop} isPending={state==='pending'} now={new Date('2026-11-17T10:02:00Z')}/></div>)}</>;
+mkdirSync(out, { recursive: true });
+
+// ---------- Parts shared by steps ----------
+
+const both = (desktop, phone) => (
+  <>
+    <div className="desktop-only">{desktop}</div>
+    <div className="phone-only">{phone}</div>
+  </>
+);
+
+const miniTile = (ship, state, note, kind = 'agents') => <HarbourTile ship={tile(ship, state, note, 0)} kind={kind} now={NOW} />;
+const miniLine = (from, to, text) => (
+  <span className="mini-line">
+    <span className="font-mono">{from}</span> → <span className="font-mono">{to}</span>
+    <span className="mini-text">{text}</span>
+  </span>
+);
+const miniCount = (label, before, after) => (
+  <span className="mini-count">
+    {label} <span className="mini-was">{before} →</span> <b>{after}</b>
+  </span>
+);
+
+function Closing({ title, text, quote, primary, secondary, beneath }) {
+  return (
+    <div className="closing-wrap">
+      <div className="closing-under" aria-hidden>
+        {beneath}
+      </div>
+      <div className="closing-card" role="dialog" aria-label={title}>
+        <p className="eyebrow">Tour complete</p>
+        <h2>{title}</h2>
+        <p>{text}</p>
+        {quote ? (
+          <figure className="closing-quote">
+            <figcaption>{quote.label}</figcaption>
+            <blockquote>{quote.text}</blockquote>
+            <Button size="sm" icon={<Copy aria-hidden />}>
+              Copy
+            </Button>
+          </figure>
+        ) : null}
+        <a href={primary[1]} className="btn primary">
+          {primary[0]} →
+        </a>
+        <a href={secondary[1]} className="btn line">
+          {secondary[0]}
+        </a>
+        <a href="site-01-after.html" className="tlink">
+          Back to aeolus-fleet.dev
+        </a>
+      </div>
+    </div>
+  );
 }
-const flows=[['decider','Answer a question','D2'],['flow-owner','Follow one flow’s hand-offs','F1'],['builder','Watch a steering ship build a ship','B4']];
-const picks=<div className="grid-paths">{flows.map(([slug,label,path])=><section className="card" key={slug}><h2>{label}</h2><p>{path} · A simulated flow. No account or installation.</p>{action('Watch this flow',`${slug}-01-after.html`)}</section>)}</div>;
-add('site-01','Home','site',<><h1>See what Aeolus does for you</h1><p>A few minutes. Nothing to install. Nothing real behind the screens.</p>{picks}</>,'Replace today’s live fleet link with three persona flows.',{before:<><h1>A real fleet, live.</h1><p>Read-only. No account.</p>{action('Open the live demo','live-01-before.html')}<p>Today’s link opens the hosted demo.</p></>});
-add('site-02','Quick start','site',<><h1>Quick start</h1><p>Want to see it before you install?</p>{picks}{card('Try it for real','Pick a path and point your agent at /start.')}</>,'Keep the real quick start and offer a preview of each persona’s first value.',{before:<><h1>Quick start</h1>{card('Try Aeolus','Sign up, install the plugin, commission and crew your ship, then answer in Bridge.')}<p>Today’s shared footer points to the live demo.</p>{action('Try the live demo','live-01-before.html')}</>});
-add('site-03','Start page','site',<><h1>Help a person try Aeolus</h1><p>Ask which path they want. Offer its demo before the real setup.</p>{flows.map(([slug,label,path])=><section className="card" key={slug}><h2>{path}: {label}</h2><p>Preview: /demo/{slug}. First value is simulated.</p>{action('Open preview',`${slug}-01-after.html`)}</section>)}</>,'The HTML /start/ and agent Markdown /start name the same public links.',{before:<><h1>Today: no /start page</h1><p>The approved onboarding design adds this page. Today, Quick start is the available guide and the shared site footer links to the live demo.</p>{action('Try the live demo','live-01-before.html')}</>});
-for(const [slug,label,path] of flows){add(`guide-${slug}`,`${path} guide`,'site',<><h1>{label}</h1><p>See the first value before you try the real path.</p>{action('Watch this flow',`${slug}-01-after.html`)}{card('Try it for real',path==='D2'?'Ask a builder to add your email and grant Talk with the fleet rights (D1).':path==='F1'?'Name your flow’s steps: which is an app, which an agent, which a person. Get a fleet first if you need one.':'Join a computer that stays on. Have Claude Code and a repository or folder ready. Get a fleet first if you need one.')}</>,'The approved path guide gets a direct preview link; existing real setup stays separate.',{before:<><h1>Today: no {path} path guide</h1><p>Today’s demo entry is the shared read-only live fleet link. The approved onboarding design adds this persona guide.</p>{action('Try the live demo','live-01-before.html')}</>});}
-add('site-04','Demo index','site',<><h1>See Aeolus in action</h1><p>Choose one flow. Every screen is simulated.</p>{picks}</>,'Public /demo lists the three independent flows.',{before:<><h1>Today’s demo link</h1><p>One link opens one read-only fleet, without a persona picker.</p>{action('Open the live demo','live-01-before.html')}</>});
-add('decider-01','A question reaches you','Bridge',<>{card('Waiting on you','planner asks: Which time zone do tide alerts use for a harbour on a border?')}{action('Open question','decider-02-after.html')}</>,'You are the Decider. An agent has a question it cannot decide for you.');
-add('decider-02','Choose your answer','Bridge',question('tide'),'Read both options. The agent’s suggested answer is not sent until you answer.',{extra:<div className="actions">{action('Answer: published zone','decider-03-after.html')}{action('Answer: own zone','decider-03b-after.html')}</div>});
-add('decider-03','Answer sent: published zone','Bridge',question('tide','answered',1),'You answered. No account, message or fleet was created.');
-add('decider-03b','Answer sent: own zone','Bridge',question('tide','answered',2),'Alternative to step 3: you chose the user’s own zone.',{alternate:true,next:'decider-04b',back:'decider-02'});
-add('decider-04','The work continues','planner',card('planner carries on','Tide alerts use the harbour’s published zone, matching its printed tables.'),'Your answer changes what the asking ship does.');
-add('decider-04b','The work continues: own zone','planner',card('planner carries on','Tide alerts use the user’s own zone, matching their phone.'),'Alternative to step 4: continuation follows the second answer.',{alternate:true,next:'decider-05',back:'decider-03b'});
-add('decider-05','Bring your builder','site',<><h1>You answered an agent’s question</h1><p>You saw a simulation. To answer your own agents, ask a builder to add you.</p>{card('Send this to your builder','Please add my email to your organisation, give me Talk with the fleet rights in the fleet, and send me a question in Bridge.')}{action('Read D1: get added by a builder','guide-decider-after.html')}</>,'D2 ends at its real next path, D1.');
-add('flow-owner-01','One ordinary flow','site',<><h1>From invoice to a decision</h1>{card('One item: invoice 1042','invoice-app → invoice-check → Mira → invoice-check → invoice-app')}{card('Who does what','The app receives the invoice. The agent checks it. Mira decides. The agent hands the decision back.')}</>,'A fictional workshop flow: app, agent and person. Nothing is connected.');
-add('flow-owner-02','The app sends the item','Exchange',card('invoice-app → invoice-check','Invoice 1042 from Cedar Workshop: £240. Please check it against order 1042.'),'The app starts the hand-off. No person copies the invoice.');
-add('flow-owner-03','The agent asks you','Bridge',question('invoice'),'Act as Mira. The invoice matches the order; approve or hold it.',{extra:<div className="actions">{action('Approve payment','flow-owner-04-after.html')}{action('Hold payment','flow-owner-04b-after.html')}</div>});
-add('flow-owner-04','Your approval is sent','Bridge',question('invoice','answered',1),'Your decision goes back to invoice-check.');
-add('flow-owner-04b','Your hold is sent','Bridge',question('invoice','answered',2),'Alternative to step 4: the decision is to hold payment.',{alternate:true,next:'flow-owner-05b',back:'flow-owner-03'});
-add('flow-owner-05','The agent hands it on','Exchange',card('invoice-check → invoice-app','Mira approved invoice 1042. Continue with payment.'),'The agent hands the decision back to the app.');
-add('flow-owner-05b','The agent hands on the hold','Exchange',card('invoice-check → invoice-app','Mira held invoice 1042. Request clarification before payment.'),'Alternative to step 5: the item stops before payment.',{alternate:true,next:'flow-owner-06',back:'flow-owner-04b'});
-add('flow-owner-06','Inspect the first hand-off','Console',<>{card('invoice-app · Exchange with invoice-check','10:00 invoice-app: Check invoice 1042 (£240) against order 1042.')}{card('Received','10:00 invoice-check received the item.')}</>,'Read the app-to-agent hand-off on the ship’s exchange.');
-add('flow-owner-07','Inspect question and answer','Console',<>{card('invoice-check · Exchange with Mira','10:01 invoice-check: May we pay invoice 1042?')}{card('Mira → invoice-check','10:02 Mira: Approve payment. Alternative route: Hold payment.')}</>,'The same item connects the question and its answer. Both proposed answer routes are shown.');
-add('flow-owner-08','Inspect the final hand-off','Console',<>{card('invoice-check · Exchange with invoice-app','10:03 invoice-check: Mira approved invoice 1042. Continue with payment.')}{card('If held','The corresponding message is: Mira held invoice 1042. Request clarification before payment.')}</>,'You can follow the whole item without copying, forwarding or chasing it.');
-add('flow-owner-09','Connect your own flow','site',<><h1>You followed one item through the flow</h1><p>This was simulated. Start F1 by naming your own steps: which is an app, which an agent, which a person.</p>{action('Start F1','guide-flow-owner-after.html')}<p>Need a fleet first? Follow G in the real guide. After F1: D1, then B4.</p></>,'Close with the real F1 first step.');
-add('builder-01','Ready to build','Console',<>{harbour('ready')}{card('steering · Crewed','Owner: Mira. Can read, commission and manage ships, and send and receive.')}{card('Mira’s computer · Ready','Trierarch joined. Claude Code and the chosen repository are ready.')}</>,'Setup is already done for this simulation. In the real B4 path you join your computer and crew steering yourself.');
-add('builder-02','Tell steering what to build','Terminal',<pre className="terminal">{'> Build me a reviewer. Ask it to review the README and hand back its findings.\n\nsteering: I will commission reviewer on your computer, then send its first work.'}</pre>,'A simulated terminal. The visitor installs nothing and pastes no crew line.');
-add('builder-03','A new ship awaits crew','Console',<>{harbour('awaitingCrew')}{card('reviewer · Awaiting crew','Commissioned by steering. Owner: Mira. Send and receive only.')}{card('Crew request','Computer: Mira’s computer. Workspace: the repository Mira chose. Waiting for the trierarch to start its session.')}</>,'steering commissions within its bounded rights.');
-add('builder-04','The trierarch crews reviewer','Console',<>{harbour('idle')}{card('reviewer · Crewed','Running on Mira’s computer. Owner: Mira. Commissioner: steering.')}{card('Timeline','steering commissioned reviewer. The trierarch started its session. reviewer crewed.')}</>,'Aeolus does not host the agent. The joined computer runs it.');
-add('builder-05','Work comes back','Exchange',<>{card('steering → reviewer','Review the README. Hand back the findings.')}{card('reviewer → steering','Review complete: clarify the install prerequisite and link the quick start.')}</>,'A ship the person did not commission by hand runs and hands work back.');
-add('builder-06','You hear what was built','Bridge',<>{card('Notice from steering','reviewer is built and crewed on your computer. It returned its first review.')}{action('View reviewer','builder-04-after.html')}</>,'The notice links to the ship, whose page names its owner and commissioner.');
-add('builder-07','Build with your own steering ship','site',<><h1>You watched a ship build a ship</h1><p>Start the real B4 path: join a computer that stays on, with Claude Code and a repository or folder.</p>{action('Start B4','guide-builder-after.html')}<p>Get a fleet first if needed. After the real B4 first value: add a Decider (D1).</p></>,'The real path begins with computer setup, which this demo deliberately starts after.');
-function harbour(state='idle'){
- const tile=(name,note,shipState='idle')=>({id:'shp_fixture_'+name,name,state:shipState,note,lastActivityAt:'2026-11-17T10:00:00Z'});
- const tiles=[tile('steering','Build and grow this fleet','working'),...(state==='ready'?[]:[tile('reviewer',state==='awaitingCrew'?'Crew request on Mira’s computer':'First work handed back',state)])];
- return <Harbour counts={{ships:tiles.length,alert:0,awaitingCrew:state==='awaitingCrew'?1:0,blocked:0,working:1,idle:state==='idle'?1:0}} groups={[{kind:'agents',tiles}]} state="ready" now={new Date('2026-11-17T10:02:00Z')} onRetry={noop}/>;
+
+// ---------- Decider: Tidewater ----------
+
+const T = TIDEWATER;
+const tideRows = {
+  question: { id: 'question', kind: 'decide', title: T.question.title, verb: 'question from', from: 'planner', time: '10:02', isUnread: true },
+  shipped: { id: 'shipped', kind: 'aware', title: 'Slice 3 shipped: the harbour list', verb: 'from', from: 'builder-app', time: '09:41' },
+  goingOn: (option) => ({ id: 'going-on', kind: 'aware', title: option === 1 ? 'Going ahead with the harbour’s published zone' : 'Going ahead with the user’s own zone', verb: 'from', from: 'planner', time: '10:04', isUnread: true }),
+};
+const zoneWord = { 1: 'The harbour’s published zone', 2: 'The user’s own zone' };
+
+const tideBridge = (props) => <Bridge fleet={T.fleet} person={T.person} {...props} />;
+const tideQuestion = (answer) => both(<BridgeQuestion asker={T.planner} question={T.question} answer={answer} />, <BridgeQuestion asker={T.planner} question={T.question} answer={answer} isPhone />);
+const tideFleet = (plannerState) => [
+  {
+    kind: 'agents',
+    tiles: [
+      tile(T.planner, plannerState, plannerState === 'working' ? 'Slice 4: the alert schedule' : 'Waiting on sam'),
+      tile(T.builder, 'working', 'Building the alert schedule'),
+      tile(T.reviewer, 'idle', 'Reviewed slice 3', 22),
+    ],
+  },
+];
+const tideContinues = (option) =>
+  tideBridge({
+    active: 'aware',
+    counts: { aware: 2 },
+    listTitle: 'Stay aware',
+    phoneTitle: 'Stay aware',
+    rows: [{ ...tideRows.goingOn(option), isOpen: true, isNew: true }, tideRows.shipped],
+    reader: (
+      <BridgeMessage
+        from={T.planner}
+        kind="aware"
+        title={tideRows.goingOn(option).title}
+        body={T.continuation[option]}
+        footer={
+          <div className="bridge-fleet">
+            <p className="text-meta font-medium text-muted-foreground">Your fleet</p>
+            <div className="bridge-fleet-tiles">
+              {tideFleet('working')[0].tiles.map((one) => (
+                <HarbourTile key={one.id} ship={one} kind="agents" now={NOW} />
+              ))}
+            </div>
+          </div>
+        }
+      />
+    ),
+  });
+
+const decider = {
+  slug: 'decider',
+  persona: 'Decider',
+  minutes: '3 min',
+  title: 'Answer an agent’s question',
+  lede: 'An agent hits a choice it should not make alone. It asks you, you answer, and the work goes on.',
+  cardTitle: 'They ask. You decide.',
+  cardText: 'An agent’s question reaches you in Bridge. Answer it and watch the work go on.',
+  ships: [
+    { name: 'planner', kind: 'agent' },
+    { name: 'sam', kind: 'person' },
+    { name: 'builder-app', kind: 'agent' },
+  ],
+  steps: [
+    {
+      id: 'decider-01',
+      title: 'A question reaches you',
+      surface: 'Bridge',
+      url: 'Bridge · Waiting on you',
+      narrative: 'You are Sam. Tidewater’s planner has a choice it should not make alone, so it asks you. The question lands in Bridge, the one place for everything that waits on you.',
+      spotNote: 'The new question, at the top of Waiting on you.',
+      spot: '[data-row=question]',
+      scene: { hop: [0, 1], ring: 1, log: 'planner → sam   Which time zone do tide alerts use…' },
+      frames: [
+        { t: '0.0 s', part: miniLine('planner', 'sam', 'Which time zone do tide alerts use?'), caption: 'planner sends its question. Aeolus stores it before the send returns.' },
+        { t: '0.4 s', part: <BridgeRow row={tideRows.question} />, caption: 'The row slides into Waiting on you and settles.' },
+        { t: '1.0 s', part: miniCount('Waiting on you', 0, 1), caption: 'The count goes to 1, here and on the phone’s tab bar.' },
+      ],
+      screen: tideBridge({ active: 'waiting', counts: { waiting: 1, aware: 1 }, listTitle: 'Waiting on you', phoneTitle: 'Waiting on you', phoneView: 'list', rows: [{ ...tideRows.question, isNew: true }], reader: <p className="bridge-pick">Open the question to read it and answer.</p> }),
+    },
+    {
+      id: 'decider-02',
+      title: 'Read it, then choose',
+      surface: 'Bridge',
+      url: 'Bridge · Question from planner',
+      narrative: 'The question carries what you need: the context, both options, and the option planner would pick, with its reason. Nothing is sent until you answer.',
+      spotNote: 'planner’s pick, marked but not sent.',
+      spot: '[data-testid=inbox-option-1]',
+      scene: { ring: 1, log: 'sam opened the question' },
+      choices: [
+        ['Answer: the harbour’s published zone', 'decider-03-after.html'],
+        ['Answer: the user’s own zone', 'decider-03b-after.html'],
+      ],
+      screen: tideBridge({ active: 'waiting', counts: { waiting: 1, aware: 1 }, listTitle: 'Waiting on you', phoneTitle: 'Question', phoneView: 'reader', rows: [{ ...tideRows.question, isOpen: true, isUnread: false }], reader: tideQuestion(null) }),
+    },
+    ...[1, 2].map((option) => ({
+      id: option === 1 ? 'decider-03' : 'decider-03b',
+      alternate: option === 2,
+      next: option === 2 ? 'decider-04b' : undefined,
+      back: option === 2 ? 'decider-02' : undefined,
+      title: option === 1 ? 'Your answer is on its way' : 'Your answer is on its way: own zone',
+      surface: 'Bridge',
+      url: 'Bridge · Answered',
+      narrative: option === 1 ? 'You picked the harbour’s published zone. Your answer goes back to planner as a reply to its question, and the question leaves what waits on you.' : 'You picked the user’s own zone instead. The answer goes back the same way; only what planner does next changes.',
+      spotNote: 'The answer, recorded on the question.',
+      spot: '[data-testid=inbox-answered]',
+      scene: { hop: [1, 0], log: `sam → planner   ${zoneWord[option]}` },
+      frames: [
+        { t: '0.0 s', part: miniCount('Waiting on you', 1, 0), caption: 'You answer. The count drops to 0 at once.' },
+        { t: '0.3 s', part: <ToastCard title="Answer sent to planner" description={zoneWord[option]} />, caption: 'A toast confirms it and settles.' },
+        { t: '0.8 s', part: miniLine('sam', 'planner', zoneWord[option]), caption: 'planner receives the reply to its own question.' },
+      ],
+      screen: tideBridge({
+        active: 'waiting',
+        counts: { aware: 1, done: 1 },
+        listTitle: 'Waiting on you',
+        phoneTitle: 'Answered',
+        phoneView: 'reader',
+        rows: [],
+        empty: 'Nothing waits on you. Your answer is in Done.',
+        reader: tideQuestion(option),
+        toast: <ToastCard title="Answer sent to planner" description={zoneWord[option]} />,
+      }),
+    })),
+    ...[1, 2].map((option) => ({
+      id: option === 1 ? 'decider-04' : 'decider-04b',
+      alternate: option === 2,
+      next: option === 2 ? 'decider-05' : undefined,
+      back: option === 2 ? 'decider-03b' : undefined,
+      title: option === 1 ? 'The work goes on' : 'The work goes on: own zone',
+      surface: 'Bridge',
+      url: 'Bridge · Stay aware',
+      narrative: option === 1 ? 'planner carries on with your answer and tells you so. Its tile turns sea blue: it is working again, and builder-app has the next piece.' : 'planner carries on with the user’s own zone. Your other answer led to other work, and you see it the same way.',
+      spotNote: 'planner, working again on your answer.',
+      spot: 'a[href="#ship-planner"]',
+      scene: { hop: [0, 2], log: 'planner → builder-app   Slice 4: the alert schedule' },
+      frames: [
+        { t: '0.0 s', part: miniTile(T.planner, 'blocked', 'Waiting on sam'), caption: 'Before your answer: planner waits on you.' },
+        { t: '0.6 s', part: miniTile(T.planner, 'working', 'Slice 4: the alert schedule'), caption: 'It takes your answer and turns to working, sea blue.' },
+        { t: '1.2 s', part: <BridgeRow row={tideRows.goingOn(option)} />, caption: 'Its update arrives in Stay aware.' },
+      ],
+      screen: tideContinues(option),
+    })),
+    {
+      id: 'decider-05',
+      title: 'Bring your builder',
+      surface: 'Site',
+      url: 'aeolus-fleet.dev/demo/decider',
+      narrative: 'That is the Decider’s part: the agent asks, you decide, the work goes on. Your own first question comes once a builder adds you to their fleet.',
+      scene: { log: 'Tour complete' },
+      screen: (
+        <Closing
+          title="You answered an agent’s question."
+          text="You saw it with made-up data. To answer your own team’s agents, a builder adds you to their fleet. Send them this:"
+          quote={{ label: 'To your builder', text: 'Please add my email to our fleet, give me Talk with the fleet rights, and send me a question in Bridge.' }}
+          primary={['Read D1: get added by a builder', 'guide-decider-after.html']}
+          secondary={['Take another tour', 'site-04-after.html']}
+          beneath={tideContinues(1)}
+        />
+      ),
+    },
+  ],
+};
+
+// ---------- Flow owner: Cedar Workshop ----------
+
+const C = CEDAR;
+const cedarGroups = (checkState = 'idle', checkNote = 'Checks invoices against orders', appState = 'idle', appNote = 'Receives supplier invoices', miraState = 'idle', miraNote = 'Approves supplier payments') => [
+  { kind: 'people', tiles: [tile(C.person.ship, miraState, miraNote, 6)] },
+  { kind: 'agents', tiles: [tile(C.app, appState, appNote, 2), tile(C.agent, checkState, checkNote, 1)] },
+];
+const cedarMessages = {
+  item: (state = 'acknowledged') => listed('f101', { sender: C.app, recipient: C.agent, sentAt: at(4), preview: `Invoice ${C.invoice.number} from ${C.supplier}, ${C.invoice.amount}. Check it against ${C.invoice.order}.`, state }),
+  question: listed('f102', { sender: C.agent, recipient: C.person.ship, sentAt: at(3), preview: `Question: ${C.question.title} Approve payment, or Hold payment.`, inReplyTo: 'f101' }),
+  answer: (option) => listed('f103', { sender: C.person.ship, recipient: C.agent, sentAt: at(2), preview: `Answer: ${option === 1 ? 'Approve payment' : 'Hold payment'}`, inReplyTo: 'f102' }),
+  handOn: (option, state = 'acknowledged') => listed('f104', { sender: C.agent, recipient: C.app, sentAt: at(1), preview: C.handOn[option], inReplyTo: 'f101', state }),
+};
+const cedarAgent = (status = 'crewed') => shipDetail({ ship: C.agent, type: 'invoice-check', owner: C.person.ship, commissioner: C.person.ship, location: 'cedar-office-server', crewedMinutes: 240, status, statement: null });
+const cedarApp = shipDetail({ ship: C.app, type: 'invoice-app', kind: 'app', owner: C.person.ship, commissioner: C.person.ship, location: 'invoices.cedar.example', crewedMinutes: 2000 });
+const cedarShip = (detail, messages) => <ConsoleShipPage fleet={C.fleet} person={C.person} detail={detail} tab="messages" messages={messages} />;
+const cedarBridge = (props) => <Bridge fleet={C.fleet} person={C.person} {...props} />;
+const invoiceRow = { id: 'question', kind: 'decide', title: C.question.title, verb: 'question from', from: 'invoice-check', time: '10:01', isUnread: true };
+const cedarQuestion = (answer) => both(<BridgeQuestion asker={C.agent} question={C.question} answer={answer} />, <BridgeQuestion asker={C.agent} question={C.question} answer={answer} isPhone />);
+const decision = { 1: 'Approve payment', 2: 'Hold payment' };
+
+const flowOwner = {
+  slug: 'flow-owner',
+  persona: 'Flow owner',
+  minutes: '4 min',
+  title: 'Follow one invoice through the flow',
+  lede: 'An app, an agent and a person hand one invoice along. Nobody copies it, forwards it or chases it.',
+  cardTitle: 'They hand each other work.',
+  cardText: 'Follow invoice 1042 from the app to an agent, to Mira, and back. See every hand-off.',
+  ships: [
+    { name: 'invoice-app', kind: 'app' },
+    { name: 'invoice-check', kind: 'agent' },
+    { name: 'mira', kind: 'person' },
+  ],
+  steps: [
+    {
+      id: 'flow-owner-01',
+      title: 'One ordinary flow',
+      surface: 'Console',
+      url: 'Console · Fleet overview',
+      narrative: 'Cedar Workshop pays its suppliers through three ships: invoice-app takes in invoices, invoice-check checks each against its order, and Mira approves the payment. One invoice is about to arrive.',
+      spotNote: 'The flow’s app and agent, side by side in the fleet.',
+      spot: 'a[href="#ship-invoice-app"]',
+      scene: { log: 'Cedar Workshop · 3 ships, all idle' },
+      screen: <ConsoleOverview fleet={C.fleet} person={C.person} groups={cedarGroups()} />,
+    },
+    {
+      id: 'flow-owner-02',
+      title: 'The app hands over the invoice',
+      surface: 'Console',
+      url: 'Console · invoice-check · Messages',
+      narrative: 'Invoice 1042 arrives at invoice-app, which hands it to invoice-check as a message. Aeolus keeps it until invoice-check takes it; nobody forwards an email.',
+      spotNote: 'The invoice, arrived on invoice-check’s messages.',
+      spot: '[data-testid=message-thread]:first-child',
+      scene: { hop: [0, 1], log: `invoice-app → invoice-check   Invoice ${C.invoice.number}, ${C.invoice.amount}` },
+      frames: [
+        { t: '0.0 s', part: miniLine('invoice-app', 'invoice-check', `Invoice ${C.invoice.number}, ${C.invoice.amount}`), caption: 'invoice-app sends the item.' },
+        { t: '0.5 s', part: miniTile(C.agent, 'working', `Checking invoice ${C.invoice.number}`), caption: 'invoice-check takes it and turns to working.' },
+        { t: '1.0 s', part: <ShipState state="working" />, caption: 'Its ship page reads Working while it checks the invoice.' },
+      ],
+      screen: cedarShip(cedarAgent(), [cedarMessages.item()]),
+    },
+    {
+      id: 'flow-owner-03',
+      title: 'The agent asks you',
+      surface: 'Bridge',
+      url: 'Bridge · Question from invoice-check',
+      narrative: 'The invoice matches its order, but paying is Mira’s call. You are Mira now: invoice-check asks in Bridge, with the facts and its own pick.',
+      spotNote: 'invoice-check’s pick and its reason.',
+      spot: '[data-testid=inbox-option-1]',
+      scene: { hop: [1, 2], ring: 2, log: `invoice-check → mira   ${C.question.title}` },
+      choices: [
+        ['Approve payment', 'flow-owner-04-after.html'],
+        ['Hold payment', 'flow-owner-04b-after.html'],
+      ],
+      frames: [
+        { t: '0.0 s', part: <BridgeRow row={invoiceRow} />, caption: 'The question arrives in Waiting on you.' },
+        { t: '0.6 s', part: miniCount('Waiting on you', 0, 1), caption: 'Mira’s count goes to 1, on every device she uses.' },
+      ],
+      screen: cedarBridge({ active: 'waiting', counts: { waiting: 1 }, listTitle: 'Waiting on you', phoneTitle: 'Question', phoneView: 'reader', rows: [{ ...invoiceRow, isOpen: true, isUnread: false, isNew: true }], reader: cedarQuestion(null) }),
+    },
+    ...[1, 2].map((option) => ({
+      id: option === 1 ? 'flow-owner-04' : 'flow-owner-04b',
+      alternate: option === 2,
+      next: option === 2 ? 'flow-owner-05b' : undefined,
+      back: option === 2 ? 'flow-owner-03' : undefined,
+      title: option === 1 ? 'Your approval goes back' : 'Your hold goes back',
+      surface: 'Bridge',
+      url: 'Bridge · Answered',
+      narrative: option === 1 ? 'You approve. The answer goes back to invoice-check as a reply, tied to the same invoice.' : 'You hold it instead. The hold goes back the same way, tied to the same invoice.',
+      spotNote: 'Your decision, recorded on the question.',
+      spot: '[data-testid=inbox-answered]',
+      scene: { hop: [2, 1], log: `mira → invoice-check   ${decision[option]}` },
+      frames: [
+        { t: '0.0 s', part: miniCount('Waiting on you', 1, 0), caption: 'You answer; nothing waits on you now.' },
+        { t: '0.3 s', part: <ToastCard title="Answer sent to invoice-check" description={decision[option]} />, caption: 'The toast confirms it.' },
+      ],
+      screen: cedarBridge({ active: 'waiting', counts: { done: 1 }, listTitle: 'Waiting on you', phoneTitle: 'Answered', phoneView: 'reader', rows: [], empty: 'Nothing waits on you. Your answer is in Done.', reader: cedarQuestion(option), toast: <ToastCard title="Answer sent to invoice-check" description={decision[option]} /> }),
+    })),
+    ...[1, 2].map((option) => ({
+      id: option === 1 ? 'flow-owner-05' : 'flow-owner-05b',
+      alternate: option === 2,
+      next: option === 2 ? 'flow-owner-06' : undefined,
+      back: option === 2 ? 'flow-owner-04b' : undefined,
+      title: option === 1 ? 'The agent hands it on' : 'The agent hands on the hold',
+      surface: 'Console',
+      url: 'Console · invoice-check · Messages',
+      narrative: option === 1 ? 'invoice-check hands your approval to invoice-app, which schedules the payment. The invoice has gone app, agent, person, agent, app.' : 'invoice-check hands the hold to invoice-app, which asks the supplier to clarify. The invoice stops before payment.',
+      spotNote: 'The final hand-off, back to invoice-app.',
+      spot: '[data-testid=message-thread]:first-child',
+      scene: { hop: [1, 0], log: `invoice-check → invoice-app   ${decision[option]}` },
+      frames: [
+        { t: '0.0 s', part: miniLine('invoice-check', 'invoice-app', C.handOn[option].split('.')[0]), caption: 'invoice-check sends the decision on.' },
+        { t: '0.6 s', part: miniTile(C.agent, 'idle', `Invoice ${C.invoice.number} handed on`), caption: 'Its work done, invoice-check goes back to idle.' },
+      ],
+      screen: cedarShip(cedarAgent(), [cedarMessages.item(), cedarMessages.question, cedarMessages.answer(option), cedarMessages.handOn(option)]),
+    })),
+    {
+      id: 'flow-owner-06',
+      title: 'Read the first hand-off',
+      surface: 'Console',
+      url: 'Console · invoice-app · Messages',
+      narrative: 'Every hand-off stays on record. On invoice-app’s page you see what it sent, to whom, when, and that invoice-check took it.',
+      spotNote: 'The item and the decision that came back for it.',
+      spot: '[data-testid=message-thread]:first-child',
+      scene: { log: 'Reading invoice-app’s messages' },
+      screen: cedarShip(cedarApp, [cedarMessages.item(), cedarMessages.handOn(1)]),
+    },
+    {
+      id: 'flow-owner-07',
+      title: 'Read the question and its answer',
+      surface: 'Console',
+      url: 'Console · invoice-check · Messages',
+      narrative: 'The question and Mira’s answer sit in one thread on invoice-check’s page, under the invoice that started it. Had you held it, the answer would read Hold payment.',
+      spotNote: 'Question and answer, threaded under the invoice.',
+      spot: '[data-testid=message-thread]:first-child',
+      scene: { log: 'Reading invoice-check’s messages' },
+      frames: [
+        { t: 'Approve', part: miniLine('mira', 'invoice-check', 'Answer: Approve payment'), caption: 'The answer you gave in this walk.' },
+        { t: 'Hold', part: miniLine('mira', 'invoice-check', 'Answer: Hold payment'), caption: 'The same row, had you held it.' },
+      ],
+      screen: cedarShip(cedarAgent(), [cedarMessages.item(), cedarMessages.question, cedarMessages.answer(1), cedarMessages.handOn(1)]),
+    },
+    {
+      id: 'flow-owner-08',
+      title: 'Read the final hand-off',
+      surface: 'Console',
+      url: 'Console · invoice-check · Messages',
+      narrative: 'The last hand-off closes the loop on the same invoice. You followed one item from start to finish without copying, forwarding or chasing it.',
+      spotNote: 'The decision handed back to invoice-app.',
+      spot: '[data-testid=message-row]:last-child',
+      scene: { log: 'Invoice 1042: app → agent → mira → agent → app' },
+      frames: [
+        { t: 'Approve', part: miniLine('invoice-check', 'invoice-app', 'Schedule it for the 1 Dec payment run.'), caption: 'After Approve payment.' },
+        { t: 'Hold', part: miniLine('invoice-check', 'invoice-app', 'Ask the supplier to clarify before payment.'), caption: 'After Hold payment.' },
+      ],
+      screen: cedarShip(cedarAgent(), [cedarMessages.item(), cedarMessages.question, cedarMessages.answer(1), cedarMessages.handOn(1)]),
+    },
+    {
+      id: 'flow-owner-09',
+      title: 'Connect your own flow',
+      surface: 'Site',
+      url: 'aeolus-fleet.dev/demo/flow-owner',
+      narrative: 'Your flow has steps like these. Start F1 by naming them: which is an app, which an agent, which a person.',
+      scene: { log: 'Tour complete' },
+      screen: (
+        <Closing
+          title="You followed one invoice through the flow."
+          text="An app, an agent and a person handed it along, and every hand-off stayed on record. Start with your own flow’s steps; get a fleet first if you need one. After F1: D1, then B4."
+          primary={['Start F1: name your steps', 'guide-flow-owner-after.html']}
+          secondary={['Take another tour', 'site-04-after.html']}
+          beneath={cedarShip(cedarAgent(), [cedarMessages.item(), cedarMessages.question, cedarMessages.answer(1), cedarMessages.handOn(1)])}
+        />
+      ),
+    },
+  ],
+};
+
+// ---------- Builder: Kestrel Studio ----------
+
+const K = KESTREL;
+const kestrelGroups = (reviewer) => [
+  { kind: 'people', tiles: [tile(K.person.ship, 'idle', 'Owns this fleet', 3)] },
+  { kind: 'agents', tiles: [tile(K.steering, reviewer ? 'working' : 'idle', reviewer ? 'Building reviewer' : 'Builds and grows this fleet'), ...(reviewer ? [tile(K.reviewer, reviewer.state, reviewer.note, 0)] : [])] },
+  { kind: 'trierarchs', tiles: [tile(K.computer, 'idle', 'Joined · Claude Code ready', 1)] },
+];
+const reviewerDetail = (status = 'crewed') => shipDetail({ ship: K.reviewer, type: 'reviewer', owner: K.person.ship, commissioner: K.steering, location: K.computer.name, crewedMinutes: 1, status });
+const reviewerTimeline = [
+  event(6, { type: 'ShipClaimed', occurredAt: at(1), actor: K.reviewer, ship: K.reviewer, details: { location: 'DEVICE', locationDescription: K.computer.name } }),
+  event(5, { type: 'CrewStatusChanged', occurredAt: at(1), actor: K.computer, ship: K.reviewer, details: { status: 'starting' } }),
+  event(4, { type: 'CrewAssigned', occurredAt: at(2), actor: K.computer, ship: K.reviewer }),
+  event(3, { type: 'CrewRequested', occurredAt: at(2), actor: K.steering, ship: K.reviewer }),
+  event(2, { type: 'OwnerSet', occurredAt: at(3), actor: K.steering, ship: K.reviewer, details: { how: 'inherited' } }),
+  event(1, { type: 'ShipCommissioned', occurredAt: at(3), actor: K.steering, ship: K.reviewer, details: { name: 'reviewer', type: 'reviewer', kind: 'agent' } }),
+];
+const reviewerMessages = (isBack) => [
+  listed('b101', { sender: K.steering, recipient: K.reviewer, sentAt: at(1), preview: `Review README.md in ${K.repository} and hand back your findings.` }),
+  ...(isBack ? [listed('b102', { sender: K.reviewer, recipient: K.steering, sentAt: at(0), preview: K.findings, inReplyTo: 'b101' })] : []),
+];
+const kestrelOverview = (reviewer, needsCrewCount = 0) => <ConsoleOverview fleet={K.fleet} person={K.person} groups={kestrelGroups(reviewer)} needsCrewCount={needsCrewCount} />;
+const noticeRow = { id: 'notice', kind: 'aware', title: 'reviewer is built and crewed', verb: 'notice from', from: 'steering', time: '10:04', isUnread: true };
+const kestrelNotice = (
+  <Bridge
+    fleet={K.fleet}
+    person={K.person}
+    active="aware"
+    counts={{ aware: 1 }}
+    listTitle="Stay aware"
+    phoneTitle="Notice"
+    phoneView="reader"
+    rows={[{ ...noticeRow, isOpen: true, isNew: true }]}
+    reader={
+      <BridgeMessage
+        from={K.steering}
+        kind="aware"
+        title="reviewer is built and crewed"
+        body={`It runs on ${K.computer.name} in ${K.repository}. You own it; steering commissioned it. Its first review came back: 3 findings in README.md.`}
+        footer={
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" variant="primary">
+              Open reviewer in the console
+            </Button>
+            <Button size="sm">Read the findings</Button>
+          </div>
+        }
+      />
+    }
+  />
+);
+
+function Terminal({ isDone }) {
+  return (
+    <div className="terminal" data-terminal={isDone ? 'done' : 'typing'}>
+      <p className="terminal-title">
+        <span>claude · {K.computer.name}</span>
+        <span>~/{K.repository}</span>
+      </p>
+      <p className="terminal-prompt">
+        <span className="terminal-caret">›</span> <span className="terminal-typed">{K.request}</span>
+      </p>
+      <p className="terminal-line l1">
+        <b>● steering</b> I will commission a reviewer on your computer and send it its first work.
+      </p>
+      <p className="terminal-tool l2">⎿ aeolus · commission  reviewer · type reviewer · send and receive · owner mira</p>
+      <p className="terminal-tool l3">
+        ⎿ aeolus · request crew  {K.computer.name} · {K.repository}
+      </p>
+      <p className="terminal-line l4">
+        <b>● steering</b> reviewer is commissioned and waits for its crew. Its first work goes out once it is crewed.
+      </p>
+    </div>
+  );
 }
-const beforeLive=<><h1>Live demo fleet</h1><p className="note">A live demo fleet with scripted ships. Read-only.</p>{card('Fleet overview','Scripted ships are crewed. You can inspect their pages and exchanges.')}{card('Guide: 1 of 9','The guide walks console pages. It does not walk this persona’s flow.')}{card('Questions','Viewer: you cannot answer or send.')}</>;
-function doc(title,body){return '<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+title+'</title><link rel="stylesheet" href="mockups.css"><body>'+renderToStaticMarkup(body)+'</body></html>';}
-writeFileSync(`${out}/live-01-before.html`,doc('Today’s live demo',<div className="surface"><header><strong>Aeolus</strong><span>Console · viewer</span></header><main>{beforeLive}</main></div>));
-for(const f of frames){
- const group=f.id.split('-')[0]; const steps=frames.filter(x=>x.id.startsWith(group+'-')&&!x.alternate); const at=steps.findIndex(x=>x.id===f.id); const last=steps.length-1;
- const next=f.next||steps[Math.min(at+1,last)]?.id||f.id;
- const back=f.back||steps[Math.max(0,at-1)]?.id||steps[0].id;
- const restart=steps[0].id;
- const nav=<nav className="demo-controls" aria-label="Demo steps">{action('Back',`${back}-after.html`)}{action('Next',`${next}-after.html`)}{action('Restart',`${restart}-after.html`)}</nav>;
- for(const era of ['before','after']){
- const before=era==='before'; const body=before?(f.before||beforeLive):f.body;
- writeFileSync(`${out}/${f.id}-${era}.html`,doc(f.title,<><div className="review"><a href={`sheet-${f.id}.html`}>Before and after · both widths</a> · {f.id} · {era}<p>{before?(f.before?'Reconstructed entry point today.':'No equivalent persona step exists today. This is the same read-only demo destination, not an earlier version of this screen.'):'Proposal for approval. Controls inside the surface are static. Review navigation links connect frames.'}</p></div><div className="surface"><header><strong>Aeolus</strong><span>{before?'Today':f.area}</span><Badge variant="outline">{before?'Read-only':'Simulated demo'}</Badge></header><main>{!before&&<aside className="narrative"><small>{f.id} · {f.title}</small><p>{f.narrative}</p></aside>}{body}{!before&&f.extra}</main>{!before&&nav}</div></>));
- }
- const pair=era=><section><h2>{era}</h2><div className="pair"><figure><figcaption>Phone · 375 × 812</figcaption><iframe title={`${f.title} ${era} phone`} src={`${f.id}-${era}.html`} width="375" height="812"/></figure><figure><figcaption>Desktop · 1440 × 1000</figcaption><div className="desktop-preview"><iframe title={`${f.title} ${era} desktop`} src={`${f.id}-${era}.html`} width="1440" height="1000"/></div></figure></div></section>;
- writeFileSync(`${out}/sheet-${f.id}.html`,doc(f.title,<main><a href="index.html">All steps</a><h1>{f.id}: {f.title}</h1>{pair('before')}{pair('after')}</main>));
+
+const builder = {
+  slug: 'builder',
+  persona: 'Builder',
+  minutes: '4 min',
+  title: 'Watch a ship build a ship',
+  lede: 'Tell steering what you need. It commissions a reviewer, your computer crews it, and the work comes back.',
+  cardTitle: 'Ships that build ships.',
+  cardText: 'steering commissions a reviewer, your computer crews it, and its first review comes back.',
+  ships: [
+    { name: 'mira', kind: 'person' },
+    { name: 'steering', kind: 'agent' },
+    { name: 'mira-studio-mac', kind: 'trierarch' },
+    { name: 'reviewer', kind: 'agent' },
+  ],
+  steps: [
+    {
+      id: 'builder-01',
+      title: 'Ready to build',
+      surface: 'Console',
+      url: 'Console · Fleet overview',
+      narrative: 'Setup is done for this tour: Mira’s computer joined Kestrel Studio’s fleet and steering is crewed on it. In the real B4 path, you do this part yourself.',
+      spotNote: 'steering, the ship that builds ships.',
+      spot: 'a[href="#ship-steering"]',
+      scene: { log: 'Kestrel Studio · steering crewed on mira-studio-mac' },
+      screen: kestrelOverview(null),
+    },
+    {
+      id: 'builder-02',
+      title: 'Tell steering what to build',
+      surface: 'Terminal',
+      url: 'Claude Code · mira-studio-mac',
+      narrative: 'Mira asks steering for a reviewer in plain words. steering commissions it within its own rights and asks her computer to crew it. No crew line, no secret on screen.',
+      spotNote: 'What Mira asks for, in her own words.',
+      spot: '.terminal-prompt',
+      scene: { hop: [0, 1], log: 'mira → steering   Build me a reviewer for kestrel/booking-site' },
+      frames: [
+        { t: '0.0 s', part: <span className="mini-term">› Build me a reviewer…</span>, caption: 'Mira’s request types out.' },
+        { t: '2.4 s', part: <span className="mini-term">⎿ aeolus · commission reviewer</span>, caption: 'steering commissions reviewer.' },
+        { t: '3.0 s', part: <span className="mini-term">⎿ aeolus · request crew</span>, caption: 'It asks mira-studio-mac to crew it.' },
+      ],
+      screen: <Terminal />,
+    },
+    {
+      id: 'builder-03',
+      title: 'A new ship awaits its crew',
+      surface: 'Console',
+      url: 'Console · Fleet overview',
+      narrative: 'reviewer is in the fleet now, amber: commissioned, waiting for its crew. Mira owns it; steering commissioned it.',
+      spotNote: 'reviewer, awaiting crew on Mira’s computer.',
+      spot: 'a[href="#ship-reviewer"]',
+      scene: { hop: [1, 3], log: 'steering commissioned reviewer · crew requested' },
+      frames: [
+        { t: '0.0 s', part: miniTile(K.reviewer, 'awaitingCrew', 'Crew request on mira-studio-mac'), caption: 'The tile joins the Agents group from below and settles.' },
+        { t: '0.6 s', part: miniCount('Needs crew', 0, 1), caption: 'Needs crew counts it in the navigation.' },
+      ],
+      screen: kestrelOverview({ state: 'awaitingCrew', note: 'Crew request on mira-studio-mac' }, 1),
+    },
+    {
+      id: 'builder-04',
+      title: 'Your computer crews it',
+      surface: 'Console',
+      url: 'Console · reviewer · Timeline',
+      narrative: 'The trierarch on Mira’s computer takes the crew request and starts reviewer’s session. Aeolus does not host the agent: the computer that joined runs it.',
+      spotNote: 'Who commissioned it, who crewed it, and where it runs.',
+      spot: '[data-testid=ship-timeline]',
+      scene: { hop: [2, 3], log: 'mira-studio-mac crewed reviewer' },
+      frames: [
+        { t: '0.0 s', part: <ShipState state="awaitingCrew" />, caption: 'Awaiting crew.' },
+        { t: '0.8 s', part: <ShipState state="crewed" />, caption: 'Crewed: the session on mira-studio-mac claimed it.' },
+      ],
+      screen: <ConsoleShipPage fleet={K.fleet} person={K.person} detail={reviewerDetail()} tab="timeline" timeline={reviewerTimeline} />,
+    },
+    {
+      id: 'builder-05',
+      title: 'The work comes back',
+      surface: 'Console',
+      url: 'Console · reviewer · Messages',
+      narrative: 'steering sends reviewer its first job, and the findings come back as a reply. A ship nobody set up by hand did real work.',
+      spotNote: 'reviewer’s findings, replying to steering’s request.',
+      spot: '[data-testid=message-row]:last-child',
+      scene: { hop: [3, 1], log: 'reviewer → steering   Review of README.md: 3 findings' },
+      frames: [
+        { t: '0.0 s', part: miniTile(K.reviewer, 'working', 'Reviewing README.md'), caption: 'reviewer takes the job: working.' },
+        { t: '1.4 s', part: miniLine('reviewer', 'steering', 'Review of README.md: 3 findings'), caption: 'Its reply arrives in the thread.' },
+        { t: '1.8 s', part: miniTile(K.reviewer, 'idle', 'First review handed back'), caption: 'Done, it rests at idle.' },
+      ],
+      screen: <ConsoleShipPage fleet={K.fleet} person={K.person} detail={reviewerDetail()} tab="messages" messages={reviewerMessages(true)} />,
+    },
+    {
+      id: 'builder-06',
+      title: 'You hear what was built',
+      surface: 'Bridge',
+      url: 'Bridge · Stay aware',
+      narrative: 'steering tells Mira in Bridge what it built, where it runs and what came back. One link opens the ship.',
+      spotNote: 'steering’s notice, with the way to the ship.',
+      spot: '[data-row=notice]',
+      scene: { hop: [1, 0], log: 'steering → mira   reviewer is built and crewed' },
+      frames: [
+        { t: '0.0 s', part: <BridgeRow row={noticeRow} />, caption: 'The notice slides into Stay aware.' },
+        { t: '0.6 s', part: miniCount('Stay aware', 0, 1), caption: 'The count goes to 1.' },
+      ],
+      screen: kestrelNotice,
+    },
+    {
+      id: 'builder-07',
+      title: 'Build with your own steering ship',
+      surface: 'Site',
+      url: 'aeolus-fleet.dev/demo/builder',
+      narrative: 'The real B4 path starts where this tour began: join a computer that stays on, with Claude Code and a repository or folder.',
+      scene: { log: 'Tour complete' },
+      screen: (
+        <Closing
+          title="You watched a ship build a ship."
+          text="steering commissioned reviewer, Mira’s computer crewed it, and its first review came back. Start B4 on your own computer; get a fleet first if you need one. After B4: add a Decider with D1."
+          primary={['Start B4: join your computer', 'guide-builder-after.html']}
+          secondary={['Take another tour', 'site-04-after.html']}
+          beneath={kestrelNotice}
+        />
+      ),
+    },
+  ],
+};
+
+const tours = [decider, flowOwner, builder];
+for (const tour of tours) {
+  tour.thumb = tour.steps.find((step) => step.surface !== 'Site' && step.surface !== 'Terminal' && step.id.endsWith(tour.slug === 'decider' ? '02' : tour.slug === 'builder' ? '03' : '02'))?.screen;
 }
-writeFileSync(`${out}/index.html`,doc('Linear demo review',<main><h1>Linear demo: before and after</h1><p>Every numbered step: phone and desktop. Before is today’s entry point or the same read-only fleet; it has no matching persona action. After is a proposal.</p>{frames.map(f=><p key={f.id}><a href={`sheet-${f.id}.html`}>{f.id}: {f.title}</a></p>)}</main>));
-writeFileSync(`${out}/manifest.json`,JSON.stringify(frames.map(({id,title,area,alternate})=>({id,title,area,alternate:!!alternate})),null,2)+'\n');
+
+// ---------- Today's live demo, for the before frames ----------
+
+const SCRIPTED = { id: TIDEWATER.fleet.id, name: 'Demo fleet' };
+const demoShip = (name, suffix) => ({ id: `shp_01m7dem0qzr3a9w6m2v5n7${suffix}`, name });
+const liveDemo = (
+  <ConsoleOverview
+    fleet={SCRIPTED}
+    person={{ name: 'Viewer', initials: 'V', ship: demoShip('viewer', 'v000') }}
+    banner={<NoticeBanner notice={{ id: 'read-only', audience: 'viewers', text: 'A live demo fleet with scripted ships. You are looking at it read-only.', links: [{ label: 'Guide: 1 of 9', url: '#' }], isDismissible: false }} />}
+    inboxCount={3}
+    groups={[
+      { kind: 'agents', tiles: [tile(demoShip('orchestrator-1', 'v001'), 'working', 'Planning slice 8'), tile(demoShip('implementer-a', 'v002'), 'working', 'Slice 8: offline badge'), tile(demoShip('reviewer-1', 'v003'), 'idle', 'Reviewed PR #412', 9), tile(demoShip('tester-1', 'v004'), 'blocked', 'Waiting on argo')] },
+      { kind: 'trierarchs', tiles: [tile(demoShip('demo-host', 'v005'), 'idle', 'Crews the scripted ships', 2)] },
+    ]}
+  />
+);
+
+// ---------- Site entries ----------
+
+const card = (tour) => <TourCard key={tour.slug} tour={tour} href={`${tour.slug}-01-after.html`} />;
+const tourCards = <div className="tour-cards">{tours.map(card)}</div>;
+
+function Hero() {
+  return (
+    <section className="hero-head">
+      <p className="eyebrow">Open source · Free in early access</p>
+      <h1>Agents, apps and people. Connected together as one fleet.</h1>
+      <div>
+        <p className="lede">They hand each other work. You answer what needs you.</p>
+        <p className="hero-actions">
+          <a href="#" className="btn primary">
+            Try it →
+          </a>
+          <a href="site-04-after.html" className="btn line">
+            Take a product tour
+          </a>
+        </p>
+      </div>
+    </section>
+  );
+}
+
+function BrowserFrame({ url, children, badge }) {
+  return (
+    <div className="window">
+      <div className="window-bar">
+        <span className="window-dots" aria-hidden>
+          <i />
+          <i />
+          <i />
+        </span>
+        <span className="window-url font-mono">{url}</span>
+        {badge}
+      </div>
+      <div className="window-body product">{children}</div>
+    </div>
+  );
+}
+
+const liveBadge = (
+  <span className="window-badge live">
+    <i /> Live
+  </span>
+);
+
+const sites = [
+  {
+    id: 'site-01',
+    title: 'Home',
+    note: 'Home’s live-fleet section becomes three product tours, one per persona, each card a crop of its own screen.',
+    after: (
+      <SitePage current="">
+        <Hero />
+        <section className="sec">
+          <div className="sec-head">
+            <div>
+              <h2>See it before you sign up.</h2>
+              <p>Three short tours through the real screens. Nothing to install, nothing real behind them.</p>
+            </div>
+            <a href="site-04-after.html" className="btn line">
+              All tours →
+            </a>
+          </div>
+          {tourCards}
+        </section>
+      </SitePage>
+    ),
+    before: (
+      <SitePage current="">
+        <Hero />
+        <section className="sec">
+          <div className="sec-head">
+            <div>
+              <h2>A real fleet, live.</h2>
+              <p>Read-only. No account.</p>
+            </div>
+            <a href="live-01-before.html" className="btn line">
+              Open the live demo ↗
+            </a>
+          </div>
+          <BrowserFrame url="Today’s live demo · read-only" badge={liveBadge}>
+            {liveDemo}
+          </BrowserFrame>
+        </section>
+      </SitePage>
+    ),
+  },
+  {
+    id: 'site-02',
+    title: 'Quick start',
+    note: 'Quick start keeps the real setup and offers each persona’s tour beside it.',
+    after: (
+      <SitePage current="Quick start">
+        <QuickStartHead />
+        <section className="qs-tours">
+          <h2>Want to see it first?</h2>
+          <p>Each tour walks one person’s first value on the real screens, in a few minutes.</p>
+          {tourCards}
+        </section>
+      </SitePage>
+    ),
+    before: (
+      <SitePage current="Quick start">
+        <QuickStartHead />
+        <section className="qs-tours">
+          <h2>Want to look around first?</h2>
+          <p>The footer’s demo link opens one read-only fleet with scripted ships.</p>
+          <a href="live-01-before.html" className="btn line">
+            Try the live demo ↗
+          </a>
+        </section>
+      </SitePage>
+    ),
+  },
+  {
+    id: 'site-03',
+    title: 'Start page',
+    note: 'The HTML /start and the agent’s Markdown /start name the same three tours before each real path.',
+    after: (
+      <SitePage current="">
+        <section className="page-head">
+          <p className="eyebrow">For the agent helping a person · /start</p>
+          <h1>Help a person try Aeolus</h1>
+          <p className="lede">Ask which path fits them. Offer its tour first, then set it up for real.</p>
+        </section>
+        <section className="start-paths">
+          {tours.map((tour) => (
+            <article key={tour.slug} className="start-path">
+              <p className="eyebrow">{tour.slug === 'decider' ? 'D2' : tour.slug === 'flow-owner' ? 'F1' : 'B4'} · {tour.persona}</p>
+              <h3>{tour.title}</h3>
+              <p className="font-mono">Tour: /demo/{tour.slug}</p>
+              <a href={`${tour.slug}-01-after.html`} className="tlink">
+                Open the tour →
+              </a>
+            </article>
+          ))}
+        </section>
+      </SitePage>
+    ),
+    before: <Missing what="/start" />,
+  },
+  ...tours.map((tour) => {
+    const path = tour.slug === 'decider' ? 'D2' : tour.slug === 'flow-owner' ? 'F1' : 'B4';
+    const real = { decider: 'Ask a builder to add your email and grant Talk with the fleet rights (D1).', 'flow-owner': 'Name your flow’s steps: which is an app, which an agent, which a person. Get a fleet first if you need one.', builder: 'Join a computer that stays on, with Claude Code and a repository or folder ready. Get a fleet first if you need one.' }[tour.slug];
+    return {
+      id: `guide-${tour.slug}`,
+      title: `${path} guide`,
+      note: 'The path guide opens with its tour; the real setup follows unchanged.',
+      after: (
+        <SitePage current="What it does">
+          <section className="page-head">
+            <p className="eyebrow">
+              {path} · {tour.persona}
+            </p>
+            <h1>{tour.title}</h1>
+            <p className="lede">{tour.lede}</p>
+          </section>
+          <section className="guide-grid">
+            <TourCard tour={tour} href={`${tour.slug}-01-after.html`} isWide />
+            <article className="guide-real">
+              <h3>Try it for real</h3>
+              <p>{real}</p>
+              <a href="#" className="btn primary small">
+                Start {tour.slug === 'decider' ? 'D1' : path} →
+              </a>
+            </article>
+          </section>
+        </SitePage>
+      ),
+      before: <Missing what={`the ${path} guide`} />,
+    };
+  }),
+  {
+    id: 'site-04',
+    title: 'Demo index',
+    note: '/demo lists the three tours; each starts at step 1 on its own address.',
+    after: (
+      <SitePage current="">
+        <section className="page-head">
+          <p className="eyebrow">Product tours · No account</p>
+          <h1>See Aeolus at work.</h1>
+          <p className="lede">Pick the person you are. Each tour walks the real screens to the first thing Aeolus does for you.</p>
+        </section>
+        <section className="sec flush">{tourCards}</section>
+      </SitePage>
+    ),
+    before: (
+      <SitePage current="">
+        <section className="page-head">
+          <p className="eyebrow">Today</p>
+          <h1>One link, one fleet.</h1>
+          <p className="lede">The demo link opens a read-only fleet with scripted ships. No persona, no path, nothing to answer.</p>
+        </section>
+        <section className="sec flush">
+          <BrowserFrame url="Today’s live demo · read-only" badge={liveBadge}>
+            {liveDemo}
+          </BrowserFrame>
+        </section>
+      </SitePage>
+    ),
+  },
+];
+
+function QuickStartHead() {
+  return (
+    <section className="page-head qs">
+      <p className="eyebrow">About 5 minutes</p>
+      <h1>Quick start</h1>
+      <p className="lede">Sign up, connect an agent, answer its first question in Bridge.</p>
+      <ol className="qs-rail">
+        {[
+          ['Sign up', '1 min'],
+          ['Add the plugin', '1 min'],
+          ['Connect an agent', '2 min'],
+          ['Open Bridge', '1 min'],
+          ['Answer it', '1 min'],
+        ].map(([label, time], index) => (
+          <li key={label}>
+            <span>{index + 1}</span>
+            {label} <small className="font-mono">{time}</small>
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
+function Missing({ what }) {
+  return (
+    <SitePage current="">
+      <section className="page-head">
+        <p className="eyebrow">Today</p>
+        <h1>There is no {what} page yet.</h1>
+        <p className="lede">The approved onboarding design adds it. Today the shared footer’s demo link is the only way in.</p>
+        <p>
+          <a href="live-01-before.html" className="btn line">
+            Try the live demo ↗
+          </a>
+        </p>
+      </section>
+    </SitePage>
+  );
+}
+
+// ---------- Render ----------
+
+const css = (step) => (step.spot ? `.spot-${step.id} ${step.spot}{position:relative;outline:2px solid var(--brand-slate);outline-offset:3px;animation:spot-in var(--brand-event-max) var(--brand-settle) both;z-index:5}.spot-${step.id} ${step.spot}::after{content:"1";position:absolute;top:-12px;right:-12px;width:24px;height:24px;border-radius:999px;background:var(--brand-slate);color:#fff;font:600 13px/24px var(--brand-font-text);text-align:center;box-shadow:0 0 0 3px var(--brand-surface)}` : '');
+
+function doc(title, body, extraCss = '') {
+  const html = renderToStaticMarkup(body).replaceAll('src="/brand/', 'src="brand/');
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title><link rel="stylesheet" href="mockups.css">${extraCss ? `<style>${extraCss}</style>` : ''}<script>if(location.hash==='#dark')document.documentElement.classList.add('dark')</script></head><body>${html}</body></html>`;
+}
+
+const review = (id, era, note, sheet = true) => (
+  <div className="review">
+    {sheet ? <a href={`sheet-${id}.html`}>Before and after, both widths</a> : null}
+    <span className="font-mono">
+      {id} · {era}
+    </span>
+    <span>{note}</span>
+  </div>
+);
+
+const frames = [];
+writeFileSync(`${out}/live-01-before.html`, doc('Today’s live demo', liveDemo));
+
+for (const page of sites) {
+  frames.push({ id: page.id, title: page.title, area: 'site' });
+  writeFileSync(`${out}/${page.id}-after.html`, doc(page.title, <>{review(page.id, 'after', page.note)}{page.after}</>));
+  writeFileSync(`${out}/${page.id}-before.html`, doc(page.title, <>{review(page.id, 'before', 'Today’s entry, reconstructed in the live site’s look.')}{page.before}</>));
+}
+
+const beforeStep = (
+  <SitePage current="">
+    <section className="page-head">
+      <p className="eyebrow">Today · No matching step</p>
+      <h1>The same read-only fleet.</h1>
+      <p className="lede">Today no tour exists. Every persona lands on this scripted fleet, where nothing is theirs to do.</p>
+    </section>
+    <section className="sec flush">
+      <BrowserFrame url="Today’s live demo · read-only" badge={liveBadge}>
+        {liveDemo}
+      </BrowserFrame>
+    </section>
+  </SitePage>
+);
+
+for (const tour of tours) {
+  const main = tour.steps.filter((step) => !step.alternate);
+  for (const step of tour.steps) {
+    const index = main.findIndex((one) => one.id === step.id);
+    const position = index >= 0 ? index : main.findIndex((one) => one.id === step.id.replace(/b$/, ''));
+    const nav = {
+      back: `${step.back ?? main[Math.max(0, position - 1)].id}-after.html`,
+      next: `${step.next ?? main[Math.min(main.length - 1, position + 1)].id}-after.html`,
+      restart: `${main[0].id}-after.html`,
+    };
+    frames.push({ id: step.id, title: step.title, area: step.surface, alternate: !!step.alternate });
+    writeFileSync(`${out}/${step.id}-after.html`, doc(step.title, <>{review(step.id, 'after', 'Proposal. Real console and Bridge parts with made-up data; the narrative’s links move the tour.')}<TourStep tour={tour} step={step} at={position + 1} count={main.length} nav={nav} /></>, css(step)));
+    writeFileSync(`${out}/${step.id}-before.html`, doc(step.title, <>{review(step.id, 'before', 'No equivalent step exists today: the same read-only demo destination.')}{beforeStep}</>));
+  }
+}
+
+// Sheets: before and after, phone and desktop.
+for (const frame of frames) {
+  const pair = (era) => (
+    <section>
+      <h2>{era}</h2>
+      <div className="pair">
+        <figure>
+          <figcaption>Phone · 375 × 812</figcaption>
+          <iframe title={`${frame.title} ${era} phone`} src={`${frame.id}-${era}.html`} width="375" height="812" />
+        </figure>
+        <figure>
+          <figcaption>Desktop · 1440 × 1000</figcaption>
+          <div className="desktop-preview">
+            <iframe title={`${frame.title} ${era} desktop`} src={`${frame.id}-${era}.html`} width="1440" height="1000" />
+          </div>
+        </figure>
+      </div>
+    </section>
+  );
+  writeFileSync(
+    `${out}/sheet-${frame.id}.html`,
+    doc(
+      frame.title,
+      <main className="sheet">
+        <a href="index.html">All steps</a>
+        <h1>
+          {frame.id}: {frame.title}
+        </h1>
+        {pair('after')}
+        {pair('before')}
+      </main>,
+    ),
+  );
+}
+
+writeFileSync(
+  `${out}/index.html`,
+  doc(
+    'Linear demo review',
+    <main className="sheet">
+      <h1>Linear demo: every numbered screen</h1>
+      <p>Each sheet shows the proposal and today, at phone and desktop width. Steps marked b replace the step before them for the other answer.</p>
+      <ol>
+        {frames.map((frame) => (
+          <li key={frame.id}>
+            <a href={`sheet-${frame.id}.html`}>
+              {frame.id}: {frame.title}
+            </a>{' '}
+            <small>{frame.area}</small>
+          </li>
+        ))}
+      </ol>
+    </main>,
+  ),
+);
+writeFileSync(`${out}/manifest.json`, `${JSON.stringify(frames, null, 2)}\n`);

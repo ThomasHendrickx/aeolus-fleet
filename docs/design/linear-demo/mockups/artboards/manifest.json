@@ -2,44 +2,37 @@
   {
     "id": "site-01",
     "title": "Home",
-    "area": "site",
-    "alternate": false
+    "area": "site"
   },
   {
     "id": "site-02",
     "title": "Quick start",
-    "area": "site",
-    "alternate": false
+    "area": "site"
   },
   {
     "id": "site-03",
     "title": "Start page",
-    "area": "site",
-    "alternate": false
+    "area": "site"
   },
   {
     "id": "guide-decider",
     "title": "D2 guide",
-    "area": "site",
-    "alternate": false
+    "area": "site"
   },
   {
     "id": "guide-flow-owner",
     "title": "F1 guide",
-    "area": "site",
-    "alternate": false
+    "area": "site"
   },
   {
     "id": "guide-builder",
     "title": "B4 guide",
-    "area": "site",
-    "alternate": false
+    "area": "site"
   },
   {
     "id": "site-04",
     "title": "Demo index",
-    "area": "site",
-    "alternate": false
+    "area": "site"
   },
   {
     "id": "decider-01",
@@ -49,50 +42,50 @@
   },
   {
     "id": "decider-02",
-    "title": "Choose your answer",
+    "title": "Read it, then choose",
     "area": "Bridge",
     "alternate": false
   },
   {
     "id": "decider-03",
-    "title": "Answer sent: published zone",
+    "title": "Your answer is on its way",
     "area": "Bridge",
     "alternate": false
   },
   {
     "id": "decider-03b",
-    "title": "Answer sent: own zone",
+    "title": "Your answer is on its way: own zone",
     "area": "Bridge",
     "alternate": true
   },
   {
     "id": "decider-04",
-    "title": "The work continues",
-    "area": "planner",
+    "title": "The work goes on",
+    "area": "Bridge",
     "alternate": false
   },
   {
     "id": "decider-04b",
-    "title": "The work continues: own zone",
-    "area": "planner",
+    "title": "The work goes on: own zone",
+    "area": "Bridge",
     "alternate": true
   },
   {
     "id": "decider-05",
     "title": "Bring your builder",
-    "area": "site",
+    "area": "Site",
     "alternate": false
   },
   {
     "id": "flow-owner-01",
     "title": "One ordinary flow",
-    "area": "site",
+    "area": "Console",
     "alternate": false
   },
   {
     "id": "flow-owner-02",
-    "title": "The app sends the item",
-    "area": "Exchange",
+    "title": "The app hands over the invoice",
+    "area": "Console",
     "alternate": false
   },
   {
@@ -103,50 +96,50 @@
   },
   {
     "id": "flow-owner-04",
-    "title": "Your approval is sent",
+    "title": "Your approval goes back",
     "area": "Bridge",
     "alternate": false
   },
   {
     "id": "flow-owner-04b",
-    "title": "Your hold is sent",
+    "title": "Your hold goes back",
     "area": "Bridge",
     "alternate": true
   },
   {
     "id": "flow-owner-05",
     "title": "The agent hands it on",
-    "area": "Exchange",
+    "area": "Console",
     "alternate": false
   },
   {
     "id": "flow-owner-05b",
     "title": "The agent hands on the hold",
-    "area": "Exchange",
+    "area": "Console",
     "alternate": true
   },
   {
     "id": "flow-owner-06",
-    "title": "Inspect the first hand-off",
+    "title": "Read the first hand-off",
     "area": "Console",
     "alternate": false
   },
   {
     "id": "flow-owner-07",
-    "title": "Inspect question and answer",
+    "title": "Read the question and its answer",
     "area": "Console",
     "alternate": false
   },
   {
     "id": "flow-owner-08",
-    "title": "Inspect the final hand-off",
+    "title": "Read the final hand-off",
     "area": "Console",
     "alternate": false
   },
   {
     "id": "flow-owner-09",
     "title": "Connect your own flow",
-    "area": "site",
+    "area": "Site",
     "alternate": false
   },
   {
@@ -163,20 +156,20 @@
   },
   {
     "id": "builder-03",
-    "title": "A new ship awaits crew",
+    "title": "A new ship awaits its crew",
     "area": "Console",
     "alternate": false
   },
   {
     "id": "builder-04",
-    "title": "The trierarch crews reviewer",
+    "title": "Your computer crews it",
     "area": "Console",
     "alternate": false
   },
   {
     "id": "builder-05",
-    "title": "Work comes back",
-    "area": "Exchange",
+    "title": "The work comes back",
+    "area": "Console",
     "alternate": false
   },
   {
@@ -188,7 +181,7 @@
   {
     "id": "builder-07",
     "title": "Build with your own steering ship",
-    "area": "site",
+    "area": "Site",
     "alternate": false
   }
 ]
