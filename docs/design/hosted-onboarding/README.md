@@ -123,9 +123,8 @@ flowchart TD
     g --> h{Console opens?}
     h -->|sign-in service error| h1[Try again; agent says nothing changed] --> g
     h -->|yes| i[Fleet overview: argo, person ship]
-    i --> j{Gateway connected?}
-    j -->|no, Q8 option 2| j1[Console Settings: Connect gateway] --> k
-    j -->|yes| k[Bridge opens]
+    i --> j[Enabled plugins connected at fleet creation, decided Q8]
+    j --> k[Bridge opens]
 ```
 
 ### B1. An agent asks them a question
@@ -421,21 +420,9 @@ Each is walked on staging by a brand-new person with their own agent pointed at 
 
 ## 8. Thin slices
 
-The [screen-linked slice order](mockups/coverage.md#slice-order) is the implementation order. Every slice names its screens and the mockups that form its visual acceptance criteria. The table below records scenario ownership; it does not permit combining the separate PRs in the screen-linked order.
+The [screen-linked slice order](mockups/coverage.md#slice-order) names each thin PR’s repository, screens, before/after mockups at phone and desktop widths, acceptance scenarios and dependencies. Those mockups are the slice’s visual acceptance criteria once approved. Production implementation starts only after mockup approval.
 
-In order; each its own PR in the repository named, each closing its scenarios. A slice that needs a product change the walk does not yet prove needed waits for the walk's finding.
-
-| Slice | Repository | What | Closes |
-| --- | --- | --- | --- |
-| 1 | aeolus-site | The one source for paths G, B1, B2, B3 (paths that work today); `/start` built from it; llms.txt's first line and entry; the "point your agent here" line. Pulls the two sessions guide onto the site for B2 | A1, A4, A5, A6, A14 for B paths |
-| 2 | aeolus-site | The picker on Home and Quick start from the same source; Quick start becomes B1 | A2, A3 |
-| 3 | per finding | The blocks the walk found on G and B1 to B3, each its own issue and PR: the gateway not connected in a new fleet as Q8 picks (#1233), Bridge naming it ([gateway#405](https://github.com/ThomasHendrickx/aeolus-fleet-gateway/issues/405)), the REST snippet (filed on the site's repository, 17 Nov); #1248 if the next walk meets it | A4 to A6, A15 |
-| 4 | aeolus-fleet-gateway, the account app, the site | D1: a Decider with the "Talk with the fleet" rights opens and answers a question ([gateway#404](https://github.com/ThomasHendrickx/aeolus-fleet-gateway/issues/404)); the welcome names who added them; their account home says what to ask the builder for while they have no rights (S18); `/start#d1` for the builder's agent and a chat-guided Decider | A10, A11 |
-| 5 | aeolus-site, aeolus-fleet docs | F1 in the source; a guide for connecting one flow and where its hand-offs show in the console | A13 |
-| 6 | Q1, Q2 and Q8, decided | B4's starter ship as Thomas picks, with the trierarch plugin connected as Q8 picks; `/start#b4`. Needs core 0.41.0's live permission editing (#1899) on staging for A9 | A7, A8, A9 |
-| 7 | pagasae | D2 as Q4 picks | A12 |
-
-Later, as issues once this design is approved: a single view of one flow's hand-offs across its ships (if F1's walk shows the exchanges are not enough); `/start` in the console for a person already signed in; the product metrics of #1228's priority 2 at each path's first value.
+Later, as separate issues: Q2’s hosted steering template, Q9’s rights offer at Add account, a combined flow view only if F1’s walk proves the exchanges insufficient, `/start` in the signed-in console, and #1228’s priority 2 product metrics. Q5’s earlier PR disposition is a repository action, not a UI slice.
 
 ## 9. What this design does not change
 

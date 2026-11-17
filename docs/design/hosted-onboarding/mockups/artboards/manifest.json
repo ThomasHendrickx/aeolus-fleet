@@ -1,0 +1,2114 @@
+[
+  {
+    "id": "01",
+    "title": "Home",
+    "path": "All",
+    "era": "before",
+    "state": "ready",
+    "name": "01-home-before-ready"
+  },
+  {
+    "id": "01",
+    "title": "Home",
+    "path": "All",
+    "era": "before",
+    "state": "copied",
+    "name": "01-home-before-copied"
+  },
+  {
+    "id": "01",
+    "title": "Home",
+    "path": "All",
+    "era": "before",
+    "state": "copy-error",
+    "name": "01-home-before-copy-error"
+  },
+  {
+    "id": "01",
+    "title": "Home",
+    "path": "All",
+    "era": "after",
+    "state": "ready",
+    "name": "01-home-after-ready"
+  },
+  {
+    "id": "01",
+    "title": "Home",
+    "path": "All",
+    "era": "after",
+    "state": "copied",
+    "name": "01-home-after-copied"
+  },
+  {
+    "id": "01",
+    "title": "Home",
+    "path": "All",
+    "era": "after",
+    "state": "copy-error",
+    "name": "01-home-after-copy-error"
+  },
+  {
+    "id": "02",
+    "title": "Quick start",
+    "path": "B1",
+    "era": "before",
+    "state": "ready",
+    "name": "02-quick-start-before-ready"
+  },
+  {
+    "id": "02",
+    "title": "Quick start",
+    "path": "B1",
+    "era": "before",
+    "state": "copied",
+    "name": "02-quick-start-before-copied"
+  },
+  {
+    "id": "02",
+    "title": "Quick start",
+    "path": "B1",
+    "era": "before",
+    "state": "copy-error",
+    "name": "02-quick-start-before-copy-error"
+  },
+  {
+    "id": "02",
+    "title": "Quick start",
+    "path": "B1",
+    "era": "after",
+    "state": "ready",
+    "name": "02-quick-start-after-ready"
+  },
+  {
+    "id": "02",
+    "title": "Quick start",
+    "path": "B1",
+    "era": "after",
+    "state": "copied",
+    "name": "02-quick-start-after-copied"
+  },
+  {
+    "id": "02",
+    "title": "Quick start",
+    "path": "B1",
+    "era": "after",
+    "state": "copy-error",
+    "name": "02-quick-start-after-copy-error"
+  },
+  {
+    "id": "03",
+    "title": "llms.txt",
+    "path": "All",
+    "era": "before",
+    "state": "ready",
+    "name": "03-llms.txt-before-ready"
+  },
+  {
+    "id": "03",
+    "title": "llms.txt",
+    "path": "All",
+    "era": "after",
+    "state": "ready",
+    "name": "03-llms.txt-after-ready"
+  },
+  {
+    "id": "04",
+    "title": "Start page",
+    "path": "All",
+    "era": "before",
+    "state": "ready",
+    "name": "04-start-page-before-ready"
+  },
+  {
+    "id": "04",
+    "title": "Start page",
+    "path": "All",
+    "era": "before",
+    "state": "missing",
+    "name": "04-start-page-before-missing"
+  },
+  {
+    "id": "04",
+    "title": "Start page",
+    "path": "All",
+    "era": "after",
+    "state": "ready",
+    "name": "04-start-page-after-ready"
+  },
+  {
+    "id": "04",
+    "title": "Start page",
+    "path": "All",
+    "era": "after",
+    "state": "missing",
+    "name": "04-start-page-after-missing"
+  },
+  {
+    "id": "05",
+    "title": "Path guide",
+    "path": "G",
+    "era": "before",
+    "state": "ready",
+    "name": "05-path-guide-g-before-ready"
+  },
+  {
+    "id": "05",
+    "title": "Path guide",
+    "path": "G",
+    "era": "before",
+    "state": "copied",
+    "name": "05-path-guide-g-before-copied"
+  },
+  {
+    "id": "05",
+    "title": "Path guide",
+    "path": "G",
+    "era": "before",
+    "state": "copy-error",
+    "name": "05-path-guide-g-before-copy-error"
+  },
+  {
+    "id": "05",
+    "title": "Path guide",
+    "path": "G",
+    "era": "after",
+    "state": "ready",
+    "name": "05-path-guide-g-after-ready"
+  },
+  {
+    "id": "05",
+    "title": "Path guide",
+    "path": "G",
+    "era": "after",
+    "state": "copied",
+    "name": "05-path-guide-g-after-copied"
+  },
+  {
+    "id": "05",
+    "title": "Path guide",
+    "path": "G",
+    "era": "after",
+    "state": "copy-error",
+    "name": "05-path-guide-g-after-copy-error"
+  },
+  {
+    "id": "05",
+    "title": "Path guide",
+    "path": "B1",
+    "era": "before",
+    "state": "ready",
+    "name": "05-path-guide-b1-before-ready"
+  },
+  {
+    "id": "05",
+    "title": "Path guide",
+    "path": "B1",
+    "era": "before",
+    "state": "copied",
+    "name": "05-path-guide-b1-before-copied"
+  },
+  {
+    "id": "05",
+    "title": "Path guide",
+    "path": "B1",
+    "era": "before",
+    "state": "copy-error",
+    "name": "05-path-guide-b1-before-copy-error"
+  },
+  {
+    "id": "05",
+    "title": "Path guide",
+    "path": "B1",
+    "era": "after",
+    "state": "ready",
+    "name": "05-path-guide-b1-after-ready"
+  },
+  {
+    "id": "05",
+    "title": "Path guide",
+    "path": "B1",
+    "era": "after",
+    "state": "copied",
+    "name": "05-path-guide-b1-after-copied"
+  },
+  {
+    "id": "05",
+    "title": "Path guide",
+    "path": "B1",
+    "era": "after",
+    "state": "copy-error",
+    "name": "05-path-guide-b1-after-copy-error"
+  },
+  {
+    "id": "05",
+    "title": "Path guide",
+    "path": "B2",
+    "era": "before",
+    "state": "ready",
+    "name": "05-path-guide-b2-before-ready"
+  },
+  {
+    "id": "05",
+    "title": "Path guide",
+    "path": "B2",
+    "era": "before",
+    "state": "copied",
+    "name": "05-path-guide-b2-before-copied"
+  },
+  {
+    "id": "05",
+    "title": "Path guide",
+    "path": "B2",
+    "era": "before",
+    "state": "copy-error",
+    "name": "05-path-guide-b2-before-copy-error"
+  },
+  {
+    "id": "05",
+    "title": "Path guide",
+    "path": "B2",
+    "era": "after",
+    "state": "ready",
+    "name": "05-path-guide-b2-after-ready"
+  },
+  {
+    "id": "05",
+    "title": "Path guide",
+    "path": "B2",
+    "era": "after",
+    "state": "copied",
+    "name": "05-path-guide-b2-after-copied"
+  },
+  {
+    "id": "05",
+    "title": "Path guide",
+    "path": "B2",
+    "era": "after",
+    "state": "copy-error",
+    "name": "05-path-guide-b2-after-copy-error"
+  },
+  {
+    "id": "05",
+    "title": "Path guide",
+    "path": "B3",
+    "era": "before",
+    "state": "ready",
+    "name": "05-path-guide-b3-before-ready"
+  },
+  {
+    "id": "05",
+    "title": "Path guide",
+    "path": "B3",
+    "era": "before",
+    "state": "copied",
+    "name": "05-path-guide-b3-before-copied"
+  },
+  {
+    "id": "05",
+    "title": "Path guide",
+    "path": "B3",
+    "era": "before",
+    "state": "copy-error",
+    "name": "05-path-guide-b3-before-copy-error"
+  },
+  {
+    "id": "05",
+    "title": "Path guide",
+    "path": "B3",
+    "era": "after",
+    "state": "ready",
+    "name": "05-path-guide-b3-after-ready"
+  },
+  {
+    "id": "05",
+    "title": "Path guide",
+    "path": "B3",
+    "era": "after",
+    "state": "copied",
+    "name": "05-path-guide-b3-after-copied"
+  },
+  {
+    "id": "05",
+    "title": "Path guide",
+    "path": "B3",
+    "era": "after",
+    "state": "copy-error",
+    "name": "05-path-guide-b3-after-copy-error"
+  },
+  {
+    "id": "05",
+    "title": "Path guide",
+    "path": "B4",
+    "era": "before",
+    "state": "ready",
+    "name": "05-path-guide-b4-before-ready"
+  },
+  {
+    "id": "05",
+    "title": "Path guide",
+    "path": "B4",
+    "era": "before",
+    "state": "copied",
+    "name": "05-path-guide-b4-before-copied"
+  },
+  {
+    "id": "05",
+    "title": "Path guide",
+    "path": "B4",
+    "era": "before",
+    "state": "copy-error",
+    "name": "05-path-guide-b4-before-copy-error"
+  },
+  {
+    "id": "05",
+    "title": "Path guide",
+    "path": "B4",
+    "era": "after",
+    "state": "ready",
+    "name": "05-path-guide-b4-after-ready"
+  },
+  {
+    "id": "05",
+    "title": "Path guide",
+    "path": "B4",
+    "era": "after",
+    "state": "copied",
+    "name": "05-path-guide-b4-after-copied"
+  },
+  {
+    "id": "05",
+    "title": "Path guide",
+    "path": "B4",
+    "era": "after",
+    "state": "copy-error",
+    "name": "05-path-guide-b4-after-copy-error"
+  },
+  {
+    "id": "05",
+    "title": "Path guide",
+    "path": "D1",
+    "era": "before",
+    "state": "ready",
+    "name": "05-path-guide-d1-before-ready"
+  },
+  {
+    "id": "05",
+    "title": "Path guide",
+    "path": "D1",
+    "era": "before",
+    "state": "copied",
+    "name": "05-path-guide-d1-before-copied"
+  },
+  {
+    "id": "05",
+    "title": "Path guide",
+    "path": "D1",
+    "era": "before",
+    "state": "copy-error",
+    "name": "05-path-guide-d1-before-copy-error"
+  },
+  {
+    "id": "05",
+    "title": "Path guide",
+    "path": "D1",
+    "era": "after",
+    "state": "ready",
+    "name": "05-path-guide-d1-after-ready"
+  },
+  {
+    "id": "05",
+    "title": "Path guide",
+    "path": "D1",
+    "era": "after",
+    "state": "copied",
+    "name": "05-path-guide-d1-after-copied"
+  },
+  {
+    "id": "05",
+    "title": "Path guide",
+    "path": "D1",
+    "era": "after",
+    "state": "copy-error",
+    "name": "05-path-guide-d1-after-copy-error"
+  },
+  {
+    "id": "05",
+    "title": "Path guide",
+    "path": "D2",
+    "era": "before",
+    "state": "ready",
+    "name": "05-path-guide-d2-before-ready"
+  },
+  {
+    "id": "05",
+    "title": "Path guide",
+    "path": "D2",
+    "era": "before",
+    "state": "copied",
+    "name": "05-path-guide-d2-before-copied"
+  },
+  {
+    "id": "05",
+    "title": "Path guide",
+    "path": "D2",
+    "era": "before",
+    "state": "copy-error",
+    "name": "05-path-guide-d2-before-copy-error"
+  },
+  {
+    "id": "05",
+    "title": "Path guide",
+    "path": "D2",
+    "era": "after",
+    "state": "ready",
+    "name": "05-path-guide-d2-after-ready"
+  },
+  {
+    "id": "05",
+    "title": "Path guide",
+    "path": "D2",
+    "era": "after",
+    "state": "copied",
+    "name": "05-path-guide-d2-after-copied"
+  },
+  {
+    "id": "05",
+    "title": "Path guide",
+    "path": "D2",
+    "era": "after",
+    "state": "copy-error",
+    "name": "05-path-guide-d2-after-copy-error"
+  },
+  {
+    "id": "05",
+    "title": "Path guide",
+    "path": "F1",
+    "era": "before",
+    "state": "ready",
+    "name": "05-path-guide-f1-before-ready"
+  },
+  {
+    "id": "05",
+    "title": "Path guide",
+    "path": "F1",
+    "era": "before",
+    "state": "copied",
+    "name": "05-path-guide-f1-before-copied"
+  },
+  {
+    "id": "05",
+    "title": "Path guide",
+    "path": "F1",
+    "era": "before",
+    "state": "copy-error",
+    "name": "05-path-guide-f1-before-copy-error"
+  },
+  {
+    "id": "05",
+    "title": "Path guide",
+    "path": "F1",
+    "era": "after",
+    "state": "ready",
+    "name": "05-path-guide-f1-after-ready"
+  },
+  {
+    "id": "05",
+    "title": "Path guide",
+    "path": "F1",
+    "era": "after",
+    "state": "copied",
+    "name": "05-path-guide-f1-after-copied"
+  },
+  {
+    "id": "05",
+    "title": "Path guide",
+    "path": "F1",
+    "era": "after",
+    "state": "copy-error",
+    "name": "05-path-guide-f1-after-copy-error"
+  },
+  {
+    "id": "06",
+    "title": "Sign in",
+    "path": "G",
+    "era": "before",
+    "state": "empty",
+    "name": "06-sign-in-before-empty"
+  },
+  {
+    "id": "06",
+    "title": "Sign in",
+    "path": "G",
+    "era": "before",
+    "state": "loading",
+    "name": "06-sign-in-before-loading"
+  },
+  {
+    "id": "06",
+    "title": "Sign in",
+    "path": "G",
+    "era": "before",
+    "state": "error",
+    "name": "06-sign-in-before-error"
+  },
+  {
+    "id": "06",
+    "title": "Sign in",
+    "path": "G",
+    "era": "before",
+    "state": "success",
+    "name": "06-sign-in-before-success"
+  },
+  {
+    "id": "06",
+    "title": "Sign in",
+    "path": "G",
+    "era": "before",
+    "state": "expired",
+    "name": "06-sign-in-before-expired"
+  },
+  {
+    "id": "06",
+    "title": "Sign in",
+    "path": "G",
+    "era": "before",
+    "state": "rate-limited",
+    "name": "06-sign-in-before-rate-limited"
+  },
+  {
+    "id": "06",
+    "title": "Sign in",
+    "path": "G",
+    "era": "after",
+    "state": "empty",
+    "name": "06-sign-in-after-empty"
+  },
+  {
+    "id": "06",
+    "title": "Sign in",
+    "path": "G",
+    "era": "after",
+    "state": "loading",
+    "name": "06-sign-in-after-loading"
+  },
+  {
+    "id": "06",
+    "title": "Sign in",
+    "path": "G",
+    "era": "after",
+    "state": "error",
+    "name": "06-sign-in-after-error"
+  },
+  {
+    "id": "06",
+    "title": "Sign in",
+    "path": "G",
+    "era": "after",
+    "state": "success",
+    "name": "06-sign-in-after-success"
+  },
+  {
+    "id": "06",
+    "title": "Sign in",
+    "path": "G",
+    "era": "after",
+    "state": "expired",
+    "name": "06-sign-in-after-expired"
+  },
+  {
+    "id": "06",
+    "title": "Sign in",
+    "path": "G",
+    "era": "after",
+    "state": "rate-limited",
+    "name": "06-sign-in-after-rate-limited"
+  },
+  {
+    "id": "07",
+    "title": "Fleet name",
+    "path": "G",
+    "era": "before",
+    "state": "empty",
+    "name": "07-fleet-name-before-empty"
+  },
+  {
+    "id": "07",
+    "title": "Fleet name",
+    "path": "G",
+    "era": "before",
+    "state": "loading",
+    "name": "07-fleet-name-before-loading"
+  },
+  {
+    "id": "07",
+    "title": "Fleet name",
+    "path": "G",
+    "era": "before",
+    "state": "error",
+    "name": "07-fleet-name-before-error"
+  },
+  {
+    "id": "07",
+    "title": "Fleet name",
+    "path": "G",
+    "era": "before",
+    "state": "success",
+    "name": "07-fleet-name-before-success"
+  },
+  {
+    "id": "07",
+    "title": "Fleet name",
+    "path": "G",
+    "era": "after",
+    "state": "empty",
+    "name": "07-fleet-name-after-empty"
+  },
+  {
+    "id": "07",
+    "title": "Fleet name",
+    "path": "G",
+    "era": "after",
+    "state": "loading",
+    "name": "07-fleet-name-after-loading"
+  },
+  {
+    "id": "07",
+    "title": "Fleet name",
+    "path": "G",
+    "era": "after",
+    "state": "error",
+    "name": "07-fleet-name-after-error"
+  },
+  {
+    "id": "07",
+    "title": "Fleet name",
+    "path": "G",
+    "era": "after",
+    "state": "success",
+    "name": "07-fleet-name-after-success"
+  },
+  {
+    "id": "08",
+    "title": "Waiting list",
+    "path": "G",
+    "era": "before",
+    "state": "ready",
+    "name": "08-waiting-list-before-ready"
+  },
+  {
+    "id": "08",
+    "title": "Waiting list",
+    "path": "G",
+    "era": "after",
+    "state": "ready",
+    "name": "08-waiting-list-after-ready"
+  },
+  {
+    "id": "09",
+    "title": "Account home",
+    "path": "G",
+    "era": "before",
+    "state": "empty",
+    "name": "09-account-home-before-empty"
+  },
+  {
+    "id": "09",
+    "title": "Account home",
+    "path": "G",
+    "era": "before",
+    "state": "loading",
+    "name": "09-account-home-before-loading"
+  },
+  {
+    "id": "09",
+    "title": "Account home",
+    "path": "G",
+    "era": "before",
+    "state": "error",
+    "name": "09-account-home-before-error"
+  },
+  {
+    "id": "09",
+    "title": "Account home",
+    "path": "G",
+    "era": "before",
+    "state": "success",
+    "name": "09-account-home-before-success"
+  },
+  {
+    "id": "09",
+    "title": "Account home",
+    "path": "G",
+    "era": "before",
+    "state": "no-rights",
+    "name": "09-account-home-before-no-rights"
+  },
+  {
+    "id": "09",
+    "title": "Account home",
+    "path": "G",
+    "era": "after",
+    "state": "empty",
+    "name": "09-account-home-after-empty"
+  },
+  {
+    "id": "09",
+    "title": "Account home",
+    "path": "G",
+    "era": "after",
+    "state": "loading",
+    "name": "09-account-home-after-loading"
+  },
+  {
+    "id": "09",
+    "title": "Account home",
+    "path": "G",
+    "era": "after",
+    "state": "error",
+    "name": "09-account-home-after-error"
+  },
+  {
+    "id": "09",
+    "title": "Account home",
+    "path": "G",
+    "era": "after",
+    "state": "success",
+    "name": "09-account-home-after-success"
+  },
+  {
+    "id": "09",
+    "title": "Account home",
+    "path": "G",
+    "era": "after",
+    "state": "no-rights",
+    "name": "09-account-home-after-no-rights"
+  },
+  {
+    "id": "10",
+    "title": "Fleet overview",
+    "path": "B1",
+    "era": "before",
+    "state": "empty",
+    "name": "10-fleet-overview-before-empty"
+  },
+  {
+    "id": "10",
+    "title": "Fleet overview",
+    "path": "B1",
+    "era": "before",
+    "state": "loading",
+    "name": "10-fleet-overview-before-loading"
+  },
+  {
+    "id": "10",
+    "title": "Fleet overview",
+    "path": "B1",
+    "era": "before",
+    "state": "error",
+    "name": "10-fleet-overview-before-error"
+  },
+  {
+    "id": "10",
+    "title": "Fleet overview",
+    "path": "B1",
+    "era": "before",
+    "state": "success",
+    "name": "10-fleet-overview-before-success"
+  },
+  {
+    "id": "10",
+    "title": "Fleet overview",
+    "path": "B1",
+    "era": "before",
+    "state": "awaiting-crew",
+    "name": "10-fleet-overview-before-awaiting-crew"
+  },
+  {
+    "id": "10",
+    "title": "Fleet overview",
+    "path": "B1",
+    "era": "after",
+    "state": "empty",
+    "name": "10-fleet-overview-after-empty"
+  },
+  {
+    "id": "10",
+    "title": "Fleet overview",
+    "path": "B1",
+    "era": "after",
+    "state": "loading",
+    "name": "10-fleet-overview-after-loading"
+  },
+  {
+    "id": "10",
+    "title": "Fleet overview",
+    "path": "B1",
+    "era": "after",
+    "state": "error",
+    "name": "10-fleet-overview-after-error"
+  },
+  {
+    "id": "10",
+    "title": "Fleet overview",
+    "path": "B1",
+    "era": "after",
+    "state": "success",
+    "name": "10-fleet-overview-after-success"
+  },
+  {
+    "id": "10",
+    "title": "Fleet overview",
+    "path": "B1",
+    "era": "after",
+    "state": "awaiting-crew",
+    "name": "10-fleet-overview-after-awaiting-crew"
+  },
+  {
+    "id": "11",
+    "title": "Settings plugins",
+    "path": "G",
+    "era": "before",
+    "state": "empty",
+    "name": "11-settings-plugins-before-empty"
+  },
+  {
+    "id": "11",
+    "title": "Settings plugins",
+    "path": "G",
+    "era": "before",
+    "state": "loading",
+    "name": "11-settings-plugins-before-loading"
+  },
+  {
+    "id": "11",
+    "title": "Settings plugins",
+    "path": "G",
+    "era": "before",
+    "state": "error",
+    "name": "11-settings-plugins-before-error"
+  },
+  {
+    "id": "11",
+    "title": "Settings plugins",
+    "path": "G",
+    "era": "before",
+    "state": "success",
+    "name": "11-settings-plugins-before-success"
+  },
+  {
+    "id": "11",
+    "title": "Settings plugins",
+    "path": "G",
+    "era": "before",
+    "state": "disconnected",
+    "name": "11-settings-plugins-before-disconnected"
+  },
+  {
+    "id": "11",
+    "title": "Settings plugins",
+    "path": "G",
+    "era": "after",
+    "state": "empty",
+    "name": "11-settings-plugins-after-empty"
+  },
+  {
+    "id": "11",
+    "title": "Settings plugins",
+    "path": "G",
+    "era": "after",
+    "state": "loading",
+    "name": "11-settings-plugins-after-loading"
+  },
+  {
+    "id": "11",
+    "title": "Settings plugins",
+    "path": "G",
+    "era": "after",
+    "state": "error",
+    "name": "11-settings-plugins-after-error"
+  },
+  {
+    "id": "11",
+    "title": "Settings plugins",
+    "path": "G",
+    "era": "after",
+    "state": "success",
+    "name": "11-settings-plugins-after-success"
+  },
+  {
+    "id": "11",
+    "title": "Settings plugins",
+    "path": "G",
+    "era": "after",
+    "state": "disconnected",
+    "name": "11-settings-plugins-after-disconnected"
+  },
+  {
+    "id": "12",
+    "title": "Commission ship",
+    "path": "B1",
+    "era": "before",
+    "state": "empty",
+    "name": "12-commission-ship-before-empty"
+  },
+  {
+    "id": "12",
+    "title": "Commission ship",
+    "path": "B1",
+    "era": "before",
+    "state": "loading",
+    "name": "12-commission-ship-before-loading"
+  },
+  {
+    "id": "12",
+    "title": "Commission ship",
+    "path": "B1",
+    "era": "before",
+    "state": "error",
+    "name": "12-commission-ship-before-error"
+  },
+  {
+    "id": "12",
+    "title": "Commission ship",
+    "path": "B1",
+    "era": "before",
+    "state": "success",
+    "name": "12-commission-ship-before-success"
+  },
+  {
+    "id": "12",
+    "title": "Commission ship",
+    "path": "B1",
+    "era": "before",
+    "state": "scope-search-empty",
+    "name": "12-commission-ship-before-scope-search-empty"
+  },
+  {
+    "id": "12",
+    "title": "Commission ship",
+    "path": "B1",
+    "era": "after",
+    "state": "empty",
+    "name": "12-commission-ship-after-empty"
+  },
+  {
+    "id": "12",
+    "title": "Commission ship",
+    "path": "B1",
+    "era": "after",
+    "state": "loading",
+    "name": "12-commission-ship-after-loading"
+  },
+  {
+    "id": "12",
+    "title": "Commission ship",
+    "path": "B1",
+    "era": "after",
+    "state": "error",
+    "name": "12-commission-ship-after-error"
+  },
+  {
+    "id": "12",
+    "title": "Commission ship",
+    "path": "B1",
+    "era": "after",
+    "state": "success",
+    "name": "12-commission-ship-after-success"
+  },
+  {
+    "id": "12",
+    "title": "Commission ship",
+    "path": "B1",
+    "era": "after",
+    "state": "scope-search-empty",
+    "name": "12-commission-ship-after-scope-search-empty"
+  },
+  {
+    "id": "12",
+    "title": "Commission ship",
+    "path": "B4",
+    "era": "before",
+    "state": "empty",
+    "name": "12-commission-ship-b4-before-empty"
+  },
+  {
+    "id": "12",
+    "title": "Commission ship",
+    "path": "B4",
+    "era": "before",
+    "state": "loading",
+    "name": "12-commission-ship-b4-before-loading"
+  },
+  {
+    "id": "12",
+    "title": "Commission ship",
+    "path": "B4",
+    "era": "before",
+    "state": "error",
+    "name": "12-commission-ship-b4-before-error"
+  },
+  {
+    "id": "12",
+    "title": "Commission ship",
+    "path": "B4",
+    "era": "before",
+    "state": "success",
+    "name": "12-commission-ship-b4-before-success"
+  },
+  {
+    "id": "12",
+    "title": "Commission ship",
+    "path": "B4",
+    "era": "before",
+    "state": "scope-search-empty",
+    "name": "12-commission-ship-b4-before-scope-search-empty"
+  },
+  {
+    "id": "12",
+    "title": "Commission ship",
+    "path": "B4",
+    "era": "after",
+    "state": "empty",
+    "name": "12-commission-ship-b4-after-empty"
+  },
+  {
+    "id": "12",
+    "title": "Commission ship",
+    "path": "B4",
+    "era": "after",
+    "state": "loading",
+    "name": "12-commission-ship-b4-after-loading"
+  },
+  {
+    "id": "12",
+    "title": "Commission ship",
+    "path": "B4",
+    "era": "after",
+    "state": "error",
+    "name": "12-commission-ship-b4-after-error"
+  },
+  {
+    "id": "12",
+    "title": "Commission ship",
+    "path": "B4",
+    "era": "after",
+    "state": "success",
+    "name": "12-commission-ship-b4-after-success"
+  },
+  {
+    "id": "12",
+    "title": "Commission ship",
+    "path": "B4",
+    "era": "after",
+    "state": "scope-search-empty",
+    "name": "12-commission-ship-b4-after-scope-search-empty"
+  },
+  {
+    "id": "13",
+    "title": "Starting prompt",
+    "path": "B1",
+    "era": "before",
+    "state": "empty",
+    "name": "13-starting-prompt-before-empty"
+  },
+  {
+    "id": "13",
+    "title": "Starting prompt",
+    "path": "B1",
+    "era": "before",
+    "state": "loading",
+    "name": "13-starting-prompt-before-loading"
+  },
+  {
+    "id": "13",
+    "title": "Starting prompt",
+    "path": "B1",
+    "era": "before",
+    "state": "error",
+    "name": "13-starting-prompt-before-error"
+  },
+  {
+    "id": "13",
+    "title": "Starting prompt",
+    "path": "B1",
+    "era": "before",
+    "state": "success",
+    "name": "13-starting-prompt-before-success"
+  },
+  {
+    "id": "13",
+    "title": "Starting prompt",
+    "path": "B1",
+    "era": "before",
+    "state": "conflict",
+    "name": "13-starting-prompt-before-conflict"
+  },
+  {
+    "id": "13",
+    "title": "Starting prompt",
+    "path": "B1",
+    "era": "after",
+    "state": "empty",
+    "name": "13-starting-prompt-after-empty"
+  },
+  {
+    "id": "13",
+    "title": "Starting prompt",
+    "path": "B1",
+    "era": "after",
+    "state": "loading",
+    "name": "13-starting-prompt-after-loading"
+  },
+  {
+    "id": "13",
+    "title": "Starting prompt",
+    "path": "B1",
+    "era": "after",
+    "state": "error",
+    "name": "13-starting-prompt-after-error"
+  },
+  {
+    "id": "13",
+    "title": "Starting prompt",
+    "path": "B1",
+    "era": "after",
+    "state": "success",
+    "name": "13-starting-prompt-after-success"
+  },
+  {
+    "id": "13",
+    "title": "Starting prompt",
+    "path": "B1",
+    "era": "after",
+    "state": "conflict",
+    "name": "13-starting-prompt-after-conflict"
+  },
+  {
+    "id": "14",
+    "title": "Bridge waiting on you",
+    "path": "B1",
+    "era": "before",
+    "state": "empty",
+    "name": "14-bridge-waiting-on-you-before-empty"
+  },
+  {
+    "id": "14",
+    "title": "Bridge waiting on you",
+    "path": "B1",
+    "era": "before",
+    "state": "loading",
+    "name": "14-bridge-waiting-on-you-before-loading"
+  },
+  {
+    "id": "14",
+    "title": "Bridge waiting on you",
+    "path": "B1",
+    "era": "before",
+    "state": "error",
+    "name": "14-bridge-waiting-on-you-before-error"
+  },
+  {
+    "id": "14",
+    "title": "Bridge waiting on you",
+    "path": "B1",
+    "era": "before",
+    "state": "success",
+    "name": "14-bridge-waiting-on-you-before-success"
+  },
+  {
+    "id": "14",
+    "title": "Bridge waiting on you",
+    "path": "B1",
+    "era": "before",
+    "state": "disconnected",
+    "name": "14-bridge-waiting-on-you-before-disconnected"
+  },
+  {
+    "id": "14",
+    "title": "Bridge waiting on you",
+    "path": "B1",
+    "era": "before",
+    "state": "notice",
+    "name": "14-bridge-waiting-on-you-before-notice"
+  },
+  {
+    "id": "14",
+    "title": "Bridge waiting on you",
+    "path": "B1",
+    "era": "after",
+    "state": "empty",
+    "name": "14-bridge-waiting-on-you-after-empty"
+  },
+  {
+    "id": "14",
+    "title": "Bridge waiting on you",
+    "path": "B1",
+    "era": "after",
+    "state": "loading",
+    "name": "14-bridge-waiting-on-you-after-loading"
+  },
+  {
+    "id": "14",
+    "title": "Bridge waiting on you",
+    "path": "B1",
+    "era": "after",
+    "state": "error",
+    "name": "14-bridge-waiting-on-you-after-error"
+  },
+  {
+    "id": "14",
+    "title": "Bridge waiting on you",
+    "path": "B1",
+    "era": "after",
+    "state": "success",
+    "name": "14-bridge-waiting-on-you-after-success"
+  },
+  {
+    "id": "14",
+    "title": "Bridge waiting on you",
+    "path": "B1",
+    "era": "after",
+    "state": "disconnected",
+    "name": "14-bridge-waiting-on-you-after-disconnected"
+  },
+  {
+    "id": "14",
+    "title": "Bridge waiting on you",
+    "path": "B1",
+    "era": "after",
+    "state": "notice",
+    "name": "14-bridge-waiting-on-you-after-notice"
+  },
+  {
+    "id": "15",
+    "title": "Bridge question",
+    "path": "B1",
+    "era": "before",
+    "state": "empty",
+    "name": "15-bridge-question-before-empty"
+  },
+  {
+    "id": "15",
+    "title": "Bridge question",
+    "path": "B1",
+    "era": "before",
+    "state": "loading",
+    "name": "15-bridge-question-before-loading"
+  },
+  {
+    "id": "15",
+    "title": "Bridge question",
+    "path": "B1",
+    "era": "before",
+    "state": "error",
+    "name": "15-bridge-question-before-error"
+  },
+  {
+    "id": "15",
+    "title": "Bridge question",
+    "path": "B1",
+    "era": "before",
+    "state": "success",
+    "name": "15-bridge-question-before-success"
+  },
+  {
+    "id": "15",
+    "title": "Bridge question",
+    "path": "B1",
+    "era": "before",
+    "state": "answered",
+    "name": "15-bridge-question-before-answered"
+  },
+  {
+    "id": "15",
+    "title": "Bridge question",
+    "path": "B1",
+    "era": "before",
+    "state": "answer-pending",
+    "name": "15-bridge-question-before-answer-pending"
+  },
+  {
+    "id": "15",
+    "title": "Bridge question",
+    "path": "B1",
+    "era": "before",
+    "state": "answer-failed",
+    "name": "15-bridge-question-before-answer-failed"
+  },
+  {
+    "id": "15",
+    "title": "Bridge question",
+    "path": "B1",
+    "era": "after",
+    "state": "empty",
+    "name": "15-bridge-question-after-empty"
+  },
+  {
+    "id": "15",
+    "title": "Bridge question",
+    "path": "B1",
+    "era": "after",
+    "state": "loading",
+    "name": "15-bridge-question-after-loading"
+  },
+  {
+    "id": "15",
+    "title": "Bridge question",
+    "path": "B1",
+    "era": "after",
+    "state": "error",
+    "name": "15-bridge-question-after-error"
+  },
+  {
+    "id": "15",
+    "title": "Bridge question",
+    "path": "B1",
+    "era": "after",
+    "state": "success",
+    "name": "15-bridge-question-after-success"
+  },
+  {
+    "id": "15",
+    "title": "Bridge question",
+    "path": "B1",
+    "era": "after",
+    "state": "answered",
+    "name": "15-bridge-question-after-answered"
+  },
+  {
+    "id": "15",
+    "title": "Bridge question",
+    "path": "B1",
+    "era": "after",
+    "state": "answer-pending",
+    "name": "15-bridge-question-after-answer-pending"
+  },
+  {
+    "id": "15",
+    "title": "Bridge question",
+    "path": "B1",
+    "era": "after",
+    "state": "answer-failed",
+    "name": "15-bridge-question-after-answer-failed"
+  },
+  {
+    "id": "16",
+    "title": "Welcome",
+    "path": "D1",
+    "era": "before",
+    "state": "ready",
+    "name": "16-welcome-before-ready"
+  },
+  {
+    "id": "16",
+    "title": "Welcome",
+    "path": "D1",
+    "era": "before",
+    "state": "expired",
+    "name": "16-welcome-before-expired"
+  },
+  {
+    "id": "16",
+    "title": "Welcome",
+    "path": "D1",
+    "era": "after",
+    "state": "ready",
+    "name": "16-welcome-after-ready"
+  },
+  {
+    "id": "16",
+    "title": "Welcome",
+    "path": "D1",
+    "era": "after",
+    "state": "expired",
+    "name": "16-welcome-after-expired"
+  },
+  {
+    "id": "17",
+    "title": "People and groups",
+    "path": "D1",
+    "era": "before",
+    "state": "empty",
+    "name": "17-people-and-groups-before-empty"
+  },
+  {
+    "id": "17",
+    "title": "People and groups",
+    "path": "D1",
+    "era": "before",
+    "state": "loading",
+    "name": "17-people-and-groups-before-loading"
+  },
+  {
+    "id": "17",
+    "title": "People and groups",
+    "path": "D1",
+    "era": "before",
+    "state": "error",
+    "name": "17-people-and-groups-before-error"
+  },
+  {
+    "id": "17",
+    "title": "People and groups",
+    "path": "D1",
+    "era": "before",
+    "state": "success",
+    "name": "17-people-and-groups-before-success"
+  },
+  {
+    "id": "17",
+    "title": "People and groups",
+    "path": "D1",
+    "era": "before",
+    "state": "unsaved",
+    "name": "17-people-and-groups-before-unsaved"
+  },
+  {
+    "id": "17",
+    "title": "People and groups",
+    "path": "D1",
+    "era": "after",
+    "state": "empty",
+    "name": "17-people-and-groups-after-empty"
+  },
+  {
+    "id": "17",
+    "title": "People and groups",
+    "path": "D1",
+    "era": "after",
+    "state": "loading",
+    "name": "17-people-and-groups-after-loading"
+  },
+  {
+    "id": "17",
+    "title": "People and groups",
+    "path": "D1",
+    "era": "after",
+    "state": "error",
+    "name": "17-people-and-groups-after-error"
+  },
+  {
+    "id": "17",
+    "title": "People and groups",
+    "path": "D1",
+    "era": "after",
+    "state": "success",
+    "name": "17-people-and-groups-after-success"
+  },
+  {
+    "id": "17",
+    "title": "People and groups",
+    "path": "D1",
+    "era": "after",
+    "state": "unsaved",
+    "name": "17-people-and-groups-after-unsaved"
+  },
+  {
+    "id": "18",
+    "title": "Demo question",
+    "path": "D2",
+    "era": "before",
+    "state": "empty",
+    "name": "18-demo-question-before-empty"
+  },
+  {
+    "id": "18",
+    "title": "Demo question",
+    "path": "D2",
+    "era": "before",
+    "state": "loading",
+    "name": "18-demo-question-before-loading"
+  },
+  {
+    "id": "18",
+    "title": "Demo question",
+    "path": "D2",
+    "era": "before",
+    "state": "error",
+    "name": "18-demo-question-before-error"
+  },
+  {
+    "id": "18",
+    "title": "Demo question",
+    "path": "D2",
+    "era": "before",
+    "state": "success",
+    "name": "18-demo-question-before-success"
+  },
+  {
+    "id": "18",
+    "title": "Demo question",
+    "path": "D2",
+    "era": "before",
+    "state": "answer-pending",
+    "name": "18-demo-question-before-answer-pending"
+  },
+  {
+    "id": "18",
+    "title": "Demo question",
+    "path": "D2",
+    "era": "before",
+    "state": "answer-failed",
+    "name": "18-demo-question-before-answer-failed"
+  },
+  {
+    "id": "18",
+    "title": "Demo question",
+    "path": "D2",
+    "era": "before",
+    "state": "answered",
+    "name": "18-demo-question-before-answered"
+  },
+  {
+    "id": "18",
+    "title": "Demo question",
+    "path": "D2",
+    "era": "after",
+    "state": "empty",
+    "name": "18-demo-question-after-empty"
+  },
+  {
+    "id": "18",
+    "title": "Demo question",
+    "path": "D2",
+    "era": "after",
+    "state": "loading",
+    "name": "18-demo-question-after-loading"
+  },
+  {
+    "id": "18",
+    "title": "Demo question",
+    "path": "D2",
+    "era": "after",
+    "state": "error",
+    "name": "18-demo-question-after-error"
+  },
+  {
+    "id": "18",
+    "title": "Demo question",
+    "path": "D2",
+    "era": "after",
+    "state": "success",
+    "name": "18-demo-question-after-success"
+  },
+  {
+    "id": "18",
+    "title": "Demo question",
+    "path": "D2",
+    "era": "after",
+    "state": "answer-pending",
+    "name": "18-demo-question-after-answer-pending"
+  },
+  {
+    "id": "18",
+    "title": "Demo question",
+    "path": "D2",
+    "era": "after",
+    "state": "answer-failed",
+    "name": "18-demo-question-after-answer-failed"
+  },
+  {
+    "id": "18",
+    "title": "Demo question",
+    "path": "D2",
+    "era": "after",
+    "state": "answered",
+    "name": "18-demo-question-after-answered"
+  },
+  {
+    "id": "19",
+    "title": "Trierarchs",
+    "path": "B4",
+    "era": "before",
+    "state": "empty",
+    "name": "19-trierarchs-before-empty"
+  },
+  {
+    "id": "19",
+    "title": "Trierarchs",
+    "path": "B4",
+    "era": "before",
+    "state": "loading",
+    "name": "19-trierarchs-before-loading"
+  },
+  {
+    "id": "19",
+    "title": "Trierarchs",
+    "path": "B4",
+    "era": "before",
+    "state": "error",
+    "name": "19-trierarchs-before-error"
+  },
+  {
+    "id": "19",
+    "title": "Trierarchs",
+    "path": "B4",
+    "era": "before",
+    "state": "success",
+    "name": "19-trierarchs-before-success"
+  },
+  {
+    "id": "19",
+    "title": "Trierarchs",
+    "path": "B4",
+    "era": "before",
+    "state": "offline",
+    "name": "19-trierarchs-before-offline"
+  },
+  {
+    "id": "19",
+    "title": "Trierarchs",
+    "path": "B4",
+    "era": "before",
+    "state": "interrupted",
+    "name": "19-trierarchs-before-interrupted"
+  },
+  {
+    "id": "19",
+    "title": "Trierarchs",
+    "path": "B4",
+    "era": "after",
+    "state": "empty",
+    "name": "19-trierarchs-after-empty"
+  },
+  {
+    "id": "19",
+    "title": "Trierarchs",
+    "path": "B4",
+    "era": "after",
+    "state": "loading",
+    "name": "19-trierarchs-after-loading"
+  },
+  {
+    "id": "19",
+    "title": "Trierarchs",
+    "path": "B4",
+    "era": "after",
+    "state": "error",
+    "name": "19-trierarchs-after-error"
+  },
+  {
+    "id": "19",
+    "title": "Trierarchs",
+    "path": "B4",
+    "era": "after",
+    "state": "success",
+    "name": "19-trierarchs-after-success"
+  },
+  {
+    "id": "19",
+    "title": "Trierarchs",
+    "path": "B4",
+    "era": "after",
+    "state": "offline",
+    "name": "19-trierarchs-after-offline"
+  },
+  {
+    "id": "19",
+    "title": "Trierarchs",
+    "path": "B4",
+    "era": "after",
+    "state": "interrupted",
+    "name": "19-trierarchs-after-interrupted"
+  },
+  {
+    "id": "20",
+    "title": "Ship page and timeline",
+    "path": "B2",
+    "era": "before",
+    "state": "empty",
+    "name": "20-ship-page-and-timeline-before-empty"
+  },
+  {
+    "id": "20",
+    "title": "Ship page and timeline",
+    "path": "B2",
+    "era": "before",
+    "state": "loading",
+    "name": "20-ship-page-and-timeline-before-loading"
+  },
+  {
+    "id": "20",
+    "title": "Ship page and timeline",
+    "path": "B2",
+    "era": "before",
+    "state": "error",
+    "name": "20-ship-page-and-timeline-before-error"
+  },
+  {
+    "id": "20",
+    "title": "Ship page and timeline",
+    "path": "B2",
+    "era": "before",
+    "state": "success",
+    "name": "20-ship-page-and-timeline-before-success"
+  },
+  {
+    "id": "20",
+    "title": "Ship page and timeline",
+    "path": "B2",
+    "era": "before",
+    "state": "scope-refused",
+    "name": "20-ship-page-and-timeline-before-scope-refused"
+  },
+  {
+    "id": "20",
+    "title": "Ship page and timeline",
+    "path": "B2",
+    "era": "after",
+    "state": "empty",
+    "name": "20-ship-page-and-timeline-after-empty"
+  },
+  {
+    "id": "20",
+    "title": "Ship page and timeline",
+    "path": "B2",
+    "era": "after",
+    "state": "loading",
+    "name": "20-ship-page-and-timeline-after-loading"
+  },
+  {
+    "id": "20",
+    "title": "Ship page and timeline",
+    "path": "B2",
+    "era": "after",
+    "state": "error",
+    "name": "20-ship-page-and-timeline-after-error"
+  },
+  {
+    "id": "20",
+    "title": "Ship page and timeline",
+    "path": "B2",
+    "era": "after",
+    "state": "success",
+    "name": "20-ship-page-and-timeline-after-success"
+  },
+  {
+    "id": "20",
+    "title": "Ship page and timeline",
+    "path": "B2",
+    "era": "after",
+    "state": "scope-refused",
+    "name": "20-ship-page-and-timeline-after-scope-refused"
+  },
+  {
+    "id": "21",
+    "title": "Ship exchange",
+    "path": "B2",
+    "era": "before",
+    "state": "empty",
+    "name": "21-ship-exchange-before-empty"
+  },
+  {
+    "id": "21",
+    "title": "Ship exchange",
+    "path": "B2",
+    "era": "before",
+    "state": "loading",
+    "name": "21-ship-exchange-before-loading"
+  },
+  {
+    "id": "21",
+    "title": "Ship exchange",
+    "path": "B2",
+    "era": "before",
+    "state": "error",
+    "name": "21-ship-exchange-before-error"
+  },
+  {
+    "id": "21",
+    "title": "Ship exchange",
+    "path": "B2",
+    "era": "before",
+    "state": "success",
+    "name": "21-ship-exchange-before-success"
+  },
+  {
+    "id": "21",
+    "title": "Ship exchange",
+    "path": "B2",
+    "era": "before",
+    "state": "waiting",
+    "name": "21-ship-exchange-before-waiting"
+  },
+  {
+    "id": "21",
+    "title": "Ship exchange",
+    "path": "B2",
+    "era": "after",
+    "state": "empty",
+    "name": "21-ship-exchange-after-empty"
+  },
+  {
+    "id": "21",
+    "title": "Ship exchange",
+    "path": "B2",
+    "era": "after",
+    "state": "loading",
+    "name": "21-ship-exchange-after-loading"
+  },
+  {
+    "id": "21",
+    "title": "Ship exchange",
+    "path": "B2",
+    "era": "after",
+    "state": "error",
+    "name": "21-ship-exchange-after-error"
+  },
+  {
+    "id": "21",
+    "title": "Ship exchange",
+    "path": "B2",
+    "era": "after",
+    "state": "success",
+    "name": "21-ship-exchange-after-success"
+  },
+  {
+    "id": "21",
+    "title": "Ship exchange",
+    "path": "B2",
+    "era": "after",
+    "state": "waiting",
+    "name": "21-ship-exchange-after-waiting"
+  },
+  {
+    "id": "22",
+    "title": "Chat guidance",
+    "path": "D1",
+    "era": "before",
+    "state": "ready",
+    "name": "22-chat-guidance-before-ready"
+  },
+  {
+    "id": "22",
+    "title": "Chat guidance",
+    "path": "D1",
+    "era": "before",
+    "state": "loading",
+    "name": "22-chat-guidance-before-loading"
+  },
+  {
+    "id": "22",
+    "title": "Chat guidance",
+    "path": "D1",
+    "era": "before",
+    "state": "error",
+    "name": "22-chat-guidance-before-error"
+  },
+  {
+    "id": "22",
+    "title": "Chat guidance",
+    "path": "D1",
+    "era": "before",
+    "state": "success",
+    "name": "22-chat-guidance-before-success"
+  },
+  {
+    "id": "22",
+    "title": "Chat guidance",
+    "path": "D1",
+    "era": "after",
+    "state": "ready",
+    "name": "22-chat-guidance-after-ready"
+  },
+  {
+    "id": "22",
+    "title": "Chat guidance",
+    "path": "D1",
+    "era": "after",
+    "state": "loading",
+    "name": "22-chat-guidance-after-loading"
+  },
+  {
+    "id": "22",
+    "title": "Chat guidance",
+    "path": "D1",
+    "era": "after",
+    "state": "error",
+    "name": "22-chat-guidance-after-error"
+  },
+  {
+    "id": "22",
+    "title": "Chat guidance",
+    "path": "D1",
+    "era": "after",
+    "state": "success",
+    "name": "22-chat-guidance-after-success"
+  },
+  {
+    "id": "23",
+    "title": "Terms",
+    "path": "G",
+    "era": "before",
+    "state": "empty",
+    "name": "23-terms-before-empty"
+  },
+  {
+    "id": "23",
+    "title": "Terms",
+    "path": "G",
+    "era": "before",
+    "state": "loading",
+    "name": "23-terms-before-loading"
+  },
+  {
+    "id": "23",
+    "title": "Terms",
+    "path": "G",
+    "era": "before",
+    "state": "error",
+    "name": "23-terms-before-error"
+  },
+  {
+    "id": "23",
+    "title": "Terms",
+    "path": "G",
+    "era": "before",
+    "state": "success",
+    "name": "23-terms-before-success"
+  },
+  {
+    "id": "23",
+    "title": "Terms",
+    "path": "G",
+    "era": "after",
+    "state": "empty",
+    "name": "23-terms-after-empty"
+  },
+  {
+    "id": "23",
+    "title": "Terms",
+    "path": "G",
+    "era": "after",
+    "state": "loading",
+    "name": "23-terms-after-loading"
+  },
+  {
+    "id": "23",
+    "title": "Terms",
+    "path": "G",
+    "era": "after",
+    "state": "error",
+    "name": "23-terms-after-error"
+  },
+  {
+    "id": "23",
+    "title": "Terms",
+    "path": "G",
+    "era": "after",
+    "state": "success",
+    "name": "23-terms-after-success"
+  },
+  {
+    "id": "24",
+    "title": "Computer setup",
+    "path": "B4",
+    "era": "before",
+    "state": "empty",
+    "name": "24-computer-setup-before-empty"
+  },
+  {
+    "id": "24",
+    "title": "Computer setup",
+    "path": "B4",
+    "era": "before",
+    "state": "loading",
+    "name": "24-computer-setup-before-loading"
+  },
+  {
+    "id": "24",
+    "title": "Computer setup",
+    "path": "B4",
+    "era": "before",
+    "state": "error",
+    "name": "24-computer-setup-before-error"
+  },
+  {
+    "id": "24",
+    "title": "Computer setup",
+    "path": "B4",
+    "era": "before",
+    "state": "success",
+    "name": "24-computer-setup-before-success"
+  },
+  {
+    "id": "24",
+    "title": "Computer setup",
+    "path": "B4",
+    "era": "before",
+    "state": "interrupted",
+    "name": "24-computer-setup-before-interrupted"
+  },
+  {
+    "id": "24",
+    "title": "Computer setup",
+    "path": "B4",
+    "era": "after",
+    "state": "empty",
+    "name": "24-computer-setup-after-empty"
+  },
+  {
+    "id": "24",
+    "title": "Computer setup",
+    "path": "B4",
+    "era": "after",
+    "state": "loading",
+    "name": "24-computer-setup-after-loading"
+  },
+  {
+    "id": "24",
+    "title": "Computer setup",
+    "path": "B4",
+    "era": "after",
+    "state": "error",
+    "name": "24-computer-setup-after-error"
+  },
+  {
+    "id": "24",
+    "title": "Computer setup",
+    "path": "B4",
+    "era": "after",
+    "state": "success",
+    "name": "24-computer-setup-after-success"
+  },
+  {
+    "id": "24",
+    "title": "Computer setup",
+    "path": "B4",
+    "era": "after",
+    "state": "interrupted",
+    "name": "24-computer-setup-after-interrupted"
+  },
+  {
+    "id": "25",
+    "title": "Added email",
+    "path": "D1",
+    "era": "before",
+    "state": "ready",
+    "name": "25-added-email-before-ready"
+  },
+  {
+    "id": "25",
+    "title": "Added email",
+    "path": "D1",
+    "era": "before",
+    "state": "expired",
+    "name": "25-added-email-before-expired"
+  },
+  {
+    "id": "25",
+    "title": "Added email",
+    "path": "D1",
+    "era": "after",
+    "state": "ready",
+    "name": "25-added-email-after-ready"
+  },
+  {
+    "id": "25",
+    "title": "Added email",
+    "path": "D1",
+    "era": "after",
+    "state": "expired",
+    "name": "25-added-email-after-expired"
+  }
+]
