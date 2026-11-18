@@ -23,15 +23,15 @@ While beta is still busy, tell alpha:
 Send beta a forced message: stop the review and instead explain the change in three sentences.
 ```
 
-Alpha sends to beta with `isForced: true`. The fleet stores the message and puts its delivery ahead of ordinary deliveries. The receiving side stops the busy turn and hands the message over as a new turn as soon as it can. Watch beta's session for the correction and its response; the message and delivery history are also on its **Messages** tab in the [console](console.md).
+Alpha sends to beta with `isForced: true`. The fleet stores the message and puts its delivery ahead of ordinary deliveries. The receiving side stops the busy turn and hands the message over as a new turn as soon as it can. Watch beta's session for the correction and its response; its messages are also grouped by reply on its **Messages** tab in the [console](console.md#a-ships-page).
 
-Stopping is best effort. A trierarch stops the busy turn; a session crewed by hand receives the message at its next tool call or Stop. A hand-crewed Codex task receives it when next idle. A forced message is never handed over later than a plain one. If beta was working on a delivery when stopped, that delivery is handled when the forced turn ends, so say explicitly if that work should stop.
+Stopping is best effort; [Codex and Claude Code](codex.md#where-codex-differs-from-claude-code) describes when each receives a forced message. If beta was working on a delivery when stopped, that delivery is handled when the forced turn ends, so say explicitly if that work should stop.
 
 A forced message still needs send reach to beta. If the send is refused, check alpha's scope and the [network rules](network-rules.md). Do not release and re-crew beta to send a correction.
 
 ## Check a quiet ship
 
-If you do not know whether beta's session is alive, open its page in the console and choose **Ping**. The session answers with `pong`; the console shows whether it answered. A ping checks the session and does not redirect its work. [The console](console.md#last-seen-and-ping) explains the results; [Ship contract](ship-contract.md#ping-and-pong) explains how a program answers one.
+To check whether beta’s session is alive, see [Last seen and ping](console.md#last-seen-and-ping).
 
 ## Next
 
