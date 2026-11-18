@@ -85,7 +85,7 @@ function event(ship: Ship, change: Pick<NewEvent, 'type' | 'details'> & { at: Da
  * assignment and status, its crew not final until the new settings run, and
  * CrewRequested with the settings version, never
  * the settings, the requester replaced by the ship that made it. Never argo, the viewer ship or a retired ship; settings of at
- * most 16 KB that are crew settings (decision 0027), as placement reads
+ * most 16 KB that are empty for a crew by hand or crew settings (decision 0027), as placement reads
  * them, each machine label one of the fleet's label values (#811), so a
  * request never waits for a machine no label lets match; never while the
  * request is releasing.
@@ -108,14 +108,16 @@ export function requestCrew(
       `settings is ${String(bytes)} bytes, the limit is ${String(CREW_REQUEST_SETTINGS_MAX_BYTES)} (decision 0029)`,
     );
   }
-  // Read as placement reads them, so a request is never stored that no trierarch could take (#809).
-  const read = readCrewSettings(input.settings);
-  if ('refusal' in read) {
-    return refuse('CREW_REQUEST_SETTINGS_INVALID', read.refusal.reason);
-  }
-  for (const [index, valueId] of (read.settings.machineLabels ?? []).entries()) {
-    if (!labelValues.has(valueId)) {
-      return refuse('CREW_REQUEST_SETTINGS_INVALID', `settings are not valid crew settings: machineLabels.${String(index)}: The fleet has no label value ${valueId}`);
+  if (Object.keys(input.settings).length > 0) {
+    // Non-empty settings must be readable by placement; empty settings ask for a crew by hand.
+    const read = readCrewSettings(input.settings);
+    if ('refusal' in read) {
+      return refuse('CREW_REQUEST_SETTINGS_INVALID', read.refusal.reason);
+    }
+    for (const [index, valueId] of (read.settings.machineLabels ?? []).entries()) {
+      if (!labelValues.has(valueId)) {
+        return refuse('CREW_REQUEST_SETTINGS_INVALID', `settings are not valid crew settings: machineLabels.${String(index)}: The fleet has no label value ${valueId}`);
+      }
     }
   }
   const request: CrewRequest = {
