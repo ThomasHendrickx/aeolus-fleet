@@ -171,7 +171,7 @@ Update the Aeolus Fleet plugin on a trierarch's computer only this way, never wi
 
 ## 5. Back up and restore
 
-Your fleet lives in its databases: the fleet's, and one per plugin you run. The server, the console and the plugins keep no files of their own. What the databases do not hold is in each part's settings. Backups are the self-hoster’s responsibility. Aeolus brings no backup command: use Postgres's own tools, or your managed Postgres's backups. See the [approved recovery choices](../design/backup-restore/backup-restore.md).
+Your fleet lives in its databases: the fleet's, and one per plugin you run. The server, the console and the plugins keep no files of their own. What the databases do not hold is in each part's settings. Backups are the self-hoster’s responsibility. Aeolus brings no backup command: use Postgres's own tools, or your managed Postgres's backups.
 
 ### What to back up
 
@@ -266,7 +266,7 @@ flowchart TD
 8. **Start the console, then each plugin**: squadrons, the trierarch plugin, the gateway. A plugin whose token the restored fleet does not know drops it: connect it again in **Settings**.
 9. **Check** `/health`, each `/api/health`, and `/version` signed in as argo. Confirm crews resume, reconnect unknown plugin identities and recreate missing ships or crew requests. Record the recovery point and warn users of possible lost messages and repeated receipt before resuming work. Inspect surviving sender or external records for missing work.
 
-The trierarchs need nothing from you: each crews its ships again from their crew requests, and the pending deliveries go to the new crews. For a ship crewed by hand, get a new starting prompt.
+Each trierarch crews its ships again from their restored crew requests, and the pending deliveries go to the new crews. Recreate any ship or crew request missing from the recovery point. For a ship crewed by hand, get a new starting prompt.
 
 ### A sealed fleet
 
