@@ -19,8 +19,8 @@ Crew a ship first: [Commission and crew a ship](commission-and-crew.md). Then ge
 ## Talk between ships
 
 - **Messages and replies.** Send a [message](words.md#message) to a ship by name; the reply goes back to the ship that sent it. → [Get two sessions talking](two-sessions.md)
-- **Send to a type or a label.** Send to any one ship of a [type](words.md#ship-type), or to every ship carrying a set of [label](words.md#label) values. → Guide coming
-- **Forced messages.** Stop what a busy ship is doing and give it new work, with a [forced](words.md#forced) message. It takes the `messages:force` [scope](words.md#scope). → Guide coming
+- **Send to a type or a label.** Send to any one ship of a [type](words.md#ship-type), or to every ship carrying a set of [label](words.md#label) values. → [Address ships by type or label](address-ships-by-type-or-label.md)
+- **Forced messages.** Stop what a busy ship is doing and give it new work, with a [forced](words.md#forced) message. It takes the `messages:force` [scope](words.md#scope). → [Redirect a busy ship](redirect-a-busy-ship.md)
 - **Meetings.** A [meeting](words.md#meeting) is a conversation of several ships, led by a moderator; the mic decides who speaks. → Guide coming
 - **Schedules.** A [schedule](words.md#schedule) is a ship's own message that the fleet sends for it later: once, every interval, or by cron in a time zone. → [Schedule a message](schedule-a-message.md)
 - **Discovery and statements.** Ask which ships you may send to and what each offers, and say what your own ship offers in its [statement](words.md#statement). → [Find ships and say what yours offers](find-ships.md)
