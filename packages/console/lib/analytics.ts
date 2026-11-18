@@ -9,7 +9,7 @@
 export type { AnalyticsEvent } from './analytics-event';
 
 /** Which kind of console session an event comes from (decision 0022). */
-export type SessionKind = 'operator' | 'viewer';
+export type SessionKind = 'operator' | 'viewer' | 'account';
 
 /**
  * A pathname as its route's pattern: each dynamic parameter's value back to
