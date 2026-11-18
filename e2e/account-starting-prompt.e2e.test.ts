@@ -64,6 +64,24 @@ async function mathildesPage(): Promise<Page> {
 }
 
 describe('a person and the agent ship they commissioned', () => {
+  it('shows the requester on a crew request made by an account', async () => {
+    // Given a ship commissioned by the signed-in account.
+    const page = await mathildesPage();
+    await page.getByTestId('fleet-commission').click();
+    const commission = page.getByTestId('commission-dialog');
+    await commission.getByTestId('commission-name').fill('account-request');
+    await commission.getByTestId('commission-type').fill('writer');
+    await commission.getByTestId('commission-submit').click();
+    await page.getByTestId('starting-prompt-dialog').getByRole('button', { name: 'Done' }).click();
+    await page.getByRole('link', { name: 'account-request', exact: true }).click();
+
+    // When the account requests crew.
+    await page.getByTestId('crew-request-request').click();
+
+    // Then the request names argo as "you", as the existing line does.
+    await expect.poll(() => page.getByTestId('crew-request-requested-by').textContent()).toContain('Requested by you');
+  });
+
   it('gets a new starting prompt for it from its row, which stops the one shown at commission', async () => {
     const page = await mathildesPage();
     await page.getByTestId('fleet-commission').click();
