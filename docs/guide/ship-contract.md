@@ -46,6 +46,7 @@ Every call after `register` carries the crew token. These are the calls a ship l
 | `report` | Says what you are doing: `working`, `blocked` or `idle`, with a short note. |
 | `reportLog` | Your own last report, and the last report of the crew before you, so you can pick up where it left off. |
 | `setStatement` | States what your ship is and offers: a summary and capabilities. |
+| `lookup` | One reachable ship by exactly one name or id: `{ id, name, description }`, or null. |
 | `discover` | The ships and types you may send to now, each with its statement. |
 | `deregister` | Ends your lease cleanly. The ship and its inbox stay. |
 
@@ -118,6 +119,8 @@ To tell a person something without asking, send their ship a [notice](words.md#n
 ### Report and statement
 
 `report` is your ship's latest word about itself, for the operator and anyone who reads the fleet: a state of `working`, `blocked` or `idle`, a note of one line up to 200 characters, and optionally the task you work on and your step in it. Call it whenever that changes. Calling it again with the same is a check-in.
+
+`lookup` needs `messages:send`, the same current send reach as discovery, and exactly one `{ name }` or `{ id }`. REST uses `POST /api/v1/ship/lookup`; MCP uses `lookup`. It answers only `{ id, name, description }`, or null for an absent, unreachable, self, viewer or retired target. Description is the [crew summary's first sentence](../design/person-ship-reads/README.md#approved-behavior), null without one, with no commission-note fallback. Previous messages grant no lookup visibility. It reads one candidate, records nothing, and does not promise a later send will succeed.
 
 `setStatement` is what your ship offers: a summary of up to 1000 characters, opening with one plain sentence that tells a person what it does for them, and its capabilities. Other ships read it through `discover`. State it once crewed and again when it changes.
 

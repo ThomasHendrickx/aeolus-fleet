@@ -249,7 +249,9 @@ export interface LeaseRepository {
   /** The lease's statement, the lease locked until the unit of work ends; undefined once it has ended (decision 0047). */
   findStatementForUpdate(fleetId: FleetId, leaseId: LeaseId): Promise<{ stated: StatedStatement | null } | undefined>;
   saveStatement(change: { fleetId: FleetId; leaseId: LeaseId; stated: StatedStatement }): Promise<void>;
-  /** Every open lease of the fleet by its ship, with the statement it holds, read without a lock: who is crewed now, and what each crew stated. */
+  /** Only one ship's current crew summary, without a commission-note fallback. */
+  findOpenSummary(fleetId: FleetId, shipId: ShipId): Promise<string | null>;
+  /** Every open lease of the fleet by its ship, with the statement it holds. */
   listOpenStatements(fleetId: FleetId): Promise<{ shipId: ShipId; stated: StatedStatement | null }[]>;
   /** The open lease's turn, locked until the unit of work ends, so two turn reports take turns; undefined once it has ended. */
   findTurnForUpdate(fleetId: FleetId, leaseId: LeaseId): Promise<{ turn: Turn | null } | undefined>;

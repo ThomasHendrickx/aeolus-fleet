@@ -146,3 +146,14 @@ export const discoverOutputSchema = z.object({
 });
 
 export type Discovered = z.infer<typeof discoverOutputSchema>;
+
+/** Exactly one resource key; unknown permission subjects and extra fields are refused. */
+export const lookupInputSchema = z.strictObject({
+  id: idSchema('ship').optional(),
+  name: z.string().min(1).optional(),
+}).refine((input) => (input.id === undefined) !== (input.name === undefined), 'Provide exactly one name or id');
+export type LookupInput = z.infer<typeof lookupInputSchema>;
+
+/** The approved header projection, null for every absent or invisible target. */
+export const lookupOutputSchema = z.object({ id: idSchema('ship'), name: z.string(), description: z.string().nullable() }).nullable();
+export type LookedUpShip = z.infer<typeof lookupOutputSchema>;

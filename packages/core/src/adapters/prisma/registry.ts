@@ -530,6 +530,12 @@ export function createPrismaLeaseRepository(db: Db): LeaseRepository {
     saveStatement: async ({ fleetId, leaseId, stated }) => {
       await db.lease.updateMany({ where: { fleetId, id: leaseId }, data: { statement: stated.statement, statementVersion: stated.version } });
     },
+    findOpenSummary: async (fleetId, shipId) => {
+      const rows = await db.$queryRaw<unknown[]>`
+        SELECT statement->>'summary' AS summary FROM leases
+        WHERE fleet_id = ${fleetId} AND ship_id = ${shipId} AND ended_at IS NULL`;
+      return z.object({ summary: z.string().nullable() }).parse(rows[0] ?? { summary: null }).summary;
+    },
     listOpenStatements: async (fleetId) => {
       const rows = await db.$queryRaw<unknown[]>`
         SELECT ship_id, statement, statement_version

@@ -1,3 +1,4 @@
+import type { Lookup } from '../../domain/registry/lookup.js';
 import type { createReadInstallationJourneys } from '../../domain/registry/read-installation-journeys.js';
 import type { CallPlugin } from '../../domain/registry/call-plugin.js';
 import type { ApproveCommission } from '../../domain/registry/approve-commission.js';
@@ -221,6 +222,7 @@ export interface UseCases {
   readLastNamedOwner: ReadLastNamedOwner;
   report: Report;
   setStatement: SetStatement;
+  lookup: Lookup;
   discover: Discover;
   reportTurn: ReportTurn;
   reportLog: ReadReportLog;
