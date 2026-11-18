@@ -368,6 +368,16 @@ W1 first; W2 at any time before W8; W3 to W7 in any order once W1 is released, e
   - The MCP-out party calls `pushReceive` on each wake, at open and every 5 minutes.
   - Reopens and stops as in W3; tested with in-memory ports and a fake stream.
 
+### W5 the gateway's argo inbox
+
+Approved 18 November 2026 by Thomas, card `5a9b3854`, option 1 (fleet event stream).
+
+The gateway holds one shared `fleet.events` stream per connected fleet to wake the argo inbox follower. It uses its connected gateway ship's crew token, with `fleet:read` and the required read reach, and receives only events it is authorised to read. This grants no authority to follow argo's crew stream or take argo's lease.
+
+On open, reconnect and each fleet event, the gateway reads `fleet.follow` at once from the inbox follower's last sequence. Stream event ids resume `fleet.events` across reconnects; a resync hint also wakes the follower. Coalesce wakes while a read runs, and read only relevant inbox changes. The two-second poll remains only as a safety look for a missed wake.
+
+An argo delivery must refresh the inbox without waiting for that poll. Tests also prove reconnect recovery and recovery through the safety look after a missed wake. One stream per fleet can wake for unrelated changes: measure the completed work at 3,000 ships and 10,000,000 messages per fleet against the read budgets (p95 under 100 ms, p99 under 500 ms, errors under 1%).
+
 ### W6 squadrons
 
 - Done when: it holds a stream for its ship in each fleet it serves and calls `receive` on each wake, at open and every 5 minutes; reopens and stops as in W3; tested with in-memory ports and a fake stream.
