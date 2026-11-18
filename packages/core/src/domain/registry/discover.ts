@@ -6,14 +6,14 @@ import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { reaching, rulesInForceOf, shipAsItIs, type CheckReachTx } from './check-reach.js';
 import { allowsReach } from './network-settings.js';
 import type { LeaseRepository, ShipRepository, VerifiedFactsRepository } from './ports.js';
-import { discoveredStatementOf } from './statement.js';
+
 import { discoveredVerifiedOf, type WrittenFacts } from './verified-facts.js';
 
 export interface DiscoverTx {
   networkSettings: CheckReachTx['networkSettings'];
   ships: Pick<ShipRepository, 'find' | 'list' | 'listActive'>;
   labels: CheckReachTx['labels'];
-  leases: Pick<LeaseRepository, 'listOpenStatements'>;
+  leases: Pick<LeaseRepository, 'listOpenSummaries'>;
   declaredNetworkRules: CheckReachTx['declaredNetworkRules'];
   verifiedFacts: Pick<VerifiedFactsRepository, 'list'>;
 }
@@ -40,7 +40,7 @@ export function createDiscover(deps: { uow: UnitOfWork<DiscoverTx> }): Discover 
       const active = await tx.ships.listActive(fleetId);
       const callerShip = active.find((ship) => ship.id === caller.shipId);
       const sender = callerShip === undefined ? undefined : reaching(await shipAsItIs(tx, callerShip));
-      const crews = new Map((await tx.leases.listOpenStatements(fleetId)).map(({ shipId, stated }) => [shipId, stated]));
+      const crews = new Map((await tx.leases.listOpenSummaries(fleetId)).map(({ shipId, stated }) => [shipId, stated]));
       const verified = Map.groupBy(await tx.verifiedFacts.list(fleetId), (written: WrittenFacts) => written.shipId);
       // A writer may have retired since it wrote: its name is still the one it had.
       const shipNames = new Map((await tx.ships.list(fleetId)).map((ship) => [ship.id, ship.name]));
@@ -60,7 +60,7 @@ export function createDiscover(deps: { uow: UnitOfWork<DiscoverTx> }): Discover 
           type: ship.type,
           kind: ship.kind,
           status: isCrewed ? 'crewed' : 'awaitingCrew',
-          statement: discoveredStatementOf(ship, crews.get(ship.id) ?? null),
+          statement: summaryOf(ship.note, crews.get(ship.id) ?? null),
           verified: discoveredVerifiedOf(verified.get(ship.id) ?? [], shipNames),
         });
       }
@@ -75,4 +75,8 @@ function typesOf(ships: Discovered['ships']): Discovered['types'] {
     counts.set(ship.type, (counts.get(ship.type) ?? 0) + 1);
   }
   return [...counts].map(([type, reachable]) => ({ type, reachable }));
+}
+
+function summaryOf(note: string | null, stated: { version: number; statement: { summary: string } } | null): Discovered['ships'][number]['statement'] {
+  return stated === null ? (note === null ? null : { by: 'commission', note }) : { by: 'crew', version: stated.version, summary: stated.statement.summary };
 }

@@ -34,7 +34,7 @@ describe('the ship protocol', () => {
         "9. A ping (application/vnd.aeolus.ping): call pong with its deliveryId instead of ack. Don't act on it and don't reply.",
         '10. Report your status when it changes.',
         '11. Once crewed, state what your ship is and offers with setStatement: a summary and capabilities. Open your summary with one plain sentence that tells a person what this ship does for them, without jargon or ids; the rest of the summary may be written for other ships. State it again when that changes; it goes when your lease ends.',
-        '12. To find which ships and types you can send to now, and what each offers, call discover.',
+        '12. To find which ships and types you can send to now, and a summary of what each offers, call discover. For a chosen ship\'s full current statement, call lookup with its name or id and includeStatement: true before sending.',
         '13. No call waits: receive answers at once. While you wait for an answer and receive answers none, end your turn as rule 14 says; the answer waits for you.',
         '14. When your work is done and you expect no answer, end your turn. Anything that arrives later waits for you.',
         '15. Deregister only when this session ends for good, never between tasks.',

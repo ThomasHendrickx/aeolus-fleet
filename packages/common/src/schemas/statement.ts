@@ -111,7 +111,7 @@ export const setStatementInputSchema = statementSchema;
 export const setStatementOutputSchema = z.object({ version: z.int().min(1) });
 
 /**
- * A ship's statement as discovery shows it, saying who wrote it: its crew's,
+ * A ship's full statement with its source: its crew's,
  * with its version, while one is stated; else the note it was commissioned
  * with; else none.
  */
@@ -123,6 +123,11 @@ export const discoveredStatementSchema = z
   .nullable();
 
 export type DiscoveredStatement = z.infer<typeof discoveredStatementSchema>;
+
+export const discoveredSummarySchema = z.discriminatedUnion('by', [
+  z.object({ by: z.literal('crew'), version: z.int().min(1), summary: z.string() }),
+  z.object({ by: z.literal('commission'), note: z.string() }),
+]).nullable();
 
 /**
  * Output of `discover` (messages:send): the ships the caller may send to now,
@@ -137,7 +142,7 @@ export const discoverOutputSchema = z.object({
       type: z.string(),
       kind: shipKindSchema,
       status: shipStatusSchema,
-      statement: discoveredStatementSchema,
+      statement: discoveredSummarySchema,
       /** The facts actors checked about it, oldest first, each naming its writer (decision 0059). */
       verified: z.array(discoveredVerifiedFactSchema),
     }),
@@ -151,9 +156,10 @@ export type Discovered = z.infer<typeof discoverOutputSchema>;
 export const lookupInputSchema = z.strictObject({
   id: idSchema('ship').optional(),
   name: z.string().min(1).optional(),
+  includeStatement: z.boolean().optional(),
 }).refine((input) => (input.id === undefined) !== (input.name === undefined), 'Provide exactly one name or id');
 export type LookupInput = z.infer<typeof lookupInputSchema>;
 
-/** The approved header projection, null for every absent or invisible target. */
-export const lookupOutputSchema = z.object({ id: idSchema('ship'), name: z.string(), description: z.string().nullable() }).nullable();
+/** The header with optional full statement, null for every absent or invisible target. */
+export const lookupOutputSchema = z.object({ id: idSchema('ship'), name: z.string(), description: z.string().nullable(), statement: discoveredStatementSchema.optional() }).nullable();
 export type LookedUpShip = z.infer<typeof lookupOutputSchema>;

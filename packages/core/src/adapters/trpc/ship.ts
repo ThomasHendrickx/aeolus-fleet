@@ -878,7 +878,7 @@ export const shipRouter = router({
    * records nothing.
    */
   lookup: scopedProcedure('messages:send')
-    .meta({ description: 'Needs messages:send. Look up exactly one name or id in your current send reach. Answers only id, name and description, the crew summary first sentence or null without commission-note fallback. Missing, unreachable, self, viewer and retired targets answer null. No reply exception; records nothing.' })
+    .meta({ description: 'Needs messages:send. Look up exactly one name or id in your current send reach. Answers id, name and description; includeStatement: true also returns the full current statement with source/version (commission note or null if no crew statement). Description is the crew summary first sentence or null without commission-note fallback. Missing, unreachable, self, viewer and retired targets answer null. No reply exception; records nothing.' })
     .input(lookupInputSchema)
     .output(lookupOutputSchema)
     .query(async ({ ctx, input }) => okOrThrow(await ctx.useCases.lookup(ctx.caller, input))),
@@ -886,11 +886,11 @@ export const shipRouter = router({
   discover: scopedProcedure('messages:send')
     .meta({
       description: [
-        'Needs messages:send. Answers the ships you may send to now, as a send would be checked, each with its id, name, type, kind, status and statement,',
+        'Needs messages:send. Answers the ships you may send to now, as a send would be checked, each with its id, name, type, kind, status and statement summary (no capabilities),',
         "and each type with how many of its ships you reach. A statement is its crew's (by crew, with its version) while one is stated,",
         'else the note it was commissioned with (by commission), else null. Beside it, verified: the facts an actor checked about the ship, as its writer wrote them, each with by (its writer) and at,',
         'oldest first (decision 0059); the fleet checks nothing in them. You, the viewer and retired ships are left out.',
-        'It answers ships, never rules, and records nothing (decision 0047).',
+        'Use lookup with includeStatement: true for one chosen ship\'s full current statement. It answers ships, never rules, and records nothing (decision 0047).',
       ].join(' '),
     })
     .output(discoverOutputSchema)

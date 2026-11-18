@@ -536,12 +536,19 @@ export function createPrismaLeaseRepository(db: Db): LeaseRepository {
         WHERE fleet_id = ${fleetId} AND ship_id = ${shipId} AND ended_at IS NULL`;
       return z.object({ summary: z.string().nullable() }).parse(rows[0] ?? { summary: null }).summary;
     },
-    listOpenStatements: async (fleetId) => {
+    findOpenStatement: async (fleetId, shipId) => {
+      const rows = await db.$queryRaw<unknown[]>`SELECT statement, statement_version FROM leases WHERE fleet_id = ${fleetId} AND ship_id = ${shipId} AND ended_at IS NULL`;
+      return rows[0] === undefined ? null : toStatedStatement(rows[0]);
+    },
+    listOpenSummaries: async (fleetId) => {
       const rows = await db.$queryRaw<unknown[]>`
-        SELECT ship_id, statement, statement_version
+        SELECT ship_id, statement->>'summary' AS summary, statement_version
         FROM leases
         WHERE fleet_id = ${fleetId} AND ended_at IS NULL`;
-      return rows.map((row) => ({ shipId: toLeaseShipId(row), stated: toStatedStatement(row) }));
+      return rows.map((row) => {
+        const held = z.object({ summary: z.string().nullable(), statement_version: z.number().nullable() }).parse(row);
+        return { shipId: toLeaseShipId(row), stated: held.summary === null || held.statement_version === null ? null : { version: held.statement_version, statement: { summary: held.summary } } };
+      });
     },
     findTurnForUpdate: async (fleetId, leaseId) => {
       const [row] = await db.$queryRaw<unknown[]>`

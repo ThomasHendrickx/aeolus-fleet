@@ -77,9 +77,9 @@ async function restLookup(input: unknown, token = crewToken) {
 }
 
 describe('ship.lookup through REST and MCP (#1911)', () => {
-  it('answers the same narrow header through both doors', async () => {
-    const input = { name: 'ship-1' };
-    const expected = { id: shipIdOf(1), name: 'ship-1', description: 'Keeps ships!' };
+  it('answers requested full statements through REST and MCP', async () => {
+    const input = { name: 'ship-1', includeStatement: true };
+    const expected = { id: shipIdOf(1), name: 'ship-1', description: 'Keeps ships!', statement: { by: 'crew', version: 1, summary: 'Keeps ships! More detail.', capabilities: [] } };
     const client = new Client({ name: 'lookup-test', version: '1.0.0' });
     await client.connect(new StreamableHTTPClientTransport(new URL(`${address}/mcp`)));
     try {
@@ -101,10 +101,10 @@ describe('ship.lookup through REST and MCP (#1911)', () => {
   });
 
   it('uses current send scope and credentials, never read scope as a substitute', async () => {
-    const invalid = await restLookup({ name: 'ship-1' }, 'invalid');
+    const invalid = await restLookup({ name: 'ship-1', includeStatement: true }, 'invalid');
     await prisma.ship.update({ where: { id: targetId }, data: { scopes: ['fleet:read'] } });
     try {
-      const noSend = await restLookup({ name: 'ship-1' });
+      const noSend = await restLookup({ name: 'ship-1', includeStatement: true });
 
       expect(invalid.statusCode).toBe(401);
       expect(noSend.statusCode).toBe(403);
@@ -140,9 +140,11 @@ describe('ship.lookup through REST and MCP (#1911)', () => {
       await ships.find(fleetId, shipIdOf(1));
       await ships.findActiveByName(fleetId, 'ship-1');
       await leases.findOpenSummary(fleetId, shipIdOf(1));
+      await leases.findOpenStatement(fleetId, shipIdOf(1));
+      await leases.listOpenSummaries(fleetId);
       const reads = statements.filter(({ query }) => /^\s*SELECT/i.test(query));
 
-      expect(reads).toHaveLength(3);
+      expect(reads).toHaveLength(5);
       for (const statement of reads) {
         const plan = await assertIndexedPlan(prisma, statement);
         expect(plan).not.toMatch(/"Node Type": "Seq Scan"/);

@@ -50,7 +50,7 @@ The session calls `discover`. The fleet answers with the ships alpha may send to
 
 - its name, [type](words.md#ship-type) and [kind](words.md#kind) (such as an [agent](words.md#agent), a [person](words.md#person), a plugin or the [operator](words.md#operator)),
 - whether it is crewed or awaits crew,
-- its statement, saying who wrote it,
+- its statement summary, saying who wrote it and its version, with no capabilities,
 - and any facts an actor checked about it, each naming who wrote it.
 
 It answers a second list too: each type among those ships, with how many of the ships of that type alpha may reach. That tells alpha how many ships a send to a type could go to.
@@ -64,8 +64,10 @@ sequenceDiagram
     F-->>B: version 1
     A->>F: discover
     Note over F: each ship checked as a send<br/>from alpha would be, right now
-    F-->>A: ships, with statements, and types, with counts
-    Note over A: picks beta, then sends to it by name
+    F-->>A: ships, with summaries, and types, with counts
+    A->>F: lookup beta, includeStatement: true
+    F-->>A: full current statement
+    Note over A: sends to beta by name
 ```
 
 `discover` answers ships, never rules, and records nothing. It does not list alpha itself, the read-only [viewer](words.md#viewer) or a [retired](words.md#retire) ship. Then alpha sends to beta by name, or to the type, as in [Get two sessions talking](two-sessions.md).
@@ -76,9 +78,11 @@ The statement of each ship comes in one of three kinds:
 
 | It shows | What it means |
 | --- | --- |
-| The summary and capabilities, with a version, stated by its crew | The session crewing the ship said what it offers. |
+| The summary only, with a version, stated by its crew | The session crewing the ship said what it offers. |
 | The commission note, saying it is the note | No session has stated anything yet, so the line written at [commission](words.md#commission) stands in. |
 | None | Nothing was stated and the ship has no note. |
+
+For capabilities and their schemas, call `lookup` with exactly one `{ name }` or `{ id }` and `includeStatement: true`. Its `statement` is the complete current crew statement, with source and version, else the commission note or null. Reach is checked again under `messages:send`; an absent or unreachable ship answers null. Adding capabilities does not enlarge discovery.
 
 Read a statement as a claim. The fleet never checks that a ship does what it says.
 
