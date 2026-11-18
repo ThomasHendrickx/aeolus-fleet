@@ -57,6 +57,33 @@ describe('/api/analytics', () => {
     expect(server).toHaveBeenCalledWith(`${SERVER_URL}/trpc/console.session`, expect.objectContaining({ headers: { cookie: COOKIE } }));
   });
 
+  it('accepts a pageview from a signed-in fleet member with See the whole fleet', async () => {
+    // Given an account sign-in with fleet:read, validated by the fleet server.
+    const adapter = anAdapter();
+    const cookie = 'aeolus_account_token=account-token; theme=dark';
+    const server: typeof fetch = async () => Response.json({ result: { data: { kind: 'account', scopes: ['fleet:read'] } } });
+
+    // When the console posts its background pageview.
+    const response = await handleAnalytics(aRequest({ name: 'pageview', route: '/' }, cookie), { adapter, serverUrl: SERVER_URL, salt: fixedSalt, fetchImplementation: server });
+
+    // Then analytics succeeds without disclosing the account credential.
+    expect(response.status).toBe(204);
+    expect(adapter.captured).toEqual([{ event: { name: 'pageview', route: '/' }, sessionKind: 'account', distinctId: expect.stringMatching(/^[0-9a-f]{64}$/) }]);
+    expect(JSON.stringify(adapter.captured)).not.toContain('account-token');
+  });
+
+  it('rejects an account pageview when the fleet server refuses the sign-in', async () => {
+    // Given an account cookie that no longer grants a live sign-in.
+    const adapter = anAdapter();
+
+    // When the console posts its background pageview.
+    const response = await handleAnalytics(aRequest({ name: 'pageview', route: '/' }, 'aeolus_account_token=expired-token'), { adapter, serverUrl: SERVER_URL, salt: fixedSalt, fetchImplementation: aServer(undefined) });
+
+    // Then nothing reaches the analytics provider.
+    expect(response.status).toBe(401);
+    expect(adapter.captured).toEqual([]);
+  });
+
   it('drops an event outside the list, or with a property it may not carry', async () => {
     const adapter = anAdapter();
 
