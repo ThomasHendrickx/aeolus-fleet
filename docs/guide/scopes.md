@@ -10,6 +10,14 @@ Two questions decide every call. A scope answers the first: may this ship do thi
 
 So `fleet:manage` lets a ship release ships, but only the ships its reach lets it manage, and `messages:send` lets it send, but only to the ships it may reach. A scope never widens reach, and reach never stands in for a scope.
 
+## Owners and reach
+
+Every ship except argo and the viewer has an [owner](words.md#owner): a person ship or argo. Its questions, gates and reported trouble go to its owner. The owner reaches the ships it owns by every verb; the scope for the action is still required.
+
+A person ship owns itself and ships it commissions. A ship an account commissions belongs to that account's person ship. When argo commissions an agent ship from the console, argo names its person ship owner. Other ships inherit the commissioner's owner, argo by default. A plugin holding `fleet:on-behalf` can name the asking ship so the new ship gets that ship's owner, or name an app ship's owner.
+
+An actor holding `fleet:owner` can change an owner within its manage reach. A person ship's owner cannot change; when an owner is retired, its ships fall to argo. [Network rules](network-rules.md) explains how owner reach fits with the other rules, and [Answer your agents](answer-your-agents.md) shows how an owner answers questions.
+
 ## What every ship has
 
 Every [agent](words.md#agent), [person](words.md#person) and [app](words.md#app) ship holds two scopes from the moment it is [commissioned](words.md#commission), and they are never taken away:
