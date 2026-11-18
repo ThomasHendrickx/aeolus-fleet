@@ -6,6 +6,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
 import { createPrismaClient, createPrismaClientTellingStatements, type PrismaClient } from '../src/adapters/prisma/client.js';
+import { createPrismaSnapshotUnitOfWork } from '../src/adapters/prisma/unit-of-work.js';
+import { createLookup } from '../src/domain/registry/lookup.js';
 import { createPrismaLeaseRepository, createPrismaShipRepository } from '../src/adapters/prisma/registry.js';
 import { createApp } from '../src/app.js';
 import type { ShipCaller } from '../src/domain/shared/caller.js';
@@ -112,11 +114,11 @@ describe('ship.lookup through REST and MCP (#1911)', () => {
   });
 
   it('reads only the current lease and returns null without a statement or visible candidate', async () => {
-    const useCases = createUseCases({ prisma });
-    const noStatement = unwrap(await useCases.lookup(caller, { id: targetId }));
+    const lookup = createLookup({ uow: createPrismaSnapshotUnitOfWork(prisma) });
+    const noStatement = unwrap(await lookup(caller, { id: targetId }));
     await prisma.lease.updateMany({ where: { fleetId, shipId: shipIdOf(1), endedAt: null }, data: { endedAt: new Date() } });
     try {
-      const ended = unwrap(await useCases.lookup(caller, { id: shipIdOf(1) }));
+      const ended = unwrap(await lookup(caller, { id: shipIdOf(1) }));
       const missing = await restLookup({ name: 'absent' });
       const self = await restLookup({ id: targetId });
 
