@@ -4,7 +4,7 @@ import { JoinMachineDialog } from './join-machine-dialog';
 import { NewSetupLineDialog } from './new-setup-line-dialog';
 
 export default { title: 'Mockups/SecretStdin', parameters: { layout: 'fullscreen' } };
-const before = JOINED.setupLine;
+const before = 'curl -fsSL https://raw.githubusercontent.com/ThomasHendrickx/aeolus-fleet-trierarch/main/install.sh | sh -s -- --fleet-url https://fleet.example.com --ship-id shp_01j9k2t4qzr3a9w6m2v5n7trnw --secret aeolus_sk_v1_example';
 const after = "bash <(curl -fsSL https://raw.githubusercontent.com/ThomasHendrickx/aeolus-fleet-trierarch/main/install.sh) --fleet-url https://fleet.example.com --ship-id shp_01j9k2t4qzr3a9w6m2v5n7trnw --secret-stdin <<< 'aeolus_sk_v1_example'";
 const noop = () => {};
 function join(line, complete = false) {

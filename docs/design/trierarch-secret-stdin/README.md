@@ -1,6 +1,6 @@
 # Trierarch setup line: secret on stdin
 
-Proposed mockups for [aeolus-fleet-trierarch #269](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/issues/269), following the owner’s decision on card 0f8e9bd8, option 1. No console build changes.
+Approved mockups for [aeolus-fleet-trierarch #269](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/issues/269), following the owner’s decision on card 684abbe4, option 1. The console displays and copies the plugin’s setup line unchanged; its dialog stories cover the approved line and copy feedback.
 
 The line passes the ship secret to install.sh on stdin with `--secret-stdin`. Bash reads the script through process substitution, leaving stdin for the secret. A here-string supplies the secret without putting it in a process argument. The installer must pass it onward to `aeolus-trierarch init --secret-stdin` on stdin too. The old `--secret` option is removed, as permitted by decision 0013.
 
@@ -139,6 +139,6 @@ cp docs/design/trierarch-secret-stdin/preview.jsx packages/console/features/trie
 npm run storybook --workspace @aeolus-fleet/console -- --port 6029 --ci
 ```
 
-In another terminal run `node docs/design/trierarch-secret-stdin/capture.mjs`. Remove the temporary story after capture. The JSX harness is documentation only and is not part of the console build.
+In another terminal run `node docs/design/trierarch-secret-stdin/capture.js`. Remove the temporary story after capture. The JSX harness is documentation only and is not part of the console build.
 
 The capture checks each dialog at 375, 1440 and 1920 in light and dark: rendered line, exact clipboard contents, visible Copied feedback, and visible clipboard-failure guidance. These checks do not execute installation or prove the future installer’s stdin implementation.

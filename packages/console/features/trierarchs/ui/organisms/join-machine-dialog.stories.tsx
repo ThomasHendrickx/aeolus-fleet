@@ -178,13 +178,16 @@ export const InvalidFolder: Story = {
 
 const COMPLETE_INPUT: JoinMachineInput = { name: 'trierarch-new', harnesses: ['claude-code', 'codex'], unattended: ['claude-code'], repositories: { kind: 'list', entries: ['~/code/web', '~/code/api', 'git@github.com:acme/docs.git'] } };
 const JOINED_ASKS = { ...JOINED, setupLine: JOINED.setupLine.replace(' --secret', ' --plugin-ship-id shp_01j9k2t4qzr3a9w6m2v5n7plgn --secret') };
-const JOINED_COMPLETE = { ...JOINED_ASKS, setupLine: `${JOINED_ASKS.setupLine} --harnesses claude-code,codex --unattended claude-code --repositories '~/code/web,~/code/api,git@github.com:acme/docs.git'` };
+const JOINED_COMPLETE = { ...JOINED_ASKS, setupLine: JOINED_ASKS.setupLine.replace(' --secret-stdin', " --harnesses claude-code,codex --unattended claude-code --repositories '~/code/web,~/code/api,git@github.com:acme/docs.git' --secret-stdin") };
 const STDIN_ASKS = "bash <(curl -fsSL https://raw.githubusercontent.com/ThomasHendrickx/aeolus-fleet-trierarch/main/install.sh) --fleet-url https://fleet.example.com --ship-id shp_01j9k2t4qzr3a9w6m2v5n7trnw --plugin-ship-id shp_01j9k2t4qzr3a9w6m2v5n7plgn --secret-stdin <<< 'aeolus_sk_v1_example'";
 const STDIN_COMPLETE = "bash <(curl -fsSL https://raw.githubusercontent.com/ThomasHendrickx/aeolus-fleet-trierarch/main/install.sh) --fleet-url https://fleet.example.com --ship-id shp_01j9k2t4qzr3a9w6m2v5n7trnw --plugin-ship-id shp_01j9k2t4qzr3a9w6m2v5n7plgn --harnesses claude-code,codex --unattended claude-code --repositories '~/code/web,~/code/api,git@github.com:acme/docs.git' --secret-stdin <<< 'aeolus_sk_v1_example'";
 
+const writeClipboard = fn<(value: string) => Promise<void>>().mockResolvedValue(undefined);
+
 function clipboardWorks() {
   const clipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
-  Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: fn(async () => undefined) } });
+  writeClipboard.mockClear();
+  Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: writeClipboard } });
   return () => {
     if (clipboard === undefined) Reflect.deleteProperty(navigator, 'clipboard');
     else Object.defineProperty(navigator, 'clipboard', clipboard);
@@ -203,7 +206,7 @@ export const AfterJoinedComplete: Story = {
     // When the plugin answers with its setup line.
     await expect(line.textContent).toBe(STDIN_COMPLETE);
     await userEvent.click(screen.getByTestId('join-machine-setup-line-copy'));
-    await expect(navigator.clipboard.writeText).toHaveBeenCalledWith(STDIN_COMPLETE);
+    await expect(writeClipboard).toHaveBeenCalledWith(STDIN_COMPLETE);
     await expect(screen.getByTestId('join-machine-setup-line-copy')).toHaveTextContent('Copied');
     // Then setup is explained before the line, even when options came from the console.
     await waitFor(async () => { await expect(screen.getByText('This installs the trierarch, which runs agent sessions on this computer. Setup explains permissions, workspaces, limits and starting the background service. If your line uses npm, npm may first ask to download the trierarch package; that confirmation installs the package and does not answer the setup choices.')).toBeVisible(); });
@@ -223,7 +226,7 @@ export const AfterJoinedAsks: Story = {
     // When the plugin answers.
     await expect(line.textContent).toBe(STDIN_ASKS);
     await userEvent.click(screen.getByTestId('join-machine-setup-line-copy'));
-    await expect(navigator.clipboard.writeText).toHaveBeenCalledWith(STDIN_ASKS);
+    await expect(writeClipboard).toHaveBeenCalledWith(STDIN_ASKS);
     await expect(screen.getByTestId('join-machine-setup-line-copy')).toHaveTextContent('Copied');
     // Then the approved introduction explains the purpose, choices and npm confirmation before running setup.
     await waitFor(async () => { await expect(screen.getByText('This installs the trierarch, which runs agent sessions on this computer. Setup explains permissions, workspaces, limits and starting the background service. If your line uses npm, npm may first ask to download the trierarch package; that confirmation installs the package and does not answer the setup choices.')).toBeVisible(); });
