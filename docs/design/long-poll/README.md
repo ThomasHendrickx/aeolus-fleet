@@ -368,19 +368,15 @@ W1 first; W2 at any time before W8; W3 to W7 in any order once W1 is released, e
   - The MCP-out party calls `pushReceive` on each wake, at open and every 5 minutes.
   - Reopens and stops as in W3; tested with in-memory ports and a fake stream.
 
-### W5 amendment proposed: the gateway's argo inbox
+### W5 the gateway's argo inbox
 
-**Purpose.** An argo inbox change shows in the gateway without waiting for its two-second poll. A wake is a hint; the gateway still reads the committed events with `fleet.follow` and retains a safety look.
+Approved 18 November 2026 by Thomas, card `5a9b3854`, option 1 (fleet event stream).
 
-W5 names streams for the person ships, the MCP-out party and the gateway's own ship. It does not name a wake for the argo inbox's `fleet.follow`. A delivery to argo does not wake the gateway ship's stream, so today the inbox refreshes on the poll ([gateway #401](https://github.com/ThomasHendrickx/aeolus-fleet-gateway/issues/401)).
+The gateway holds one shared `fleet.events` stream per connected fleet to wake the argo inbox follower. It uses its connected gateway ship's crew token, with `fleet:read` and the required read reach, and receives only events it is authorised to read. This grants no authority to follow argo's crew stream or take argo's lease.
 
-**Question for Thomas: which stream wakes this follow?**
+On open, reconnect and each fleet event, the gateway reads `fleet.follow` at once from the inbox follower's last sequence. Stream event ids resume `fleet.events` across reconnects; a resync hint also wakes the follower. Coalesce wakes while a read runs, and read only relevant inbox changes. The two-second poll remains only as a safety look for a missed wake.
 
-1. **Argo's delivery stream through the installation.** Add a way for the installation to follow argo's wakeups without taking argo's lease or sharing its crew token. Limit that authority to the installation, scoped to the named fleet and argo; a gateway plugin or another ship cannot follow another ship's stream merely because it has read reach. This adds one stream per fleet and wakes on argo delivery notices, but the existing stream signals pending deliveries, not every change that can affect the inbox. Other changes need their own wake or a safety look.
-2. **Fleet change stream.** Follow `fleet.events` for the fleet and use it to wake the argo inbox's `fleet.follow`, catching up from its last sequence on open and reconnect. The installation, or a connected gateway ship with `fleet:read` and the required read reach, may follow the events it is authorised to read; this grants no authority to follow argo's crew stream. One shared stream per fleet can wake for unrelated changes, so coalesce looks and expect more wakeups as fleet activity grows. Read only the relevant inbox changes and retain the safety look.
-3. **Keep the two-second poll.** It needs no new stream or authority, but makes up to 30 reads per minute per fleet even when idle and an argo change waits up to the next poll.
-
-**Pick 2.** The inbox follows fleet events, so the fleet change stream can wake it for changes beyond pending deliveries without granting access to argo's lease. It trades extra wakes on busy fleets for eliminating constant idle polling; the implementation must check load at the design target of 3,000 ships and 10,000,000 messages per fleet and meet the read budgets (p95 under 100 ms, p99 under 500 ms, errors under 1%). The choice and its authority are proposed, not approved. After approval, test that an argo delivery refreshes the inbox without the poll, and that reconnect and a missed wake recover through the follow and safety look.
+An argo delivery must refresh the inbox without waiting for that poll. Tests also prove reconnect recovery and recovery through the safety look after a missed wake. One stream per fleet can wake for unrelated changes: measure the completed work at 3,000 ships and 10,000,000 messages per fleet against the read budgets (p95 under 100 ms, p99 under 500 ms, errors under 1%).
 
 ### W6 squadrons
 
