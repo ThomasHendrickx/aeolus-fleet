@@ -1,7 +1,7 @@
 import { createIdGenerator, type Party, type ShipDetail, type TimelineEntry } from '@aeolus-fleet/common';
 import { describe, expect, it } from 'vitest';
 
-import { crewRequestAction, crewRequestStage, isRestartable, releaseSteps, requestedBy, restartWords, statusChangedAt, type CrewRequestStage } from './crew-request';
+import { crewRequestAction, crewRequestStage, isRestartable, releaseSteps, restartWords, statusChangedAt, type CrewRequestStage } from './crew-request';
 
 type CrewRequest = NonNullable<ShipDetail['crewRequest']>;
 
@@ -98,21 +98,6 @@ describe('releaseSteps', () => {
 
   it('only removes an assigned request: its trierarch releases the ship', () => {
     expect(releaseSteps({ kind: 'assigned', requestedAt: REQUESTED_AT, trierarch: TRIERARCH, status: 'running', attempt: 0, startedAt: null })).toEqual(['removeCrewRequest']);
-  });
-});
-
-describe('requestedBy', () => {
-  it('is the actor of the latest CrewRequested event', () => {
-    const timeline = [
-      anEvent({ type: 'CrewAssigned', occurredAt: '2026-10-07T10:22:00.000Z', actor: TRIERARCH }),
-      anEvent({ type: 'CrewRequested', occurredAt: '2026-10-07T10:21:00.000Z', actor: ARGO }),
-      anEvent({ type: 'CrewRequested', occurredAt: '2026-10-07T10:20:00.000Z', actor: TRIERARCH }),
-    ];
-    expect(requestedBy(timeline)).toEqual(ARGO);
-  });
-
-  it('is null when the timeline holds no request', () => {
-    expect(requestedBy([])).toBeNull();
   });
 });
 

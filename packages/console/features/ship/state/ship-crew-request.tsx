@@ -7,7 +7,7 @@ import { shipLoginOf } from '../../../lib/api-key-logins';
 import { usageLinkOf } from '../../../lib/usage-link';
 import { lazyDialog } from '../../../lib/lazy-dialog';
 import { useAccess } from '../../../lib/access';
-import { crewRequestStage, releaseSteps, requestedBy, statusChangedAt, type CrewRequestStage } from '../../../lib/crew-request';
+import { crewRequestStage, releaseSteps, statusChangedAt, type CrewRequestStage } from '../../../lib/crew-request';
 import { settingsRows } from '../../../lib/crew-settings-form';
 import { useGetStartingPrompt, useLabelContext, useReleaseShip, useRemoveCrewRequest, useRequestCrew } from '../../../lib/fleet';
 import { pickedChips } from '../../../lib/labels';
@@ -135,7 +135,7 @@ export function ShipCrewRequest({ ship, timeline, now }: { ship: ShipDetail; tim
     <>
       <CrewRequestCard
         stage={stage}
-        requestedBy={requestedBy(timeline)}
+        requestedBy={request?.requestedBy ?? null}
         statusChangedAt={statusChangedAt(timeline)}
         now={now}
         canManage={access.canManage}

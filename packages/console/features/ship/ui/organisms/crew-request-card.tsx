@@ -20,7 +20,7 @@ export type CrewRequestBusy = 'request' | 'remove' | 'restart' | undefined;
 
 interface CrewRequestCardProps {
   stage: CrewRequestStage;
-  /** Who asked for it: the actor of its latest CrewRequested event; null while unknown. */
+  /** Who asked for it, as recorded on the request; null while unknown. */
   requestedBy: Party | null;
   /** When its crew status last changed: when it stopped, crashed or was asked to release. */
   statusChangedAt?: string;
