@@ -177,6 +177,7 @@ describe('the ship calls at /api/v1', () => {
       '/ship/turn',
       '/ship/reportLog',
       '/ship/setStatement',
+      '/ship/lookup',
       '/ship/discover',
       '/ship/sentMessage',
       '/ship/delivery',
