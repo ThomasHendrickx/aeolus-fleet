@@ -1290,7 +1290,7 @@ describe('a ship argo commissions from the console, owned by the person ship it 
 
 
 describe('installation plugin commissioning for hosted provisioning (design installation-connect Q3)', () => {
-  it.each(['crew:assign', 'crew:run', 'fleet:network', 'fleet:alert'] as const)('lets the authenticated installation commission a plugin with %s', async (scope) => {
+  it.each(['crew:assign', 'crew:run', 'fleet:alert'] as const)('lets the authenticated installation commission a plugin with %s', async (scope) => {
     // Given the installation authenticated in a fleet it hosts.
     const installation = unwrap(await identityUseCases(core).authenticateInstallation({ fleetId }));
 
@@ -1302,7 +1302,7 @@ describe('installation plugin commissioning for hosted provisioning (design inst
     expect(shipsNamed('hosted-plugin')[0]).toMatchObject({ id: shipId, kind: 'plugin', scopes: ['messages:send', 'messages:receive', scope], commission: { by: { kind: 'installation' } } });
   });
 
-  it.each(['scopes:grant', 'fleet:owner'] as const)('refuses the authenticated installation a plugin scope outside its list: %s', async (scope) => {
+  it.each(['scopes:grant', 'fleet:owner', 'fleet:network'] as const)('refuses the authenticated installation a plugin scope outside its list: %s', async (scope) => {
     // Given the same authenticated installation, without blanket grant authority.
     const installation = unwrap(await identityUseCases(core).authenticateInstallation({ fleetId }));
 
