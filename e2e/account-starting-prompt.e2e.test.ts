@@ -1,4 +1,4 @@
-import type { FleetId } from '@aeolus-fleet/common';
+import { accountIdSchema, idSchema, type FleetId } from '@aeolus-fleet/common';
 import type { FastifyInstance } from 'fastify';
 import type { Browser, BrowserContext, Page } from 'playwright';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -8,6 +8,7 @@ import { createApp } from '../packages/core/src/app.js';
 import { createMigratedDatabase } from '../packages/core/src/testing/database.js';
 import { unwrap } from '../packages/core/src/testing/result.js';
 import { createUseCases } from '../packages/core/src/wiring.js';
+import { aCrewSettings } from '../packages/core/test/support/crew-fixtures.js';
 import { FLEET_URL, OPERATOR } from '../packages/core/test/support/core-fixtures.js';
 import { openRowMenu } from './support/console.js';
 import { startFakePagasae, type FakePagasae } from './support/fake-pagasae.js';
@@ -64,6 +65,29 @@ async function mathildesPage(): Promise<Page> {
 }
 
 describe('a person and the agent ship they commissioned', () => {
+  it('shows the requester on a crew request made by an account', async () => {
+    // Given a ship commissioned by the signed-in account.
+    const page = await mathildesPage();
+    await page.getByTestId('fleet-commission').click();
+    const commission = page.getByTestId('commission-dialog');
+    await commission.getByTestId('commission-name').fill('account-request');
+    await commission.getByTestId('commission-type').fill('writer');
+    await commission.getByTestId('commission-submit').click();
+    await page.getByTestId('starting-prompt-dialog').getByRole('button', { name: 'Done' }).click();
+    await page.getByRole('link', { name: 'account-request', exact: true }).click();
+    await page.waitForURL('**/ships/shp_*');
+    const shipId = idSchema('ship').parse(new URL(page.url()).pathname.split('/').at(-1));
+    const ship = await database.ship.findFirstOrThrow({ where: { fleetId, id: shipId } });
+
+    // When the account requests crew.
+    const caller = { kind: 'account' as const, accountId: accountIdSchema.parse('acc-mathilde'), fleetId, scopes: ['fleet:manage'], groupValues: [], personShipId: ship.ownerShipId === null ? null : idSchema('ship').parse(ship.ownerShipId), throughShipId: null };
+    unwrap(await createUseCases({ prisma: database }).requestCrew(caller, { shipId, settings: aCrewSettings() }));
+    await page.reload();
+
+    // Then the request names argo as "you", as the existing line does.
+    await expect.poll(() => page.getByTestId('crew-request-requested-by').textContent()).toContain('Requested by you');
+  });
+
   it('gets a new starting prompt for it from its row, which stops the one shown at commission', async () => {
     const page = await mathildesPage();
     await page.getByTestId('fleet-commission').click();

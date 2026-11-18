@@ -92,15 +92,6 @@ export function releaseSteps(stage: CrewRequestStage): readonly ('removeCrewRequ
   return stage.kind === 'crewedByHand' ? ['removeCrewRequest', 'release'] : ['removeCrewRequest'];
 }
 
-/**
- * Who asked for the ship's crew request: the actor of its latest
- * CrewRequested event, from the timeline, newest first. No stored field
- * holds it. Null when the timeline holds none or the system wrote it.
- */
-export function requestedBy(timeline: readonly TimelineEntry[]): Party | null {
-  return timeline.find((entry) => entry.type === 'CrewRequested')?.actor ?? null;
-}
-
 /** When the crew's status last changed, from the timeline, newest first: when it crashed or was asked to release. */
 export function statusChangedAt(timeline: readonly TimelineEntry[]): string | undefined {
   return timeline.find((entry) => entry.type === 'CrewStatusChanged')?.occurredAt;
