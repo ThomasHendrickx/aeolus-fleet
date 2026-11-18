@@ -41,6 +41,20 @@ function crewRequestOf(shipId: ShipId) {
 }
 
 describe('requesting a crew for a ship', () => {
+  it('accepts empty settings for a crew by hand and leaves the request listed (#1946)', async () => {
+    // Given scout has no crew request and no trierarch plugin is installed
+    // When argo requests a crew without settings
+    const result = await registry.requestCrew(argo, { shipId: scoutId, settings: {} });
+
+    // Then the request is stored unchanged and listed for the user to pick up
+    expect(result).toEqual({ isOk: true, value: { settingsVersion: 1 } });
+    expect(crewRequestOf(scoutId)).toMatchObject({ settings: {}, settingsVersion: 1, assignedTo: null, requestedBy: argoId });
+    const listed = wholeShips((await registry.listFleet(argo)).ships).find((ship) => ship.id === scoutId);
+    expect(listed?.crewRequest).toMatchObject({ settingsVersion: 1, assignedTo: null });
+    await expect(registry.getShip(argo, { shipId: scoutId })).resolves.toMatchObject({ value: { crewRequest: { settings: {} } } });
+    expect(core.state.events).toEqual([expect.objectContaining({ type: 'CrewRequested', shipId: scoutId, details: { settingsVersion: 1 } })]);
+  });
+
   it('keeps the request on the ship with its settings, at settings version 1', async () => {
     await expect(registry.requestCrew(argo, { shipId: scoutId, settings })).resolves.toEqual({ isOk: true, value: { settingsVersion: 1 } });
 
