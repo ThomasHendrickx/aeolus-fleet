@@ -1,3 +1,4 @@
+import { createLookup } from '../../src/domain/registry/lookup.js';
 import { createReadInstallationJourneys } from '../../src/domain/registry/read-installation-journeys.js';
 import { randomUUID } from 'node:crypto';
 import { createCallPlugin } from '../../src/domain/registry/call-plugin.js';
@@ -363,6 +364,7 @@ export function registryUseCases(core: InMemoryCore) {
     readLastNamedOwner: createReadLastNamedOwner({ ships: core.ships }),
     report: createReport({ uow: core.uow, clock: core.clock, ids: core.ids }),
     setStatement: createSetStatement({ uow: core.uow, clock: core.clock, ids: core.ids }),
+    lookup: createLookup({ uow: core.uow }),
     discover: createDiscover({ uow: core.uow }),
     reportTurn: createReportTurn({ uow: core.uow, clock: core.clock, ids: core.ids }),
     reportLog: createReadReportLog({ leases: core.leases }),

@@ -67,6 +67,7 @@ const SHIP_TOOLS = [
   'turn',
   'reportLog',
   'setStatement',
+  'lookup',
   'discover',
   'sentMessage',
   'delivery',

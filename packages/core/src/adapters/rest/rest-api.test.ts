@@ -197,6 +197,7 @@ describe('the OpenAPI spec at /api/v1/openapi.json', () => {
       ['/ship/turn', ['post']],
       ['/ship/reportLog', ['get']],
       ['/ship/setStatement', ['post']],
+      ['/ship/lookup', ['post']],
       ['/ship/discover', ['get']],
       ['/ship/sentMessage', ['post']],
       ['/ship/delivery', ['post']],

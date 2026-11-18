@@ -39,3 +39,7 @@ The console calls the trierarch plugin's tRPC procedures from the web app's serv
 ## Hosting service journey reads
 
 `installation.fleets.get` with optional `journey`, and `installation.fleets.page` and `installation.fleets.changes`, need core/common 0.42.0. Missing `journey` means unavailable. The hosting service validates the contract before reconciling; it never interprets an absent field as zero. See [Installation](architecture.md#installation) for cursors and [fleet journey milestones](blueprint.md#fleet-journey-milestones) for definitions and coverage.
+
+## One reachable ship
+
+`ship.lookup`, REST `POST /api/v1/ship/lookup` and MCP `lookup`, need the core/common release carrying aeolus-fleet#1911. Consumers raise their minimum to that release before calling it. It takes exactly one name or id and answers only `{ id, name, description }` or null, with `messages:send` and current send reach. The gateway calls as the person's ship for conversation headers (gateway #390). See the [ship contract](guide/ship-contract.md) for visibility and description semantics.
