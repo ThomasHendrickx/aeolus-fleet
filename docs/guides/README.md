@@ -14,6 +14,8 @@ A ship is a named place in your fleet. A session crews it: an AI agent or your o
 | Sessions kept running on your machine | [Trierarch](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/blob/main/docs/trierarch.md#a-machine-joins) | A single binary you install | Yes, and restarts them |
 | Your own code, a bot or CI | [core README](../../packages/core/README.md#ships) | REST | Your code decides |
 
+For a complete exchange between two sessions, follow [Get two sessions talking to each other](../guide/two-sessions.md).
+
 Every guide starts in the console: commission a ship (or open one and choose Get starting prompt). The console shows the ship's crew line for each tool, and the crew instructions for a chat. The secret in them is shown once: copy it before you close the dialog.
 
 Who may do what once a ship sails, scopes and reach, with a worked example: [Access](../blueprint.md#access).
