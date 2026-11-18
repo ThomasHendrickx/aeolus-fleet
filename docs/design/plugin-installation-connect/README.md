@@ -65,9 +65,9 @@ The routers beside these use cases are the installation API sources. Their delet
 
 **Pick: leave each plugin's minimum unchanged for the new endpoint, but gate the account slice on sufficient installation authority.** The endpoint itself uses no new core call. All four together already require at least core 0.42.0 because trierarch does.
 
-Core 0.41.0 shipped the gateway hand-over authority. Current [INSTALLATION_SCOPES](../../../packages/core/src/domain/identity/authenticate-installation.ts) still lacks `crew:assign`, `crew:run`, `fleet:network`, `fleet:alert`, and `scopes:grant`. Thus 0.42.0 is a lower bound, **not a claim that current core can provision all four**. Ordinary commission's subset rule blocks trierarch, networking and watch. Core's built-in manage reach already covers plugin ships the installation commissioned.
+The installation holds `crew:assign`, `crew:run`, `fleet:network` and `fleet:alert` in its fixed [scopes](../../../packages/core/src/domain/identity/authenticate-installation.ts), so it can commission plugin ships with those operational scopes. Its built-in manage reach covers plugin ships it commissioned. These scopes also let the installation directly call crew assignment and explanation, alerts and network rules.
 
-Proposed prerequisite for approval: extend the installation's fixed scopes with the four missing operational scopes, using the existing catalogue and checks. Do not grant it every scope. Follow the approved gateway flow for existing ships: reuse one with sufficient scopes; show `MISSING_SCOPES` for a deficient one, repaired through the existing console. Automatic scope repair would additionally require `scopes:grant` and wider authority; it is not part of this pick. Record the first core release with the four grants as the account app's actual minimum before building its slice; no version number is assigned in this design.
+Follow the approved gateway flow for existing ships: reuse one with sufficient scopes; show `MISSING_SCOPES` for a deficient one, repaired through the existing console. Automatic scope repair would additionally require `scopes:grant` and wider authority; it is not part of this pick. Record the first core release with the four grants as the account app's actual minimum before building its slice.
 
 ### Q4. In what slices?
 
@@ -75,7 +75,7 @@ Proposed prerequisite for approval: extend the installation's fixed scopes with 
 
 Each plugin slice proves token rejection, strict input, off-before-replay, success/restart replay, request-id collision, retry after refusal, fleet mismatch, missing scopes, concurrent hand-overs retaining one connection, and off/on retention. Include its existing post-save effects and delete behavior in the relevant checks. Only touched tests run locally; CI judges the rest. Production changes follow test-only `(red)` commits.
 
-The core authority prerequisite in Q3 needs its own approved core change/release before the account slice; it is not hidden in a plugin PR. The account slice pins released plugin endpoints and the resulting core minimum, extends the gateway provisioning path to every enabled plugin, and proves a new fleet, partial failure/retry, retained form/fleet, off/on, and no duplicate ships. It supplies the missing hosted onboarding M10/M11 and full A7/Q8 evidence. No implementation belongs to this docs PR.
+The plugin slices are being built. The account slice needs a core release containing the authority in Q3. The account slice pins released plugin endpoints and the resulting core minimum, extends the gateway provisioning path to every enabled plugin, and proves a new fleet, partial failure/retry, retained form/fleet, off/on, and no duplicate ships. It supplies the missing hosted onboarding M10/M11 and full A7/Q8 evidence.
 
 ### Q5. What retries and which fleets?
 
@@ -83,7 +83,7 @@ The core authority prerequisite in Q3 needs its own approved core change/release
 
 Use stable request ids per operation/plugin/fleet/ship, with separate ids for switch and commission. Keep ids and progress, never secrets. On transport failure read current state, then retry; on secret refusal get a fresh starting prompt. Surface lasting authority/type/fleet failures beside the provisioning result or switch; keep names and the same fleet for retry. A plugin error does not undo the fleet or successful connections. Ready means every enabled plugin answers connected, not merely that its switch was saved.
 
-## Full flow proposed for approval
+## Full flow
 
 ```mermaid
 flowchart TD
