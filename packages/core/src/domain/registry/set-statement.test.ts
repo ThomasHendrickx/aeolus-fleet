@@ -38,7 +38,7 @@ describe("a crew's statement (decision 0047)", () => {
   it('is kept with the lease at version 1, and read with the ship', async () => {
     expect(unwrap(await registry.setStatement(reviewer, REVIEWS))).toEqual({ version: 1 });
 
-    await expect(discoveredReviewer()).resolves.toEqual({ by: 'crew', version: 1, ...REVIEWS });
+    await expect(discoveredReviewer()).resolves.toEqual({ by: 'crew', version: 1, summary: REVIEWS.summary });
   });
 
   it('writes StatementSet with the lease, the version and how many capabilities, never the statement', async () => {
@@ -68,7 +68,7 @@ describe("a crew's statement (decision 0047)", () => {
     const plans: Statement = { summary: 'Plans slices.', capabilities: [] };
 
     expect(unwrap(await registry.setStatement(reviewer, plans))).toEqual({ version: 2 });
-    await expect(discoveredReviewer()).resolves.toEqual({ by: 'crew', version: 2, ...plans });
+    await expect(discoveredReviewer()).resolves.toEqual({ by: 'crew', version: 2, summary: plans.summary });
   });
 
   it('is refused once the lease has ended', async () => {
