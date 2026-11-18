@@ -12,11 +12,7 @@ So `fleet:manage` lets a ship release ships, but only the ships its reach lets i
 
 ## Owners and reach
 
-Every ship except argo and the viewer has an [owner](words.md#owner): a person ship or argo. Its questions, gates and reported trouble go to its owner. The owner reaches the ships it owns by every verb; the scope for the action is still required.
-
-A person ship owns itself and ships it commissions. A ship an account commissions belongs to that account's person ship. When argo commissions an agent ship from the console, argo names its person ship owner. Other ships inherit the commissioner's owner, argo by default. A plugin holding `fleet:on-behalf` can name the asking ship so the new ship gets that ship's owner, or name an app ship's owner.
-
-An actor holding `fleet:owner` can change an owner within its manage reach. A person ship's owner cannot change; when an owner is retired, its ships fall to argo. [Network rules](network-rules.md) explains how owner reach fits with the other rules, and [Answer your agents](answer-your-agents.md) shows how an owner answers questions.
+The [owner](words.md#owner) and the [Owner built-in rule](network-rules.md#the-built-in-rules) affect reach; the scope for an action is still required. See the [blueprint's Owners paragraph](../blueprint.md#access) and [how an owner is chosen](commission-and-crew.md#commission-a-ship).
 
 ## What every ship has
 
@@ -52,7 +48,7 @@ Beyond those two, the fleet offers these. Each is `<namespace>:<action>`, and co
 | `fleet:manage` | Rename, [release](words.md#release), [re-crew](words.md#recrew) and [retire](words.md#retire) the ships it manages; read their starting prompts, ping them, ask for and remove a [crew request](words.md#crew-request), clear a worktree, set expectations, and manage schedules. |
 | `fleet:owner` | Change the [owner](words.md#owner) of the ships it manages. |
 | `fleet:person` | Commission person ships, each for an [account](words.md#account) and owning itself. |
-| `fleet:on-behalf` | For a plugin: read on behalf of a named ship, with that ship's reach, and name the asking ship's owner when it commissions. With `fleet:commission` it also commissions app ships. |
+| `fleet:on-behalf` | For a plugin: read on behalf of a named ship, with that ship's reach, and name the asking ship when it commissions. With `fleet:commission` it also commissions app ships. |
 | `fleet:explain` | Explain why one ship reaches another or not, and read the refusals of the ships it reads. |
 | `fleet:verify` | Write and withdraw its verified facts about the ships it manages. |
 | `fleet:alert` | Raise and clear [alerts](words.md#alert) on the ships it reads. |
