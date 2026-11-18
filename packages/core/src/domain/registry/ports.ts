@@ -251,8 +251,10 @@ export interface LeaseRepository {
   saveStatement(change: { fleetId: FleetId; leaseId: LeaseId; stated: StatedStatement }): Promise<void>;
   /** Only one ship's current crew summary, without a commission-note fallback. */
   findOpenSummary(fleetId: FleetId, shipId: ShipId): Promise<string | null>;
-  /** Every open lease of the fleet by its ship, with the statement it holds. */
-  listOpenStatements(fleetId: FleetId): Promise<{ shipId: ShipId; stated: StatedStatement | null }[]>;
+  /** Every open lease of the fleet by its ship, with only its summary and version. */
+  listOpenSummaries(fleetId: FleetId): Promise<{ shipId: ShipId; stated: { version: number; statement: { summary: string } } | null }[]>;
+  /** One ship's whole current statement, only after checking send reach. */
+  findOpenStatement(fleetId: FleetId, shipId: ShipId): Promise<StatedStatement | null>;
   /** The open lease's turn, locked until the unit of work ends, so two turn reports take turns; undefined once it has ended. */
   findTurnForUpdate(fleetId: FleetId, leaseId: LeaseId): Promise<{ turn: Turn | null } | undefined>;
   saveTurn(change: { fleetId: FleetId; leaseId: LeaseId; turn: Turn }): Promise<void>;

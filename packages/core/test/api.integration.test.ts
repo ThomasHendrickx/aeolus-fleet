@@ -796,18 +796,20 @@ describe('statements and discovery at the API (decision 0047)', () => {
 
     await expect(reviewer.crew.ship.setStatement.mutate(REVIEWS)).resolves.toEqual({ version: 1 });
 
-    await expect(statementOf(planner.crew, reviewer.shipId)).resolves.toEqual({ by: 'crew', version: 1, ...REVIEWS });
-    await expect(statementOf(await signedInArgo(), reviewer.shipId)).resolves.toEqual({ by: 'crew', version: 1, ...REVIEWS });
+    await expect(statementOf(planner.crew, reviewer.shipId)).resolves.toEqual({ by: 'crew', version: 1, summary: REVIEWS.summary });
+    await expect(statementOf(await signedInArgo(), reviewer.shipId)).resolves.toEqual({ by: 'crew', version: 1, summary: REVIEWS.summary });
   });
 
-  it('keep the scopes each capability needs, which another crew discovers', async () => {
+  it('keep the scopes each capability needs, which another crew looks up', async () => {
     const crm = await crewed('statement-crm');
     const caller = await crewed('statement-caller');
     const scoped = { summary: 'The CRM.', capabilities: [{ name: 'update_lead', scopes: ['crm:write-leads'] }, { name: 'search_leads' }] };
 
     await crm.crew.ship.setStatement.mutate(scoped);
 
-    await expect(statementOf(caller.crew, crm.shipId)).resolves.toEqual({ by: 'crew', version: 1, ...scoped });
+    await expect(statementOf(caller.crew, crm.shipId)).resolves.toEqual({ by: 'crew', version: 1, summary: scoped.summary });
+    const found = await caller.crew.ship.lookup.query({ id: crm.shipId, includeStatement: true });
+    expect(found?.statement).toEqual({ by: 'crew', version: 1, ...scoped });
   });
 
   it('show the commission note until a crew states one, and again once the ship is released', async () => {

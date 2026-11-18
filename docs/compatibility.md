@@ -42,4 +42,10 @@ The console calls the trierarch plugin's tRPC procedures from the web app's serv
 
 ## One reachable ship
 
-`ship.lookup`, REST `POST /api/v1/ship/lookup` and MCP `lookup`, need the core/common release carrying aeolus-fleet#1911. Consumers raise their minimum to that release before calling it. It takes exactly one name or id and answers only `{ id, name, description }` or null, with `messages:send` and current send reach. The gateway calls as the person's ship for conversation headers (gateway #390). See the [ship contract](guide/ship-contract.md) for visibility and description semantics.
+`ship.lookup`, REST `POST /api/v1/ship/lookup` and MCP `lookup`, need the core/common release carrying aeolus-fleet#1911. Consumers raise their minimum to that release before calling it. It takes exactly one name or id and by default answers `{ id, name, description }` or null, with `messages:send` and current send reach. The gateway calls as the person's ship for conversation headers (gateway #390). See the [ship contract](guide/ship-contract.md) for visibility and description semantics.
+
+## Compact discovery and statement lookup
+
+The core/common release carrying aeolus-fleet#1957 directly changes `ship.discover` (REST `discover`, MCP `discover`) to return crew summaries with source/version, without capabilities. Identity, status, verified facts and type counts remain. `ship.lookup` accepts `includeStatement: true` to add the complete current `statement`, with its source/version or commission-note/null fallback, under the same `messages:send` scope and current send reach. Without the option its header stays unchanged. An unreachable or missing target answers null.
+
+Consumers needing capability schemas must discover summaries, then look up the chosen ship with `includeStatement: true`. Raise their minimum core/common version to the release carrying #1957. Gateway MCP tools and A2A cards that consume full discover statements need the [gateway #424](https://github.com/ThomasHendrickx/aeolus-fleet-gateway/issues/424) before adopting that release.

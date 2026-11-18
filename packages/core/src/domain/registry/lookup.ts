@@ -5,12 +5,13 @@ import type { ShipCaller } from '../shared/caller.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { reaching, rulesInForceOf, shipAsItIs, type CheckReachTx } from './check-reach.js';
+import { discoveredStatementOf } from './statement.js';
 import { allowsReach } from './network-settings.js';
 import type { LeaseRepository, ShipRepository } from './ports.js';
 
 interface LookupTx {
   ships: Pick<ShipRepository, 'find' | 'findActiveByName'>;
-  leases: Pick<LeaseRepository, 'findOpenSummary'>;
+  leases: Pick<LeaseRepository, 'findOpenSummary' | 'findOpenStatement'>;
   networkSettings: CheckReachTx['networkSettings'];
   declaredNetworkRules: CheckReachTx['declaredNetworkRules'];
   labels: CheckReachTx['labels'];
@@ -18,7 +19,7 @@ interface LookupTx {
 
 export type Lookup = (caller: ShipCaller, input: LookupInput) => Promise<Result<LookedUpShip, never>>;
 
-/** Scope is checked at the API door. No reply exception, refusal record or commission-note fallback. */
+/** Scope is checked at the API door. No reply exception or refusal record; the description has no commission-note fallback. */
 export function createLookup(deps: { uow: UnitOfWork<LookupTx> }): Lookup {
   return (caller, input) => deps.uow.run(async (tx) => {
     const { fleetId } = caller;
@@ -40,6 +41,8 @@ export function createLookup(deps: { uow: UnitOfWork<LookupTx> }): Lookup {
     }
     const summary = (await tx.leases.findOpenSummary(fleetId, ship.id))?.trim() ?? '';
     const description = summary === '' ? null : (/^[\s\S]*?[.!?](?=\s|$)/u.exec(summary)?.[0] ?? summary);
-    return ok({ id: ship.id, name: ship.name, description });
+    return ok({ id: ship.id, name: ship.name, description,
+      ...(input.includeStatement === true ? { statement: discoveredStatementOf(ship, await tx.leases.findOpenStatement(fleetId, ship.id)) } : {}),
+    });
   });
 }

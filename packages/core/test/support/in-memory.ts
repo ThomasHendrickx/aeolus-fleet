@@ -1257,13 +1257,18 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         const stated = state.leaseStatements.find((held) => held.fleetId === fleetId && held.leaseId === lease?.id);
         return Promise.resolve(stated?.stated.statement.summary ?? null);
       },
-      listOpenStatements: (fleetId) =>
+      findOpenStatement: (fleetId, shipId) => {
+        const lease = state.leases.find((held) => held.fleetId === fleetId && held.shipId === shipId && held.endedAt === null);
+        const held = state.leaseStatements.find((each) => each.fleetId === fleetId && each.leaseId === lease?.id);
+        return Promise.resolve(held === undefined ? null : structuredClone(held.stated));
+      },
+      listOpenSummaries: (fleetId) =>
         Promise.resolve(
           state.leases
             .filter((held) => held.fleetId === fleetId && held.endedAt === null)
             .map((lease) => {
               const held = state.leaseStatements.find((each) => each.leaseId === lease.id);
-              return { shipId: lease.shipId, stated: held ? structuredClone(held.stated) : null };
+              return { shipId: lease.shipId, stated: held ? { version: held.stated.version, statement: { summary: held.stated.statement.summary } } : null };
             }),
         ),
       findTurnForUpdate: (fleetId, leaseId) => {

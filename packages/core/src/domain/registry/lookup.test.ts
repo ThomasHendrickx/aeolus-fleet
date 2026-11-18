@@ -20,6 +20,20 @@ async function aFleet() {
 }
 
 describe('one reachable ship (#1911)', () => {
+  it('reveals a requested statement only while current send reach allows it', async () => {
+    // Given a current crew statement on a reachable ship.
+    const { registry, argo, caller, target, targetId, lookup } = await aFleet();
+    unwrap(await registry.setStatement(target, { summary: 'Reviews ships.', capabilities: [{ name: 'review' }] }));
+    // When detail is requested, and then current reach is revoked.
+    const detail = unwrap(await lookup(caller, { id: targetId, includeStatement: true }));
+    await applyNetworkRules(registry, { by: argo, rules: [everyShipMay('read'), everyShipMay('manage')] });
+    // Then complete detail is visible only before revocation.
+    expect(detail?.statement).toEqual({ by: 'crew', version: 1, summary: 'Reviews ships.', capabilities: [{ name: 'review' }] });
+    expect(unwrap(await lookup(caller, { id: targetId, includeStatement: true }))).toBeNull();
+    unwrap(await registry.releaseShip(argo, { shipId: targetId }));
+    expect(unwrap(await lookup(argo, { id: targetId, includeStatement: true }))?.statement).toEqual({ by: 'commission', note: 'Commission note.' });
+  });
+
   it('answers one name or id with only its header and records nothing', async () => {
     const { core, registry, caller, target, targetId, lookup } = await aFleet();
     unwrap(await registry.setStatement(target, { summary: '  Reviews ships! More detail.', capabilities: [] }));
