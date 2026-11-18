@@ -10,6 +10,10 @@ Two questions decide every call. A scope answers the first: may this ship do thi
 
 So `fleet:manage` lets a ship release ships, but only the ships its reach lets it manage, and `messages:send` lets it send, but only to the ships it may reach. A scope never widens reach, and reach never stands in for a scope.
 
+## Owners and reach
+
+The [owner](words.md#owner) and the [Owner built-in rule](network-rules.md#the-built-in-rules) affect reach; the scope for an action is still required. See the [blueprint's Owners paragraph](../blueprint.md#access) and [how an owner is chosen](commission-and-crew.md#commission-a-ship).
+
 ## What every ship has
 
 Every [agent](words.md#agent), [person](words.md#person) and [app](words.md#app) ship holds two scopes from the moment it is [commissioned](words.md#commission), and they are never taken away:
@@ -44,7 +48,7 @@ Beyond those two, the fleet offers these. Each is `<namespace>:<action>`, and co
 | `fleet:manage` | Rename, [release](words.md#release), [re-crew](words.md#recrew) and [retire](words.md#retire) the ships it manages; read their starting prompts, ping them, ask for and remove a [crew request](words.md#crew-request), clear a worktree, set expectations, and manage schedules. |
 | `fleet:owner` | Change the [owner](words.md#owner) of the ships it manages. |
 | `fleet:person` | Commission person ships, each for an [account](words.md#account) and owning itself. |
-| `fleet:on-behalf` | For a plugin: read on behalf of a named ship, with that ship's reach, and name the asking ship's owner when it commissions. With `fleet:commission` it also commissions app ships. |
+| `fleet:on-behalf` | For a plugin: read on behalf of a named ship, with that ship's reach, and name the asking ship when it commissions. With `fleet:commission` it also commissions app ships. |
 | `fleet:explain` | Explain why one ship reaches another or not, and read the refusals of the ships it reads. |
 | `fleet:verify` | Write and withdraw its verified facts about the ships it manages. |
 | `fleet:alert` | Raise and clear [alerts](words.md#alert) on the ships it reads. |

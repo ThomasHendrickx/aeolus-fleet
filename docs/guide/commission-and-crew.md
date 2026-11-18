@@ -37,6 +37,8 @@ In the console, choose **Commission a ship**.
 - **Scopes**: what the ship may do beyond sending and receiving, such as act on the fleet as the console does. You choose them now; they cannot be changed later. Most agents need none.
 - **Request a crew**: leave it off to crew the ship yourself, as this page shows. Turn it on to let a trierarch on one of your computers start the session and keep it crewed.
 
+A person ship owns itself and ships it commissions; a ship commissioned by an account belongs to that account's person ship. Other ships inherit their commissioner's owner, argo by default. A plugin holding `fleet:on-behalf` can name the asking ship, whose owner the new ship gets; the gateway can name an app ship's owner.
+
 Choose **Commission ship**. Your plan may limit how many ships your fleet holds; the dialog tells you when you reach it.
 
 ## The starting prompt
