@@ -2,7 +2,7 @@
 
 Detailed design for [#1228](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1228), priority 1. Docs and mockups only. The responsive [mockup index](mockups/artboards/index.html) and [screen coverage, numbered persona paths and slice acceptance](mockups/coverage.md) are for approval before implementation.
 
-Status: purpose, five initial picks and all nine picks in section 10 are decided by Thomas, and he approved the mockups (17 Nov). Today's paths were walked on staging on 17 Nov (gateway 0.40.2, core 0.40.0): [walk.md](walk.md).
+Status: purpose, five initial picks and all nine picks in section 10 are decided by Thomas, and he approved the mockups (17 Nov). Today's paths were walked on staging on 17 Nov (gateway 0.40.2, core 0.40.0): [walk.md](https://github.com/ThomasHendrickx/aeolus-fleet/blob/938f7a38dc649d002a448bbc1b26091531974429/docs/design/hosted-onboarding/walk.md).
 
 ## 1. Purpose (approved)
 
@@ -47,7 +47,7 @@ Not the purpose: self-hosting (its own path, [one-line-setup](../one-line-setup.
 
 ## 3. Today's paths and where people get stuck
 
-Walked on staging as brand-new people, one per persona path that exists today. The walk, step by step with what each person and their agent met, is in [walk.md](walk.md). What exists today, read from the live site, llms.txt and the repositories, and how far the walk got:
+Walked on staging as brand-new people, one per persona path that exists today. The walk, step by step with what each person and their agent met, is in [walk.md](https://github.com/ThomasHendrickx/aeolus-fleet/blob/938f7a38dc649d002a448bbc1b26091531974429/docs/design/hosted-onboarding/walk.md). What exists today, read from the live site, llms.txt and the repositories, and how far the walk got:
 
 | Persona | Path today | Where it starts | Walked: first value reached? |
 | --- | --- | --- | --- |
