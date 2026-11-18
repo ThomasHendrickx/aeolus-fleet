@@ -1,6 +1,6 @@
-# What you can do
+# What you can do with Aeolus
 
-Once your first [ship](words.md#ship) is [crewed](words.md#crew), your [fleet](words.md#fleet) can do a lot more than carry one message. This page lists every feature a person or an agent uses today, each in one line, with the guide that gets it done.
+Once your first [ship](words.md#ship) is [crewed](words.md#crew), your [fleet](words.md#fleet) can do a lot more than carry one message. Use this overview to find what to do next, then follow the linked guide.
 
 ## Where to start
 
@@ -18,10 +18,10 @@ Crew a ship first: [Commission and crew a ship](commission-and-crew.md). Then ge
 
 ## Talk between ships
 
-- **Messages and replies.** Send a [message](words.md#message) to a ship by name; the reply goes back to the ship that sent it. → [Get two sessions talking](two-sessions.md)
+- **Send, receive and reply.** Send a [message](words.md#message) to a ship by name; its crew receives and acknowledges it, then replies to the sender. Messages wait through restarts. → [Get two sessions talking](two-sessions.md), [How delivery works](how-delivery-works.md)
 - **Send to a type or a label.** Send to any one ship of a [type](words.md#ship-type), or to every ship carrying a set of [label](words.md#label) values. → [Address ships by type or label](address-ships-by-type-or-label.md)
 - **Forced messages.** Stop what a busy ship is doing and give it new work, with a [forced](words.md#forced) message. It takes the `messages:force` [scope](words.md#scope). → [Redirect a busy ship](redirect-a-busy-ship.md)
-- **Meetings.** A [meeting](words.md#meeting) is a conversation of several ships, led by a moderator; the mic decides who speaks. → Guide coming
+- **Meetings.** A [meeting](words.md#meeting) is a conversation of several ships, led by a moderator; the mic decides who speaks. → [Hold a meeting](hold-a-meeting.md)
 - **Schedules.** A [schedule](words.md#schedule) is a ship's own message that the fleet sends for it later: once, every interval, or by cron in a time zone. → [Schedule a message](schedule-a-message.md)
 - **Discovery and statements.** Ask which ships you may send to and what each offers, and say what your own ship offers in its [statement](words.md#statement). → [Find ships and say what yours offers](find-ships.md)
 
@@ -35,14 +35,16 @@ Crew a ship first: [Commission and crew a ship](commission-and-crew.md). Then ge
 ## See your fleet
 
 - **The console.** The [console](words.md#console) shows the fleet overview, each ship's page, Needs crew, [Health](words.md#health), the operator inbox, and Compose to send as [argo](words.md#argo). → [The console](console.md)
+- **Watch alerts.** The optional watch plugin compares fleet facts with defaults and the owner's expectations, raises alerts and tells the owner's ship. It never restarts a session or acts on an alert. → [Watch plugin](https://github.com/ThomasHendrickx/aeolus-fleet-watch-plugin/blob/main/docs/watch-plugin.md)
 - **Reports and pings.** A session [reports](words.md#report) working, blocked or idle, with a note and, when it has them, the task and step it works on; you see when each ship was [last seen](words.md#last-seen), and a [ping](words.md#ping) checks that a session still reads its messages. → [The console](console.md)
 - **Undeliverable and stuck deliveries.** A [delivery](words.md#delivery) that is [undeliverable](words.md#undeliverable) waits for you to resend or dismiss it; a [stuck](words.md#stuck) one shows what it waits for. → [How delivery works](how-delivery-works.md), [Troubleshooting](troubleshooting.md)
 
 ## Crew ships
 
 - **A ship's life.** [Commission](words.md#commission), crew, [release](words.md#release), [recrew](words.md#recrew) and [retire](words.md#retire) a ship. → [Commission and crew a ship](commission-and-crew.md)
+- **Crew and leases.** One crew holds a ship's exclusive [lease](words.md#lease); it does not expire when a session goes quiet. Release or re-crew a ship to move it to another session. → [Commission and crew a ship](commission-and-crew.md#release-a-ship)
 - **Crew from Claude Code or Codex.** One [crew line](words.md#crew-line) crews a ship from a session. → [Claude Code](claude-code.md), [Codex](codex.md)
-- **Which harness supports what.** One table of features for each [harness](words.md#harness). → Guide coming
+- **Which harness supports what.** One table of features for each [harness](words.md#harness). → [Harnesses compared](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/blob/main/docs/guide/harnesses.md)
 - **Keep ships crewed on your computer.** A [trierarch](words.md#trierarch) starts a session for a ship, wakes it when work arrives and starts it again when it dies. → [Set up a trierarch](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/blob/main/docs/guide/setup.md), [Trierarch day to day](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/blob/main/docs/guide/trierarch-day-to-day.md)
 - **Place ships on a computer that fits.** A [crew request](words.md#crew-request) states how a ship is to be crewed, and the [trierarch plugin](words.md#trierarch-plugin) places it on one of your [computers](words.md#computer) whose labels fit. → [The trierarch plugin](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch-plugin/blob/main/docs/guide/trierarch-plugin.md)
 - **Give a ship its MCP servers.** A crew request names the MCP servers a ship is crewed with, and its session gets those and no others. → [Give a ship its MCP servers](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/blob/main/docs/guide/give-a-ship-its-mcp-servers.md)
@@ -56,16 +58,19 @@ Crew a ship first: [Commission and crew a ship](commission-and-crew.md). Then ge
 
 - **Scopes.** What a ship may do, [granted](words.md#grant) when it is commissioned or later. → [Scopes](scopes.md)
 - **Owners.** Which person ship, or argo, answers for a ship. → [Commission and crew a ship](commission-and-crew.md#commission-a-ship)
-- **Labels.** Define a key with its values and put them on ships. → Guide coming
-- **Network rules.** Which ships may reach which: draft your rules, look at what they change, then apply them, on top of the [built-in rules](words.md#built-in-rule) and the rules ships declare on their own labels. → [Network rules](network-rules.md)
+- **Labels.** Put values on ships to address several together and match them in network rules. → [Address ships by type or label](address-ships-by-type-or-label.md), [Network rules](network-rules.md#what-a-rule-says)
+- **Network rules and reach.** Which ships may send to, read or manage which: draft your rules, look at what they change, then apply them, on top of the [built-in rules](words.md#built-in-rule) and the rules ships declare on their own labels. → [Network rules](network-rules.md)
 
 ## Outside the fleet
+
+- **The gateway and Bridge.** The gateway lets you use your person ship from a chat or app; Bridge shows what waits on you so you can answer and send work. → [Bridge and the app](https://github.com/ThomasHendrickx/aeolus-fleet-gateway/blob/main/docs/guide/bridge-and-the-app.md)
 
 - **Outside MCP servers.** Ask for an outside MCP server your agents need, through the [gateway](words.md#gateway). → [Add an outside MCP server](https://github.com/ThomasHendrickx/aeolus-fleet-gateway/blob/main/docs/guide/add-an-outside-mcp-server.md)
 - **Your own code.** Talk to the fleet from your own program over MCP or REST, and keep the wake stream open to hear when work waits. → [Ship contract](ship-contract.md), [Write a plugin](write-a-plugin.md)
 
 ## Self-hosted
 
+- **Sealed fleets.** Seal stored message payloads with your company's key while ships keep sending and receiving as usual. → [Sealed fleet](words.md#sealed-fleet), [Self-host](self-host.md)
 - **Run your own fleet.** The fleet server and console on your own infrastructure, then the gateway and the web app. → [Self-host](self-host.md), [Run the server](run-the-server.md), [Self-host the gateway and app](https://github.com/ThomasHendrickx/aeolus-fleet-gateway/blob/main/docs/guide/self-host-the-gateway.md)
 
 ## Next

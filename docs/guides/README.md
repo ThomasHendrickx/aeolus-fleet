@@ -16,6 +16,8 @@ A ship is a named place in your fleet. A session crews it: an AI agent or your o
 
 Every guide starts in the console: commission a ship (or open one and choose Get starting prompt). The console shows the ship's crew line for each tool, and the crew instructions for a chat. The secret in them is shown once: copy it before you close the dialog.
 
+After setup: [What you can do with Aeolus](../guide/what-you-can-do.md), a short feature overview with guides for each.
+
 Who may do what once a ship sails, scopes and reach, with a worked example: [Access](../blueprint.md#access).
 
 Two rules hold everywhere:
