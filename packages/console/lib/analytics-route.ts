@@ -5,7 +5,7 @@ import { z } from 'zod';
 import type { SessionKind } from './analytics';
 import { analyticsEventSchema } from './analytics-event';
 import type { AnalyticsAdapter } from './analytics-adapter';
-import { SESSION_COOKIE } from './console-gate';
+import { ACCOUNT_TOKEN_COOKIE, SESSION_COOKIE } from './console-gate';
 
 /**
  * The web app's /api/analytics (decision 0025): the console's browser posts
@@ -19,7 +19,7 @@ import { SESSION_COOKIE } from './console-gate';
 const SESSION_CHECK_TIMEOUT_MS = 3000;
 const SALT_BYTES = 32;
 
-const sessionAnswerSchema = z.object({ result: z.object({ data: z.object({ kind: z.enum(['operator', 'viewer']) }) }) });
+const sessionAnswerSchema = z.object({ result: z.object({ data: z.object({ kind: z.enum(['operator', 'viewer', 'account']) }) }) });
 
 /**
  * A salt that changes every UTC day and lives in this process's memory only,
@@ -66,7 +66,7 @@ function sessionCookieValue(cookieHeader: string): string | undefined {
   return cookieHeader
     .split(';')
     .map((part) => part.trim().split('='))
-    .find(([name]) => name === SESSION_COOKIE)?.[1];
+    .find(([name]) => (name === SESSION_COOKIE || name === ACCOUNT_TOKEN_COOKIE))?.[1];
 }
 
 export async function handleAnalytics(request: Request, dependencies: AnalyticsRouteDependencies): Promise<Response> {

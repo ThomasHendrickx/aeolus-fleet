@@ -61,14 +61,15 @@ describe('/api/analytics', () => {
     // Given an account sign-in with fleet:read, validated by the fleet server.
     const adapter = anAdapter();
     const cookie = 'aeolus_account_token=account-token; theme=dark';
-    const server: typeof fetch = async () => Response.json({ result: { data: { kind: 'account', scopes: ['fleet:read'] } } });
+    const server: typeof fetch = () => Promise.resolve(Response.json({ result: { data: { kind: 'account', scopes: ['fleet:read'] } } }));
 
     // When the console posts its background pageview.
     const response = await handleAnalytics(aRequest({ name: 'pageview', route: '/' }, cookie), { adapter, serverUrl: SERVER_URL, salt: fixedSalt, fetchImplementation: server });
 
     // Then analytics succeeds without disclosing the account credential.
     expect(response.status).toBe(204);
-    expect(adapter.captured).toEqual([{ event: { name: 'pageview', route: '/' }, sessionKind: 'account', distinctId: expect.stringMatching(/^[0-9a-f]{64}$/) }]);
+    expect(adapter.captured.map(({ event, sessionKind }) => ({ event, sessionKind }))).toEqual([{ event: { name: 'pageview', route: '/' }, sessionKind: 'account' }]);
+    expect(adapter.captured[0]?.distinctId).toMatch(/^[0-9a-f]{64}$/);
     expect(JSON.stringify(adapter.captured)).not.toContain('account-token');
   });
 
