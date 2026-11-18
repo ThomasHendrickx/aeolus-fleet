@@ -171,7 +171,7 @@ Update the Aeolus Fleet plugin on a trierarch's computer only this way, never wi
 
 ## 5. Back up and restore
 
-Your fleet lives in its databases: the fleet's, and one per plugin you run. The server, the console and the plugins keep no files of their own. What the databases do not hold is in each part's settings. Aeolus brings no backup command: use Postgres's own tools, or your managed Postgres's backups.
+Your fleet lives in its databases: the fleet's, and one per plugin you run. The server, the console and the plugins keep no files of their own. What the databases do not hold is in each part's settings. Backups are the self-hoster’s responsibility. Aeolus brings no backup command: use Postgres's own tools, or your managed Postgres's backups. See the [approved recovery choices](../design/backup-restore/backup-restore.md).
 
 ### What to back up
 
@@ -186,12 +186,12 @@ A backup holds everything its database holds: the fleet's messages, and the crew
 
 ### The schedule
 
-- **Every night, every database at one moment.** Dump them in the same run, one right after another, so the set holds one moment of your fleet.
+- **Every night, every database.** Stop writes across all parts while taking the dump set so it represents a consistent point. Sequential dumps while writes continue do not capture one moment.
 - **Before each upgrade**, the same set, as section 4 shows.
-- **Keep each set 14 days.**
-- **Point-in-time recovery where your Postgres offers it**: continuous WAL archiving with base backups, which most managed Postgres services have. It shrinks what a restore loses from up to a day to minutes, and brings every database on one Postgres server back to the same moment.
+- **Keep each set 14 days.** The schedule and retention are configurable.
+- **Point-in-time recovery where your Postgres offers it**: continuous WAL archiving with base backups, which most managed Postgres services have. It reduces the recovery gap to the last recoverable WAL, and can bring every database on one Postgres server back to the same moment.
 
-Aeolus does not run the nightly backup for you: a cron line or a timer does.
+Aeolus does not run the nightly backup for you: a cron line or a timer does. Rehearse a restore periodically.
 
 ### Back up
 
@@ -201,7 +201,7 @@ For each database, with that part's own connection settings:
 pg_dump --format=custom --file=aeolus-$(date +%F).dump "$DATABASE_URL"
 ```
 
-A nightly run with one line per database, each with its own part's user, then encrypting the files and copying them off the server, is all the schedule needs. Delete sets older than 14 days.
+With writes stopped, run one line per database, each with its own part's user, then encrypt the files and copy them off the server. Delete sets past your chosen retention.
 
 ### What a restore brings back, and what it loses
 
@@ -209,18 +209,18 @@ A restore takes your fleet back to the moment of the backup. What happened after
 
 | What happened after the backup | In the restored fleet | What it means |
 | --- | --- | --- |
-| A message was sent, and its send answered OK | **Gone**, with its deliveries | Its sender believes it sent; its receiver never gets it, and nothing tells either. This is the one thing a restore loses. Point-in-time recovery keeps it to minutes |
-| A delivery was acknowledged | Pending again | It is handed again, under the same delivery id: a duplicate, which every receiver already ignores |
-| A session crewed a ship | Every lease but argo's is ended by `fleet:restored`, with the reason "the fleet was restored from a backup" on the ship's timeline | A session still holding a crew token is answered `LEASE_ENDED` and forgets the ship. A session that crewed after the backup holds a token the fleet never knew, and is answered `UNKNOWN_CREW_TOKEN`: a trierarch released after 0.39.1, and the Aeolus Fleet plugin with it, treats it as `LEASE_ENDED`. Each trierarch crews its ships again from their crew requests; a ship crewed by hand needs a new starting prompt |
+| A message was sent, and its send answered OK | **Gone**, with its deliveries | Its sender believes it sent; its receiver never gets it, and nothing tells either. The fleet cannot identify or notify either party about missing messages. PITR reduces the gap to the last recoverable WAL |
+| A delivery was acknowledged | Pending again | It is handed again, under the same delivery id: a duplicate. Receivers use the delivery id to deduplicate where their durable state permits; repeated receipt or effects remain possible |
+| A session crewed a ship | Every lease but argo's is ended by `fleet:restored`, with the reason "the fleet was restored from a backup" on the ship's timeline | A session still holding a crew token is answered `LEASE_ENDED` and forgets the ship. A session that crewed after the backup holds a token the fleet does not know and is answered `UNKNOWN_CREW_TOKEN`: clients treat it as `LEASE_ENDED`, discard their local identity and stop using the token. Each trierarch crews its ships again from their crew requests; a ship crewed by hand needs a new starting prompt |
 | A delivery was in flight to a session | Pending again | The ship's next crew takes it |
-| A ship was commissioned or retired | Gone, or active again | Commission it again, or retire it again |
+| A ship was commissioned or retired | Gone, or active again | Recreate a missing ship or crew request, or retire the ship again |
 | A plugin was connected | Its token is unknown to the fleet | The plugin drops the token: connect it again in **Settings** |
 | A schedule's send times passed | Due again | Each is sent if it is still within its grace, 5 minutes by default, else recorded missed. A long gap brings no flood of sends |
 | Pruning removed messages and events | Back | The next hourly pass removes them again |
 | Someone signed in to the console, or argo's password changed | Gone; the old password works again | People sign in again. An open console tab goes on from the restored fleet's last event |
 | A person signed in to an outside server through the gateway, or Slack's tokens rotated | The gateway holds tokens the outside server already used up | Those people sign in to that server again; a Slack workspace is connected again |
 
-That is why every database goes back to the same moment, never one alone: the fleet and each plugin hold each other's ids, crew tokens and messages, and a part restored on its own disagrees with the rest.
+That is why participating databases go back to a consistent recovery point, never one alone: the fleet and each plugin hold each other's ids, crew tokens and messages, and a part restored on its own disagrees with the rest.
 
 ### Restore
 
@@ -244,10 +244,10 @@ flowchart TD
     crews --> verify["Check /health, each /api/health<br/>and /version"]
 ```
 
-1. **Stop every part**: the server, the console, squadrons, the trierarch plugin and the gateway.
-2. **Put back each part's settings**, as you kept them.
+1. **Stop every part and keep writers stopped**: the server, the console, squadrons, the trierarch plugin and the gateway. Preserve the damaged data for investigation.
+2. **Put back each part's settings and required sealing keys**, as you kept them.
 3. **Create an empty database for each part**, owned by its user, as section 2 shows.
-4. **Restore each backup of one set into its own database**, as its own user:
+4. **Recover every participating database to a consistent point**, using a dump set taken with writes stopped or cluster PITR. Restore each dump into its own database as its own user:
 
    ```sh
    pg_restore --dbname="$DATABASE_URL" aeolus-2026-11-14.dump
@@ -264,7 +264,7 @@ flowchart TD
    It first applies the migrations the backup lacks, as `start` does, so a backup made by an older server restores on a newer one. Then, in every fleet, it ends every open [lease](words.md#lease) but argo's, with the reason "restored" on each ship's timeline, and puts every delivery in flight back to pending. It changes nothing else. It refuses while a server process is connected to the database, and changes nothing: stop it first.
 7. **Start the server.** Check `/health`.
 8. **Start the console, then each plugin**: squadrons, the trierarch plugin, the gateway. A plugin whose token the restored fleet does not know drops it: connect it again in **Settings**.
-9. **Check** `/health`, each `/api/health`, and `/version` signed in as argo.
+9. **Check** `/health`, each `/api/health`, and `/version` signed in as argo. Confirm crews resume, reconnect unknown plugin identities and recreate missing ships or crew requests. Record the recovery point and warn users of possible lost messages and repeated receipt before resuming work. Inspect surviving sender or external records for missing work.
 
 The trierarchs need nothing from you: each crews its ships again from their crew requests, and the pending deliveries go to the new crews. For a ship crewed by hand, get a new starting prompt.
 
