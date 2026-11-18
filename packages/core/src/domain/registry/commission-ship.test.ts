@@ -5,6 +5,7 @@ import {
   addAgentShip,
   addViewerShip,
   initialiseFleet,
+  identityUseCases,
   operatorCaller,
   registryUseCases,
   secretOf,
@@ -1284,5 +1285,32 @@ describe('a ship argo commissions from the console, owned by the person ship it 
 
     expect(refused).toEqual({ isOk: false, error: { kind: 'INVALID_OWNER', message: 'owner: name a person ship; argo owns no ship commissioned from the console' } });
     expect(shipsNamed('reviewer-03')).toEqual([]);
+  });
+});
+
+
+describe('installation plugin commissioning for hosted provisioning (design installation-connect Q3)', () => {
+  it.each(['crew:assign', 'crew:run', 'fleet:network', 'fleet:alert'] as const)('lets the authenticated installation commission a plugin with %s', async (scope) => {
+    // Given the installation authenticated in a fleet it hosts.
+    const installation = unwrap(await identityUseCases(core).authenticateInstallation({ fleetId }));
+
+    // When it commissions a plugin with the approved operational scope.
+    const { shipId } = unwrap(await commissionShip(installation, { name: 'hosted-plugin', type: 'hosted-plugin', kind: 'plugin', scopes: [scope], idempotencyKey: newKey() }));
+
+    // Then the plugin holds that scope and is commissioned by the installation.
+    expect(shipsNamed('hosted-plugin')).toEqual([expect.objectContaining({ id: shipId, kind: 'plugin', scopes: ['messages:send', 'messages:receive', scope], commission: expect.objectContaining({ by: { kind: 'installation' } }) })]);
+  });
+
+  it.each(['scopes:grant', 'fleet:owner'] as const)('refuses the authenticated installation a plugin scope outside its list: %s', async (scope) => {
+    // Given the same authenticated installation, without blanket grant authority.
+    const installation = unwrap(await identityUseCases(core).authenticateInstallation({ fleetId }));
+
+    // When it tries to commission a plugin with a scope it does not hold.
+    const refused = await commissionShip(installation, { name: 'hosted-plugin', type: 'hosted-plugin', kind: 'plugin', scopes: [scope], idempotencyKey: newKey() });
+
+    // Then the subset rule refuses it without storing a ship or events.
+    expect(refused).toMatchObject({ isOk: false, error: { kind: 'SCOPE_NOT_HELD' } });
+    expect(shipsNamed('hosted-plugin')).toEqual([]);
+    expect(core.state.events).toEqual([]);
   });
 });
