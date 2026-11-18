@@ -1252,6 +1252,11 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         }
         return Promise.resolve();
       },
+      findOpenSummary: (fleetId, shipId) => {
+        const lease = state.leases.find((held) => held.fleetId === fleetId && held.shipId === shipId && held.endedAt === null);
+        const stated = state.leaseStatements.find((held) => held.fleetId === fleetId && held.leaseId === lease?.id);
+        return Promise.resolve(stated?.stated.statement.summary ?? null);
+      },
       listOpenStatements: (fleetId) =>
         Promise.resolve(
           state.leases

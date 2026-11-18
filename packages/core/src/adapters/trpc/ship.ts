@@ -56,6 +56,8 @@ import {
   reportOutputSchema,
   setStatementInputSchema,
   setStatementOutputSchema,
+  lookupInputSchema,
+  lookupOutputSchema,
   discoverOutputSchema,
   sentMessageInputSchema,
   sentMessageOutputSchema,
@@ -875,6 +877,12 @@ export const shipRouter = router({
    * statement and verified facts (decisions 0047, 0059). Needs messages:send;
    * records nothing.
    */
+  lookup: scopedProcedure('messages:send')
+    .meta({ description: 'Needs messages:send. Look up exactly one name or id in your current send reach. Answers only id, name and description, the crew summary first sentence or null without commission-note fallback. Missing, unreachable, self, viewer and retired targets answer null. No reply exception; records nothing.' })
+    .input(lookupInputSchema)
+    .output(lookupOutputSchema)
+    .query(async ({ ctx, input }) => okOrThrow(await ctx.useCases.lookup(ctx.caller, input))),
+
   discover: scopedProcedure('messages:send')
     .meta({
       description: [

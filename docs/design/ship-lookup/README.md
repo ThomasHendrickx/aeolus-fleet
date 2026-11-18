@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Let a caller obtain one conversation partner's current name and description without loading the fleet or deciding reach in the gateway. This is the core dependency of [gateway #390](https://github.com/ThomasHendrickx/aeolus-fleet-gateway/issues/390), requested in [#1911](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1911). These are questions for the owner, not approved behavior or an implementation plan.
+Let a caller obtain one conversation partner's current name and description without loading the fleet or deciding reach in the gateway. This is the core dependency of [gateway #390](https://github.com/ThomasHendrickx/aeolus-fleet-gateway/issues/390), requested in [#1911](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1911). The ship contract supplies this header through `ship.lookup`.
 
 ## Lessons to check against
 
@@ -12,25 +12,18 @@ Let a caller obtain one conversation partner's current name and description with
 - [Person ship reads](../person-ship-reads/README.md) already records the owner's description choice: first sentence of the crew summary, null when absent, without commission-note fallback. Description and discovery's statement are different projections.
 - [0013](../../decisions/0013-breaking-changes-before-1-0.md): breaking changes before 1.0 are allowed; compatibility layers have no purpose here. Performance target: 3,000 ships and 10,000,000 messages per fleet, p95 <100 ms, p99 <500 ms, errors <1%; implementation must measure it, not claim it from this design.
 
-## Questions
+## Contract
 
-**A. Which contract surface?**
+`ship.lookup` accepts exactly one `name` or `id`. It is a query through the shared ship procedures: REST `POST /api/v1/ship/lookup` and MCP `lookup`, using the caller's crew credentials.
 
-1. Add `ship.lookup`, accepting exactly one name or id.
-2. Add a single-target mode to `discover`.
+It requires `messages:send` and checks current send reach under one rules version, with discovery's exclusions and no reply exception. The answer is only `{ id, name, description }`. An absent, self, viewer, retired/removed or unreachable target answers null. Invalid input and invalid credentials remain ordinary errors. Gateway calls as the person's ship, never with its plugin's rights.
 
-**Pick 1:** one resource and one answer, through the shared procedures and both doors. Preserve destination discovery for today's protocol use; no compatibility machinery.
+Description follows the [approved person-ship description rule](../person-ship-reads/README.md#approved-behavior). Lookup reads the fleet-scoped candidate, its current crew summary and the caller/target reach inputs through indexed id/name lookups in one snapshot. It enumerates no ships or history and records nothing. Previous exchanges confer no current visibility. An answer does not guarantee a later send.
 
-**B. What answer does the header need?**
+## Scenarios and scale
 
-1. `{ id, name, description }`, using the already approved description rule above.
-2. A full discovery ship, including statement, capabilities and verified facts.
-
-**Pick 1:** fetch only the header's fields; reuse the description rule rather than invent another summary. No type counts, reports or writer lookups.
-
-**C. Who is visible, and what does a miss mean?**
-
-1. Require `messages:send`; apply discovery's exclusions and current send reach; return null for absent, excluded or unreachable targets.
-2. Return separate not-found and forbidden target errors.
-
-**Pick 1:** reveal no inaccessible target. Invalid input and invalid credentials remain ordinary errors. Read only the fleet-scoped candidate, its current crew summary and the caller/target reach inputs under one rules version, using indexed id/name lookup; never enumerate ships or history. Gateway calls as the person's ship. Previously exchanged messages do not grant current visibility; lookup records nothing and does not guarantee a later send.
+- Either one name or one id yields the same narrow header. Both, neither, malformed ids and unknown input fields are invalid.
+- First-sentence punctuation, whitespace, newlines, literal abbreviations and Unicode follow the description rule. Missing or empty crew summaries answer null, including ships with commission notes and ended crews.
+- Missing, self, viewer, retired/removed, cross-fleet and unreachable candidates answer null. Read/manage reach and previous messages grant no send visibility. Each call checks current rights; no lookup writes events or reach refusals.
+- Both REST and MCP enforce the same scope, credentials, input and output contract.
+- At 3,000 ships and 10,000,000 messages per fleet, candidate and open-summary plans use indexes without collection/history reads. The target remains p95 <100 ms, p99 <500 ms and errors <1%.

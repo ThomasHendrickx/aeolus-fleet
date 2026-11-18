@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { addViewerShip, applyNetworkRules, crewAboard, everyShipMay, initialiseFleet, operatorCaller, registryUseCases } from '../../../test/support/core-fixtures.js';
+import { addViewerShip, applyNetworkRules, crewAboard, everyShipMay, initialiseFleet, messagingUseCases, operatorCaller, registryUseCases } from '../../../test/support/core-fixtures.js';
+import { valueIdOf } from '../../../test/support/label-fixtures.js';
 import { createInMemoryCore } from '../../../test/support/in-memory.js';
 import { newKey } from '../../testing/keys.js';
 import { unwrap } from '../../testing/result.js';
@@ -51,6 +52,22 @@ describe('one reachable ship (#1911)', () => {
     const answer = unwrap(await lookup(caller, { id: targetId }));
 
     expect(answer).toEqual({ id: targetId, name: 'target', description: null });
+  });
+
+  it('uses current label reach and built-ins, without visibility from a previous exchange', async () => {
+    const { core, registry, argo, caller, target, targetId, lookup } = await aFleet();
+    unwrap(await messagingUseCases(core).sendMessage(target, { selector: { kind: 'ship', shipId: caller.shipId }, payload: 'A previous message', model: 'gpt-6.1-sol', idempotencyKey: newKey() }));
+    unwrap(await registry.defineLabel(argo, { key: 'tier', values: ['public'] }));
+    const valueId = valueIdOf(core, { key: 'tier', value: 'public' });
+    await applyNetworkRules(registry, { by: argo, rules: [{ verb: 'send', from: [], to: [valueId] }, everyShipMay('read'), everyShipMay('manage')] });
+
+    expect(unwrap(await lookup(caller, { id: targetId }))).toBeNull();
+    expect(unwrap(await lookup(argo, { id: targetId }))).toEqual({ id: targetId, name: 'target', description: null });
+    unwrap(await registry.assignLabel(argo, { shipId: targetId, valueId }));
+    expect(unwrap(await lookup(caller, { id: targetId }))).toEqual({ id: targetId, name: 'target', description: null });
+    unwrap(await registry.unassignLabel(argo, { shipId: targetId, valueId }));
+    expect(unwrap(await lookup(caller, { id: targetId }))).toBeNull();
+    expect(core.state.reachRefusals).toEqual([]);
   });
 
   it('answers null for missing, self, viewer, retired, cross-fleet and currently unreachable targets', async () => {

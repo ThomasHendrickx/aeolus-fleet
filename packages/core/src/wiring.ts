@@ -1,3 +1,4 @@
+import { type Lookup, createLookup } from './domain/registry/lookup.js';
 import { createExpireJourneyActivity } from './domain/shared/expire-journey-activity.js';
 import { createReadInstallationJourneys } from './domain/registry/read-installation-journeys.js';
 import { createPrismaInstallationJourneyReads } from './adapters/prisma/fleet-journeys.js';
@@ -266,6 +267,7 @@ export interface UseCases {
   readLastNamedOwner: ReadLastNamedOwner;
   report: Report;
   setStatement: SetStatement;
+  lookup: Lookup;
   discover: Discover;
   reportTurn: ReportTurn;
   requestCrew: RequestCrew;
@@ -539,6 +541,7 @@ export function createUseCases(options: {
     readLastNamedOwner: createReadLastNamedOwner({ ships: createPrismaShipRepository(prisma) }),
     report: createReport({ uow, clock, ids }),
     setStatement: createSetStatement({ uow, clock, ids }),
+    lookup: createLookup({ uow: createPrismaSnapshotUnitOfWork(prisma, clock) }),
     discover: createDiscover({ uow }),
     reportTurn: createReportTurn({ uow, clock, ids }),
     requestCrew: createRequestCrew({ uow, clock, ids }),
