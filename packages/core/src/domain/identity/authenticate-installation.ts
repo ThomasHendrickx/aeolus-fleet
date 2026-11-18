@@ -11,7 +11,7 @@ import type { HostedFleets } from './ports.js';
  * the fleet, managing, defining and assigning labels, commissioning person
  * ships and connecting plugin ships with their scopes. Until a call lets argo change them, they are the same in every fleet.
  */
-export const INSTALLATION_SCOPES: readonly Scope[] = ['fleet:read', 'fleet:manage', 'labels:define', 'labels:assign', 'fleet:person', 'labels:any', 'fleet:connect', 'fleet:commission', 'fleet:on-behalf', 'scopes:declare', 'fleet:verify'];
+export const INSTALLATION_SCOPES: readonly Scope[] = ['fleet:read', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network', 'fleet:person', 'labels:any', 'fleet:connect', 'fleet:commission', 'fleet:on-behalf', 'scopes:declare', 'fleet:verify', 'fleet:alert'];
 
 export type AuthenticateInstallation = (call: { fleetId: FleetId }) => Promise<Result<InstallationCaller, DomainError<'FLEET_NOT_FOUND'>>>;
 

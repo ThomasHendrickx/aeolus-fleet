@@ -1298,7 +1298,8 @@ describe('installation plugin commissioning for hosted provisioning (design inst
     const { shipId } = unwrap(await commissionShip(installation, { name: 'hosted-plugin', type: 'hosted-plugin', kind: 'plugin', scopes: [scope], idempotencyKey: newKey() }));
 
     // Then the plugin holds that scope and is commissioned by the installation.
-    expect(shipsNamed('hosted-plugin')).toEqual([expect.objectContaining({ id: shipId, kind: 'plugin', scopes: ['messages:send', 'messages:receive', scope], commission: expect.objectContaining({ by: { kind: 'installation' } }) })]);
+    expect(shipsNamed('hosted-plugin')).toHaveLength(1);
+    expect(shipsNamed('hosted-plugin')[0]).toMatchObject({ id: shipId, kind: 'plugin', scopes: ['messages:send', 'messages:receive', scope], commission: { by: { kind: 'installation' } } });
   });
 
   it.each(['scopes:grant', 'fleet:owner'] as const)('refuses the authenticated installation a plugin scope outside its list: %s', async (scope) => {

@@ -1,6 +1,6 @@
 # Installation connect for every enabled plugin
 
-Proposed for Thomas's approval. The shared-contract direction is decided: 18 November, card a10e8485, option 1, "Same contract for all four". The picks below propose its boundaries and delivery. This note authorises no implementation.
+Approved on 18 November 2026, card d5ebca8a, option 1, "Approve as written", including the four installation scopes in Q3. The shared-contract direction is decided: 18 November, card a10e8485, option 1, "Same contract for all four".
 
 ## Purpose
 
