@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { useState } from 'react';
-import { expect, screen, userEvent, waitFor } from 'storybook/test';
+import { expect, fn, screen, userEvent, waitFor } from 'storybook/test';
 
 import { JOINED } from '../../../../lib/fixtures/machines.fixtures';
 import { NewSetupLineDialog } from './new-setup-line-dialog';
@@ -84,13 +84,26 @@ export const FailedMaybeReleased: Story = {
   },
 };
 
+const STDIN_LINE = "bash <(curl -fsSL https://raw.githubusercontent.com/ThomasHendrickx/aeolus-fleet-trierarch/main/install.sh) --fleet-url https://fleet.example.com --ship-id shp_01j9k2t4qzr3a9w6m2v5n7trnw --secret-stdin <<< 'aeolus_sk_v1_example'";
+
 /** The new line, shown once, as the join dialog shows a joined machine's. */
 export const Line: Story = {
   args: { setupLine: JOINED.setupLine },
+  beforeEach: () => {
+    const clipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: fn(async () => undefined) } });
+    return () => {
+      if (clipboard === undefined) Reflect.deleteProperty(navigator, 'clipboard');
+      else Object.defineProperty(navigator, 'clipboard', clipboard);
+    };
+  },
   play: async () => {
     // Given a replacement setup line has been issued.
     // When the console shows it, before it is run on the computer.
-    await expect(await screen.findByTestId('new-setup-line-setup-line')).toHaveTextContent(JOINED.setupLine);
+    await expect((await screen.findByTestId('new-setup-line-setup-line')).textContent).toBe(STDIN_LINE);
+    await userEvent.click(screen.getByTestId('new-setup-line-setup-line-copy'));
+    await expect(navigator.clipboard.writeText).toHaveBeenCalledWith(STDIN_LINE);
+    await expect(screen.getByTestId('new-setup-line-setup-line-copy')).toHaveTextContent('Copied');
     // Then the same approved introduction explains setup and distinguishes npm's confirmation from setup choices.
     await waitFor(async () => { await expect(screen.getByText('This installs the trierarch, which runs agent sessions on this computer. Setup explains permissions, workspaces, limits and starting the background service. If your line uses npm, npm may first ask to download the trierarch package; that confirmation installs the package and does not answer the setup choices.')).toBeVisible(); });
     await expect(screen.getByTestId('new-setup-line-dialog')).toHaveTextContent('If you lose it, get a new setup line on trierarch-mac’s card.');
@@ -117,5 +130,27 @@ export const PressShowsPending: Story = {
       await expect(screen.getByTestId('new-setup-line-confirm')).toHaveTextContent('Getting new setup line');
     });
     await expect(screen.getByTestId('new-setup-line-confirm')).toHaveAttribute('aria-disabled', 'true');
+  },
+};
+
+/** Clipboard refusal keeps the approved stdin line available to copy by hand. */
+export const LineCopyFailed: Story = {
+  args: { setupLine: JOINED.setupLine },
+  beforeEach: () => {
+    const clipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: () => Promise.reject(new Error('Clipboard unavailable')) } });
+    return () => {
+      if (clipboard === undefined) Reflect.deleteProperty(navigator, 'clipboard');
+      else Object.defineProperty(navigator, 'clipboard', clipboard);
+    };
+  },
+  play: async () => {
+    // Given the replacement line is shown and the clipboard refuses access.
+    const copy = await screen.findByTestId('new-setup-line-setup-line-copy');
+    // When Copy is pressed.
+    await userEvent.click(copy);
+    // Then the failure explains how to copy the exact line by hand.
+    await waitFor(async () => { await expect(screen.getByText('Could not copy: select the text and copy it by hand.')).toBeVisible(); });
+    await expect(screen.getByTestId('new-setup-line-setup-line').textContent).toBe(STDIN_LINE);
   },
 };
