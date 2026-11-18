@@ -95,7 +95,7 @@ describe('discovery (decision 0047)', () => {
 
     expect(statements).toEqual({
       argo: null,
-      scout: { by: 'crew', version: 1, summary: 'Reviews pull requests.', capabilities: [{ name: 'review_pr' }] },
+      scout: { by: 'crew', version: 1, summary: 'Reviews pull requests.' },
       vault: { by: 'commission', note: 'Keeps the release keys' },
     });
   });

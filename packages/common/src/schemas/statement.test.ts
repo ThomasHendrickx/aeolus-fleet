@@ -155,7 +155,7 @@ describe('discoverOutputSchema (decisions 0047, 0059)', () => {
           type: 'reviewer',
           kind: 'agent',
           status: 'crewed',
-          statement: { by: 'crew', version: 1, summary: 'Reviews.', capabilities: [REVIEW] },
+          statement: { by: 'crew', version: 1, summary: 'Reviews.' },
           verified: [{ checked: 'tlsHost', value: 'reviewer.acme.example', by: { kind: 'ship', id: idSchema('ship').parse('shp_01m56nef0v036d0tne8wwnddtm'), name: 'gateway' }, at: '2026-10-20T10:12:00.000Z' }],
         },
         { id: idSchema('ship').parse('shp_01m56nef0v036d0tne8wwnddtj'), name: 'planner', type: 'planner', kind: 'agent', status: 'awaitingCrew', statement: { by: 'commission', note: 'Plans the slices' }, verified: [] },
