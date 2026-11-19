@@ -1,5 +1,9 @@
 'use client';
 
+import { LoadingSkeleton } from '@aeolus-fleet/ui';
+import { useQuery } from '@tanstack/react-query';
+import { notFound } from 'next/navigation';
+
 import { OwnSignInSection } from '../../../features/settings/state/own-sign-in-section';
 import { GatewayConnection } from '../../../features/settings/ui/organisms/gateway-connection';
 import { SquadronsConnection } from '../../../features/settings/ui/organisms/squadrons-connection';
@@ -17,6 +21,7 @@ import { useLiveFleet } from '../../../lib/live-fleet';
 import { useConnectSquadrons, useSquadronsConnection, useSquadronsSettings, useHasSquadrons } from '../../../lib/squadrons';
 import { useAddRepository, useCatalogue, useRefreshCatalogue, useRemoveRepository, useRepositories } from '../../../lib/squadrons-api';
 import { usePluginNav } from '../../../lib/plugin-nav';
+import { useTRPC } from '../../../lib/trpc';
 import { useConnectTrierarchPlugin, useTrierarchPluginSettings } from '../../../lib/trierarch-plugin';
 import { useConnectWatchPlugin, useWatchPluginSettings } from '../../../lib/watch-plugin';
 
@@ -30,6 +35,8 @@ import { useConnectWatchPlugin, useWatchPluginSettings } from '../../../lib/watc
  * watch plugin, after the gateway (design watch-connection).
  */
 export default function SettingsPage() {
+  const trpc = useTRPC();
+  const session = useQuery(trpc.console.session.queryOptions());
   const now = useNow();
   const frame = useConsoleFrame();
   const hasSquadrons = useHasSquadrons();
@@ -53,6 +60,13 @@ export default function SettingsPage() {
   const hasOwnSignIn = useHasOwnSignIn();
   useSignInWhenSessionEnds([attention.error, liveFleet.error]);
 
+  if (!pluginNav.hasSettings) {
+    if (session.isPending || settings.isPending || trierarchPlugin.isPending || gateway.isPending || watchPlugin.isPending) {
+      return <LoadingSkeleton variant="list" label="Loading Settings" />;
+    }
+    notFound();
+  }
+
   return (
     <ListPage
       {...frame}
@@ -74,45 +88,39 @@ export default function SettingsPage() {
           }}
         />
       )}
-      {pluginNav.hasSettings && (
-        <TrierarchPluginConnection
-          settings={trierarchPlugin.data}
-          loadError={trierarchPlugin.isError ? trierarchPlugin.error.message : undefined}
-          onRetry={() => trierarchPlugin.refetch()}
-          isConnecting={connectTrierarchPlugin.isPending}
-          connectError={connectTrierarchPlugin.isError ? connectTrierarchPlugin.error.message : undefined}
-          hasConnected={connectTrierarchPlugin.isSuccess}
-          onConnect={() => {
-            connectTrierarchPlugin.mutate();
-          }}
-        />
-      )}
-      {pluginNav.hasSettings && (
-        <GatewayConnection
-          settings={gateway.data}
-          loadError={gateway.isError ? gateway.error.message : undefined}
-          onRetry={() => gateway.refetch()}
-          isConnecting={connectGateway.isPending}
-          connectError={connectGateway.isError ? connectGateway.error.message : undefined}
-          hasConnected={connectGateway.isSuccess}
-          onConnect={() => {
-            connectGateway.mutate();
-          }}
-        />
-      )}
-      {pluginNav.hasSettings && (
-        <WatchPluginConnection
-          settings={watchPlugin.data}
-          loadError={watchPlugin.isError ? watchPlugin.error.message : undefined}
-          onRetry={() => watchPlugin.refetch()}
-          isConnecting={connectWatchPlugin.isPending}
-          connectError={connectWatchPlugin.isError ? connectWatchPlugin.error.message : undefined}
-          hasConnected={connectWatchPlugin.isSuccess}
-          onConnect={() => {
-            connectWatchPlugin.mutate();
-          }}
-        />
-      )}
+      <TrierarchPluginConnection
+        settings={trierarchPlugin.data}
+        loadError={trierarchPlugin.isError ? trierarchPlugin.error.message : undefined}
+        onRetry={() => trierarchPlugin.refetch()}
+        isConnecting={connectTrierarchPlugin.isPending}
+        connectError={connectTrierarchPlugin.isError ? connectTrierarchPlugin.error.message : undefined}
+        hasConnected={connectTrierarchPlugin.isSuccess}
+        onConnect={() => {
+          connectTrierarchPlugin.mutate();
+        }}
+      />
+      <GatewayConnection
+        settings={gateway.data}
+        loadError={gateway.isError ? gateway.error.message : undefined}
+        onRetry={() => gateway.refetch()}
+        isConnecting={connectGateway.isPending}
+        connectError={connectGateway.isError ? connectGateway.error.message : undefined}
+        hasConnected={connectGateway.isSuccess}
+        onConnect={() => {
+          connectGateway.mutate();
+        }}
+      />
+      <WatchPluginConnection
+        settings={watchPlugin.data}
+        loadError={watchPlugin.isError ? watchPlugin.error.message : undefined}
+        onRetry={() => watchPlugin.refetch()}
+        isConnecting={connectWatchPlugin.isPending}
+        connectError={connectWatchPlugin.isError ? connectWatchPlugin.error.message : undefined}
+        hasConnected={connectWatchPlugin.isSuccess}
+        onConnect={() => {
+          connectWatchPlugin.mutate();
+        }}
+      />
       {connection === 'connected' && (
         <TemplateRepositories
           repositories={repositories.data ?? []}
