@@ -72,6 +72,15 @@ async function signedIn(as: 'operator' | 'viewer'): Promise<Page> {
 }
 
 describe('the console of a viewer session', () => {
+  it('shows Page not found when a viewer opens Settings', async () => {
+    const page = await signedIn('viewer');
+
+    await page.goto('/settings');
+
+    await page.getByRole('heading', { name: 'Page not found' }).waitFor();
+    await expect(page.getByRole('heading', { name: 'Settings', exact: true }).count()).resolves.toBe(0);
+  });
+
   it('offers no Commission and no Compose, and names the viewer, reading only, in the account menu', async () => {
     const page = await signedIn('viewer');
     // The account answers once the session is known, so the writes it removes are settled by then.
