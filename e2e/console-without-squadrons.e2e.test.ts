@@ -53,6 +53,38 @@ afterAll(async () => {
 });
 
 describe('a console without squadrons', () => {
+  it('explains that an account owner with permission can use Settings alongside argo (#1938)', async () => {
+    // Given a signed-in operator opening Settings.
+    const settingsContext = await browser.newContext({ baseURL: web.url });
+    try {
+      const page = await settingsContext.newPage();
+      await signIn(page, OPERATOR);
+      await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
+
+      // When Settings is opened at phone and desktop widths.
+      await page.getByTestId('nav-settings').click();
+      await page.getByTestId('settings-sign-in').waitFor();
+      await page.getByTestId('settings-trierarchs-state').waitFor();
+      await page.getByText('Loading the gateway', { exact: true }).waitFor({ state: 'hidden' });
+      await page.getByText('Loading the watch plugin', { exact: true }).waitFor({ state: 'hidden' });
+      for (const width of [375, 1440, 1920]) {
+        await page.setViewportSize({ width, height: 1000 });
+        const evidenceDirectory = process.env.SETTINGS_EVIDENCE_DIR;
+        if (evidenceDirectory !== undefined) {
+          await page.screenshot({ path: `${evidenceDirectory}/settings-${String(width)}.png`, fullPage: true, style: 'nextjs-portal { display: none; }' });
+        }
+
+        expect(await page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')).toBe(true);
+      }
+
+      // Then the text includes the account owner and the permission needed.
+      await expect(page.getByText('How this installation runs. You can use these settings as argo, the operator, or as an account owner with permission to manage the fleet.').count()).resolves.toBe(1);
+      await expect(page.getByText('Only argo, the operator, sees this page.', { exact: false }).count()).resolves.toBe(0);
+    } finally {
+      await settingsContext.close();
+    }
+  });
+
   it("shows no trace of squadrons and keeps a ship's plain actions steady", async () => {
     unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'reviewer-02', type: 'reviewer' }));
     context = await browser.newContext({ baseURL: web.url });
