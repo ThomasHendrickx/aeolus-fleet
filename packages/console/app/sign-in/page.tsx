@@ -9,7 +9,7 @@ import { AuthCard } from '../../features/sign-in/ui/organisms/auth-card';
 import { isArgoAllowed } from '../../lib/argo-sign-in';
 import { hostedSignInUrlFrom } from '../../lib/hosted-sign-in';
 import { returnPathOf } from '../../lib/return-path';
-import { pagasaeFrom } from '../../lib/pagasae';
+import { accountAppFrom } from '../../lib/account-app';
 
 // The hosted sign-in URL is runtime config: read on each request.
 export const dynamic = 'force-dynamic';
@@ -22,7 +22,7 @@ export const dynamic = 'force-dynamic';
  * (AEOLUS_HOSTED_SIGN_IN_URL set) never serves a password form: it redirects
  * to the hosting service's sign-in at once, or, with the notice, shows the
  * notice and a link there, since the hosting service would not say it.
- * Where the console signs accounts in through pagasae (accounts design, F1),
+ * Where the console signs accounts in through the account app (accounts design, F1),
  * it offers that sign-in instead, and says so after a sign-out. With
  * `?notice=ended` it says the account's sign-in ended (A6), and signs in again
  * back to `returnTo`, the page it was on. To an account allowed as argo of the
@@ -31,7 +31,7 @@ export const dynamic = 'force-dynamic';
  * says the account's argo sign-in ended because someone signed in as argo
  * elsewhere.
  */
-/** pagasae's sign-in, coming back to the console page given, when one is. */
+/** the account app's sign-in, coming back to the console page given, when one is. */
 function startPathOf(returnTo: string | string[] | undefined): string {
   return typeof returnTo === 'string' ? `/sign-in/start?${new URLSearchParams({ returnTo: returnPathOf(returnTo) }).toString()}` : '/sign-in/start';
 }
@@ -42,9 +42,9 @@ export default async function SignInPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { notice, signed, returnTo } = await searchParams;
-  const pagasae = pagasaeFrom(process.env);
-  if (pagasae !== undefined) {
-    const canSignInAsArgo = await isArgoAllowed(pagasae, (await cookies()).toString());
+  const accountApp = accountAppFrom(process.env);
+  if (accountApp !== undefined) {
+    const canSignInAsArgo = await isArgoAllowed(accountApp, (await cookies()).toString());
     return (
       <AuthCard recovery={null}>
         <div className="flex flex-col gap-5" data-testid="sign-in-account">

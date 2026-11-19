@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 import { isSignedInElsewhere } from './errors';
 import { hostedSignInUrlFrom } from './hosted-sign-in';
-import { pagasaeFrom } from './pagasae';
+import { accountAppFrom } from './account-app';
 
 /** The server's session cookie (the server sets it; the web app only forwards it). */
 export const SESSION_COOKIE = 'aeolus_session';
@@ -20,8 +20,8 @@ const UNAUTHORIZED = 401;
  * hears it does (lib/session.ts), hosted or not: a hosted console shows the
  * notice there before the hosting service's sign-in. Otherwise the hosting
  * service's sign-in when AEOLUS_HOSTED_SIGN_IN_URL is set, the console's own
- * when not. Where the console signs accounts in through pagasae, back into
- * the fleet at once with the shared sign-in, or through pagasae's sign-in
+ * when not. Where the console signs accounts in through the account app, back into
+ * the fleet at once with the shared sign-in, or through the account app's sign-in
  * without it, coming back to the page asked for.
  */
 export function signInUrlFor(
@@ -31,7 +31,7 @@ export function signInUrlFor(
   if (ended === 'signedInElsewhere') {
     return new URL('/sign-in?notice=signed-in-elsewhere', requestUrl);
   }
-  if (pagasaeFrom(environment) !== undefined) {
+  if (accountAppFrom(environment) !== undefined) {
     const asked = new URL(requestUrl);
     const url = new URL(hasSharedSignIn ? '/sign-in/enter' : '/sign-in/start', requestUrl);
     url.search = new URLSearchParams({ returnTo: `${asked.pathname}${asked.search}` }).toString();

@@ -7,7 +7,7 @@ import type { PluginAnswer } from './plugin-answer';
 /**
  * How long the web app's server hands the list the header's read took on to
  * the palette's read of the same page load: the palette asks only once the
- * header holds the list, so a page load asks pagasae once (#1117).
+ * header holds the list, so a page load asks the account app once (#1117).
  */
 const HANDED_ON_MS = 30 * 1000;
 
@@ -25,7 +25,7 @@ function keep({ signIn, list, now }: { signIn: string | undefined; list: AppsLis
   }
 }
 
-/** The console read of the apps and fleets the signed-in account may open (lib/apps-list.ts), with the cookies the browser sent: none while pagasae gives none. Always asked anew. */
+/** The console read of the apps and fleets the signed-in account may open (lib/apps-list.ts), with the cookies the browser sent: none while the account app gives none. Always asked anew. */
 export async function readAppsList(): Promise<PluginAnswer<AppsList | null>> {
   const cookieHeader = (await cookies()).toString();
   const list = await appsListFor({ environment: process.env, cookieHeader });

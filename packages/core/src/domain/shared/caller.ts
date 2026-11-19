@@ -3,7 +3,7 @@ import type { Actor } from './events.js';
 
 /**
  * Who a call is authorised for: its actor (decision 0057). A ship, by its
- * crew token or a console sign-in; an account, by the account token pagasae
+ * crew token or a console sign-in; an account, by the account token the account app
  * signed for this fleet; or the installation, by the installation token.
  * Scopes and reach come from the server or the checked token, never from
  * the request, and are checked the same way for each.
@@ -45,7 +45,7 @@ export interface AccountCaller {
   throughShipId: ShipId | null;
   /** When the token that made this caller ends: what a console sign-in by it lasts. */
   tokenEndsAt?: Date;
-  /** Whether pagasae allows it as argo of this fleet, as its token says; absent is not. */
+  /** Whether the account app allows it as argo of this fleet, as its token says; absent is not. */
   isArgoAllowed?: boolean;
 }
 

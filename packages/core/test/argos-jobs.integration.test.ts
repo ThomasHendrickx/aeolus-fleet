@@ -45,7 +45,7 @@ async function anAgentHolding(scopes: readonly Scope[]): Promise<{ shipId: ShipI
   return { shipId: commissioned.shipId, calls: client({ authorization: `Bearer ${crewToken}` }) };
 }
 
-/** An account with the scopes given, by a token pagasae signs now: its client. */
+/** An account with the scopes given, by a token the account app signs now: its client. */
 function anAccountHolding(scopes: readonly Scope[], account: { id?: string; personShipId?: ShipId } = {}): TRPCClient<AppRouter> {
   const { id = 'acc-mathilde', personShipId } = account;
   const now = Math.floor(clock.now().getTime() / 1000);

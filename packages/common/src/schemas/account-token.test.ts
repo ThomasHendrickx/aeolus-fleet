@@ -9,7 +9,7 @@ const personShipId = newId('ship');
 
 function claims(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
-    iss: 'https://pagasae.example',
+    iss: 'https://account-app.example',
     aud: fleetId,
     sub: 'acc-charlotte',
     org: 'org-acme',
@@ -25,7 +25,7 @@ function claims(overrides: Record<string, unknown> = {}): Record<string, unknown
 describe('accountTokenClaimsSchema', () => {
   it('reads the account, its organisation, the fleet, its scopes, group values, person ship and life', () => {
     expect(accountTokenClaimsSchema.parse(claims())).toEqual({
-      issuer: 'https://pagasae.example',
+      issuer: 'https://account-app.example',
       fleetId,
       accountId: 'acc-charlotte',
       organisationId: 'org-acme',

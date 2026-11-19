@@ -23,7 +23,7 @@ Not the purpose:
   - It crews a person ship the first time its person signs in, and keeps the crew token in `person_crews`, shared by all of the person's clients.
   - `people.inbox` (the overview, `aeolus_inbox`) push receives with no `waker`, so a lease the gateway crews states none. `aeolus_open` acks for the person; answer and done report `handled`.
   - The pages' live channel hears only the gateway's own database: a trigger on `pending_requests` sends `NOTIFY gateway_changes` with the fleet and topic `requests`, every instance listens, and a lost connection reads everything anew.
-  - It holds no email address and sends no email. pagasae signs every account in by email link (0054) and holds the address.
+  - It holds no email address and sends no email. The account app signs every account in by email link (0054) and holds the address.
   - Proxy ships of outside MCP servers poll `pushReceive` while they hold in-flight deliveries (`run-party`), since `inbox` would answer at once.
 
 ## 3. Lessons checked against
@@ -34,7 +34,7 @@ Not the purpose:
 - **I-8.** One waiting call per ship the gateway crews; a core call waiting on many ships is not built until numbers demand it.
 - **0016.** No policy: what a wake carries and how often is the person's or the configuration's, not a rule core applies.
 - **0045, 0052.** A person ship owns itself, so its owner configuring the channel is the person.
-- **0054, 0058.** Email stays in pagasae; core holds none.
+- **0054, 0058.** Email stays in the account app; core holds none.
 - **0033 and the gateway's pages.** Logic on the server; the browser holds UI interaction and renders what it is given. Live over a socket, not polling (#1014).
 
 ## 4. Decisions (Thomas, 21 Oct)
@@ -42,7 +42,7 @@ Not the purpose:
 | # | Rule |
 | --- | --- |
 | W1 | **Channels: web push and email.** No chat webhook |
-| W2 | **pagasae sends the email**, asked by the gateway to send an account a wake. The address never leaves pagasae |
+| W2 | **The account app sends the email**, asked by the gateway to send an account a wake. The address never leaves the account app |
 | W3 | **Each delivery is woken once, gathered so a person is not spammed.** A wake covers every delivery not yet handed; a channel sends at most one wake per window from the gateway's configuration, and what arrives inside the window goes in the next wake (the window is W10) |
 | W4 | **The wake says only that something waits in the fleet, by the fleet's name, with a link to the gateway's overview** |
 | W5 | **Core: `inbox` takes the count the caller already knows and waits while the count is still that**, up to its 25 seconds. It claims nothing |
@@ -126,10 +126,10 @@ S1 first; S2 needs its core version; S3 and S4 follow S2 and can run side by sid
 - The push keys come from the gateway's configuration; without them the section does not offer web push.
 - Tests: no wake without consent; no wake while a page is in focus, `handed` via `page`; a wake while a page is open and not in focus; ten deliveries in a window give one wake and ten hand-overs; a crash before `handed` wakes again, after `handed` does not; a gone subscription is forgotten.
 
-### S4 pagasae and gateway: email (W2, W3, W4, W8)
+### S4 the account app and gateway: email (W2, W3, W4, W8)
 
-- pagasae answers a gateway request to send an account a wake: the fleet's name, "something waits" and the overview link, to the account's address. The gateway never reads the address.
+- The account app answers a gateway request to send an account a wake: the fleet's name, "something waits" and the overview link, to the account's address. The gateway never reads the address.
 - The overview's section turns email on and off; nothing is on by default.
 - A fresh delivery not handed through `page` wakes through email too, at most one per window (W10: 60 minutes by default); each delivery it covers is reported `handed` no. 1 with channel `email` when it is the first channel that went out.
-- pagasae not answering hands nothing and is tried again.
-- Tests: no email without consent; one email per window; a refusal from pagasae hands nothing.
+- The account app not answering hands nothing and is tried again.
+- Tests: no email without consent; one email per window; a refusal from the account app hands nothing.

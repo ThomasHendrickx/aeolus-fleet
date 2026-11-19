@@ -4,7 +4,7 @@ import { idSchema } from '../ids/index.js';
 import { accountIdSchema } from './account-token.js';
 
 /*
- * The apps and fleets an account may open, as pagasae answers an Aeolus app's
+ * The apps and fleets an account may open, as the account app answers an Aeolus app's
  * server at GET /api/apps (header design H1): Account always and Admin for
  * the App admin, outside any fleet; then each fleet where the account holds
  * any scope, with the console where it holds fleet:read and the gateway where

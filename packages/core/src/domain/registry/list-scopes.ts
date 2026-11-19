@@ -21,7 +21,7 @@ export type ListScopes = (caller: Caller) => Promise<ListedNamespace[]>;
 
 /**
  * Use case: every namespace of the caller's fleet (decision 0046), for any
- * actor, so pagasae offers each plugin's scopes and the fleet's own to its
+ * actor, so the account app offers each plugin's scopes and the fleet's own to its
  * groups (0053): the core namespaces first, each with its scopes in catalogue
  * order, then the plugins' and the fleet's by namespace, a plugin's scopes as
  * declared and the fleet's by name. The caller's scope (fleet:read) is

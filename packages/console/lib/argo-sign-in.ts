@@ -2,9 +2,9 @@ import { argoSignInOutputSchema, type ArgoSignInOutput } from '@aeolus-fleet/com
 import { z } from 'zod';
 
 import { FLEET_COOKIE, fleetToEnter, redirectTo, type SignInDeps } from './account-sign-in';
-import { askPagasae } from './account-name';
+import { askAccountApp } from './account-name';
 import { ACCOUNT_TOKEN_COOKIE, SESSION_COOKIE } from './console-gate';
-import { cookieValueOf, exchangeArgoTicket, exchangeSignIn, fleetsOf, SHARED_SIGN_IN_COOKIE, type Pagasae } from './pagasae';
+import { cookieValueOf, exchangeArgoTicket, exchangeSignIn, fleetsOf, SHARED_SIGN_IN_COOKIE, type AccountApp } from './account-app';
 import { consoleOriginOf } from './console-origin';
 import { serverInternalUrlFrom } from './server-url';
 import { returnPathOf } from './return-path';
@@ -13,7 +13,7 @@ import { UNREACHABLE_PATH } from './sign-in-paths';
 /**
  * Break-glass (accounts design, F4, A7): an account allowed as argo of the
  * fleet signs in as argo from the console, on the web app's server. It asks
- * pagasae for core's one-time ticket naming the account, redeems it at core,
+ * the account app for core's one-time ticket naming the account, redeems it at core,
  * which takes argo's lease over and ends any other argo sign-in, and passes
  * argo's session cookie on. When someone else holds argo, it warns first.
  * Sign out of argo ends that session alone and enters the fleet again as the
@@ -45,12 +45,12 @@ function isFromConsole(request: Request, environment: Environment): boolean {
 }
 
 /** The fleet an account signs in as argo of: the one the console enters, when the account is allowed as argo there. */
-async function argoFleetOf(pagasae: Pagasae, cookies: string | null): Promise<{ fleetId: string } | 'none' | 'ended' | 'unreachable'> {
+async function argoFleetOf(accountApp: AccountApp, cookies: string | null): Promise<{ fleetId: string } | 'none' | 'ended' | 'unreachable'> {
   const signIn = cookieValueOf(cookies, SHARED_SIGN_IN_COOKIE);
   if (signIn === undefined) {
     return 'ended';
   }
-  const fleets = await fleetsOf({ pagasae }, signIn);
+  const fleets = await fleetsOf({ accountApp }, signIn);
   if (typeof fleets === 'string') {
     return fleets;
   }
@@ -59,11 +59,11 @@ async function argoFleetOf(pagasae: Pagasae, cookies: string | null): Promise<{ 
 }
 
 /** Whether the shared sign-in's account may sign in as argo of the fleet the console enters: for the avatar menu and the sign-in page. */
-export async function isArgoAllowed(pagasae: Pagasae, cookies: string | null): Promise<boolean> {
-  return typeof (await argoFleetOf(pagasae, cookies)) === 'object';
+export async function isArgoAllowed(accountApp: AccountApp, cookies: string | null): Promise<boolean> {
+  return typeof (await argoFleetOf(accountApp, cookies)) === 'object';
 }
 
-/** The account's token for core: its token cookie, or a fresh one from pagasae for the shared sign-in once that cookie ended. */
+/** The account's token for core: its token cookie, or a fresh one from the account app for the shared sign-in once that cookie ended. */
 async function accountTokenOf(cookies: string | null, deps: SignInDeps): Promise<string | undefined> {
   const token = cookieValueOf(cookies, ACCOUNT_TOKEN_COOKIE);
   if (token !== undefined) {
@@ -74,7 +74,7 @@ async function accountTokenOf(cookies: string | null, deps: SignInDeps): Promise
   if (signIn === undefined || fleetId === undefined) {
     return undefined;
   }
-  const exchanged = await exchangeSignIn({ pagasae: deps.pagasae }, { signIn, fleetId });
+  const exchanged = await exchangeSignIn({ accountApp: deps.accountApp }, { signIn, fleetId });
   return exchanged.kind === 'token' ? exchanged.token : undefined;
 }
 
@@ -96,7 +96,7 @@ async function argoSignInOf(cookies: string | null, deps: SignInDeps): Promise<A
   }
 }
 
-/** Who signing in as argo signs out, for the warning: an account by the name pagasae gives it, or someone it cannot name; none when no one holds argo. */
+/** Who signing in as argo signs out, for the warning: an account by the name the account app gives it, or someone it cannot name; none when no one holds argo. */
 export type ArgoHolder = { kind: 'none' } | { kind: 'account'; name: string } | { kind: 'unnamed' };
 
 export async function argoHolderOf(cookies: string | null, deps: SignInDeps): Promise<ArgoHolder> {
@@ -109,7 +109,7 @@ export async function argoHolderOf(cookies: string | null, deps: SignInDeps): Pr
   if (held.accountId == null || fleetId === undefined) {
     return { kind: 'unnamed' };
   }
-  const name = await askPagasae({ pagasae: deps.pagasae, fleetId, accountId: held.accountId, fetchImplementation: fetch });
+  const name = await askAccountApp({ accountApp: deps.accountApp, fleetId, accountId: held.accountId, fetchImplementation: fetch });
   return { kind: 'account', name: name ?? held.accountId };
 }
 
@@ -138,7 +138,7 @@ async function redeemAtCore(redeem: { ticket: string; userAgent: string | null }
 /**
  * Signs the account in as argo of the fleet the console enters: refused when
  * it may not, warned first when someone holds argo and it has not confirmed,
- * then pagasae's ticket redeemed at core and on into argo's console, at the
+ * then the account app's ticket redeemed at core and on into argo's console, at the
  * console page the form names when it is one of the console's own, else the
  * overview.
  */
@@ -148,7 +148,7 @@ export async function signInAsArgo(request: Request, deps: SignInDeps): Promise<
   }
   const cookies = request.headers.get('cookie');
   const startAgain = '/sign-in/start';
-  const fleet = await argoFleetOf(deps.pagasae, cookies);
+  const fleet = await argoFleetOf(deps.accountApp, cookies);
   if (fleet === 'ended') {
     return redirectTo(startAgain);
   }
@@ -165,7 +165,7 @@ export async function signInAsArgo(request: Request, deps: SignInDeps): Promise<
     return redirectTo(argoConfirmPathFor(returnTo));
   }
   const signIn = cookieValueOf(cookies, SHARED_SIGN_IN_COOKIE) ?? '';
-  const ticket = await exchangeArgoTicket({ pagasae: deps.pagasae }, { signIn, fleetId: fleet.fleetId });
+  const ticket = await exchangeArgoTicket({ accountApp: deps.accountApp }, { signIn, fleetId: fleet.fleetId });
   switch (ticket.kind) {
     case 'ended':
       return redirectTo(startAgain);

@@ -126,7 +126,7 @@ export const installationRouter = router({
   }),
   accounts: router({
     /**
-     * Cuts off an account pagasae disabled (decision 0058): every token of it
+     * Cuts off an account the account app disabled (decision 0058): every token of it
      * issued until now is refused in every fleet here, before it ends. Kept
      * 11 minutes, past the longest such token. The account named only by its id.
      */

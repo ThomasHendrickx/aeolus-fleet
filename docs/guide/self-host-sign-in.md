@@ -52,7 +52,7 @@ The sign-in service sends a person back only to an exact registered callback. Wr
 | --- | --- |
 | Console | `https://console.example.com/sign-in/done` |
 | Gateway, Bridge's pages | `https://bridge.example.com/sign-in/done` |
-| Gateway, chats and MCP clients | `https://bridge.example.com/pagasae/callback` |
+| Gateway, chats and MCP clients | The gateway's documented chats callback |
 
 The gateway refuses to start with its sign-in URL unless it also has the chats client, so the sign-in service registers that third callback even though no chat connects yet.
 
@@ -83,9 +83,9 @@ INSTALLATION_TOKEN=<the installation token>
 ACCOUNT_TOKEN_ISSUER=https://signin.example.com
 
 # console
-AEOLUS_PAGASAE_URL=https://signin.example.com
-AEOLUS_PAGASAE_CLIENT_ID=console
-AEOLUS_PAGASAE_CLIENT_SECRET=<the console's client secret>
+AEOLUS_ACCOUNT_APP_URL=https://signin.example.com
+AEOLUS_ACCOUNT_APP_CLIENT_ID=console
+AEOLUS_ACCOUNT_APP_CLIENT_SECRET=<the console's client secret>
 ```
 
 Setting `INSTALLATION_TOKEN` turns the installation procedures on, which [Self-host](self-host.md) leaves off until now. Check `https://core.example.com/api/version` answers at 0.39.0 or newer.
@@ -97,18 +97,13 @@ Setting `INSTALLATION_TOKEN` turns the installation procedures on, which [Self-h
 3. Write its settings: the database, `CORE_URL`, the installation token, its own address and cookie domain, the signing key, the two or three client registrations with the exact callbacks above, and your fleet's real id (not its name) with the console and gateway addresses.
 4. Start it with `serve`, from source or from its image. In a rootless podman container, add `--userns=keep-id --user "$(id -u):$(id -g)"` so the container owns the 0600 key, and write the settings in an `--env-file` with no quotes around JSON values. Open `<sign-in address>/.well-known/jwks.json`. It must show one public key.
 
-**The gateway.** Give it a database of its own, build it from its repository until a release has the sign-in changes (gateway pull requests 367 and 374), and set:
+**The gateway.** Give it a database of its own, build it from its repository until a release has the sign-in changes (gateway pull requests 367 and 374), and set its account app address and client credentials as its own documentation says, together with:
 
 ```sh
 DATABASE_URL=postgresql://...
 FLEET_URL=https://core.example.com
 GATEWAY_SECRET=<at least 32 characters, kept for good>
 GATEWAY_PUBLIC_URL=https://bridge.example.com
-PAGASAE_URL=https://signin.example.com
-PAGASAE_CLIENT_ID=<the chats client id>
-PAGASAE_CLIENT_SECRET=<the chats client secret>
-PAGASAE_APP_CLIENT_ID=<the Bridge client id>
-PAGASAE_APP_CLIENT_SECRET=<the Bridge client secret>
 INSTALLATION_TOKEN=<the installation token>
 ```
 
@@ -203,7 +198,7 @@ Test this walk on an isolated installation before you need it. A stored dump alo
 | --- | --- |
 | The sign-in service says only `Sign-in could not complete` and stops | A setting is missing or wrong, and the message names none. Check that every setting in its guide is present, that JSON values are quoted, and that each address is https. |
 | It says it requires core 0.39.0 or newer, or that core did not answer | `CORE_URL` is wrong, core is older, or this server does not trust core's certificate. |
-| The gateway says to set all three, or none | `PAGASAE_URL`, `PAGASAE_CLIENT_ID` and `PAGASAE_CLIENT_SECRET` go together: register the chats client. |
+| The gateway says to set all three, or none | `ACCOUNT_APP_URL`, `ACCOUNT_APP_CLIENT_ID` and `ACCOUNT_APP_CLIENT_SECRET` go together: register the chats client. |
 | Settings shows no Gateway card | The fleet is not switched on at the gateway. Send `installation.setEnabled`, as step 3 shows. |
 | The console or Bridge shows **No rights in this fleet** | The account has no rights on this fleet id, or it was removed with `disable`. Check the fleet id in the sign-in settings, and see step 7. |
 | A callback page says the redirect is not registered | The callback differs from the registration by a character or a port. Register it exactly. |

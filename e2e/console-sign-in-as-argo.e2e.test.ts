@@ -10,7 +10,7 @@ import { newKey } from '../packages/core/src/testing/keys.js';
 import { unwrap } from '../packages/core/src/testing/result.js';
 import { createUseCases } from '../packages/core/src/wiring.js';
 import { FLEET_URL, OPERATOR, operatorCaller } from '../packages/core/test/support/core-fixtures.js';
-import { startFakePagasae, type FakeAccount, type FakePagasae } from './support/fake-pagasae.js';
+import { startFakeAccountApp, type FakeAccount, type FakeAccountApp } from './support/fake-account-app.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 
 // Break-glass (accounts design, F4, A7): an account allowed as argo signs in
@@ -19,7 +19,7 @@ import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './supp
 // in order, as the two accounts take argo from each other.
 
 let database: PrismaClient;
-let pagasae: FakePagasae;
+let accountApp: FakeAccountApp;
 let server: FastifyInstance;
 let web: RunningWeb;
 let browser: Browser;
@@ -40,14 +40,14 @@ beforeAll(async () => {
   ({ fleetId } = fleet);
   unwrap(await useCases.commissionShip(operatorCaller(fleet), { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
 
-  // pagasae asks core for the ticket with the installation token; here the test's core issues it.
-  pagasae = await startFakePagasae({
+  // the account app asks core for the ticket with the installation token; here the test's core issues it.
+  accountApp = await startFakeAccountApp({
     argoTickets: async (forFleet, accountId) => unwrap(await useCases.issueSignInTicket({ fleetId: idSchema('fleet').parse(forFleet), account: { id: accountIdSchema.parse(accountId) } })).ticket,
   });
   const webUrl = await reserveWebUrl();
-  server = createApp({ databaseUrl, publicUrl: FLEET_URL, consoleOrigin: webUrl, logger: false, accountTokenIssuer: pagasae.url });
+  server = createApp({ databaseUrl, publicUrl: FLEET_URL, consoleOrigin: webUrl, logger: false, accountTokenIssuer: accountApp.url });
   const serverUrl = await server.listen({ host: '127.0.0.1', port: 0 });
-  web = await startWeb({ url: webUrl, serverUrl, pagasae });
+  web = await startWeb({ url: webUrl, serverUrl, accountApp });
   browser = await launchChromium();
 });
 
@@ -56,13 +56,13 @@ afterAll(async () => {
   await browser.close();
   await web.stop();
   await server.close();
-  await pagasae.close();
+  await accountApp.close();
   await database.$disconnect();
 });
 
 /** A new browser signed in to the console as the account. */
 async function signedInAs(who: FakeAccount): Promise<Page> {
-  pagasae.signInAs(who);
+  accountApp.signInAs(who);
   const context = await browser.newContext({ baseURL: web.url });
   contexts.push(context);
   const page = await context.newPage();
@@ -149,7 +149,7 @@ describe('signing in as argo from the console', () => {
     await mathildePage.goto('/');
 
     await mathildePage.getByTestId('sign-in-signed-in-elsewhere').getByText('Your argo sign-in ended because someone signed in as argo elsewhere.').waitFor();
-    pagasae.signInAs(account('mathilde', { isArgoAllowed: true }));
+    accountApp.signInAs(account('mathilde', { isArgoAllowed: true }));
     await mathildePage.getByTestId('sign-in-account-start').click();
 
     await isHydrated(mathildePage);
@@ -157,14 +157,14 @@ describe('signing in as argo from the console', () => {
   });
 
   it('signs out of argo back to the account, with no sign-in step', async () => {
-    const signInsBefore = pagasae.signInsAsked();
+    const signInsBefore = accountApp.signInsAsked();
 
     await thomasPage.getByTestId('argo-banner').getByRole('button', { name: 'Sign out of argo' }).click();
 
     await isHydrated(thomasPage);
     await thomasPage.getByTestId('argo-banner').waitFor({ state: 'detached' });
     await isSignedInAsAccount(thomasPage);
-    expect(pagasae.signInsAsked()).toBe(signInsBefore);
+    expect(accountApp.signInsAsked()).toBe(signInsBefore);
     await expect(argoSessionsOf('acc-thomas')).resolves.toEqual([expect.objectContaining({ endReason: 'signedOut' })]);
   });
 

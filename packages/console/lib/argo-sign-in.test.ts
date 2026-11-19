@@ -4,11 +4,11 @@ import { argoConfirmPathFor, signInAsArgo } from './argo-sign-in';
 
 const CONSOLE_URL = 'https://fleet.example.com';
 const ENVIRONMENT = { AEOLUS_CONSOLE_URL: CONSOLE_URL, AEOLUS_SERVER_INTERNAL_URL: 'http://core.internal' };
-const PAGASAE = { url: 'https://account.example', clientId: 'console', clientSecret: 's'.repeat(32) };
+const ACCOUNT_APP = { url: 'https://account.example', clientId: 'console', clientSecret: 's'.repeat(32) };
 const COOKIES = 'aeolus_account_session=shared; aeolus_account_token=tok';
 const MESSAGE_PATH = '/inbox?message=dlv_01m6c7geg9d1wyr4xkaac3wevy';
 
-/** Pagasae and core as the account sees them: allowed as argo, with argo held by someone else or by no one. */
+/** AccountApp and core as the account sees them: allowed as argo, with argo held by someone else or by no one. */
 function stubFleet({ isArgoHeld }: { isArgoHeld: boolean }): void {
   vi.stubGlobal(
     'fetch',
@@ -19,7 +19,7 @@ function stubFleet({ isArgoHeld }: { isArgoHeld: boolean }): void {
       if (url.endsWith('/trpc/console.argoSignIn')) {
         return Promise.resolve(Response.json({ result: { data: isArgoHeld ? { isSignedIn: true, accountId: null } : { isSignedIn: false } } }));
       }
-      if (url.startsWith(PAGASAE.url)) {
+      if (url.startsWith(ACCOUNT_APP.url)) {
         return Promise.resolve(Response.json({ access_token: 'ticket-1' }));
       }
       return Promise.resolve(new Response('{}', { status: 200, headers: { 'set-cookie': 'aeolus_session=argo; Path=/' } }));
@@ -39,7 +39,7 @@ describe('the sign-in as argo that a message link goes through', () => {
   it('lands on the message once signed in as argo, from an account signed in as itself', async () => {
     stubFleet({ isArgoHeld: false });
 
-    const answer = await signInAsArgo(aPostFrom({ returnTo: MESSAGE_PATH }), { pagasae: PAGASAE, environment: ENVIRONMENT });
+    const answer = await signInAsArgo(aPostFrom({ returnTo: MESSAGE_PATH }), { accountApp: ACCOUNT_APP, environment: ENVIRONMENT });
 
     expect(answer.headers.get('location')).toBe(MESSAGE_PATH);
     expect(answer.headers.get('set-cookie')).toContain('aeolus_session=argo');
@@ -48,7 +48,7 @@ describe('the sign-in as argo that a message link goes through', () => {
   it('goes through the confirm page, keeping the message, when someone else holds argo', async () => {
     stubFleet({ isArgoHeld: true });
 
-    const answer = await signInAsArgo(aPostFrom({ returnTo: MESSAGE_PATH }), { pagasae: PAGASAE, environment: ENVIRONMENT });
+    const answer = await signInAsArgo(aPostFrom({ returnTo: MESSAGE_PATH }), { accountApp: ACCOUNT_APP, environment: ENVIRONMENT });
 
     expect(answer.headers.get('location')).toBe(argoConfirmPathFor(MESSAGE_PATH));
     expect(answer.headers.get('set-cookie')).toBeNull();
@@ -57,7 +57,7 @@ describe('the sign-in as argo that a message link goes through', () => {
   it('lands on the message after the confirm page', async () => {
     stubFleet({ isArgoHeld: true });
 
-    const answer = await signInAsArgo(aPostFrom({ confirmed: 'yes', returnTo: MESSAGE_PATH }), { pagasae: PAGASAE, environment: ENVIRONMENT });
+    const answer = await signInAsArgo(aPostFrom({ confirmed: 'yes', returnTo: MESSAGE_PATH }), { accountApp: ACCOUNT_APP, environment: ENVIRONMENT });
 
     expect(answer.headers.get('location')).toBe(MESSAGE_PATH);
   });
@@ -65,7 +65,7 @@ describe('the sign-in as argo that a message link goes through', () => {
   it.each(['https://evil.example/inbox', '//evil.example/inbox', '/\\evil.example', 'inbox'])('lands on / for %s, a path outside the console', async (returnTo) => {
     stubFleet({ isArgoHeld: false });
 
-    const answer = await signInAsArgo(aPostFrom({ returnTo }), { pagasae: PAGASAE, environment: ENVIRONMENT });
+    const answer = await signInAsArgo(aPostFrom({ returnTo }), { accountApp: ACCOUNT_APP, environment: ENVIRONMENT });
 
     expect(answer.headers.get('location')).toBe('/');
   });
@@ -73,7 +73,7 @@ describe('the sign-in as argo that a message link goes through', () => {
   it('lands on / with no page named', async () => {
     stubFleet({ isArgoHeld: false });
 
-    const answer = await signInAsArgo(aPostFrom({}), { pagasae: PAGASAE, environment: ENVIRONMENT });
+    const answer = await signInAsArgo(aPostFrom({}), { accountApp: ACCOUNT_APP, environment: ENVIRONMENT });
 
     expect(answer.headers.get('location')).toBe('/');
   });

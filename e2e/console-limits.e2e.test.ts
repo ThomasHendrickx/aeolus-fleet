@@ -23,7 +23,7 @@ import { withOperatorLogin } from '../packages/core/test/support/operator-login.
 // console is hosted: its account menu links to the hosting service's account.
 
 const INSTALLATION_TOKEN = 'aeolus_installation_test_0123456789abcdef';
-const ACCOUNT_URL = 'https://pagasae.example.com/account';
+const ACCOUNT_URL = 'https://account-app.example.com/account';
 const clock = createTestClock('2026-10-04T12:00:00.000Z');
 
 let database: PrismaClient;

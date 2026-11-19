@@ -73,7 +73,7 @@ export const consoleRouter = router({
   }),
 
   /**
-   * Exchanges the account token pagasae gave the console's server for the
+   * Exchanges the account token the account app gave the console's server for the
    * account token cookie (accounts design, F1, A3): core checks the token as
    * on every call and keeps it in a cookie of its own until it ends. The
    * console's server calls it and passes the cookie on, at sign-in and at
@@ -181,7 +181,7 @@ export const consoleRouter = router({
       await ctx.useCases.signOut(use.caller);
     }
     ctx.sessionCookie.clear();
-    // An account's sign-in ends with its cookie here; the console's server ends the shared sign-in at pagasae.
+    // An account's sign-in ends with its cookie here; the console's server ends the shared sign-in at the account app.
     if (ctx.credentials.accountTokenCookie !== undefined) {
       ctx.sessionCookie.clearAccountToken();
     }

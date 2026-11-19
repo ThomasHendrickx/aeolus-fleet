@@ -47,7 +47,7 @@ export interface AppOptions {
   metadataFillPassMs?: number;
   /** Whether the maintenance pass runs at all: false, only what a test calls runs passes (#1836). Unset, it runs. */
   hasMaintenancePass?: boolean;
-  /** pagasae's URL, the issuer whose account tokens core trusts (decision 0058); unset, it trusts none. */
+  /** the account app's URL, the issuer whose account tokens core trusts (decision 0058); unset, it trusts none. */
   accountTokenIssuer?: string;
   /** The installation's KMS for sealed fleets (decision 0068); unset, no fleet can be sealed. */
   keyVault?: KeyVault;
@@ -60,10 +60,10 @@ const METADATA_FILL_PASS_MS = 100;
 const BOOTSTRAP_INDEX_RETRY_MS = 1_000;
 const PLAIN_PAYLOAD_INDEX_RETRY_MS = 1_000;
 
-/** How long core waits for pagasae's key set before it goes on with the keys it holds. */
+/** How long core waits for the account app's key set before it goes on with the keys it holds. */
 const KEY_SET_FETCH_TIMEOUT_MS = 5_000;
 
-/** Checks account tokens with the keys pagasae publishes at its `/.well-known/jwks.json`; none without an issuer. */
+/** Checks account tokens with the keys the account app publishes at its `/.well-known/jwks.json`; none without an issuer. */
 function accountTokenSignaturesOf(issuer: string | undefined, clock: Clock) {
   if (issuer === undefined) {
     return undefined;
@@ -75,7 +75,7 @@ function accountTokenSignaturesOf(issuer: string | undefined, clock: Clock) {
     fetchKeySet: async () => {
       const response = await fetch(keySetUrl, { signal: AbortSignal.timeout(KEY_SET_FETCH_TIMEOUT_MS) });
       if (!response.ok) {
-        throw new Error(`pagasae answered ${String(response.status)} for its key set`);
+        throw new Error(`accountApp answered ${String(response.status)} for its key set`);
       }
       return response.json();
     },

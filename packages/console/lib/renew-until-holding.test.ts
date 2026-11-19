@@ -41,7 +41,7 @@ describe('renewing the account token after connecting the trierarch plugin (issu
     expect(session.waits).toEqual([]);
   });
 
-  it("renews again once after pagasae's catalogue cache when the fresh token still lacks it", async () => {
+  it("renews again once after the account app's catalogue cache when the fresh token still lacks it", async () => {
     const session = console_([
       { outcome: 'renewed', scopes: ['fleet:read'] },
       { outcome: 'renewed', scopes: ['fleet:read', 'trierarch:join'] },

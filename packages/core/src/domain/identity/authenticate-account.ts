@@ -6,10 +6,10 @@ import { refuse, type DomainError } from '../shared/errors.js';
 import { ok, type Result } from '../shared/result.js';
 import type { AccountCutOffLookup, AccountTokenSignatures, HostedFleets } from './ports.js';
 
-/** How long pagasae's account token lives (decision 0058). */
+/** How long the account app's account token lives (decision 0058). */
 export const ACCOUNT_TOKEN_LIFE_MS = 10 * 60_000;
 
-/** The allowance between core's clock and pagasae's, on a token's end and issue (decision 0058). */
+/** The allowance between core's clock and the account app's, on a token's end and issue (decision 0058). */
 export const ACCOUNT_TOKEN_CLOCK_ALLOWANCE_MS = 30_000;
 
 /**
@@ -23,11 +23,11 @@ export type AuthenticateAccount = (token: string, presented: { through: ShipCall
 
 /**
  * Use case: turns an account token into the account as the caller (decision
- * 0058), checked on every call. pagasae's key signed it, naming pagasae (the
+ * 0058), checked on every call. the account app's key signed it, naming the account app (the
  * signatures port); it is for this fleet: the fleet of the ship that
  * presented it, or with none, a fleet this installation hosts; it has not
  * ended, with 30 seconds of allowance; it lives no longer than the 10
- * minutes pagasae gives one, so a misconfigured issuer cannot widen a
+ * minutes the account app gives one, so a misconfigured issuer cannot widen a
  * leaver's window, and was not issued later than now, so it cannot outlive
  * a cut-off; and its account was not cut off after it was issued. Core
  * stores nothing of the account.
@@ -81,5 +81,5 @@ async function isForThisFleet(fleets: HostedFleets, token: { claims: AccountToke
 }
 
 function refuseInvalid() {
-  return refuse('ACCOUNT_TOKEN_INVALID', 'Present an account token pagasae signed for this fleet');
+  return refuse('ACCOUNT_TOKEN_INVALID', 'Present an account token the account app signed for this fleet');
 }

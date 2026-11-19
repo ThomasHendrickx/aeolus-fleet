@@ -1,15 +1,15 @@
 # Accounts, phase 2: the decided model
 
-Thomas answered all 20 questions of [`accounts.md`](../accounts.md), then redesigned phase 2 with pagasae not a ship: the actor model of [`actors.md`](../actors.md), answered in round 4, and round 5 below. The model is decided: decisions 0051 to 0058 in [`docs/decisions`](../../../decisions/README.md), and the blueprint. This folder keeps the flows, happy and unhappy paths, and the questions they came from. No code.
+Thomas answered all 20 questions of [`accounts.md`](../accounts.md), then redesigned phase 2 with the account app not a ship: the actor model of [`actors.md`](../actors.md), answered in round 4, and round 5 below. The model is decided: decisions 0051 to 0058 in [`docs/decisions`](../../../decisions/README.md), and the blueprint. This folder keeps the flows, happy and unhappy paths, and the questions they came from. No code.
 
 | Part | Decision | Answers | Flows |
 | --- | --- | --- | --- |
 | 1 | [0057 Actors](../../../decisions/0057-actors.md) | `actors.md` 1, 2, 4 to 9 | [F4](flows.md#f4-an-admin-acts-as-their-account) |
-| 2 | [0058 The link between pagasae and core](../../../decisions/0058-pagasae-core-link.md) | `actors.md` 3, 4 | [F11](flows.md#f11-an-account-token-is-checked) |
+| 2 | [0058 The link between the account app and core](../../../decisions/0058-account-app-core-link.md) | `actors.md` 3, 4 | [F11](flows.md#f11-an-account-token-is-checked) |
 | 3 | [0051 Organisation](../../../decisions/0051-organisation.md) | `accounts.md` 2, 13, 15, 19 | [F1](flows.md#f1-sign-up) |
 | 4 | [0052 Groups, an account's rights and its person ship](../../../decisions/0052-groups.md) | 1, 4, 11 | [F2](flows.md#f2-an-account-joins-a-group), [F3](flows.md#f3-a-groups-rights-change) |
 | 5 | [0053 Nothing is argo's alone](../../../decisions/0053-nothing-is-argos-alone.md) | 3, 5, 6 | [F4](flows.md#f4-an-admin-acts-as-their-account) |
-| 6 | [0054 Sign-in through pagasae](../../../decisions/0054-sign-in.md) | 8, 9, 10, 14, 18, 19 | [F5](flows.md#f5-gateway-sign-in), [F6](flows.md#f6-console-sign-in-as-argo) |
+| 6 | [0054 Sign-in through the account app](../../../decisions/0054-sign-in.md) | 8, 9, 10, 14, 18, 19 | [F5](flows.md#f5-gateway-sign-in), [F6](flows.md#f6-console-sign-in-as-argo) |
 | 7 | [0055 Leavers and their computers](../../../decisions/0055-leavers.md) | 12, 17 | [F7](flows.md#f7-a-trierarch-joins-for-an-account), [F8](flows.md#f8-an-account-is-disabled) |
 | 8 | [0056 Outside parties: requests and owner](../../../decisions/0056-outside-parties.md) | 7, 16, 20 | [F9](flows.md#f9-an-outside-mcp-client-waits), [F10](flows.md#f10-a-person-asks-for-an-outside-mcp-server) |
 | 9 | [The blueprint](../../../blueprint.md): principles, users, access, domain language, installation | all | |
@@ -18,7 +18,7 @@ Thomas answered all 20 questions of [`accounts.md`](../accounts.md), then redesi
 
 ```mermaid
 flowchart LR
-  subgraph pagasae["pagasae"]
+  subgraph the account app["the account app"]
     direction TB
     org["Organisation"]
     acc["Account"]
@@ -41,9 +41,9 @@ flowchart LR
   org -- holds --> grp
   acc -- sits in --> grp
   oa -- manages --> org
-  pagasae -- "signs account tokens for" --> gw
+  The account app -- "signs account tokens for" --> gw
   gw -- "calls with the account token" --> fleet
-  pagasae -- "acts as" --> inst
+  The account app -- "acts as" --> inst
   inst -- "commissions, labels, releases" --> person
   acc -- linked to --> person
   person -- owns --> tri
@@ -51,7 +51,7 @@ flowchart LR
   agent -- "any scope, same calls" --> fleet
 ```
 
-An account acts in a fleet with the scopes and `group` values its account token carries; a person ship exists only to message and to own, and owns itself. pagasae is no ship: it signs account tokens and acts as the installation. An agent ship can hold any scope and do every management job through the same calls. argo is the fail-safe.
+An account acts in a fleet with the scopes and `group` values its account token carries; a person ship exists only to message and to own, and owns itself. The account app is no ship: it signs account tokens and acts as the installation. An agent ship can hold any scope and do every management job through the same calls. argo is the fail-safe.
 
 ## Round 3, rewritten for the actor model
 
@@ -59,7 +59,7 @@ What became of phase 2's design points P1 to P9 (round 3, on hold since 19 Oct):
 
 | Point | Now |
 | --- | --- |
-| P1 pagasae as a plugin ship | Gone: pagasae acts as the installation (`actors.md` 4). What the installation may do in a fleet is question 8 |
+| P1 the account app as a plugin ship | Gone: the account app acts as the installation (`actors.md` 4). What the installation may do in a fleet is question 8 |
 | P2 the `group` label and its rules | Question 1, restated: values in account tokens and on person ships |
 | P3 rights only through groups | Question 2 |
 | P4 what a commission checks | Decided by `actors.md` 5: labels the actor defined or carries |
@@ -99,7 +99,7 @@ Use case: Priya needs `fleet:commission` for three months, which no other contra
 
 Pick: (a). An agent ship gets its scopes by grant, as today, so neither option limits it.
 
-Decided (Thomas, round 5): (b), not the pick. A group of one per person makes a mess, above all once groups come from a connected directory. The account's page in pagasae shows the aggregate, its groups' rights and its own, so what an account may do is seen in one place: that solves (b)'s "two places to look".
+Decided (Thomas, round 5): (b), not the pick. A group of one per person makes a mess, above all once groups come from a connected directory. The account's page in the account app shows the aggregate, its groups' rights and its own, so what an account may do is seen in one place: that solves (b)'s "two places to look".
 
 **3. The names of the scopes that replace argo's alone jobs** (was P5)
 
@@ -140,7 +140,7 @@ Decided (Thomas, round 5): (a). The decision says why 7 days and that Thomas dec
 
 **6. The last organisation admin** (was P9)
 
-What it is: organisation rights sit on the account (0051). If no account holds them, nobody manages the organisation, until pagasae's MCP server lets an agent ship hold them too.
+What it is: organisation rights sit on the account (0051). If no account holds them, nobody manages the organisation, until the account app's MCP server lets an agent ship hold them too.
 
 Use case: Mathilde is Acme's only organisation admin, and she leaves.
 
@@ -168,13 +168,13 @@ Decided (Thomas, round 5): (a). Thomas's check: it is based on scopes. An organi
 
 **8. What may the installation do in a fleet?** (new, replaces P1)
 
-What it is: pagasae acts in a fleet as the installation, through the same calls as any actor, with the scopes argo gives it there (`actors.md` 4). Its jobs: define `group` and declare its rules, commission, label and release person ships, release a leaver's trierarch.
+What it is: the account app acts in a fleet as the installation, through the same calls as any actor, with the scopes argo gives it there (`actors.md` 4). Its jobs: define `group` and declare its rules, commission, label and release person ships, release a leaver's trierarch.
 
 Use case: Burak is disabled; the installation releases his person ship and his laptop's trierarch in Acme's fleet.
 
 - (a) **The scopes its jobs need**, given at fleet create (`fleet:person`, `fleet:manage`, `labels:define`, `labels:assign`, `labels:any`), **and a built-in manage rule over person ships and the ships they own**, never off, as argo's is. Goes wrong: a second actor besides argo with reach that is never off. An agent ship can be given the same scopes and a manage rule over the same ships, so nothing is the installation's alone.
-- (b) **The scopes, and reach only by rules argo or the networking plugin sets.** Goes wrong: a fleet whose rules leave out person ships cannot have a leaver released, and pagasae cannot tell.
-- (c) **Every scope and argo's reach.** Goes wrong: a second argo; pagasae's key would act as argo in every fleet.
+- (b) **The scopes, and reach only by rules argo or the networking plugin sets.** Goes wrong: a fleet whose rules leave out person ships cannot have a leaver released, and the account app cannot tell.
+- (c) **Every scope and argo's reach.** Goes wrong: a second argo; the account app's key would act as argo in every fleet.
 
 Pick: (a).
 
@@ -187,7 +187,7 @@ What it is: core stores no account (0058), but its events must say which human a
 Use case: a year after Burak left, Mathilde reads who retired a finance agent.
 
 - (a) **The account's id and its email at that time.** Goes wrong: core keeps an email per event, which a fleet's deletion removes but a leaver's does not.
-- (b) **The id only**; pagasae turns it into an email when someone reads. Goes wrong: the history needs pagasae to be read, and says nothing once the account is gone or pagasae is down.
+- (b) **The id only**; the account app turns it into an email when someone reads. Goes wrong: the history needs the account app to be read, and says nothing once the account is gone or the account app is down.
 - (c) **The email only.** Goes wrong: an email reused by a new human in the organisation reads as the old one.
 
 Pick: (a).

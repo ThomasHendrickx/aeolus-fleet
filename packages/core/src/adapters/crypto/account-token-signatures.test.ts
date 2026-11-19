@@ -21,7 +21,7 @@ function signaturesOf(issuer: TestIssuer, options: { isDown?: () => boolean } = 
     issuer: issuer.issuer,
     fetchKeySet: () => {
       fetches += 1;
-      return options.isDown?.() ? Promise.reject(new Error('pagasae does not answer')) : Promise.resolve(issuer.keySet());
+      return options.isDown?.() ? Promise.reject(new Error('the account app does not answer')) : Promise.resolve(issuer.keySet());
     },
     now: () => now,
   });
@@ -89,7 +89,7 @@ describe('account token signatures', () => {
     const issuer = createTestIssuer();
     const { signatures } = signaturesOf(issuer);
 
-    expect(await signatures.verify(issuer.sign(claims(issuer, { iss: 'https://pagasae.test/' })))).toBeUndefined();
+    expect(await signatures.verify(issuer.sign(claims(issuer, { iss: 'https://account-app.test/' })))).toBeUndefined();
   });
 
   it('refuses a signed token that is not an access token', async () => {

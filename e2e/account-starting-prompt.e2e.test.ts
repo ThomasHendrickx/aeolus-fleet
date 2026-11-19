@@ -11,14 +11,14 @@ import { createUseCases } from '../packages/core/src/wiring.js';
 import { aCrewSettings } from '../packages/core/test/support/crew-fixtures.js';
 import { FLEET_URL, OPERATOR } from '../packages/core/test/support/core-fixtures.js';
 import { openRowMenu } from './support/console.js';
-import { startFakePagasae, type FakePagasae } from './support/fake-pagasae.js';
+import { startFakeAccountApp, type FakeAccountApp } from './support/fake-account-app.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 
 // A person signed in as their own account gets a new starting prompt for the
 // agent ship they commissioned, as any manage call (issue 1608).
 
 let database: PrismaClient;
-let pagasae: FakePagasae;
+let accountApp: FakeAccountApp;
 let server: FastifyInstance;
 let web: RunningWeb;
 let browser: Browser;
@@ -30,11 +30,11 @@ beforeAll(async () => {
   database = createPrismaClient(databaseUrl);
   ({ fleetId } = unwrap(await createUseCases({ prisma: database }).initialiseFleet({ name: 'home fleet', ...OPERATOR })));
 
-  pagasae = await startFakePagasae();
+  accountApp = await startFakeAccountApp();
   const webUrl = await reserveWebUrl();
-  server = createApp({ databaseUrl, publicUrl: FLEET_URL, consoleOrigin: webUrl, logger: false, accountTokenIssuer: pagasae.url });
+  server = createApp({ databaseUrl, publicUrl: FLEET_URL, consoleOrigin: webUrl, logger: false, accountTokenIssuer: accountApp.url });
   const serverUrl = await server.listen({ host: '127.0.0.1', port: 0 });
-  web = await startWeb({ url: webUrl, serverUrl, pagasae });
+  web = await startWeb({ url: webUrl, serverUrl, accountApp });
   browser = await launchChromium();
 });
 
@@ -43,13 +43,13 @@ afterAll(async () => {
   await browser.close();
   await web.stop();
   await server.close();
-  await pagasae.close();
+  await accountApp.close();
   await database.$disconnect();
 });
 
 /** A page signed in as Mathilde's account, which may commission and manage, on the overview's list. */
 async function mathildesPage(): Promise<Page> {
-  pagasae.signInAs({
+  accountApp.signInAs({
     id: 'acc-mathilde',
     email: 'mathilde@acme.example',
     fleets: [{ id: fleetId, name: 'home fleet', scopes: ['fleet:read', 'fleet:manage', 'fleet:commission'] }],

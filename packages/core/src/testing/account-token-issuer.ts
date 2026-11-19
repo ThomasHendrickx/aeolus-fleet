@@ -4,7 +4,7 @@ import { generateKeyPairSync, randomUUID, sign, type KeyObject } from 'node:cryp
 export type PublishedKey = Record<string, unknown> & { kid: string };
 
 /**
- * A stand-in for pagasae signing account tokens (decision 0058), for tests:
+ * A stand-in for the account app signing account tokens (decision 0058), for tests:
  * it publishes its keys as a key set, signs with the newest, rotates by
  * publishing a new key beside the old, and can sign with a key it never
  * published. Ed25519 by default; ES256 on request.
@@ -32,7 +32,7 @@ interface SigningKey {
   publicKey: KeyObject;
 }
 
-export function createTestIssuer(issuer = 'https://pagasae.test'): TestIssuer {
+export function createTestIssuer(issuer = 'https://account-app.test'): TestIssuer {
   const keys: SigningKey[] = [];
   const rotate = (algorithm: SigningAlgorithm = 'EdDSA'): string => {
     const key = newSigningKey(algorithm);

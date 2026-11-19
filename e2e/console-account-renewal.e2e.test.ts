@@ -11,14 +11,14 @@ import { unwrap } from '../packages/core/src/testing/result.js';
 import { createUseCases, type UseCases } from '../packages/core/src/wiring.js';
 import type { ShipCaller } from '../packages/core/src/domain/shared/caller.js';
 import { OPERATOR, FLEET_URL, operatorCaller } from '../packages/core/test/support/core-fixtures.js';
-import { startFakePagasae, type FakeAccount, type FakePagasae } from './support/fake-pagasae.js';
+import { startFakeAccountApp, type FakeAccount, type FakeAccountApp } from './support/fake-account-app.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 
 // An account's sign-in across its token's end (accounts design, F2, F6, F7;
 // A3 to A6): the console renews the token with the shared sign-in a little
 // before it ends, live updates go on, the pages follow the scopes the fresh
-// token carries, pagasae not answering is said and retried, and a sign-in
-// pagasae ended is said, keeping the page's address. pagasae is the fake one;
+// token carries, the account app not answering is said and retried, and a sign-in
+// the account app ended is said, keeping the page's address. the account app is the fake one;
 // its tokens last 125 seconds here, so the renewal comes within seconds.
 
 const TOKEN_SECONDS = 125;
@@ -26,7 +26,7 @@ const RENEWAL_WAIT_MS = 30_000;
 
 let database: PrismaClient;
 let useCases: UseCases;
-let pagasae: FakePagasae;
+let accountApp: FakeAccountApp;
 let server: FastifyInstance;
 let web: RunningWeb;
 let browser: Browser;
@@ -46,17 +46,17 @@ beforeAll(async () => {
   ({ fleetId } = fleet);
   argo = operatorCaller(fleet);
 
-  pagasae = await startFakePagasae();
+  accountApp = await startFakeAccountApp();
   const webUrl = await reserveWebUrl();
-  server = createApp({ databaseUrl, publicUrl: FLEET_URL, consoleOrigin: webUrl, logger: false, accountTokenIssuer: pagasae.url });
+  server = createApp({ databaseUrl, publicUrl: FLEET_URL, consoleOrigin: webUrl, logger: false, accountTokenIssuer: accountApp.url });
   const serverUrl = await server.listen({ host: '127.0.0.1', port: 0 });
-  web = await startWeb({ url: webUrl, serverUrl, pagasae });
+  web = await startWeb({ url: webUrl, serverUrl, accountApp });
   browser = await launchChromium();
 });
 
 afterEach(() => {
-  pagasae.setDown(false);
-  pagasae.issueTokensFor(600);
+  accountApp.setDown(false);
+  accountApp.issueTokensFor(600);
 });
 
 afterAll(async () => {
@@ -64,7 +64,7 @@ afterAll(async () => {
   await browser.close();
   await web.stop();
   await server.close();
-  await pagasae.close();
+  await accountApp.close();
   await database.$disconnect();
 });
 
@@ -85,8 +85,8 @@ async function renewedFrom(page: Page, before: string | undefined): Promise<void
 
 describe("an account's token renewed in the browser", () => {
   it('is renewed before it ends, and live updates go on with the fresh token', async () => {
-    pagasae.signInAs(mathilde());
-    pagasae.issueTokensFor(TOKEN_SECONDS);
+    accountApp.signInAs(mathilde());
+    accountApp.issueTokensFor(TOKEN_SECONDS);
     const page = await newPage();
     await page.goto('/');
     await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
@@ -100,8 +100,8 @@ describe("an account's token renewed in the browser", () => {
   });
 
   it('follows the scopes the fresh token carries: a right taken away goes from the page', async () => {
-    pagasae.signInAs(mathilde());
-    pagasae.issueTokensFor(TOKEN_SECONDS);
+    accountApp.signInAs(mathilde());
+    accountApp.issueTokensFor(TOKEN_SECONDS);
     const page = await newPage();
     await page.goto('/');
     await page.getByTestId('overview-more').click();
@@ -109,7 +109,7 @@ describe("an account's token renewed in the browser", () => {
     await page.keyboard.press('Escape');
     const before = await tokenCookieOf(page);
 
-    pagasae.changeScopes({ accountId: 'acc-mathilde', fleetId, scopes: ['fleet:read'] });
+    accountApp.changeScopes({ accountId: 'acc-mathilde', fleetId, scopes: ['fleet:read'] });
     await renewedFrom(page, before);
     await page.getByTestId('overview-more').click();
 
@@ -117,30 +117,30 @@ describe("an account's token renewed in the browser", () => {
   });
 
   it('says it cannot reach the sign-in service and retries, the page working meanwhile', async () => {
-    pagasae.signInAs(mathilde());
-    pagasae.issueTokensFor(TOKEN_SECONDS);
+    accountApp.signInAs(mathilde());
+    accountApp.issueTokensFor(TOKEN_SECONDS);
     const page = await newPage();
     await page.goto('/');
     await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
     const before = await tokenCookieOf(page);
 
-    pagasae.setDown(true);
+    accountApp.setDown(true);
     await page.getByText('Can’t reach the sign-in service. Retrying.').waitFor({ timeout: RENEWAL_WAIT_MS });
     await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
-    pagasae.setDown(false);
+    accountApp.setDown(false);
 
     await renewedFrom(page, before);
     await page.getByText('Can’t reach the sign-in service. Retrying.').waitFor({ state: 'detached', timeout: RENEWAL_WAIT_MS });
   });
 
-  it("says the sign-in ended when pagasae refuses the renewal, keeping the page's address", async () => {
-    pagasae.signInAs(mathilde());
-    pagasae.issueTokensFor(TOKEN_SECONDS);
+  it("says the sign-in ended when the account app refuses the renewal, keeping the page's address", async () => {
+    accountApp.signInAs(mathilde());
+    accountApp.issueTokensFor(TOKEN_SECONDS);
     const page = await newPage();
     await page.goto('/labels');
     await page.getByRole('heading', { name: 'Labels' }).waitFor();
 
-    pagasae.endSignIns();
+    accountApp.endSignIns();
 
     await page.waitForURL(`${web.url}/sign-in?notice=ended&returnTo=%2Flabels`, { timeout: RENEWAL_WAIT_MS });
     await page.getByText('Your sign-in ended.').waitFor();
@@ -150,19 +150,19 @@ describe("an account's token renewed in the browser", () => {
 
 describe("an account's token renewed on a page load", () => {
   it('is renewed by the console before the page renders once it is within two minutes of its end', async () => {
-    pagasae.signInAs(mathilde());
-    pagasae.issueTokensFor(TOKEN_SECONDS - 10);
+    accountApp.signInAs(mathilde());
+    accountApp.issueTokensFor(TOKEN_SECONDS - 10);
     // No script runs: only the console's server can renew.
     const page = await newPage({ canRunScripts: false });
     await page.goto('/');
     await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
     const before = await tokenCookieOf(page);
-    const issued = pagasae.tokensIssued();
+    const issued = accountApp.tokensIssued();
 
     await page.goto('/labels');
 
     await page.getByRole('heading', { name: 'Labels' }).waitFor();
-    expect(pagasae.tokensIssued()).toBeGreaterThan(issued);
+    expect(accountApp.tokensIssued()).toBeGreaterThan(issued);
     expect(await tokenCookieOf(page)).not.toBe(before);
   });
 });

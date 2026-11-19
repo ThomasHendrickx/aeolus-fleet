@@ -18,7 +18,7 @@ describe("when the console renews an account's token (accounts design, A3)", () 
     expect(renewalDelayOf({ endsAt: new Date(NOW.getTime() + 60_000), now: NOW })).toBe(0);
   });
 
-  it('retries pagasae after 5 seconds, doubling up to a minute', () => {
+  it('retries the account app after 5 seconds, doubling up to a minute', () => {
     expect([0, 1, 2, 3, 4, 5].map(retryDelayOf)).toEqual([5_000, 10_000, 20_000, 40_000, 60_000, 60_000]);
   });
 });

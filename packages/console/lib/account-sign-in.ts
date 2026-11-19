@@ -1,4 +1,4 @@
-import { authorizeUrlOf, codeChallengeOf, cookieValueOf, exchangeSignIn, fleetsOf, randomUrlSafe, redeemCode, revokeSignIn, SHARED_SIGN_IN_COOKIE, type Pagasae } from './pagasae';
+import { authorizeUrlOf, codeChallengeOf, cookieValueOf, exchangeSignIn, fleetsOf, randomUrlSafe, redeemCode, revokeSignIn, SHARED_SIGN_IN_COOKIE, type AccountApp } from './account-app';
 import { sessionCookieOf } from './plugin-call';
 import { SESSION_COOKIE, sessionOf } from './console-gate';
 import { returnPathOf } from './return-path';
@@ -8,7 +8,7 @@ import { NO_RIGHTS_PATH, SWITCH_FAILED_PATH, UNREACHABLE_PATH } from './sign-in-
 
 /**
  * An account's sign-in to the console, on the web app's server (accounts
- * design, F1; header design, H5): through pagasae's shared sign-in, then an
+ * design, F1; header design, H5): through the account app's shared sign-in, then an
  * account token for the fleet in view, which core keeps in its token cookie.
  * No lease is taken, and many accounts sign in at once.
  */
@@ -35,14 +35,14 @@ export function redirectTo(location: string, cookies: readonly string[] = []): R
   return new Response(null, { status: 303, headers });
 }
 
-/** The console's own cookie attributes: httpOnly and Secure, Lax so pagasae's redirect back carries it. */
+/** The console's own cookie attributes: httpOnly and Secure, Lax so the account app's redirect back carries it. */
 function consoleCookie(name: string, cookie: { value: string; maxAgeSeconds: number; path?: string }): string {
   return `${name}=${cookie.value}; Max-Age=${String(cookie.maxAgeSeconds)}; Path=${cookie.path ?? '/'}; HttpOnly; Secure; SameSite=Lax`;
 }
 
-/** What the sign-in steps run with: pagasae, and the web app's environment for the fleet server. */
+/** What the sign-in steps run with: the account app, and the web app's environment for the fleet server. */
 export interface SignInDeps {
-  pagasae: Pagasae;
+  accountApp: AccountApp;
   environment: Environment;
 }
 
@@ -50,14 +50,14 @@ function redirectUriOf(request: Request, environment: Environment): string {
   return `${consoleOriginOf(request, environment)}/sign-in/done`;
 }
 
-/** Starts the sign-in: to pagasae's sign-in with a fresh state and PKCE verifier, kept in a short cookie for the way back. */
+/** Starts the sign-in: to the account app's sign-in with a fresh state and PKCE verifier, kept in a short cookie for the way back. */
 export async function startSignIn(request: Request, deps: SignInDeps): Promise<Response> {
-  const { pagasae, environment } = deps;
+  const { accountApp, environment } = deps;
   const state = randomUrlSafe();
   const verifier = randomUrlSafe();
   const returnTo = returnPathOf(new URL(request.url).searchParams.get('returnTo'));
   const flow = Buffer.from(JSON.stringify({ state, verifier, returnTo })).toString('base64url');
-  const location = authorizeUrlOf(pagasae, {
+  const location = authorizeUrlOf(accountApp, {
     redirectUri: redirectUriOf(request, environment),
     state,
     codeChallenge: await codeChallengeOf(verifier),
@@ -90,9 +90,9 @@ function flowOf(request: Request): { state: string; verifier: string; returnTo: 
   return undefined;
 }
 
-/** Back from pagasae: the state must be the one this browser started with; the code is redeemed, then the account enters the fleet. */
+/** Back from the account app: the state must be the one this browser started with; the code is redeemed, then the account enters the fleet. */
 export async function finishSignIn(request: Request, deps: SignInDeps): Promise<Response> {
-  const { pagasae, environment } = deps;
+  const { accountApp, environment } = deps;
   const params = new URL(request.url).searchParams;
   const flow = flowOf(request);
   const cleared = consoleCookie(FLOW_COOKIE, {
@@ -106,7 +106,7 @@ export async function finishSignIn(request: Request, deps: SignInDeps): Promise<
   }
   if (
     !(await redeemCode(
-      { pagasae },
+      { accountApp },
       {
         code,
         redirectUri: redirectUriOf(request, environment),
@@ -199,22 +199,22 @@ export function fleetSwitchPathOf(page: URL, cookies: string | null): string | u
 
 /**
  * With the shared sign-in, into a fleet: the one the address asks for, else
- * the one chosen last, an account token for it from pagasae, kept by core in
+ * the one chosen last, an account token for it from the account app, kept by core in
  * its token cookie, then on to the page asked for, clearing argo's sign-in
  * once it ended or the fleet changed.
  * No shared sign-in, or one that ended, starts the sign-in again; no rights,
  * as in a fleet asked for that the account holds none in, goes to say so;
- * pagasae not answering says that.
+ * the account app not answering says that.
  */
 export async function enterFleet(request: Request, deps: SignInDeps & { returnTo: string }): Promise<Response> {
-  const { pagasae, environment, returnTo } = deps;
+  const { accountApp, environment, returnTo } = deps;
   const cookies = request.headers.get('cookie');
   const signIn = cookieValueOf(cookies, SHARED_SIGN_IN_COOKIE);
   const startAgain = `/sign-in/start?returnTo=${encodeURIComponent(returnTo)}`;
   if (signIn === undefined) {
     return redirectTo(startAgain);
   }
-  const fleets = await fleetsOf({ pagasae }, signIn);
+  const fleets = await fleetsOf({ accountApp }, signIn);
   if (fleets === 'ended') {
     return redirectTo(startAgain);
   }
@@ -228,7 +228,7 @@ export async function enterFleet(request: Request, deps: SignInDeps & { returnTo
   if (fleetId === undefined) {
     return redirectTo(NO_RIGHTS_PATH);
   }
-  const exchanged = await exchangeSignIn({ pagasae }, { signIn, fleetId });
+  const exchanged = await exchangeSignIn({ accountApp }, { signIn, fleetId });
   switch (exchanged.kind) {
     case 'ended':
       return redirectTo(startAgain);
@@ -262,19 +262,19 @@ export type Renewal = { kind: 'renewed'; cookies: readonly string[] } | { kind: 
 /**
  * A fresh account token for the fleet the account is in, with the shared
  * sign-in (accounts design, A3), kept by core in its token cookie. Ended when
- * the shared sign-in is gone or pagasae refuses it (signed out elsewhere, or
+ * the shared sign-in is gone or the account app refuses it (signed out elsewhere, or
  * disabled: F5); no rights when the account holds none in the fleet any more
- * (F6); unreachable when pagasae or core does not answer (F7).
+ * (F6); unreachable when the account app or core does not answer (F7).
  */
 export async function renewAccountToken(request: Request, deps: SignInDeps): Promise<Renewal> {
-  const { pagasae, environment } = deps;
+  const { accountApp, environment } = deps;
   const cookies = request.headers.get('cookie');
   const signIn = cookieValueOf(cookies, SHARED_SIGN_IN_COOKIE);
   const fleetId = cookieValueOf(cookies, FLEET_COOKIE);
   if (signIn === undefined || fleetId === undefined) {
     return { kind: 'ended' };
   }
-  const exchanged = await exchangeSignIn({ pagasae }, { signIn, fleetId });
+  const exchanged = await exchangeSignIn({ accountApp }, { signIn, fleetId });
   if (exchanged.kind !== 'token') {
     return exchanged;
   }
@@ -293,16 +293,16 @@ export function renewalResponseOf(renewal: Renewal): Response {
 }
 
 /**
- * Signs the account out: the shared sign-in ends at pagasae, everywhere
- * (header design, H5), and core clears its token cookie. A failure at pagasae
+ * Signs the account out: the shared sign-in ends at the account app, everywhere
+ * (header design, H5), and core clears its token cookie. A failure at the account app
  * still clears the console's side.
  */
 export async function signOutAccount(request: Request, deps: SignInDeps): Promise<Response> {
-  const { pagasae, environment } = deps;
+  const { accountApp, environment } = deps;
   const cookies = request.headers.get('cookie');
   const signIn = cookieValueOf(cookies, SHARED_SIGN_IN_COOKIE);
   if (signIn !== undefined) {
-    await revokeSignIn({ pagasae }, signIn);
+    await revokeSignIn({ accountApp }, signIn);
   }
   const cleared: string[] = [];
   try {

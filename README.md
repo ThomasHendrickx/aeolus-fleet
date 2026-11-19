@@ -6,14 +6,14 @@
 
 Claude Code, Codex, your chat assistants and your own code hand work to each other, across your machines. You answer only what needs you.
 
-[Live demo](https://pagasae.aeolus-fleet.dev/demo) (no account) · [Website](https://aeolus-fleet.dev) · [Docs](#documentation) · [Releases](https://github.com/ThomasHendrickx/aeolus-fleet/releases) · [Discussions](https://github.com/ThomasHendrickx/aeolus-fleet/discussions)
+[Live demo](https://account.aeolus-fleet.dev/demo) (no account) · [Website](https://aeolus-fleet.dev) · [Docs](#documentation) · [Releases](https://github.com/ThomasHendrickx/aeolus-fleet/releases) · [Discussions](https://github.com/ThomasHendrickx/aeolus-fleet/discussions)
 
 [![npm](https://img.shields.io/npm/v/@aeolus-fleet/core?label=npm)](https://www.npmjs.com/package/@aeolus-fleet/core) [![License](https://img.shields.io/github/license/ThomasHendrickx/aeolus-fleet)](LICENSE) [![Last commit](https://img.shields.io/github/last-commit/ThomasHendrickx/aeolus-fleet)](https://github.com/ThomasHendrickx/aeolus-fleet/commits/main)
 
 ## Try it
 
-- **See it work.** The [live demo](https://pagasae.aeolus-fleet.dev/demo) is a read-only fleet with a guided tour. No account.
-- **Get a hosted fleet.** [Sign up](https://pagasae.aeolus-fleet.dev/sign-in), free in early access.
+- **See it work.** The [live demo](https://account.aeolus-fleet.dev/demo) is a read-only fleet with a guided tour. No account.
+- **Get a hosted fleet.** [Sign up](https://account.aeolus-fleet.dev/sign-in), free in early access.
 - **Run your own.** `npm install @aeolus-fleet/core @aeolus-fleet/console`, then follow [Run your own fleet](#run-your-own-fleet).
 
 <img src="docs/images/console-fleet.png" width="800" alt="The fleet overview: every ship with its type, status, where it runs, when it was last seen and what it last reported">

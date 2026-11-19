@@ -21,7 +21,7 @@ import { FLEET_URL } from './support/core-fixtures.js';
 import { createTestClock } from './support/postgres-core.js';
 
 // An account signed in to the console (accounts design, F1, A3; decision
-// 0058): the console's server presents the account token pagasae gave it,
+// 0058): the console's server presents the account token the account app gave it,
 // core keeps it in an httpOnly cookie of its own, and the browser's calls and
 // live updates then act as that account, with no lease. A change by the
 // cookie comes only from the console's origin, as for argo's cookie.
@@ -45,7 +45,7 @@ function seconds(at: Date): number {
   return Math.floor(at.getTime() / 1000);
 }
 
-/** A token pagasae signs for Mathilde in the fleet now, for 10 minutes. */
+/** A token the account app signs for Mathilde in the fleet now, for 10 minutes. */
 function mathildeToken(overrides: Record<string, unknown> = {}): string {
   const now = seconds(clock.now());
   return issuer.sign({ iss: issuer.issuer, aud: fleetId, sub: 'acc-mathilde', org: 'org-acme', scope: 'fleet:read fleet:commission', group: [], iat: now, exp: now + 600, ...overrides });

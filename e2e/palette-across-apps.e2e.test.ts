@@ -11,7 +11,7 @@ import { createMigratedDatabase } from '../packages/core/src/testing/database.js
 import { unwrap } from '../packages/core/src/testing/result.js';
 import { createUseCases } from '../packages/core/src/wiring.js';
 import { FLEET_URL, OPERATOR } from '../packages/core/test/support/core-fixtures.js';
-import { startFakePagasae, type FakePagasae } from './support/fake-pagasae.js';
+import { startFakeAccountApp, type FakeAccountApp } from './support/fake-account-app.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 
 // The palette across apps (docs/design/header-across-apps.md, A1 to A3, M2),
@@ -34,7 +34,7 @@ const accountList: PaletteList = {
 };
 
 let database: PrismaClient;
-let pagasae: FakePagasae;
+let accountApp: FakeAccountApp;
 let server: FastifyInstance;
 let web: RunningWeb;
 let browser: Browser;
@@ -69,16 +69,16 @@ beforeAll(async () => {
   const useCases = createUseCases({ prisma: database });
   ({ fleetId } = unwrap(await useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
   const gatewayApp = await anApp(gatewayList);
-  const accountApp = await anApp(accountList);
+  const accountPaletteApp = await anApp(accountList);
   gateway = gatewayApp.server;
-  account = accountApp.server;
-  pagasae = await startFakePagasae({ accountUrl: accountApp.url, gatewayUrl: gatewayApp.url });
+  account = accountPaletteApp.server;
+  accountApp = await startFakeAccountApp({ accountUrl: accountPaletteApp.url, gatewayUrl: gatewayApp.url });
   const webUrl = await reserveWebUrl();
-  server = createApp({ databaseUrl, publicUrl: FLEET_URL, consoleOrigin: webUrl, logger: false, accountTokenIssuer: pagasae.url });
+  server = createApp({ databaseUrl, publicUrl: FLEET_URL, consoleOrigin: webUrl, logger: false, accountTokenIssuer: accountApp.url });
   const serverUrl = await server.listen({ host: '127.0.0.1', port: 0 });
-  web = await startWeb({ url: webUrl, serverUrl, pagasae });
+  web = await startWeb({ url: webUrl, serverUrl, accountApp });
   browser = await launchChromium();
-  pagasae.signInAs({ id: 'acc-sam', email: 'sam@acme.example', fleets: [{ id: fleetId, name: 'home fleet', scopes: ['fleet:read'] }] });
+  accountApp.signInAs({ id: 'acc-sam', email: 'sam@acme.example', fleets: [{ id: fleetId, name: 'home fleet', scopes: ['fleet:read'] }] });
 });
 
 afterAll(async () => {
@@ -86,7 +86,7 @@ afterAll(async () => {
   await browser.close();
   await web.stop();
   await server.close();
-  await pagasae.close();
+  await accountApp.close();
   gateway.close();
   account.close();
   await database.$disconnect();

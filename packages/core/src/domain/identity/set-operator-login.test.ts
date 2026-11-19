@@ -131,7 +131,7 @@ describe("setting argo's email and password from the console", () => {
     expect(core.state).toEqual(before);
   });
 
-  it('refuses where core trusts pagasae: a hosted fleet has no own sign-in for argo', async () => {
+  it('refuses where core trusts the account app: a hosted fleet has no own sign-in for argo', async () => {
     const before = structuredClone(core.state);
 
     await expect(setOperatorLoginWhere({ isSelfHosted: false })(console, NEW_LOGIN)).resolves.toMatchObject({

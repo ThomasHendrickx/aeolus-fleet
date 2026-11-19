@@ -5,7 +5,7 @@ import { argoConfirmPathFor } from './lib/argo-sign-in';
 import { fleetSwitchPathOf, renewAccountToken, type Renewal } from './lib/account-sign-in';
 import { ACCOUNT_TOKEN_COOKIE, sessionOf, signInUrlFor } from './lib/console-gate';
 import { consoleOriginOf } from './lib/console-origin';
-import { cookieValueOf, pagasaeFrom, SHARED_SIGN_IN_COOKIE } from './lib/pagasae';
+import { cookieValueOf, accountAppFrom, SHARED_SIGN_IN_COOKIE } from './lib/account-app';
 import { serverInternalUrlFrom } from './lib/server-url';
 import { NO_RIGHTS_PATH, NOTHING_TO_MANAGE_PATH, signInEndedPathOf } from './lib/sign-in-paths';
 
@@ -23,7 +23,7 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
   const returnTo = `${request.nextUrl.pathname}${request.nextUrl.search}`;
   // On the console's public address: behind a proxy, request.url holds the bind address.
   const pageUrl = new URL(returnTo, consoleOriginOf(request, process.env)).toString();
-  const fleetSwitch = pagasaeFrom(process.env) === undefined ? undefined : fleetSwitchPathOf(request.nextUrl, request.headers.get('cookie'));
+  const fleetSwitch = accountAppFrom(process.env) === undefined ? undefined : fleetSwitchPathOf(request.nextUrl, request.headers.get('cookie'));
   if (fleetSwitch !== undefined) {
     return NextResponse.redirect(new URL(fleetSwitch, pageUrl));
   }
@@ -68,15 +68,15 @@ function answerFor(
 /**
  * An account's token within two minutes of its end is renewed before the page
  * renders (accounts design, A3), so a page load never starts on a token about
- * to end. pagasae not answering leaves the page to render on the token it has.
+ * to end. the account app not answering leaves the page to render on the token it has.
  */
 async function renewalOnLoad(request: NextRequest): Promise<Renewal | undefined> {
-  const pagasae = pagasaeFrom(process.env);
+  const accountApp = accountAppFrom(process.env);
   const token = cookieValueOf(request.headers.get('cookie'), ACCOUNT_TOKEN_COOKIE);
-  if (pagasae === undefined || token === undefined || !isTimeToRenew(token, new Date())) {
+  if (accountApp === undefined || token === undefined || !isTimeToRenew(token, new Date())) {
     return undefined;
   }
-  const renewal = await renewAccountToken(request, { pagasae, environment: process.env });
+  const renewal = await renewAccountToken(request, { accountApp, environment: process.env });
   return renewal.kind === 'unreachable' ? undefined : renewal;
 }
 

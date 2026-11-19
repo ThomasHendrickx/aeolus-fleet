@@ -20,7 +20,7 @@ import { aCrewSettings } from './support/crew-fixtures.js';
 import { withOperatorLogin } from './support/operator-login.js';
 
 // The installation API from HTTP to Postgres and back: a hosting service such
-// as pagasae creates, describes and deletes fleets with the installation token.
+// as the account app creates, describes and deletes fleets with the installation token.
 
 const INSTALLATION_TOKEN = 'aeolus_installation_test_0123456789abcdef';
 const clock = createTestClock('2026-10-04T12:00:00.000Z');

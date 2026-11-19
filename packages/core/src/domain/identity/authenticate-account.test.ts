@@ -22,7 +22,7 @@ function at(milliseconds: number): Date {
 /** A token issued a minute ago that ends in nine minutes: the 10 minutes decision 0058 gives one. */
 function aToken(overrides: Partial<AccountTokenClaims> = {}): AccountTokenClaims {
   return {
-    issuer: 'https://pagasae.test',
+    issuer: 'https://account-app.test',
     fleetId,
     accountId: charlotte,
     organisationId: 'org-acme',
@@ -71,7 +71,7 @@ describe('authenticating with an account token', () => {
     expect(unwrap(await authenticate('token', { through: gateway }))).toMatchObject({ throughShipId: gateway.shipId });
   });
 
-  it('refuses a token pagasae did not sign', async () => {
+  it('refuses a token the account app did not sign', async () => {
     const authenticate = authenticateAccountWith({});
 
     expect(await authenticate('forged', { through: null })).toMatchObject({ isOk: false, error: { kind: 'ACCOUNT_TOKEN_INVALID' } });
@@ -145,7 +145,7 @@ describe('authenticating with an account token', () => {
     expect(await authenticate('token', { through: null })).toMatchObject({ isOk: false, error: { kind: 'ACCOUNT_TOKEN_INVALID' } });
   });
 
-  it('accepts a token of a cut-off account issued after the cut-off: pagasae enabled it again', async () => {
+  it('accepts a token of a cut-off account issued after the cut-off: the account app enabled it again', async () => {
     const authenticate = authenticateAccountWith({ token: aToken({ issuedAt: at(-MINUTE_MS) }) }, { cutOff: { accountId: charlotte, at: at(-MINUTE_MS - 1) } });
 
     expect((await authenticate('token', { through: null })).isOk).toBe(true);

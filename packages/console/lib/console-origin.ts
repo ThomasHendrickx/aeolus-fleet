@@ -2,7 +2,7 @@
  * The console's own public origin, from AEOLUS_CONSOLE_URL, read when the web
  * app runs. Behind a proxy the request's URL holds the address the web app's
  * server binds (such as `0.0.0.0:3000`), never the one the browser uses, so
- * every address the console gives out (pagasae's redirect, the origin it
+ * every address the console gives out (the account app's redirect, the origin it
  * shows core) and every origin it checks comes from here. A production start
  * needs it; development falls back to the request's origin.
  */
@@ -28,5 +28,5 @@ export function missingConsoleUrlOf(environment: Environment): string | undefine
   if (environment.NODE_ENV !== 'production' || configuredOriginOf(environment) !== undefined) {
     return undefined;
   }
-  return "AEOLUS_CONSOLE_URL must be the console's public address, such as https://fleet.example.com: behind a proxy the web app sees only the address it binds, and sign-in would send that to pagasae.";
+  return "AEOLUS_CONSOLE_URL must be the console's public address, such as https://fleet.example.com: behind a proxy the web app sees only the address it binds, and sign-in would send that to the account app.";
 }

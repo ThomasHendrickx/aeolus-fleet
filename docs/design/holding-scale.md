@@ -16,7 +16,7 @@ The outcomes:
 
 Not the purpose:
 - Reopening any decision of the performance design, 0041 or 0042, beyond decision 3 below.
-- The shared header: decision 6 of the performance design is pagasae's and is built (pagasae#122).
+- The shared header: decision 6 of the performance design is the account app's and is built (the account app issue #122).
 - New infrastructure: a cache product, a queue or a second database (0003).
 - Changing what any page shows.
 
@@ -29,14 +29,14 @@ Not the purpose:
 | [#1835](https://github.com/ThomasHendrickx/aeolus-fleet/pull/1835) (#1301) | Health replay joined new deliveries to messages and scanned the whole history on every event page; health reads, installation figures and the hourly snapshot close timed out | Indexed lookups by fleet and id; EXPLAIN on 3,000 ships, 120,000 messages, 5,000 sends after the checkpoint: no sequential scan |
 | [#1833](https://github.com/ThomasHendrickx/aeolus-fleet/pull/1833) (#1302) | Retention pruned nothing at 10 M messages, because the snapshot close never finished | Test only: pruning after the close batches 500 at a time over 90 days of history, by plan |
 | [#1834](https://github.com/ThomasHendrickx/aeolus-fleet/pull/1834) (#1276) | A send to a label reaches 3,000 ships; history and `ship.sentMessage` read every delivery of it | One indexed lookup per message; `ship.sentMessage` pages by cursor (breaking, decision 0013) |
-| [#1827](https://github.com/ThomasHendrickx/aeolus-fleet/pull/1827) (#1202) | Possible owners read every active ship each minute (pagasae's reconcile) | Documents `fleet.list` with `shipKind`; a 3,000 ship paging test and plans |
+| [#1827](https://github.com/ThomasHendrickx/aeolus-fleet/pull/1827) (#1202) | Possible owners read every active ship each minute (the account app's reconcile) | Documents `fleet.list` with `shipKind`; a 3,000 ship paging test and plans |
 | [#1824](https://github.com/ThomasHendrickx/aeolus-fleet/pull/1824) (#1823, open) | Unseen plain messages per exchange, for the gateway and app counts | Kept in the exchange rollup in the delivery's transaction, read from the existing index; plan test, no history scan |
 
 With [#1822](https://github.com/ThomasHendrickx/aeolus-fleet/pull/1822) the scale tests assert query plans, not elapsed time: timers flaked under a loaded run.
 
 ### What the record shows
 
-- **Every one of these was found after the performance design was built.** #1301, #1302 and #1197 were found by the staging seed at 10 M messages while walking a candidate; #1276 and #1202 by reading code. Each came from a feature built after S2 to S7 (label sends, retention, the snapshot itself, a reconcile in pagasae). The slices fixed the reads that existed; nothing stopped a new one.
+- **Every one of these was found after the performance design was built.** #1301, #1302 and #1197 were found by the staging seed at 10 M messages while walking a candidate; #1276 and #1202 by reading code. Each came from a feature built after S2 to S7 (label sends, retention, the snapshot itself, a reconcile in the account app). The slices fixed the reads that existed; nothing stopped a new one.
 - **One failure cascades.** The snapshot close timing out (#1301) stopped retention (#1302), which kept the history growing, which made every replay slower.
 - **Plan tests work at the repo's fixture size.** 3,000 ships and 120,000 messages show the plan that 10 M messages would use; the plan, not the clock, is the proof (#1822). They are written per PR today, by choice, not by rule.
 - **Starts and migrations are reads too.** The `message_days` backfill held core's start for minutes at 10 M messages (#1197); the first `installation.fleets.get` on a new fleet hung after its plugins were enabled (#1523, open, not reproduced).
@@ -60,7 +60,7 @@ Thomas answered option 1 on the purpose and every pick. His note on the measurem
 3. **The whole-setup measurement runs only when Thomas asks for it.** It takes about an hour, so no change, slice or candidate waits for it. The orchestrator may propose it to Thomas for a minor release, never for a hotfix. There is no per-candidate walker report: this replaces the per-candidate report of the performance design's decision 11 (and the walker measuring in `staging-walk` of its decision 7). The performance skill's on-demand run for a finished piece of work stays as it is.
 4. **A one-off audit of the reads that replay a growing history:** every query on a request path, in the pass and at start that reads messages, deliveries or events, listed with its plan on the fixture. Each that scans becomes an issue with a rollup or snapshot to fix it; the plan tests the audit writes stay as guards.
 5. **Migrations and starts hold a budget:** a migration that backfills or rewrites a fleet table runs on the scale fixture in its test, by plan and batched. A backfill at the target runs in batches after start, never inside the migration that holds start. Production is too small for `rehearse-migration.sh` to prove anything at the target (#1197).
-6. **The header is not part of this design:** decision 6 of the performance design is built in pagasae (pagasae#122), and a gap there is a pagasae issue. The header's one call is measured in decision 1's run.
+6. **The header is not part of this design:** decision 6 of the performance design is built in the account app (the account app issue #122), and a gap there is an account app issue. The header's one call is measured in decision 1's run.
 
 ## 4. Build slices
 

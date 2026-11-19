@@ -20,7 +20,7 @@ function aNotice(overrides: Partial<Notice> = {}): Notice {
 
 const forEveryone = aNotice();
 const forOperators = aNotice({ id: 'limits', audience: 'operators', text: 'Your fleet is near its ship limit.' });
-const forViewers = aNotice({ id: 'welcome', audience: 'viewers', text: 'You are looking at a live fleet.', links: [{ label: 'Leave', url: 'https://pagasae.example.com', isSignOut: true }], isDismissible: true });
+const forViewers = aNotice({ id: 'welcome', audience: 'viewers', text: 'You are looking at a live fleet.', links: [{ label: 'Leave', url: 'https://account-app.example.com', isSignOut: true }], isDismissible: true });
 
 beforeEach(async () => {
   core = createInMemoryCore('2026-10-05T09:00:00.000Z');

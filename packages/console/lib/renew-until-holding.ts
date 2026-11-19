@@ -3,12 +3,12 @@ import type { RenewalOutcome } from './renew-account-token';
 /**
  * Renewing the account token until it holds scopes a plugin has just
  * declared (issue 1609): the token a person signed in with was minted before
- * the plugin's namespace existed, and pagasae keeps a fleet's catalogue a
+ * the plugin's namespace existed, and the account app keeps a fleet's catalogue a
  * minute, so the first fresh token may still lack them. The token is renewed
  * once, and once more after the catalogue's minute when it still lacks them.
  */
 
-/** How long to wait before the second renewal: pagasae's catalogue cache (a minute) and a second. */
+/** How long to wait before the second renewal: the account app's catalogue cache (a minute) and a second. */
 export const CATALOGUE_WAIT_MS = 61_000;
 
 export interface RenewUntilHolding {

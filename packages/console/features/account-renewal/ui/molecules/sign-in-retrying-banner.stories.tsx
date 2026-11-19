@@ -11,7 +11,7 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** pagasae does not answer the renewal: the banner says so above the page, which works on. */
+/** the account app does not answer the renewal: the banner says so above the page, which works on. */
 export const Retrying: Story = {
   play: async ({ canvasElement }) => {
     await expect(within(canvasElement).getByRole('status')).toHaveTextContent('Can’t reach the sign-in service. Retrying.');

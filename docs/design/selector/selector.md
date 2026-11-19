@@ -22,7 +22,7 @@ Not the purpose: a conversation where everyone hears every answer (that is a mee
 
 | # | Lesson | Source |
 | --- | --- | --- |
-| L1 | `group` is taken: pagasae's group of accounts, a value of the label `group` in a fleet. Rejected there: "groups in core; a selector by group" | 0052; #976 body |
+| L1 | `group` is taken: the account app's group of accounts, a value of the label `group` in a fleet. Rejected there: "groups in core; a selector by group" | 0052; #976 body |
 | L2 | Thomas on #976: "Maybe call by label?" Labels are "an owned vocabulary for selecting ships" | #976 (24 Oct); #102 purpose (6 Oct) |
 | L3 | A label selection is exact and AND, by value ids; an unknown id selects no ship; richer selectors (in, not, exists) rejected "before anyone needs them" | 0031 |
 | L4 | Meetings already resolve a label selection into a list of ships at invite, and refuse the whole open when the owner does not reach one invitee | 0061; meetings design M5, M6 |
@@ -46,7 +46,7 @@ Not the purpose: a conversation where everyone hears every answer (that is a mee
 | # | Rule |
 | --- | --- |
 | D1 | **A one-way send to a set** (Q1). One message, one delivery per ship of the set; each recipient answers the sender alone, by the answer rule, as to any send |
-| D2 | **The set is a label selection, selector kind `label`** (Q2). Value ids, exact and AND, as meeting invites take (L3, L4). The name is the label value; `group` stays pagasae's (L1) |
+| D2 | **The set is a label selection, selector kind `label`** (Q2). Value ids, exact and AND, as meeting invites take (L3, L4). The name is the label value; `group` stays the account app's (L1) |
 | D3 | **No whole-fleet send** (Q3). An empty selection is refused; a fleet that wants every ship labels them. The blueprint drops `group` and `fleet` from the later kinds |
 | D4 | **Reach to every ship, or nothing** (Q4). Thomas: "It resolved to a list of ships and then sends." One ship of the list out of the sender's send reach refuses the whole send, nothing stored, the refusal recorded as any other (L7) |
 | D5 | **`messages:send` is enough** (Q5). No scope of its own; the daily message limit counts the message once |

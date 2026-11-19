@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation';
 import { Button } from '@aeolus-fleet/ui';
 import { AuthCard } from '../../../../features/sign-in/ui/organisms/auth-card';
 import { argoHolderOf, CONFIRMED_FIELD, RETURN_TO_FIELD, type ArgoHolder } from '../../../../lib/argo-sign-in';
-import { pagasaeFrom } from '../../../../lib/pagasae';
+import { accountAppFrom } from '../../../../lib/account-app';
 import { returnPathOf } from '../../../../lib/return-path';
 
 export const dynamic = 'force-dynamic';
@@ -21,11 +21,11 @@ function warningOf(holder: Exclude<ArgoHolder, { kind: 'none' }>): string {
  */
 export default async function ArgoConfirmPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const { returnTo } = await searchParams;
-  const pagasae = pagasaeFrom(process.env);
-  if (pagasae === undefined) {
+  const accountApp = accountAppFrom(process.env);
+  if (accountApp === undefined) {
     redirect('/sign-in');
   }
-  const holder = await argoHolderOf((await cookies()).toString(), { pagasae, environment: process.env });
+  const holder = await argoHolderOf((await cookies()).toString(), { accountApp, environment: process.env });
   return (
     <AuthCard recovery={null}>
       <form method="post" action="/sign-in/argo" className="flex flex-col gap-4" data-testid="sign-in-argo-confirm">

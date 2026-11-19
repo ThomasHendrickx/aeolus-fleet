@@ -59,13 +59,13 @@ describe('loadConfig', () => {  it('refuses plaintext plugin context dispatch ou
     expect(() => loadConfig({ ...required, KMS_ENDPOINT: 'http://localhost:4566' })).toThrow(/KMS_REGION/);
   });
 
-  it("reads pagasae's URL, the issuer whose account tokens core trusts; without one it trusts none", () => {
-    expect(loadConfig({ ...required, ACCOUNT_TOKEN_ISSUER: 'https://pagasae.example.com' }).accountTokenIssuer).toBe('https://pagasae.example.com');
+  it("reads the account app's URL, the issuer whose account tokens core trusts; without one it trusts none", () => {
+    expect(loadConfig({ ...required, ACCOUNT_TOKEN_ISSUER: 'https://account-app.example.com' }).accountTokenIssuer).toBe('https://account-app.example.com');
   });
 
   it('refuses an account token issuer that is no https URL', () => {
-    expect(() => loadConfig({ ...required, ACCOUNT_TOKEN_ISSUER: 'pagasae' })).toThrow(/ACCOUNT_TOKEN_ISSUER/);
-    expect(() => loadConfig({ ...required, ACCOUNT_TOKEN_ISSUER: 'http://pagasae.example.com' })).toThrow(/ACCOUNT_TOKEN_ISSUER/);
+    expect(() => loadConfig({ ...required, ACCOUNT_TOKEN_ISSUER: 'accountApp' })).toThrow(/ACCOUNT_TOKEN_ISSUER/);
+    expect(() => loadConfig({ ...required, ACCOUNT_TOKEN_ISSUER: 'http://account-app.example.com' })).toThrow(/ACCOUNT_TOKEN_ISSUER/);
   });
 
   it('reads the installation token, which opens the installation procedures; without one they are off', () => {

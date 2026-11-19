@@ -19,7 +19,7 @@ describe('setNoticesInputSchema', () => {
   });
 
   it('takes links that go somewhere, sign out, or both', () => {
-    const links = [{ label: 'Sign up', url: 'https://pagasae.example.com/sign-up' }, { label: 'Leave', url: 'https://pagasae.example.com', isSignOut: true }, { label: 'Sign out', isSignOut: true }];
+    const links = [{ label: 'Sign up', url: 'https://account-app.example.com/sign-up' }, { label: 'Leave', url: 'https://account-app.example.com', isSignOut: true }, { label: 'Sign out', isSignOut: true }];
 
     expect(setNoticesInputSchema.parse({ notices: [aNotice({ links })] }).notices[0]?.links).toEqual(links);
   });

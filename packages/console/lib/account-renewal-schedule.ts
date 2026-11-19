@@ -1,7 +1,7 @@
 /**
  * When the console renews an account's token (accounts design, A3): a
  * little before it ends, in the browser while a page is open and on the
- * console's server on any page load past that point. While pagasae does not
+ * console's server on any page load past that point. While the account app does not
  * answer, the browser retries, more slowly each time, until the token ends.
  */
 
@@ -16,7 +16,7 @@ export function renewalDelayOf({ endsAt, now }: { endsAt: Date; now: Date }): nu
   return Math.max(0, endsAt.getTime() - RENEW_BEFORE_MS - now.getTime());
 }
 
-/** How long the browser waits before asking pagasae again, after `attempt` renewals it did not answer. */
+/** How long the browser waits before asking the account app again, after `attempt` renewals it did not answer. */
 export function retryDelayOf(attempt: number): number {
   return Math.min(FIRST_RETRY_MS * 2 ** attempt, LONGEST_RETRY_MS);
 }

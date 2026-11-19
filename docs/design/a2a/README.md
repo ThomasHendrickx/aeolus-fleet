@@ -36,7 +36,7 @@ Not the purpose:
 | One gateway, two adapters | One train, one repository | I-6, 0049 |
 | The gateway commissions | It commissions a proxy ship once an outside party is approved | I-5, 0044, 0056 |
 | Verified apart from stated | `a2aCardDomain` is already a check in the closed list | I-4, 0059 |
-| Federation | Through pagasae, not a federation of the gateway's own. 0054 changed I-4 here; A2A is not affected | 0054 |
+| Federation | Through the account app, not a federation of the gateway's own. 0054 changed I-4 here; A2A is not affected | 0054 |
 | One switch for outside parties per fleet | Off by default. Turning it on with no network rules applied warns | I-3, 0056 |
 | NAT both ways | Outside, the gateway shows an opaque alias and HMAC ids. Inside, it shows the proxy ship's name, type and labels | A2A study 1 |
 | 64 KB | A larger message is refused or carried as a reference | 0006 |

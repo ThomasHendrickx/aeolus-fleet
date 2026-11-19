@@ -98,7 +98,7 @@ Every ship has an owner, a person ship or argo, and a person ship owns itself (0
 - **Q11 A grant serves every ship its person owns.** Every ship the person owns, their person ship included, calls under their grant, within reach and the tool switches; a change of owner moves a ship to the new owner's grant from its next call. Why: ownership already says who answers for a ship (L33). Rejected: the person picking which of their ships may use their grant.
 - **Q12 Who sees grants.** Each person sees their own grant on the page: the outside account, when signed in, last used, and its state. Every actor holding `gateway:approve` within manage reach of the proxy ship sees the list of all of them, never a token. The proxy ship's verified facts keep the issuer only (0059). Why: an approver must see who is set up to remove a leaver's or a wrong grant. Rejected: each person seeing only their own.
 - **Q13 Two persons, one outside account: refused where the gateway can tell.** Where the server gives an `openid` subject, a second person's sign-in as an outside account another person's grant already names is turned away with why; where it gives none, the list (Q12) shows what the gateway knows. Why: a shared outside account is the shared grant Q1 turned away. Rejected: allowed and shown; allowed without a word.
-- **Q14 A leaver's grants: removed when the account is disabled.** When pagasae tells the gateway an account was disabled, as it stops a Slack link, the gateway removes every grant of that account; the account's ships then answer as Q5 until a new owner signs in (Q11). Why: a leaver's outside account must stop acting for the fleet when their access does; disabling an account keeps their ships (0055), which would otherwise still call as the leaver. Rejected: grants going only when the person ship is retired.
+- **Q14 A leaver's grants: removed when the account is disabled.** When the account app tells the gateway an account was disabled, as it stops a Slack link, the gateway removes every grant of that account; the account's ships then answer as Q5 until a new owner signs in (Q11). Why: a leaver's outside account must stop acting for the fleet when their access does; disabling an account keeps their ships (0055), which would otherwise still call as the leaver. Rejected: grants going only when the person ship is retired.
 - **Q15 Whose grant reads the server's tools: the approver's, then any usable grant.** Adding a server ends with the approver signing in for themselves; their grant reads `tools/list` for the proxy ship's statement and the tool switches. Later statements use any usable grant, the most recently used first. Why: the approver who adds a server is a person too and is the one who checks its tools. Rejected: the proxy ship unstated, and its tools unswitched, until any person signs in (a party no ship can see until someone happens to sign in).
 - **Q16 Who may sign in on the server's page: every account of the fleet with a person ship.** Each sees the server's page with their own sign-in; changing the party still needs its scopes. Why: who reaches the server changes with labels and rules, and tying the page to it would hide the sign-in from a person whose ship gets reach tomorrow; a grant alone calls nothing, as reach, the switches and the scope check gate every call (L29). Rejected: only accounts whose owned ships may reach the proxy ship.
 - **Q17 A server without dynamic registration: refused, for now.** Adding a server whose authorization server offers no `registration_endpoint` is refused saying so, and nothing is kept. Why: Q4 registers a client per party by dynamic registration, and the first server, Attio, offers it (L10). Rejected for now: a pre-registered client id the approver enters; CIMD comes when the first server offers it (Q4).
@@ -122,7 +122,7 @@ flowchart TD
   end
 
   subgraph SIGN["A person signs in"]
-    S1["Person opens the server's page, signed in through pagasae (Q16)"] --> S2["Sign in: gateway keeps state, PKCE verifier, resource; browser to authorize with Q8's scopes"]
+    S1["Person opens the server's page, signed in through the account app (Q16)"] --> S2["Sign in: gateway keeps state, PKCE verifier, resource; browser to authorize with Q8's scopes"]
     S2 --> S3{"Person consents at the outside service?"}
     S3 -- denies or closes --> SX1["Back on the page: not signed in, why. Nothing kept"]
     S3 -- consents --> S4{"Callback: state matches this browser, iss matches where stated?"}
@@ -218,7 +218,7 @@ A call checks the grant when it is handed over, never earlier: a grant removed w
 27. **Given** `lead-scout` owned by Mathilde, **when** its owner changes to Joris, **then** its next call goes out under Joris's grant, or gets Q5's error result naming Joris (Q11).
 28. **Given** the proxy ship's owner changes, **when** it changes, **then** every grant is unchanged.
 29. **Given** Mathilde's person ship is retired, **when** the gateway learns it, **then** every grant of hers is revoked and dropped (Q6).
-30. **Given** Mathilde's account is disabled, **when** pagasae tells the gateway, **then** every grant of hers is revoked and dropped, and her ships' calls get Q5's error result (Q14).
+30. **Given** Mathilde's account is disabled, **when** the account app tells the gateway, **then** every grant of hers is revoked and dropped, and her ships' calls get Q5's error result (Q14).
 31. **Given** Attio's party is retired, **when** it is retired, **then** every grant of the party is revoked and dropped, and the client is deleted where Attio offers it.
 
 ## 6. Screens
@@ -245,5 +245,5 @@ Each one PR. S1 first; each page slice after its API slice and its mockup.
 | S8 | Page M2: your sign-in on a server's page | aeolus-fleet-gateway | M2 approved; each state shown |
 | S9 | Page M3: everyone's sign-ins for approvers | aeolus-fleet-gateway | M3 approved; each state shown |
 
-Order: S1, S2, S3, S4, S5, S6; S7 after S2, S8 after S3, S9 after S6. Core and pagasae are unchanged: the gateway reads owners as it reads scopes today, and learns of disabled accounts as it does for Slack links. The staging walk adds Attio's hosted server with two real Attio accounts.
+Order: S1, S2, S3, S4, S5, S6; S7 after S2, S8 after S3, S9 after S6. Core and the account app are unchanged: the gateway reads owners as it reads scopes today, and learns of disabled accounts as it does for Slack links. The staging walk adds Attio's hosted server with two real Attio accounts.
 

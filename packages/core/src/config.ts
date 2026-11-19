@@ -76,7 +76,7 @@ export interface Config {
    */
   installationToken: string | undefined;
   /**
-   * pagasae's URL, the issuer whose account tokens core trusts, its keys
+   * the account app's URL, the issuer whose account tokens core trusts, its keys
    * fetched over HTTPS (decision 0058). Unset: no account token is trusted.
    */
   accountTokenIssuer: string | undefined;

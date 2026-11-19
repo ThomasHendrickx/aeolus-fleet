@@ -19,7 +19,7 @@ import { FLEET_URL } from './support/core-fixtures.js';
 import { createTestClock } from './support/postgres-core.js';
 
 // Account tokens and the installation as actors, from HTTP to Postgres
-// (decisions 0057, 0058): core checks pagasae's signature, the fleet, the end
+// (decisions 0057, 0058): core checks the account app's signature, the fleet, the end
 // and a cut-off on every call, then authorises the account by its scopes and
 // reach as it does a ship, and every event names it by its id only. The
 // installation acts in a fleet through the same calls. The fleet defines
@@ -49,7 +49,7 @@ function seconds(at: Date): number {
   return Math.floor(at.getTime() / 1000);
 }
 
-/** The claims of a token pagasae signs for Mathilde in the fleet now, for 10 minutes. */
+/** The claims of a token the account app signs for Mathilde in the fleet now, for 10 minutes. */
 function mathilde(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   const now = seconds(clock.now());
   return { iss: issuer.issuer, aud: fleetId, sub: 'acc-mathilde', org: 'org-acme', scope: 'fleet:read fleet:manage', group: ['engineering'], iat: now, exp: now + 600, ...overrides };
@@ -283,15 +283,15 @@ describe('an account token core refuses', () => {
     await expect(refusalOf(asAccount(issuer.sign(mathilde({ aud: otherFleetId })), gateway.crewToken).fleet.list.query())).resolves.toMatchObject({ code: 'UNAUTHORIZED' });
   });
 
-  it('refuses one signed with a key pagasae never published', async () => {
+  it('refuses one signed with a key the account app never published', async () => {
     await expect(refusalOf(asAccount(issuer.signWithUnpublishedKey(mathilde())).fleet.list.query())).resolves.toEqual({
       code: 'UNAUTHORIZED',
-      message: 'Present an account token pagasae signed for this fleet',
+      message: 'Present an account token the account app signed for this fleet',
     });
   });
 
   it('refuses one that names another issuer', async () => {
-    await expect(refusalOf(asAccount(issuer.sign(mathilde({ iss: 'https://pagasae.example' }))).fleet.list.query())).resolves.toMatchObject({ code: 'UNAUTHORIZED' });
+    await expect(refusalOf(asAccount(issuer.sign(mathilde({ iss: 'https://account-app.example' }))).fleet.list.query())).resolves.toMatchObject({ code: 'UNAUTHORIZED' });
   });
 
   it('refuses a cut-off account its tokens issued before the cut-off, in every fleet, and takes one issued after it', async () => {
@@ -308,7 +308,7 @@ describe('an account token core refuses', () => {
     await expect(asAccount(issuer.sign(burak())).fleet.list.query().then((page) => page.items)).resolves.toBeDefined();
   });
 
-  it('takes a token signed with a key pagasae published after core fetched its keys, a minute later', async () => {
+  it('takes a token signed with a key the account app published after core fetched its keys, a minute later', async () => {
     await asAccount(issuer.sign(mathilde())).fleet.list.query();
     issuer.rotate();
     clock.advance(MINUTE_MS);
@@ -318,8 +318,8 @@ describe('an account token core refuses', () => {
 
   it('accepts none where no issuer is configured', async () => {
     const databaseUrl = await createMigratedDatabase();
-    const withoutPagasae = createApp({ databaseUrl, publicUrl: FLEET_URL, logger: false, clock, installationToken: INSTALLATION_TOKEN });
-    const at = await withoutPagasae.listen({ host: '127.0.0.1', port: 0 });
+    const withoutAccountApp = createApp({ databaseUrl, publicUrl: FLEET_URL, logger: false, clock, installationToken: INSTALLATION_TOKEN });
+    const at = await withoutAccountApp.listen({ host: '127.0.0.1', port: 0 });
     try {
       const installation = createTRPCClient<AppRouter>({ links: [httpLink({ url: `${at}/trpc`, headers: { 'x-aeolus-installation-token': INSTALLATION_TOKEN } })] }).installation;
       const { fleetId: selfHosted } = await installation.fleets.create.mutate({ requestId: newKey(), name: 'home', operatorEmail: 'home@example.com' });
@@ -329,7 +329,7 @@ describe('an account token core refuses', () => {
         code: 'UNAUTHORIZED',
       });
     } finally {
-      await withoutPagasae.close();
+      await withoutAccountApp.close();
     }
   });
 });
@@ -344,7 +344,7 @@ describe('the installation acting in a fleet', () => {
     expect(renamed).toMatchObject({ actorKind: 'installation', actorShipId: null, actorAccountId: null });
   });
 
-  it("reads each ship's owner in the fleet list, so pagasae keeps a person ship while it owns ships: none for argo (#983)", async () => {
+  it("reads each ship's owner in the fleet list, so the account app keeps a person ship while it owns ships: none for argo (#983)", async () => {
     const ships = (await asInstallation(fleetId).fleet.list.query()).items;
 
     expect(ships.filter((ship) => ship.name === 'argo' || ship.name === 'near').map((ship) => ({ name: ship.name, ownerShipId: 'ownerShipId' in ship ? ship.ownerShipId : 'outside read reach' }))).toEqual([

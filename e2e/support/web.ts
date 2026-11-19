@@ -38,7 +38,7 @@ export async function reserveWebUrl(): Promise<string> {
 /**
  * Starts the web app with `next dev` at the reserved URL, with the given
  * server as its AEOLUS_SERVER_URL (and a fake squadrons as its AEOLUS_SQUADRONS_URL, a fake trierarch plugin as its AEOLUS_TRIERARCH_PLUGIN_URL, the hosting service's sign-in as its
- * AEOLUS_HOSTED_SIGN_IN_URL, and pagasae as AEOLUS_PAGASAE_URL with the console's client credentials, when given), and waits until the sign-in page answers
+ * AEOLUS_HOSTED_SIGN_IN_URL, and the account app as AEOLUS_ACCOUNT_APP_URL with the console's client credentials, when given), and waits until the sign-in page answers
  * (the first request compiles it). The console bundles common's and ui's
  * built packages, as `npm run dev` does, so both are built first.
  *
@@ -46,7 +46,7 @@ export async function reserveWebUrl(): Promise<string> {
  * like the console: one site, or the SameSite=Strict session cookie would
  * stay behind.
  */
-export async function startWeb(web: { url: string; serverUrl: string; squadronsUrl?: string; trierarchPluginUrl?: string; hostedSignInUrl?: string; hostedAccountUrl?: string; hostedAnalytics?: Readonly<Record<string, string>>; pagasae?: { url: string; clientId: string; clientSecret: string } }): Promise<RunningWeb> {
+export async function startWeb(web: { url: string; serverUrl: string; squadronsUrl?: string; trierarchPluginUrl?: string; hostedSignInUrl?: string; hostedAccountUrl?: string; hostedAnalytics?: Readonly<Record<string, string>>; accountApp?: { url: string; clientId: string; clientSecret: string } }): Promise<RunningWeb> {
   const { url, serverUrl } = web;
   await promisify(execFile)('npm', ['run', 'build', '--workspace', '@aeolus-fleet/common', '--workspace', '@aeolus-fleet/ui'], { cwd: repositoryRoot });
   const port = new URL(url).port;
@@ -63,7 +63,7 @@ export async function startWeb(web: { url: string; serverUrl: string; squadronsU
       ...(web.hostedSignInUrl === undefined ? {} : { AEOLUS_HOSTED_SIGN_IN_URL: web.hostedSignInUrl }),
       ...(web.hostedAccountUrl === undefined ? {} : { AEOLUS_HOSTED_ACCOUNT_URL: web.hostedAccountUrl }),
       ...web.hostedAnalytics,
-      ...(web.pagasae === undefined ? {} : { AEOLUS_PAGASAE_URL: web.pagasae.url, AEOLUS_PAGASAE_CLIENT_ID: web.pagasae.clientId, AEOLUS_PAGASAE_CLIENT_SECRET: web.pagasae.clientSecret }),
+      ...(web.accountApp === undefined ? {} : { AEOLUS_ACCOUNT_APP_URL: web.accountApp.url, AEOLUS_ACCOUNT_APP_CLIENT_ID: web.accountApp.clientId, AEOLUS_ACCOUNT_APP_CLIENT_SECRET: web.accountApp.clientSecret }),
       NEXT_TELEMETRY_DISABLED: '1',
     },
     stdio: ['pipe', 'pipe', 'pipe'],

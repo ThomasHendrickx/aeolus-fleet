@@ -12,7 +12,7 @@ Inputs:
 | The decisions on the operator, kinds, owners, scopes, reach and core's surface | 0007, 0012, 0016, 0020, 0022, 0034, 0043 to 0047 |
 | Scope rework part 0: single-operator assumptions (0.3), contained access (0.8), owners (0.10) | `design/scope-rework`, `docs/design/scope-rework/scope-rework.md` |
 | The interop design: federation (I-4), the gateway commissions proxy ships once argo approves a party (I-5), outside parties a switch per fleet, off by default, with a warning on an open network (I-3) | `design/interop`, `docs/design/interop/interop.md`; gateway slices 2, 3 and 6; issue #877 |
-| pagasae, the account app for hosted Aeolus | pagasae `README.md` and `prisma/schema.prisma` |
+| The account app, the account app for hosted Aeolus | the account app `README.md` and `prisma/schema.prisma` |
 | How Microsoft 365 (Entra ID) and Google Workspace model tenants, admin roles, app consent and guests | Their admin documentation, linked in part 2 |
 | Thomas's direction for this design | The gateway has one address for all fleets: people sign in, then the gateway finds their fleet, as Microsoft 365 does |
 
@@ -24,13 +24,13 @@ Every caller is a ship, and a ship's scopes (what) and reach (where) decide ever
 
 | Door | Who | What it gives | Decision |
 | --- | --- | --- | --- |
-| The console, email and password (self-hosted) or a sign-in ticket from pagasae (hosted) | The one operator of the fleet | argo: every scope, every ship by every verb, one session at a time, a new sign-in takes the old one over | 0012, 0020 |
+| The console, email and password (self-hosted) or a sign-in ticket from the account app (hosted) | The one operator of the fleet | argo: every scope, every ship by every verb, one session at a time, a new sign-in takes the old one over | 0012, 0020 |
 | A viewer ticket from the hosting service | Anyone the hosting service hands one (the hosted demo) | the viewer ship: `fleet:read` over every ship, many sessions at once | 0022 |
 | A person ship's crew token, in the person's app or chat | Charlotte, Thomas, Burak in the worked example | their person ship, but no sign-in: someone pasted a starting prompt | 0044, 0015 |
 
 So human access is a have-it-all policy: a human who needs to do any admin work at all needs argo, and argo is one account. The scope rework already listed what breaks once more humans arrive (0.3): one account and one console session, questions and trouble that all go to argo, squadrons writes served to argo alone.
 
-pagasae, in front of hosted fleets, has accounts of its own: one email, signed in by email link, at most one fleet, whose operator that account is. Its "owner" is the person who runs the hosting service (`OWNER_EMAIL`), who sees every fleet's pages. That is not a ship's owner (0045): the word is taken twice.
+The account app, in front of hosted fleets, has accounts of its own: one email, signed in by email link, at most one fleet, whose operator that account is. Its "owner" is the person who runs the hosting service (`OWNER_EMAIL`), who sees every fleet's pages. That is not a ship's owner (0045): the word is taken twice.
 
 ### 1.2 What changes with the gateway
 
@@ -51,7 +51,7 @@ Thomas decided, after reading the first version of this design:
 3. Entra and Google are outside management that plugs in later: the organisation connects its directory. They are not the foundation.
 4. So, before Google sign-in is ready, people sign in at the gateway with the organisation's own accounts.
 
-Then, on where it lives: "an organisation manages the user accounts within the whole. Pagasae is the account management unit." The organisation and its accounts live in pagasae, signing in by email as pagasae's sign-in links already do; the gateway signs people in through those accounts until an outside directory is connected; core keeps ships, scopes and owners. This decided where the organisation lives and raises question 19: pagasae today serves hosted Aeolus only.
+Then, on where it lives: an organisation manages its accounts together, through the account app. The organisation and its accounts live in the account app, signing in by email as the account app's sign-in links already do; the gateway signs people in through those accounts until an outside directory is connected; core keeps ships, scopes and owners. This decided where the organisation lives and raises question 19: the account app today serves hosted Aeolus only.
 
 Where the organisation sits among every other concept, and the gaps it answers or raises, is in [`domain-model.md`](domain-model.md). The questions in part 3 are the revised list.
 
@@ -80,8 +80,8 @@ All in the blueprint's words. Each acts as a ship.
 | The owner of a ship, an app or an outside party (0045) | their person ship, which reaches the ships it owns | Exists as a fact; answers questions and trouble |
 | A viewer | the viewer ship (0022) | A ticket from the hosting service |
 | A person from another organisation (a supplier's employee) | nothing yet: outside parties are app ships (I-5) | No way in |
-| The account holder at pagasae, who signs up for hosted Aeolus | becomes the fleet's operator, so argo | One account, one fleet |
-| The installation admin, who runs the hosting service (pagasae's `OWNER_EMAIL`) | no ship: they act on the installation, not in a fleet (0020) | pagasae's owner pages |
+| The account holder at the account app, who signs up for hosted Aeolus | becomes the fleet's operator, so argo | One account, one fleet |
+| The installation admin, who runs the hosting service (the account app's `OWNER_EMAIL`) | no ship: they act on the installation, not in a fleet (0020) | the account app's owner pages |
 
 ### 1.6 A good outcome
 
@@ -99,7 +99,7 @@ In the worked example of the blueprint, at Acme:
 
 - The OAuth and federation mechanics of the gateway (the interop design and its slices).
 - Network rules themselves (0034 to 0037): this design uses reach, it does not change it.
-- The hosted sign-up in pagasae, except where a fleet's first human comes from it.
+- The hosted sign-up in the account app, except where a fleet's first human comes from it.
 
 ## 2. Lessons to check against
 
@@ -124,7 +124,7 @@ Each line is a check the model of phase 2 must pass.
 | **Federation through the company IdP, not a second user directory**; leavers lose access when the IdP drops them | I-4 |
 | **No hidden behaviour.** Every state change writes its event, naming the acting ship | 0.S, architecture |
 | **Thin designs for few people; breaking changes allowed before 1.0.0** | 0013 |
-| **Accounts outside core already work**: pagasae keeps accounts in its own store and signs one in to the console with a one-use ticket; core sees only the session crewing argo | 0020, pagasae |
+| **Accounts outside core already work**: the account app keeps accounts in its own store and signs one in to the console with a one-use ticket; core sees only the session crewing argo | 0020, the account app |
 | **Organisation is prose today**: the fleet stands in for it as the tenant | blueprint Principles, 0007, 0043 |
 
 ### 2.2 From Microsoft 365 (Entra ID) and Google Workspace
@@ -181,19 +181,19 @@ Thomas: (a) in spirit, but too simple. "Accounts sit in groups, and a group yiel
 
 The model:
 
-- A **group** is a set of an organisation's accounts, kept in pagasae (added to the Domain language). In each fleet, a group yields scopes and reach for the person ships of its accounts. An account in several groups gets every one of their scopes.
+- A **group** is a set of an organisation's accounts, kept in the account app (added to the Domain language). In each fleet, a group yields scopes and reach for the person ships of its accounts. An account in several groups gets every one of their scopes.
 - Reach comes from network rules, which select by labels or owner, never by anything else (0034). So a group yields label values on its accounts' person ships, and the rules that select those values give the reach. Acme's group "engineering" yields `team=engineering` and `messages:send`; a networking plugin rule from `team=engineering` to `team=engineering` lets its people reach each other's ships.
-- The fleet sees only the person ship, its scopes and its labels. Groups stay pagasae's.
+- The fleet sees only the person ship, its scopes and its labels. Groups stay the account app's.
 - An admin may also give one account rights of its own (question 11); whether that is a group of one is phase 2's.
 - How a change in a group reaches a live person ship is question 4.
 
 Thomas's worry, that a human who uses the fleet and also does admin work needs two accounts: no. One account holds all three:
 
-- organisation rights on the account, in pagasae (question 2);
+- organisation rights on the account, in the account app (question 2);
 - admin scopes in a fleet on their one person ship, through a group such as "fleet admins" (questions 3 and 5);
 - leave to sign in as argo (question 10). That is the same account signing in to the console as a second ship, argo: a second ship, not a second account. The events name argo, and the console sign-in names the account.
 
-Mathilde, Acme's IT admin, has one account, mathilde@acme.com. She is an organisation admin in pagasae. Her person ship in Acme's fleet holds what the groups "everyone" and "fleet admins" yield, and that is where her daily work happens. She is allowed to sign in as argo, and does so only to recover. Google tells a super admin to keep a second account for daily work (part 2.2); here the split is a second ship, so no second account is needed.
+Mathilde, Acme's IT admin, has one account, mathilde@acme.com. She is an organisation admin in the account app. Her person ship in Acme's fleet holds what the groups "everyone" and "fleet admins" yield, and that is where her daily work happens. She is allowed to sign in as argo, and does so only to recover. Google tells a super admin to keep a second account for daily work (part 2.2); here the split is a second ship, so no second account is needed.
 
 Nothing is left open here but question 4.
 
@@ -201,7 +201,7 @@ Nothing is left open here but question 4.
 
 **2. Who manages the organisation, and how are those rights held? Decided: (a).** (G8, G29)
 
-Thomas: "The account created first is the organisation's admin and manages the organisation." Organisation rights sit on the account, in pagasae: the one place a right is not a scope, because there is no fleet there. Not everything is managed through a fleet. An MCP server to manage the organisation from outside may come later.
+Thomas: "The account created first is the organisation's admin and manages the organisation." Organisation rights sit on the account, in the account app: the one place a right is not a scope, because there is no fleet there. Not everything is managed through a fleet. An MCP server to manage the organisation from outside may come later.
 
 ### Admin work in a fleet
 
@@ -218,22 +218,22 @@ Thomas turned this into research: how do applications that sign people in throug
 What Entra, Google Workspace, Okta, Slack and GitHub do is in part 2.2 ("A change in a group changes rights in place"). What applies here:
 
 - **Every one keeps the user and changes its rights in place.** None recreates it. Losing a group removes that group's rights from the same user; leaving deactivates it, and a delete is rare and late (Entra after 30 days, Okta never, GitHub only on a hard deprovision). This matches question 12.
-- **The mapping from group to right lives in the application**, beside its own teams or channels (Slack, GitHub, Okta's group push). Only Entra keeps a coarse app role in the directory. Here the application is pagasae: the organisation's groups and what each yields in each fleet sit together.
+- **The mapping from group to right lives in the application**, beside its own teams or channels (Slack, GitHub, Okta's group push). Only Entra keeps a coarse app role in the directory. Here the application is the account app: the organisation's groups and what each yields in each fleet sit together.
 - **A change arrives two ways.** At sign-in, as claims in the token (lands only at the next sign-in or token), and pushed (SCIM, from at once to about 40 minutes), so a leaver who never signs in again is still handled. Most use both.
 - **A live sign-in keeps its rights until its token ends**, unless the application acts on the push. Slack signs a deactivated user out everywhere.
 
 Aeolus already rescopes a live ship: `scopes:grant` takes effect at the ship's next call, with `ScopesChanged` (0046), and a label change moves reach at the next call (0034). A session attached does not block a rescope.
 
-Use case: Charlotte moves from Acme's sales team to finance. Mathilde moves her account from the group "sales" to "finance" in pagasae. Charlotte is signed in at the gateway from her Claude, and her PRD agent is crewed.
+Use case: Charlotte moves from Acme's sales team to finance. Mathilde moves her account from the group "sales" to "finance" in the account app. Charlotte is signed in at the gateway from her Claude, and her PRD agent is crewed.
 
 Options:
 
-- (a) **Rescope in place, at once.** pagasae changes the person ship's scopes and labels as soon as a group or its rights change, session or not. Charlotte's next call runs with finance's scopes and reach. A call that needed a removed scope is refused, as after any scope change.
-- (b) **Rescope in place, at the next sign-in.** pagasae sets the scopes and labels when the account signs in. Goes wrong: Charlotte keeps sales' reach for as long as she stays signed in, and a removed right lingers.
-- (c) **Rescope only with no session attached.** pagasae waits until the gateway's crew of the person ship ends. Goes wrong: the same as (b), and a human who never signs out is never rescoped.
+- (a) **Rescope in place, at once.** the account app changes the person ship's scopes and labels as soon as a group or its rights change, session or not. Charlotte's next call runs with finance's scopes and reach. A call that needed a removed scope is refused, as after any scope change.
+- (b) **Rescope in place, at the next sign-in.** the account app sets the scopes and labels when the account signs in. Goes wrong: Charlotte keeps sales' reach for as long as she stays signed in, and a removed right lingers.
+- (c) **Rescope only with no session attached.** the account app waits until the gateway's crew of the person ship ends. Goes wrong: the same as (b), and a human who never signs out is never rescoped.
 - (d) **Retire and recommission (ship recycling).** A new person ship with the new scopes. Goes wrong: a new ship id; messages addressed to the old one and its history stay behind; the ships it owns (her PRD agent) fall to argo (0045). None of the five does this.
 
-Pick: (a), with the same check at every sign-in as a backstop. Rights land once and at once, and a removal is not held up by a live session. It is the pushed path Slack and GitHub take, and core needs nothing new. Who changes the person ship in the fleet (pagasae through the installation procedures, or a ship of pagasae's in each fleet holding what it grants, 0046) is phase 2's, as for question 11.
+Pick: (a), with the same check at every sign-in as a backstop. Rights land once and at once, and a removal is not held up by a live session. It is the pushed path Slack and GitHub take, and core needs nothing new. Who changes the person ship in the fleet (the account app through the installation procedures, or a ship of the account app's in each fleet holding what it grants, 0046) is phase 2's, as for question 11.
 
 **Restated by the actor model**: an account's rights change at its next account token, within 10 minutes, with nothing rescoped in the fleet; a person ship's `group` labels change at once (0052). The research's lesson holds: the same account, its rights changed in place.
 
@@ -291,23 +291,23 @@ Pick: (a). Requests are kept in one place, the same as a pending outside MCP cli
 
 ### Signing in
 
-**8. How does the gateway sign people in? Decided: (a).** (G13, G27) pagasae is the gateway's one identity provider: every gateway sign-in goes through pagasae, and pagasae accepts identities from Entra or Google once the organisation connects its directory. I-4's "the gateway's OAuth server federates to the company IdP" becomes "through pagasae", and the gateway's `IdentityProvider` moves to pagasae.
+**8. How does the gateway sign people in? Decided: (a).** (G13, G27) the account app is the gateway's one identity provider: every gateway sign-in goes through the account app, and the account app accepts identities from Entra or Google once the organisation connects its directory. I-4's "the gateway's OAuth server federates to the company IdP" becomes "through the account app", and the gateway's `IdentityProvider` moves to the account app.
 
-**9. How does the one address find the fleet? Decided: (a).** (G12) Gateway sign-in through pagasae, the organisation from the account, then the fleet: straight in when the account is linked to a person ship in one fleet, a choice when several. The token names the fleet it was issued for.
+**9. How does the one address find the fleet? Decided: (a).** (G12) Gateway sign-in through the account app, the organisation from the account, then the fleet: straight in when the account is linked to a person ship in one fleet, a choice when several. The token names the fleet it was issued for.
 
-**10. Which accounts may sign in as argo? Decided: (a).** (G2, G7, G9, G21) Accounts an organisation admin allows for that fleet, by a sign-in ticket from pagasae. Still one console sign-in at a time (0012); the sign-in names its account.
+**10. Which accounts may sign in as argo? Decided: (a).** (G2, G7, G9, G21) Accounts an organisation admin allows for that fleet, by a sign-in ticket from the account app. Still one console sign-in at a time (0012); the sign-in names its account.
 
-**11. Who gets a person ship? Decided: (a), in Thomas's wording.** (G15) An admin adds an account in pagasae and gives it rights (scopes, reach); that commissions its person ship. Later a group may be allowed, and the account's first sign-in commissions the ship, still on an admin's allowance. How pagasae commissions in the fleet is phase 2's (question 4). **Restated by the actor model**: rights need no person ship; an account gets one in a fleet when a group lets it message there, or when it first owns a ship (0052, 0057), and pagasae commissions it as the installation.
+**11. Who gets a person ship? Decided: (a), in Thomas's wording.** (G15) An admin adds an account in the account app and gives it rights (scopes, reach); that commissions its person ship. Later a group may be allowed, and the account's first sign-in commissions the ship, still on an admin's allowance. How the account app commissions in the fleet is phase 2's (question 4). **Restated by the actor model**: rights need no person ship; an account gets one in a fleet when a group lets it message there, or when it first owns a ship (0052, 0057), and the account app commissions it as the installation.
 
 **12. A leaver? Decided: (a).** (G20) The organisation disables the account: access ends at once, and the ship stays, like an inbox that outlives a leaver. Moving its work to another ship is a possible later feature. What a leaver's computer keeps crewing is question 17.
 
 ### Hosted, directories and outside people
 
-**13. What does pagasae's sign-up create? Decided: (a), with the first fleet.** (G21, G28) Sign-up creates the organisation, its first account (an organisation admin allowed to sign in as argo of the first fleet) and its first fleet: zero fleets has zero value. pagasae keeps beside it only what is hosted: the terms accepted, updates opt-in, the hosting service's own pages.
+**13. What does the account app's sign-up create? Decided: (a), with the first fleet.** (G21, G28) Sign-up creates the organisation, its first account (an organisation admin allowed to sign in as argo of the first fleet) and its first fleet: zero fleets has zero value. The account app keeps beside it only what is hosted: the terms accepted, updates opt-in, the hosting service's own pages.
 
 **14. When the organisation connects Google Workspace or Entra, may its accounts still sign in by email? Decided: (a), identity for everyone, the email sign-in link only for accounts allowed to sign in as argo.** (G13, G27)
 
-What connecting changes: until then, every account signs in by email: pagasae mails a sign-in link (question 8). Connecting the organisation's directory lets an account sign in with its identity instead: Charlotte picks "Sign in with Google", Google answers charlotte@acme.com, and pagasae finds her account. Acme's own rules then apply to her sign-in (its passwords, its second factor), and a human Acme suspends in Google can no longer sign in that way.
+What connecting changes: until then, every account signs in by email: the account app mails a sign-in link (question 8). Connecting the organisation's directory lets an account sign in with its identity instead: Charlotte picks "Sign in with Google", Google answers charlotte@acme.com, and the account app finds her account. Acme's own rules then apply to her sign-in (its passwords, its second factor), and a human Acme suspends in Google can no longer sign in that way.
 
 Use case: Acme connects Google Workspace. Burak leaves; Acme's IT suspends him in Google, as it does for every tool. Then Google is misconfigured one morning and nobody can sign in through it.
 
@@ -329,7 +329,7 @@ Use case: Acme hires Priya, from the agency Northwind, for three months to build
 Options:
 
 - (a) **An account in Acme's organisation.** Mathilde adds priya@northwind.com to Acme's organisation and the group "contractors", and disables it when the contract ends. Priya has an account in each organisation; with one email in two, her gateway sign-in asks which organisation. Goes wrong: Acme must remember to disable her, since Northwind's directory does not tell Acme; and once Acme connects Google, Priya still signs in by email, as Acme's directory does not know her.
-- (b) **A guest: Priya's Northwind account linked to a person ship in Acme's fleet.** Northwind signs her in. Goes wrong: an account then reaches into another organisation's fleet, across pagasae's tenant (0050); Acme does not list her among its accounts; guests grow unseen (part 2.2).
+- (b) **A guest: Priya's Northwind account linked to a person ship in Acme's fleet.** Northwind signs her in. Goes wrong: an account then reaches into another organisation's fleet, across the account app's tenant (0050); Acme does not list her among its accounts; guests grow unseen (part 2.2).
 - (c) **Only through an outside party.** Northwind's own agent, an outside MCP client, is approved in Acme's fleet, and Priya works through it. Goes wrong: the events name Northwind's proxy ship, not Priya, and everyone at Northwind using that client is one ship to Acme.
 
 Pick: (a). One account belongs to one organisation, and Acme decides who is in it. (c) stays right for a supplier's system rather than a person.
@@ -364,36 +364,36 @@ Thomas's principle: a ship is like an email inbox; which client reads it does no
 
 **19. What does a self-hosted fleet use for its organisation and accounts? Decided: (e).** (G21, G28, G31)
 
-Thomas leans to (b): pagasae is personal at this stage, and (a) adds a lot of complexity for self-hosters; the one-line console plus core setup would be gone for good.
+Thomas leans to (b): the account app is personal at this stage, and (a) adds a lot of complexity for self-hosters; the one-line console plus core setup would be gone for good.
 
-Today a self-hoster runs `aeolus-core migrate`, then `fleet:init` (it asks for argo's email and password), then starts core and the console beside Postgres. No mail. pagasae today is private and hosted only: one account, one fleet, the terms, the demo, the installation admin's pages, mail through Resend.
+Today a self-hoster runs `aeolus-core migrate`, then `fleet:init` (it asks for argo's email and password), then starts core and the console beside Postgres. No mail. The account app today is private and hosted only: one account, one fleet, the terms, the demo, the installation admin's pages, mail through Resend.
 
 Options:
 
-- (a) **pagasae is a component self-hosters run too**, published, its hosted parts off unless configured; it drives core through the installation procedures; core's password sign-in goes.
+- (a) **The account app is a component self-hosters run too**, published, its hosted parts off unless configured; it drives core through the installation procedures; core's password sign-in goes.
 - (b) **Self-hosted keeps core's email and password for argo**, with no organisation.
 - (c) **Core keeps a small organisation of its own** for self-hosted fleets.
-- (d) **Self-hosted fleets use the hosted pagasae.**
-- (e) **Core keeps argo's own sign-in for the one-line setup** (one human, no organisation), and pagasae is an optional component that adds the organisation, hosted or self-hosted.
+- (d) **Self-hosted fleets use the hosted account app.**
+- (e) **Core keeps argo's own sign-in for the one-line setup** (one human, no organisation), and the account app is an optional component that adds the organisation, hosted or self-hosted.
 
 What each means for a self-hoster:
 
 | | Setup | Processes | Mail | Organisation and gateway sign-in |
 | --- | --- | --- | --- | --- |
-| (a) | Today's, then pagasae: its database, its address, the installation token shared with core; the first account by sign-up | core, console, pagasae, Postgres with pagasae's database | Needed for every sign-in link, or links read from pagasae's log | Yes |
-| (b) | Today's | core, console, Postgres | None | None: no accounts, so no gateway sign-in (it goes through pagasae, 8); argo only |
-| (c) | Today's, plus core's organisation pages | core, console, Postgres | Needed for accounts' sign-in links | Yes, in a second model beside pagasae's |
-| (d) | Today's, plus an account at the hosted pagasae joined to the self-hosted core | core, console, Postgres; a call to the hosting service at every sign-in | The hosting service's | Yes, but every sign-in depends on the hosting service, and people's emails leave the self-hoster |
-| (e) | Today's; adding pagasae later is (a)'s setup | core, console, Postgres; pagasae once wanted | None until pagasae is added | None until pagasae is added; then yes |
+| (a) | Today's, then the account app: its database, its address, the installation token shared with core; the first account by sign-up | core, console, the account app, Postgres with the account app's database | Needed for every sign-in link, or links read from the account app's log | Yes |
+| (b) | Today's | core, console, Postgres | None | None: no accounts, so no gateway sign-in (it goes through the account app, 8); argo only |
+| (c) | Today's, plus core's organisation pages | core, console, Postgres | Needed for accounts' sign-in links | Yes, in a second model beside the account app's |
+| (d) | Today's, plus an account at the hosted account app joined to the self-hosted core | core, console, Postgres; a call to the hosting service at every sign-in | The hosting service's | Yes, but every sign-in depends on the hosting service, and people's emails leave the self-hoster |
+| (e) | Today's; adding the account app later is (a)'s setup | core, console, Postgres; the account app once wanted | None until the account app is added | None until the account app is added; then yes |
 
 Pick: (e). It is (b) today with the door open:
 
 - The one-line setup stays, and one human needs nothing more.
-- argo's own sign-in depends on nothing (no mail, no pagasae, no identity provider). That is Thomas's reason for argo (5) and J5's way in.
-- The organisation has one model, pagasae's, wherever there is one; (c) gives accounts two homes.
-- No work now: a self-hosted pagasae is built when a self-hoster asks for an organisation.
+- argo's own sign-in depends on nothing (no mail, no account app, no identity provider). That is Thomas's reason for argo (5) and J5's way in.
+- The organisation has one model, the account app's, wherever there is one; (c) gives accounts two homes.
+- No work now: a self-hosted account app is built when a self-hoster asks for an organisation.
 
-Its costs: once pagasae runs, argo has two ways in (core's own sign-in and pagasae's sign-in ticket), and the console sign-in must say which.
+Its costs: once the account app runs, argo has two ways in (core's own sign-in and the account app's sign-in ticket), and the console sign-in must say which.
 
 In 0050's terms: core's email and password are **argo's own sign-in**, a sign-in of the ship argo, with no organisation and no person ship. It is not an account (the only account is a human's in an organisation) and not an operator account (there is none); the operator is whoever signs in as argo by it. 0050 and the glossary say so.
 

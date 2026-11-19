@@ -420,7 +420,7 @@ export interface UseCases {
 
 export const systemClock: Clock = { now: () => new Date() };
 
-/** Where no pagasae signs account tokens, as on a self-hosted server: no account token is trusted. */
+/** Where no the account app signs account tokens, as on a self-hosted server: no account token is trusted. */
 const NO_ACCOUNT_TOKEN_SIGNATURES: AccountTokenSignatures = { verify: () => Promise.resolve(undefined) };
 
 /**
@@ -438,7 +438,7 @@ export function createUseCases(options: {
   ids?: IdGenerator;
   /** Feed the wake streams (long-poll design, W1); without them a stream wakes only at open and sends keep-alives. */
   wakeStreams?: WakeStreams;
-  /** pagasae's signatures on account tokens (decision 0058); without them, no account token is trusted. */
+  /** the account app's signatures on account tokens (decision 0058); without them, no account token is trusted. */
   accountTokenSignatures?: AccountTokenSignatures;
   /** The installation's KMS for sealed fleets (decision 0068); without it, no fleet can be sealed. */
   keyVault?: KeyVault;
@@ -683,7 +683,7 @@ export function createUseCases(options: {
     signOut: createSignOut({ uow, clock, ids }),
     readAccount: createReadAccount({ uow }),
     readArgoSignIn: createReadArgoSignIn({ uow, clock }),
-    // Without pagasae's signatures core trusts no account, and argo's own sign-in is the way in.
+    // Without the account app's signatures core trusts no account, and argo's own sign-in is the way in.
     setOperatorLogin: createSetOperatorLogin({ uow, clock, ids, accounts: createPrismaOperatorAccountLookup(prisma), passwords: argon2idPasswordHasher, isSelfHosted: options.accountTokenSignatures === undefined }),
     resetOperatorPassword: createResetOperatorPassword({ uow, clock, ids, passwords: argon2idPasswordHasher }),
     endLeasesAfterRestore: createEndLeasesAfterRestore({ uow, clock, ids }),

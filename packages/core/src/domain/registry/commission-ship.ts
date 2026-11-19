@@ -96,7 +96,7 @@ async function givenValues(tx: CommissionShipTx, ref: { fleetId: FleetId; valueI
 /** How many characters of the account's id a person ship's name keeps (decision 0052). */
 const PERSON_SHIP_NAME_ACCOUNT_ID_LENGTH = 12;
 
-/** The idempotency key the installation commissions an account's person ship under, the same from pagasae and from core (decision 0052). */
+/** The idempotency key the installation commissions an account's person ship under, the same from the account app and from core (decision 0052). */
 export function personShipKey(accountId: AccountId): string {
   return `person-${accountId}`;
 }

@@ -6,9 +6,9 @@ import { useConsoleRead } from '../../../lib/console-read-query';
 import { fetchConsoleRead } from '../../../lib/fetch-console-read';
 
 /**
- * The names pagasae gives the accounts a timeline names as signed in as
+ * The names the account app gives the accounts a timeline names as signed in as
  * argo, asked by the web app's server and never stored (decisions 0054,
- * 0058). Empty while it loads, without pagasae, and for an account pagasae
+ * 0058). Empty while it loads, without the account app, and for an account the account app
  * gives no name: the timeline shows its id then.
  */
 export function useSignedInAccountNames(entries: readonly TimelineEntry[]): Partial<Record<AccountId, string>> {

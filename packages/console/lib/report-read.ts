@@ -3,7 +3,7 @@ import { consoleSessionOutputSchema, fleetListOutputSchema, listedShipOutputSche
 import { z } from 'zod';
 
 import { messageTaskViews } from './message-task-views';
-import { cookieValueOf, pagasaeFrom, SHARED_SIGN_IN_COOKIE } from './pagasae';
+import { cookieValueOf, accountAppFrom, SHARED_SIGN_IN_COOKIE } from './account-app';
 import { sessionCookieOf } from './plugin-call';
 import { serverInternalUrlFrom } from './server-url';
 
@@ -21,7 +21,7 @@ export async function answerReportRead(request: Request, input: { procedure: str
   const url = new URL(`${server}/trpc/${procedure}`);
   url.search = new URL(request.url).search;
   const response = await fetchImplementation(url.toString(), { headers: { cookie }, cache: 'no-store', signal: AbortSignal.timeout(30_000) });
-  if (!response.ok || pagasaeFrom(environment) === undefined || cookieValueOf(cookieHeader, SHARED_SIGN_IN_COOKIE) === undefined) {
+  if (!response.ok || accountAppFrom(environment) === undefined || cookieValueOf(cookieHeader, SHARED_SIGN_IN_COOKIE) === undefined) {
     return response;
   }
   const headers = new Headers(response.headers);

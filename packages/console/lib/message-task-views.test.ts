@@ -5,7 +5,7 @@ import { messageTaskViews } from './message-task-views';
 const FLEET = 'flt_01m5aa4k2v9qz8f7x3n5c19q2d';
 const MESSAGE = 'msg_01m66p4k2v9qz8f7x3n5c1k2q9';
 const TASK: ReportTask = { kind: 'message', fleetId: FLEET, messageId: MESSAGE, canOpen: false, fleetName: null };
-const ENVIRONMENT = { AEOLUS_PAGASAE_URL: 'https://accounts.example', AEOLUS_PAGASAE_CLIENT_ID: 'console', AEOLUS_PAGASAE_CLIENT_SECRET: 'test-secret', AEOLUS_SERVER_URL: 'https://fleet.example' };
+const ENVIRONMENT = { AEOLUS_ACCOUNT_APP_URL: 'https://accounts.example', AEOLUS_ACCOUNT_APP_CLIENT_ID: 'console', AEOLUS_ACCOUNT_APP_CLIENT_SECRET: 'test-secret', AEOLUS_SERVER_URL: 'https://fleet.example' };
 
 function viewer({ isMember = true, canOpen = true, isDown = false } = {}) {
   return (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
@@ -38,10 +38,10 @@ describe('a message task in another fleet, for this viewer', () => {
     expect(outside[0]).toMatchObject({ fleetName: 'Other fleet', canOpen: false });
   });
 
-  it('keeps a fleet outside membership, pagasae down and self-hosted as plain text', async () => {
+  it('keeps a fleet outside membership, the account app down and self-hosted as plain text', async () => {
     // Given references to a fleet the viewer cannot establish membership in.
     const input = { environment: ENVIRONMENT, cookieHeader: 'aeolus_account_session=shared', viewerFleetId: 'flt_current' };
-    // When membership is absent, unavailable, or no pagasae is configured.
+    // When membership is absent, unavailable, or no the account app is configured.
     const results = await Promise.all([
       messageTaskViews([TASK], { ...input, fetchImplementation: viewer({ isMember: false }) }),
       messageTaskViews([TASK], { ...input, fetchImplementation: viewer({ isDown: true }) }),
