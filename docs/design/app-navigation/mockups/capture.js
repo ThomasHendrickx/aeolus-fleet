@@ -11,7 +11,7 @@ const output = `${folder}/screenshots`;
 mkdirSync(output, { recursive: true });
 const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
 const records = [];
-const states = ['fleets', 'several', 'single', 'argo', 'viewer', 'missing', 'expired'];
+const states = ['several', 'single', 'argo', 'viewer', 'missing', 'expired'];
 const extras = ['closed', 'account', 'loading', 'error', 'detail', 'long-name', 'long-name-open', 'single-fleet', 'single-fleet-open'];
 const findings = [];
 
@@ -36,7 +36,7 @@ for (const surface of ['console', 'bridge']) {
           panelScrolls: panel ? panel.scrollHeight > panel.clientHeight : false,
           panelClipped: panel ? panel.getBoundingClientRect().bottom > window.innerHeight + 1 : false,
           phoneTargets: window.innerWidth < 640
-            ? [...document.querySelectorAll('.launcher, .fleet, .account, .panel a, .panel button')].filter((node) => node.getBoundingClientRect().height < 44).length
+            ? [...document.querySelectorAll('.launcher, .account, .panel a, .panel button')].filter((node) => node.getBoundingClientRect().height < 44).length
             : 0,
           fontsReady: document.fonts.check('13px Geist'),
         };
@@ -54,43 +54,42 @@ for (const surface of ['console', 'bridge']) {
     }
     for (const state of extras) for (const theme of ['light', 'dark']) { await open(state, { theme }); await capture(state, { theme }); }
 
-    // Fleet switching, in light and dark: every frame comes from pressing the controls.
+    // The Apps and fleets panel by keyboard and fleet switching, in light and dark: every frame comes from pressing the controls.
+    const isFocused = (selector) => page.locator(selector).first().evaluate((node) => node === document.activeElement);
     for (const theme of ['light', 'dark']) {
       await open('closed', { theme });
-      await page.locator('#launcher').focus();
+      await page.locator('#account').focus();
       await page.keyboard.press('Shift+Tab');
-      await page.locator('#fleet').focus();
-      await page.keyboard.press('Shift');
-      await capture('fleet-focus', { theme });
+      if (!await isFocused('#launcher')) findings.push({ surface, width, theme, interaction: 'Shift+Tab from the account button reaches the launcher' });
+      await capture('launcher-focus', { theme });
       await page.keyboard.press('Enter');
+      if (!await isFocused('.tile[aria-current="page"]')) findings.push({ surface, width, theme, interaction: 'Opening the panel puts focus on the current app' });
+      await page.keyboard.press('ArrowRight');
+      await capture('keyboard', { theme });
+      await page.keyboard.press('Tab');
+      if (!await isFocused('.choice[data-kind="fleet"][aria-current="page"]')) findings.push({ surface, width, theme, interaction: 'Tab moves from the tiles to the current fleet' });
       await page.keyboard.press('ArrowDown');
-      if (!await page.locator('.choice[data-name="Harbour"]').evaluate((node) => node === document.activeElement)) findings.push({ surface, width, interaction: 'ArrowDown moves to the next fleet' });
+      if (!await isFocused('.choice[data-name="Harbour"]')) findings.push({ surface, width, theme, interaction: 'ArrowDown moves to the next fleet' });
       await capture('fleets-keyboard', { theme });
       await page.keyboard.press('Escape');
-      if (await page.locator('.panel').count() !== 0 || !await page.locator('#fleet').evaluate((node) => node === document.activeElement)) findings.push({ surface, width, interaction: 'Escape returns focus to the fleet button' });
+      if (await page.locator('.panel').count() !== 0 || !await isFocused('#launcher')) findings.push({ surface, width, theme, interaction: 'Escape returns focus to the launcher' });
 
-      await open('fleets', { theme, fail: true });
+      await open('several', { theme, fail: true });
       await page.locator('.choice[data-name="Harbour"]').click();
       await page.getByRole('link', { name: 'Opening Harbour', exact: true }).waitFor();
       await capture('switching', { theme });
       await page.locator('#switch-retry:not(:disabled)').waitFor();
+      if (!await isFocused('#switch-retry')) findings.push({ surface, width, theme, interaction: 'A failed switch puts focus on Try again' });
       await capture('switch-failed', { theme });
       await page.locator('#switch-retry').click();
       await page.locator('#switch-retry:disabled').waitFor();
       await capture('switch-retrying', { theme });
       await page.locator('.arrival').waitFor();
+      if (!await isFocused('#launcher')) findings.push({ surface, width, theme, interaction: 'Arrival returns focus to the launcher' });
       await capture('switched', { theme });
     }
 
     // Feedback frames come from pressing the controls, not from alternate markup.
-    await open('closed');
-    await page.locator('#launcher').focus();
-    await page.keyboard.press('Enter');
-    await page.keyboard.press('ArrowRight');
-    await capture('keyboard');
-    await page.keyboard.press('Escape');
-    if (await page.locator('.panel').count() !== 0 || !await page.locator('#launcher').evaluate((node) => node === document.activeElement)) findings.push({ surface, width, interaction: 'Escape returns focus to the launcher' });
-
     await open('several');
     const other = surface === 'console' ? 'Gateway' : 'Console';
     await page.locator(`.tile[data-name="${other}"]`).click();
@@ -106,9 +105,9 @@ for (const surface of ['console', 'bridge']) {
 
     await open('missing');
     await page.locator('#retry').click();
-    await page.getByText('Loading apps…').waitFor();
+    await page.getByText('Loading apps and fleets…').waitFor();
     await capture('retrying');
-    await page.getByText('Apps refreshed.').waitFor();
+    await page.getByText('Apps and fleets refreshed.').waitFor();
     await capture('refreshed');
 
     await open('expired');

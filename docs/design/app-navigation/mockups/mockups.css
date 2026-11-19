@@ -87,7 +87,7 @@ svg { width: var(--size-icon); height: var(--size-icon); fill: none; stroke: cur
 .arrival { padding: 12px; background: var(--muted); border: 1px solid var(--border); border-radius: var(--radius-md); display: flex; align-items: center; gap: 8px; }
 .phone-tabs { display: none; }
 .unavailable { min-height: 40px; display: flex; align-items: center; gap: 8px; padding: 6px 8px; color: var(--muted-foreground); }
-/* After: the bar, the app launcher and the fleet and account button. */
+/* After: the bar, the launcher of the Apps and fleets panel, and the account button. */
 .bar { position: fixed; inset: 0 0 auto 0; z-index: 15; height: var(--size-header); display: flex; align-items: center; gap: 12px; padding: 0 16px 0 8px; border-bottom: 1px solid var(--border); background: var(--sidebar); }
 .launcher { width: var(--size-control); height: var(--size-control); display: grid; place-items: center; border-radius: var(--radius-md); background: transparent; color: var(--foreground); }
 .launcher:hover, .launcher[aria-expanded="true"] { background: var(--accent); }
@@ -143,7 +143,6 @@ button.choice:disabled { opacity: .7; }
   .launcher { width: var(--size-control-touch); height: var(--size-control-touch); }
   .app-name { font-size: var(--text-body-touch); }
   .account { min-height: var(--size-control-touch); padding-left: 8px; gap: 8px; }
-  .fleet-name { max-width: 120px; font-size: var(--text-meta); color: var(--muted-foreground); font-weight: 400; }
   .avatar { width: 36px; height: 36px; }
   .avatar.large { width: 44px; height: 44px; }
   .panel.apps-panel, .panel.account-panel { top: auto; left: 0; right: 0; width: auto; }
@@ -181,20 +180,23 @@ button.choice:disabled { opacity: .7; }
   .notice .btn { width: 100%; }
   .bridge-card { padding: 12px; }
 }
-/* Round 3: the fleet button beside the account button, and its fleet list. */
-.fleet { display: inline-flex; align-items: center; gap: 8px; min-height: var(--size-control); min-width: 0; padding: 4px 10px; border: 1px solid var(--input); border-radius: var(--radius-md); background: var(--card); font-weight: 500; }
-.fleet:hover, .fleet[aria-expanded="true"] { background: var(--accent); }
-.fleet:disabled { opacity: .7; }
-.fleet .fleet-icon { color: var(--primary); }
-.fleet .chevron { color: var(--muted-foreground); width: var(--size-icon-sm); height: var(--size-icon-sm); }
-.fleet .fleet-name { max-width: 220px; }
-.fleets-panel { left: auto; right: 64px; width: 320px; }
-.panel.fleets-panel { top: calc(var(--size-header) + 4px); }
-.fleets-panel .choice > span:first-of-type { overflow-wrap: anywhere; }
+/* The fleet pill next to the launcher, and the two sections of the Apps and fleets panel. */
+.fleet-pill { display: inline-flex; align-items: center; gap: 6px; min-width: 0; padding: 2px 10px; border-radius: var(--radius-full); background: var(--muted); color: var(--muted-foreground); font-size: var(--text-meta); line-height: var(--text-meta--line-height); }
+.fleet-pill svg { width: var(--size-icon-sm); height: var(--size-icon-sm); color: var(--muted-foreground); }
+.fleet-pill .fleet-name { max-width: 220px; font-weight: 500; color: var(--foreground); }
+.apps-panel { width: 360px; }
+.section-head { display: flex; align-items: center; gap: 8px; padding: 8px 8px 2px; }
+.section-head h3 { margin: 0; font-size: var(--text-caption); line-height: var(--text-caption--line-height); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted-foreground); }
+.section-head svg { width: var(--size-icon-sm); height: var(--size-icon-sm); color: var(--muted-foreground); }
+.fleet-rows { display: grid; gap: 2px; }
+.fleet-rows .choice .fleet-icon { color: var(--primary); }
+.choice .current-mark { display: inline-flex; align-items: center; gap: 4px; color: var(--primary); font-weight: 500; }
+.skeleton.row { height: 32px; margin: 4px 8px; }
 @media (max-width: 639px) {
-  .fleet { min-height: var(--size-control-touch); padding: 4px 8px; gap: 6px; }
-  .fleet .fleet-icon { display: none; }
-  .fleet .fleet-name { max-width: 104px; font-size: var(--text-meta); color: var(--foreground); font-weight: 500; }
   .account { padding: 0; min-width: var(--size-control-touch); justify-content: center; }
-  .panel.fleets-panel { top: auto; left: 0; right: 0; width: auto; }
+  .fleet-pill { padding: 2px 8px; gap: 4px; }
+  .fleet-pill .fleet-name { max-width: 96px; }
+  .app-name svg { display: none; }
+  .section-head { padding: 8px 0 2px; }
+  .skeleton.row { height: 44px; margin: 4px 0; }
 }
