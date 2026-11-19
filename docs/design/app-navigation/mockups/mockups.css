@@ -181,3 +181,20 @@ button.choice:disabled { opacity: .7; }
   .notice .btn { width: 100%; }
   .bridge-card { padding: 12px; }
 }
+/* Round 3: the fleet button beside the account button, and its fleet list. */
+.fleet { display: inline-flex; align-items: center; gap: 8px; min-height: var(--size-control); min-width: 0; padding: 4px 10px; border: 1px solid var(--input); border-radius: var(--radius-md); background: var(--card); font-weight: 500; }
+.fleet:hover, .fleet[aria-expanded="true"] { background: var(--accent); }
+.fleet:disabled { opacity: .7; }
+.fleet .fleet-icon { color: var(--primary); }
+.fleet .chevron { color: var(--muted-foreground); width: var(--size-icon-sm); height: var(--size-icon-sm); }
+.fleet .fleet-name { max-width: 220px; }
+.fleets-panel { left: auto; right: 64px; width: 320px; }
+.panel.fleets-panel { top: calc(var(--size-header) + 4px); }
+.fleets-panel .choice > span:first-of-type { overflow-wrap: anywhere; }
+@media (max-width: 639px) {
+  .fleet { min-height: var(--size-control-touch); padding: 4px 8px; gap: 6px; }
+  .fleet .fleet-icon { display: none; }
+  .fleet .fleet-name { max-width: 104px; font-size: var(--text-meta); color: var(--foreground); font-weight: 500; }
+  .account { padding: 0; min-width: var(--size-control-touch); justify-content: center; }
+  .panel.fleets-panel { top: auto; left: 0; right: 0; width: auto; }
+}

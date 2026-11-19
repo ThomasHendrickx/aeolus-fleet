@@ -11,8 +11,8 @@ const output = `${folder}/screenshots`;
 mkdirSync(output, { recursive: true });
 const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
 const records = [];
-const states = ['several', 'single', 'argo', 'viewer', 'missing', 'expired'];
-const extras = ['closed', 'account', 'loading', 'error', 'detail', 'long-name'];
+const states = ['fleets', 'several', 'single', 'argo', 'viewer', 'missing', 'expired'];
+const extras = ['closed', 'account', 'loading', 'error', 'detail', 'long-name', 'long-name-open', 'single-fleet', 'single-fleet-open'];
 const findings = [];
 
 for (const surface of ['console', 'bridge']) {
@@ -22,9 +22,9 @@ for (const surface of ['console', 'bridge']) {
     let pageErrors = [];
     page.on('pageerror', (error) => pageErrors.push(error.message));
     page.on('requestfailed', (request) => pageErrors.push(request.url()));
-    const open = async (state, { era = 'after', theme = 'light' } = {}) => {
+    const open = async (state, { era = 'after', theme = 'light', fail = false } = {}) => {
       pageErrors = [];
-      await page.goto(`file://${folder}/index.html?surface=${surface}&state=${state}&era=${era}&theme=${theme}`);
+      await page.goto(`file://${folder}/index.html?surface=${surface}&state=${state}&era=${era}&theme=${theme}${fail ? '&fail=1' : ''}`);
       await page.evaluate(() => document.fonts.ready);
     };
     const capture = async (state, { era = 'after', theme = 'light' } = {}) => {
@@ -36,7 +36,7 @@ for (const surface of ['console', 'bridge']) {
           panelScrolls: panel ? panel.scrollHeight > panel.clientHeight : false,
           panelClipped: panel ? panel.getBoundingClientRect().bottom > window.innerHeight + 1 : false,
           phoneTargets: window.innerWidth < 640
-            ? [...document.querySelectorAll('.launcher, .account, .panel a, .panel button')].filter((node) => node.getBoundingClientRect().height < 44).length
+            ? [...document.querySelectorAll('.launcher, .fleet, .account, .panel a, .panel button')].filter((node) => node.getBoundingClientRect().height < 44).length
             : 0,
           fontsReady: document.fonts.check('13px Geist'),
         };
@@ -53,6 +53,34 @@ for (const surface of ['console', 'bridge']) {
       }
     }
     for (const state of extras) for (const theme of ['light', 'dark']) { await open(state, { theme }); await capture(state, { theme }); }
+
+    // Fleet switching, in light and dark: every frame comes from pressing the controls.
+    for (const theme of ['light', 'dark']) {
+      await open('closed', { theme });
+      await page.locator('#launcher').focus();
+      await page.keyboard.press('Shift+Tab');
+      await page.locator('#fleet').focus();
+      await page.keyboard.press('Shift');
+      await capture('fleet-focus', { theme });
+      await page.keyboard.press('Enter');
+      await page.keyboard.press('ArrowDown');
+      if (!await page.locator('.choice[data-name="Harbour"]').evaluate((node) => node === document.activeElement)) findings.push({ surface, width, interaction: 'ArrowDown moves to the next fleet' });
+      await capture('fleets-keyboard', { theme });
+      await page.keyboard.press('Escape');
+      if (await page.locator('.panel').count() !== 0 || !await page.locator('#fleet').evaluate((node) => node === document.activeElement)) findings.push({ surface, width, interaction: 'Escape returns focus to the fleet button' });
+
+      await open('fleets', { theme, fail: true });
+      await page.locator('.choice[data-name="Harbour"]').click();
+      await page.getByRole('link', { name: 'Opening Harbour', exact: true }).waitFor();
+      await capture('switching', { theme });
+      await page.locator('#switch-retry:not(:disabled)').waitFor();
+      await capture('switch-failed', { theme });
+      await page.locator('#switch-retry').click();
+      await page.locator('#switch-retry:disabled').waitFor();
+      await capture('switch-retrying', { theme });
+      await page.locator('.arrival').waitFor();
+      await capture('switched', { theme });
+    }
 
     // Feedback frames come from pressing the controls, not from alternate markup.
     await open('closed');
@@ -71,7 +99,7 @@ for (const surface of ['console', 'bridge']) {
     await page.locator('.arrival').waitFor();
     await capture('arrived-app');
 
-    await open('account');
+    await open('fleets');
     await page.locator('.choice[data-name="Harbour"]').click();
     await page.getByRole('link', { name: 'Opening Harbour', exact: true }).waitFor();
     await capture('opening-fleet');
