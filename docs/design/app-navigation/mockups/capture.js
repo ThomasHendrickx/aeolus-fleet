@@ -99,13 +99,6 @@ for (const surface of ['console', 'bridge']) {
     await page.locator('.arrival').waitFor();
     await capture('arrived-app');
 
-    await open('fleets');
-    await page.locator('.choice[data-name="Harbour"]').click();
-    await page.getByRole('link', { name: 'Opening Harbour', exact: true }).waitFor();
-    await capture('opening-fleet');
-    await page.locator('.arrival').waitFor();
-    await capture('arrived-fleet');
-
     await open('account');
     await page.locator('#signout').click();
     await page.locator('#signout:disabled').waitFor();
