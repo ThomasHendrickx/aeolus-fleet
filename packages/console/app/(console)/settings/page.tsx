@@ -21,7 +21,7 @@ import { useConnectTrierarchPlugin, useTrierarchPluginSettings } from '../../../
 import { useConnectWatchPlugin, useWatchPluginSettings } from '../../../lib/watch-plugin';
 
 /**
- * Settings: the installation's own settings, argo's alone: where the console
+ * Settings for sessions with permission to manage the fleet: where the console
  * signs argo in itself, argo's email and password; with squadrons,
  * connecting it, and once connected, the repositories it reads; without,
  * nothing of squadrons. Whenever Settings is offered, the trierarch plugin:
@@ -57,7 +57,7 @@ export default function SettingsPage() {
     <ListPage
       {...frame}
       title="Settings"
-      description="How this installation runs. Only argo, the operator, sees this page."
+      description="How this installation runs. You can use these settings as argo, the operator, or as an account owner with permission to manage the fleet."
       live={liveFleet.live}
     >
       {hasOwnSignIn && <OwnSignInSection />}
