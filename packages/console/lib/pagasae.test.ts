@@ -27,9 +27,9 @@ describe('pagasae as the console reaches it', () => {
   it('is its address without a trailing slash, the client id and the client secret', () => {
     expect(
       pagasaeFrom({
-        AEOLUS_PAGASAE_URL: 'https://account.example/',
-        AEOLUS_PAGASAE_CLIENT_ID: 'console',
-        AEOLUS_PAGASAE_CLIENT_SECRET: 's'.repeat(32),
+        AEOLUS_ACCOUNT_APP_URL: 'https://account.example/',
+        AEOLUS_ACCOUNT_APP_CLIENT_ID: 'console',
+        AEOLUS_ACCOUNT_APP_CLIENT_SECRET: 's'.repeat(32),
       }),
     ).toEqual(PAGASAE);
   });
@@ -37,14 +37,14 @@ describe('pagasae as the console reaches it', () => {
   it('is none unless all three are set', () => {
     expect(
       pagasaeFrom({
-        AEOLUS_PAGASAE_URL: 'https://account.example',
-        AEOLUS_PAGASAE_CLIENT_ID: 'console',
+        AEOLUS_ACCOUNT_APP_URL: 'https://account.example',
+        AEOLUS_ACCOUNT_APP_CLIENT_ID: 'console',
       }),
     ).toBeUndefined();
     expect(
       pagasaeFrom({
-        AEOLUS_PAGASAE_CLIENT_ID: 'console',
-        AEOLUS_PAGASAE_CLIENT_SECRET: 's'.repeat(32),
+        AEOLUS_ACCOUNT_APP_CLIENT_ID: 'console',
+        AEOLUS_ACCOUNT_APP_CLIENT_SECRET: 's'.repeat(32),
       }),
     ).toBeUndefined();
   });
