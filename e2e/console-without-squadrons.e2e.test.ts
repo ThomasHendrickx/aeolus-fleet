@@ -64,11 +64,14 @@ describe('a console without squadrons', () => {
       // When Settings is opened at phone and desktop widths.
       await page.getByTestId('nav-settings').click();
       await page.getByTestId('settings-sign-in').waitFor();
+      await page.getByTestId('settings-trierarchs-state').waitFor();
+      await page.getByText('Loading the gateway', { exact: true }).waitFor({ state: 'hidden' });
+      await page.getByText('Loading the watch plugin', { exact: true }).waitFor({ state: 'hidden' });
       for (const width of [375, 1440, 1920]) {
         await page.setViewportSize({ width, height: 1000 });
         const evidenceDirectory = process.env.SETTINGS_EVIDENCE_DIR;
         if (evidenceDirectory !== undefined) {
-          await page.screenshot({ path: `${evidenceDirectory}/settings-${String(width)}.png`, fullPage: true });
+          await page.screenshot({ path: `${evidenceDirectory}/settings-${String(width)}.png`, fullPage: true, style: 'nextjs-portal { display: none; }' });
         }
 
         expect(await page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')).toBe(true);
