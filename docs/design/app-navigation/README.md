@@ -59,7 +59,7 @@ Thomas’s approved purpose and five picks:
 1. "I expect a more microsoft office 365 like experience"
 2. "I am missing screens for app"
 
-Round 2 answers the first note here: the app launcher and the fleet and account button below. The second note is answered in the private repository of the hosted app, with its own before and after screens. The pattern follows how Microsoft 365 lays out its bar; no Microsoft name, mark or icon is used. Icons are Lucide shapes the apps already load.
+Round 2 answers the first note here: the app launcher and the fleet and account button below. Screens for the hosted apps belong in their private repositories. The pattern follows how Microsoft 365 lays out its bar; no Microsoft name, mark or icon is used. Icons are Lucide shapes the apps already load.
 
 ### The bar every app shows
 
