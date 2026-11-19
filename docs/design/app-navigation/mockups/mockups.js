@@ -4,61 +4,90 @@ const query = new URLSearchParams(window.location.search);
 let surface = query.get('surface') === 'bridge' ? 'bridge' : 'console';
 const era = query.get('era') === 'before' ? 'before' : 'after';
 let state = query.get('state') || 'several';
-let opened = !['closed', 'arrived', 'detail'].includes(state);
+/* Which panel is open: the app launcher, the fleet and account panel, or none. */
+let panel = ['closed', 'arrived', 'detail'].includes(state) ? '' : state === 'account' ? 'account' : 'apps';
 let currentApp = surface === 'bridge' ? 'Gateway' : 'Console';
 let currentFleet = state === 'long-name' ? 'Aeolus research and development' : 'Aeolus';
 let openingName = '';
 let openingKind = '';
 let lastState = '';
-let retrying = false;
+let refreshed = false;
 let fixtureFeedback = '';
 if (query.get('theme') === 'dark') document.documentElement.classList.add('dark');
 
+/* Lucide path shapes. */
 const paths = {
   chevron: '<path d="m6 9 6 6 6-6"/>',
   check: '<path d="m9 12 2 2 4-4"/><circle cx="12" cy="12" r="10"/>',
   arrow: '<path d="M7 7h10v10M7 17 17 7"/>',
+  grid: '<rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/>',
   layers: '<path d="m12 3 10 6-10 6L2 9Z"/><path d="m2 15 10 6 10-6M2 12l10 6 10-6"/>',
   ship: '<path d="M12 3v9m-6 0V6h12v6M3 13l9-4 9 4-3 6H6Z"/><path d="M2 21c2 0 2-2 4-2s2 2 4 2 2-2 4-2 2 2 4 2 2-2 4-2"/>',
+  door: '<path d="M11 20H2"/><path d="M11 4.56v16.16a1 1 0 0 0 1.24.97L19 20V5.56a2 2 0 0 0-1.52-1.94l-4-1A2 2 0 0 0 11 4.56z"/><path d="M11 4H8a2 2 0 0 0-2 2v14"/><path d="M14 12h.01"/><path d="M22 20h-3"/>',
+  box: '<path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>',
   inbox: '<path d="M4 4h16l2 10v6H2v-6Z"/><path d="M2 14h6l2 3h4l2-3h6"/>',
   search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4-4"/>',
   clock: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
   alert: '<path d="m12 3 10 18H2Z"/><path d="M12 9v4m0 4h.01"/>',
   spinner: '<path d="M12 3a9 9 0 1 1-9 9"/>',
+  logout: '<path d="m16 17 5-5-5-5"/><path d="M21 12H9"/><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>',
   settings: '<path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z"/><path d="m9 3-1 3-3 1-2 3 2 2-1 3 3 2 3-1 2 3 3-1 1-3 3-1 2-3-2-2 1-3-3-2-3 1-2-3Z"/>',
 };
 const icon = (name, cls = '') => `<svg aria-hidden="true" class="${cls}" viewBox="0 0 24 24">${paths[name]}</svg>`;
+const appIcons = { Console: 'ship', Gateway: 'door', 'App 1': 'box', 'App 2': 'box' };
+const isPhone = () => window.innerWidth < 640;
 const isRestricted = () => ['argo', 'viewer', 'single'].includes(state);
 const bridgeGate = () => surface === 'bridge' && isRestricted();
-const isBeforePlain = () => era === 'before' && (isRestricted() || ['missing', 'expired', 'loading', 'error'].includes(state));
 const otherApp = () => currentApp === 'Console' ? 'Gateway' : 'Console';
+const slug = (name) => name.toLowerCase().replaceAll(' ', '-');
 const announce = (text) => { document.querySelector('#feedback').textContent = text; };
+const session = () => state === 'argo' ? 'argo' : state === 'viewer' ? 'viewer' : state === 'single' ? 'argo' : 'account';
+const identity = () => bridgeGate() ? 'Not signed in' : session() === 'argo' ? 'Signed in as argo' : session() === 'viewer' ? 'Viewer' : state === 'expired' ? 'Sign-in expired' : 'Your account';
+const initials = () => bridgeGate() ? '?' : session() === 'argo' ? 'ar' : session() === 'viewer' ? 'V' : 'TH';
 
-function trigger() {
+/* ---------- Before: round 1's reconstruction of today's source, unchanged. ---------- */
+const isBeforePlain = () => isRestricted() || ['missing', 'expired', 'loading', 'error'].includes(state);
+function beforeTrigger() {
   if (isBeforePlain()) return `<span class="before-trigger">${surface === 'console' ? currentFleet : 'Gateway'}</span>`;
-  if (era === 'before') {
-    if (window.innerWidth < 640) return `<button class="before-trigger" id="switcher">${surface === 'console' ? 'Fleet' : 'Gateway'} ${icon('chevron')}</button>`;
-    return surface === 'console'
-      ? `<button class="before-trigger before-fleet" id="switcher">${currentFleet}</button><span class="crumb">/ Fleet</span>`
-      : `<button class="before-trigger" id="switcher">${currentFleet}</button><span class="muted">/</span><button class="before-trigger" id="old-app">Gateway ${icon('chevron')}</button>`;
-  }
-  return `<button class="trigger" id="switcher" aria-label="Apps and fleets: ${currentApp}, ${currentFleet}" aria-expanded="${opened}" aria-controls="destinations"><span>${currentApp} <span class="slash muted">/</span> <span class="fleet-label">${currentFleet}</span></span>${icon('chevron')}</button>`;
+  if (isPhone()) return `<button class="before-trigger" id="switcher">${surface === 'console' ? 'Fleet' : 'Gateway'} ${icon('chevron')}</button>`;
+  return surface === 'console'
+    ? `<button class="before-trigger before-fleet" id="switcher">${currentFleet}</button><span class="crumb">/ Fleet</span>`
+    : `<button class="before-trigger" id="switcher">${currentFleet}</button><span class="muted">/</span><button class="before-trigger" id="old-app">Gateway ${icon('chevron')}</button>`;
+}
+function beforeRow(name, kind) {
+  const current = kind === 'fleet' ? name === currentFleet : name === currentApp;
+  return `<a class="choice ${current ? 'current' : ''}" href="#${kind}-${slug(name)}" ${current ? 'aria-current="page"' : ''}>${icon(kind === 'fleet' ? 'layers' : 'arrow')}<span>${name}</span><span class="end">${current ? `${icon('check')}<span class="sr-only">Current</span>` : ''}</span></a>`;
+}
+function beforePanel() {
+  const appOnly = surface === 'bridge' && !isPhone();
+  return `<h2 class="sr-only" id="panel-title">Apps and fleets</h2>${appOnly ? '' : `<div class="group-label">Fleets</div>${beforeRow(currentFleet, 'fleet')}${beforeRow('Harbour', 'fleet')}<hr class="separator">`}<div class="group-label">Apps</div>${beforeRow(currentApp, 'app')}${beforeRow(otherApp(), 'app')}${beforeRow('App 1', 'app')}${beforeRow('App 2', 'app')}`;
+}
+function renderBefore() {
+  const visible = panel !== '' && !isBeforePlain();
+  document.querySelector('#root').innerHTML = `${surface === 'console' ? `<aside class="sidebar before"><div class="brand">${icon('ship')} Aeolus</div>${sideRows()}<div class="sidebar-bottom"><div class="meta">${identity()}</div></div></aside>` : ''}<div class="workspace before ${surface}"><header class="header">${beforeTrigger()}${surface === 'bridge' ? '<div class="tabs"><span class="on">Bridge</span><span>Outside parties</span></div>' : ''}<div class="header-right"><span class="meta">${identity()}</span><span class="avatar">${initials()}</span></div></header><main class="content">${shellContent()}</main>${phoneTabs()}${visible ? `<div class="scrim"></div><section class="panel before-panel" role="dialog" aria-labelledby="panel-title"><div class="handle"></div>${beforePanel()}<button class="btn close">Cancel</button></section>` : ''}</div>`;
 }
 
+/* ---------- Shared page content, the same before and after. ---------- */
+function sideRows() {
+  return ['Fleet', 'Inbox', 'Trierarchs', 'Settings'].map((label, i) => `<div class="side-row ${i === 0 ? 'on' : ''}">${icon(['ship', 'inbox', 'layers', 'settings'][i])}${label}</div>`).join('');
+}
+function phoneTabs() {
+  return `<div class="phone-tabs"><span class="on">${icon(surface === 'bridge' ? 'inbox' : 'ship')}${surface === 'bridge' ? 'Waiting' : 'Fleet'}</span><span>${icon('inbox')}${surface === 'bridge' ? 'Aware' : 'Inbox'}</span><span>${icon('layers')}${surface === 'bridge' ? 'Done' : 'Trierarchs'}</span><span>${icon('settings')}${surface === 'bridge' ? 'Fleet' : 'Settings'}</span></div>`;
+}
 function shellContent() {
   if (bridgeGate()) {
     if (era === 'before') return '<h1>Bridge</h1><p class="meta">Sign in with an account to continue.</p>';
     const reason = state === 'argo' ? 'Signing in as argo is available only in Console.' : state === 'viewer' ? 'A viewer sign-in is for Console. Bridge requires an account.' : 'Only Console is configured in this installation. Bridge is not installed.';
     return `<div class="heading"><h1>Bridge</h1></div><div class="notice"><strong>${state === 'single' ? 'Bridge is not available' : 'Sign in with an account to use Bridge'}</strong><p>${reason}</p><p>No account is signed in here.</p></div>`;
   }
-  if (state === 'arrived') return `<div class="arrival" role="status">${icon('check')} ${currentApp} is open in ${currentFleet}.</div><h1>${surface === 'bridge' ? 'Bridge' : 'Fleet'}</h1><p class="meta">The destination header confirms the app and fleet.</p>`;
-  if (state === 'detail') return `<p class="meta">Fleet / builder-console</p><h1>builder-console</h1><div class="notice"><strong>Working on the shared header</strong><p>The same Apps and fleets control stays available on a detail page.</p></div>`;
-  if (surface === 'bridge') return `<div class="heading"><h1>Waiting on you</h1><span class="badge">3</span></div><p class="meta">Aeolus · Your account</p>${[
+  if (state === 'arrived') return `<div class="arrival" role="status">${icon('check')} ${currentApp} is open in ${currentFleet}.</div><h1>${surface === 'bridge' ? 'Bridge' : 'Fleet'}</h1><p class="meta">The bar names the app at its start and the fleet at its end.</p>`;
+  if (state === 'detail') return `<p class="meta">Fleet / builder-console</p><h1>builder-console</h1><div class="notice"><strong>Working on the shared header</strong><p>The app launcher and the fleet and account button stay in the bar on a detail page.</p></div>`;
+  if (surface === 'bridge') return `<div class="heading"><h1>Waiting on you</h1><span class="badge">3</span></div><p class="meta">${currentFleet} · Your account</p>${[
     ['Which task goes first?', 'Decide · orchestrator-1 · 12 min ago'],
     ['Open the draft design', 'Do · builder-console · 24 min ago'],
     ['Review the fleet’s requests', 'Decide · orchestrator-1 · 1 h ago'],
   ].map(([title, meta]) => `<div class="bridge-card">${icon('inbox')}<div class="copy"><strong>${title}</strong><p class="meta">${meta}</p></div></div>`).join('')}`;
-  return `<div class="heading"><h1>Fleet</h1><span class="meta">4 ships</span></div><p class="meta">${currentFleet} · ${state === 'argo' ? 'Signed in as argo' : state === 'viewer' ? 'Viewer' : state === 'single' ? 'Self-hosted' : 'Signed in as your account'}</p><div class="toolbar"><span class="filter">${icon('search')} Search ships</span><span class="filter">Status: All</span><span class="filter">Type: All</span></div><div class="table"><div class="table-head"><span>Ship</span><span>Status</span><span>Report</span><span>Last seen</span></div>${[
+  return `<div class="heading"><h1>Fleet</h1><span class="meta">4 ships</span></div><p class="meta">${currentFleet} · ${identity()}</p><div class="toolbar"><span class="filter">${icon('search')} Search ships</span><span class="filter">Status: All</span><span class="filter">Type: All</span></div><div class="table"><div class="table-head"><span>Ship</span><span>Status</span><span>Report</span><span>Last seen</span></div>${[
     ['orchestrator-1', 'Crewed', 'Coordinates the fleet', 'Now'],
     ['builder-console', 'Crewed', 'Working on the shared header', '1 min ago'],
     ['reviewer', 'Crewed', 'Ready for a review', '2 min ago'],
@@ -66,73 +95,120 @@ function shellContent() {
   ].map(([name, status, report, seen]) => `<div class="ship-row"><strong>${name}</strong><span class="status ${status === 'Awaiting crew' ? 'waiting' : ''}">${icon(status === 'Crewed' ? 'check' : 'clock')}${status}</span><span class="report">${report}</span><span class="seen">${seen}</span></div>`).join('')}</div>`;
 }
 
-function choice(name, kind) {
-  const current = kind === 'fleet' ? name === currentFleet : name === currentApp;
-  const busy = state === 'opening' && name === openingName;
-  const disabled = state === 'opening' && !busy;
-  return `<a class="choice ${current ? 'current' : ''}" href="#${kind}-${name.toLowerCase().replaceAll(' ', '-')}" data-name="${name}" data-kind="${kind}" ${current ? 'aria-current="page"' : ''} ${disabled ? 'aria-disabled="true"' : ''}>${icon(kind === 'fleet' ? 'layers' : 'arrow')}<span>${busy ? `Opening ${name}` : name}</span><span class="end">${busy ? icon('spinner', 'busy-icon') : current ? `${icon('check')}<span class="sr-only">Current</span>` : ''}</span></a>`;
+/* ---------- After: the app launcher at the start, the fleet and account at the end. ---------- */
+function tile(name) {
+  const current = name === currentApp;
+  const busy = state === 'opening' && openingKind === 'app' && name === openingName;
+  const waiting = state === 'opening' && !busy;
+  const caption = busy ? `${icon('spinner', 'busy-icon')} Opening` : current ? 'Current' : '';
+  return `<a class="tile ${current ? 'current' : ''}" href="#app-${slug(name)}" data-name="${name}" data-kind="app" ${current ? 'aria-current="page"' : ''} ${waiting ? 'aria-disabled="true"' : ''} aria-label="${busy ? `Opening ${name}` : current ? `${name}, current app` : name}"><span class="tile-icon">${icon(appIcons[name])}</span><span class="tile-name">${name}</span><span class="tile-caption">${caption}</span></a>`;
 }
-
-function panelContent() {
-  if (era === 'before') {
-    const appOnly = surface === 'bridge' && window.innerWidth >= 640;
-    return `<h2 class="sr-only" id="panel-title">Apps and fleets</h2>${appOnly ? '' : `<div class="group-label">Fleets</div>${choice(currentFleet, 'fleet')}${choice('Harbour', 'fleet')}<hr class="separator">`}<div class="group-label">Apps</div>${choice(currentApp, 'app')}${choice(otherApp(), 'app')}${choice('App 1', 'app')}${choice('App 2', 'app')}`;
-  }
-  const top = `<div class="panel-title"><h2 id="panel-title">Apps and fleets</h2></div><p class="context">${bridgeGate() ? 'Bridge destination' : `${currentApp} · ${currentFleet}`}</p>`;
-  if (['loading', 'retrying'].includes(state)) return `${top}<div class="group-label">Apps</div><span class="skeleton"></span><span class="skeleton"></span><span class="skeleton short"></span><hr class="separator"><div class="group-label">Fleets</div><span class="skeleton"></span><p class="context" role="status">Loading apps and fleets…</p>${state === 'retrying' ? `<button class="btn" disabled>${icon('spinner', 'busy-icon')} Try again</button>` : ''}`;
+function blockedTile(name, reason) {
+  return `<div class="tile unavailable" aria-label="${name}, ${reason}"><span class="tile-icon">${icon(appIcons[name])}</span><span class="tile-name">${name}</span><span class="tile-caption">${reason}</span></div>`;
+}
+function skeletonTiles(count) {
+  return Array.from({ length: count }, () => '<span class="tile skeleton-tile"><span class="skeleton square"></span><span class="skeleton line"></span></span>').join('');
+}
+function panelTop(title, context) {
+  return `<div class="panel-title"><h2 id="panel-title">${title}</h2></div>${context ? `<p class="context">${context}</p>` : ''}`;
+}
+function appsPanel() {
+  const top = panelTop('Apps', bridgeGate() ? 'Apps this installation offers' : `Apps you can open in ${currentFleet}`);
+  if (['loading', 'retrying'].includes(state)) return `${top}<div class="tiles">${skeletonTiles(4)}</div><p class="context" role="status">Loading apps…</p>${state === 'retrying' ? `<button class="btn" disabled>${icon('spinner', 'busy-icon')} Try again</button>` : ''}`;
+  if (state === 'error') return `${top}<div class="notice error" role="alert"><strong>${icon('alert')} Couldn’t load apps</strong><p>Your current page is still open. Try again to load the apps you can open.</p><button class="btn" id="retry">Try again</button></div>`;
   if (isRestricted()) {
     let title, text;
-    if (state === 'single') { title = 'No other apps'; text = 'Only Console is configured in this installation. There are no other apps or fleets to open.'; }
-    if (state === 'argo') { title = bridgeGate() ? 'Console sign-in: argo' : 'Signed in as argo'; text = 'This sign-in is for Console in Aeolus. Other apps and fleets require an account sign-in. Bridge does not accept an argo sign-in.'; }
-    if (state === 'viewer') { title = bridgeGate() ? 'Console viewer sign-in' : 'Viewer'; text = 'This viewer sign-in is for Console in Aeolus. Other apps and fleets are not supplied for this session. Bridge requires an account.'; }
-    return `${top}<div class="group-label">Apps</div>${bridgeGate() ? `<div class="unavailable">${icon('arrow')} Console <span class="meta">Configured app</span></div>` : choice('Console', 'app')}<hr class="separator"><div class="group-label">Fleets</div>${bridgeGate() ? `<div class="unavailable">${icon('layers')} Aeolus</div>` : choice('Aeolus', 'fleet')}<div class="notice"><strong>${title}</strong><p>${text}</p><p>${bridgeGate() ? 'No account destinations are available here. No identity has changed.' : 'You can keep using this Console session.'}</p></div>`;
+    if (state === 'single') { title = 'No other apps'; text = 'Only Console is configured in this installation. There are no other apps to open.'; }
+    if (state === 'argo') { title = 'Signed in as argo'; text = 'This sign-in is for Console in Aeolus. Other apps require an account sign-in. Bridge does not accept an argo sign-in.'; }
+    if (state === 'viewer') { title = 'Viewer'; text = 'This viewer sign-in is for Console in Aeolus. Other apps are not supplied for this session. Bridge requires an account.'; }
+    const tiles = bridgeGate() ? blockedTile('Console', 'Configured app') : tile('Console');
+    return `${top}<div class="tiles">${tiles}</div><div class="notice"><strong>${title}</strong><p>${text}</p><p>${bridgeGate() ? 'No account apps are available here. No identity has changed.' : 'You can keep using this Console session.'}</p></div>`;
   }
-  if (state === 'error') return `${top}<div class="notice error" role="alert"><strong>${icon('alert')} Couldn’t load destinations</strong><p>Your current page is still open. Try again to load apps and fleets.</p><button class="btn" id="retry">Try again</button></div>`;
-  if (state === 'expired') return `${top}${fixtureFeedback ? `<div class="notice" role="status">${fixtureFeedback}</div>` : ''}<div class="notice error" role="alert"><strong>${icon('alert')} Your sign-in has expired</strong><p>Sign in again to open ${otherApp()}. The current page remains visible, but does not prove you still have access.</p><button class="btn primary" id="signin">Sign in</button></div><div class="group-label">Apps</div><div class="unavailable">${icon('arrow')}${otherApp()}<span class="meta">Sign-in required</span></div>`;
-  let apps = choice(currentApp, 'app');
-  if (state === 'missing') apps += `<div class="unavailable">${icon('arrow')}${otherApp()}<span class="meta">Unavailable</span></div>`;
-  else apps += choice(otherApp(), 'app');
-  apps += choice('App 1', 'app') + choice('App 2', 'app');
-  return `${top}${fixtureFeedback ? `<div class="notice" role="status">${fixtureFeedback}</div>` : ''}<div class="group-label">Apps</div>${apps}${state === 'missing' ? `<div class="notice error" role="alert"><strong>${icon('alert')} Couldn’t open ${otherApp()}</strong><p>This destination is no longer available. You are still in ${currentApp}. Try again to refresh destinations.</p><button class="btn" id="retry">Try again</button></div>` : ''}<hr class="separator"><div class="group-label">Fleets</div>${choice(currentFleet, 'fleet')}${choice('Harbour', 'fleet')}<p class="context">${state === 'opening' ? `Opening ${openingName}…` : retrying ? 'Apps and fleets refreshed.' : 'Choosing a fleet opens an app available there.'}</p>`;
+  if (state === 'expired') return `${top}${fixtureFeedback ? `<div class="notice" role="status">${fixtureFeedback}</div>` : ''}<div class="tiles">${tile(currentApp)}${blockedTile(otherApp(), 'Sign-in required')}</div><div class="notice error" role="alert"><strong>${icon('alert')} Your sign-in has expired</strong><p>Sign in again to open ${otherApp()}. The current page remains visible, but does not prove you still have access.</p><button class="btn primary" id="signin">Sign in</button></div>`;
+  const other = state === 'missing' ? blockedTile(otherApp(), 'Unavailable') : tile(otherApp());
+  const tiles = `${tile(currentApp)}${other}${tile('App 1')}${tile('App 2')}`;
+  const missing = state === 'missing' ? `<div class="notice error" role="alert"><strong>${icon('alert')} Couldn’t open ${otherApp()}</strong><p>This app is no longer available. You are still in ${currentApp}. Try again to refresh the apps.</p><button class="btn" id="retry">Try again</button></div>` : '';
+  const foot = state === 'opening' ? `Opening ${openingName}…` : refreshed ? 'Apps refreshed.' : 'To change fleet, use the fleet and account button at the end of the bar.';
+  return `${top}${fixtureFeedback ? `<div class="notice" role="status">${fixtureFeedback}</div>` : ''}<div class="tiles">${tiles}</div>${missing}<p class="context foot" ${state === 'opening' || refreshed ? 'role="status"' : ''}>${foot}</p>`;
+}
+function fleetRow(name) {
+  const current = name === currentFleet;
+  const busy = state === 'opening' && openingKind === 'fleet' && name === openingName;
+  const waiting = state === 'opening' && !busy;
+  return `<a class="choice ${current ? 'current' : ''}" href="#fleet-${slug(name)}" data-name="${name}" data-kind="fleet" ${current ? 'aria-current="page"' : ''} ${waiting ? 'aria-disabled="true"' : ''}>${icon('layers')}<span>${busy ? `Opening ${name}` : name}</span><span class="end">${busy ? icon('spinner', 'busy-icon') : current ? `${icon('check')}<span class="sr-only">Current fleet</span>` : ''}</span></a>`;
+}
+function accountPanel() {
+  const who = session() === 'argo' ? 'argo' : session() === 'viewer' ? 'Viewer' : 'Your account';
+  const how = session() === 'argo' ? 'Signed in as argo, for Console in Aeolus' : session() === 'viewer' ? 'Viewer sign-in, for Console in Aeolus' : 'Signed in with your account';
+  const fleets = isRestricted() ? fleetRow('Aeolus') : `${fleetRow(currentFleet)}${fleetRow('Harbour')}`;
+  const fleetNote = isRestricted() ? 'This sign-in reaches only this fleet.' : state === 'opening' ? `Opening ${openingName}…` : `Choosing a fleet keeps you in ${currentApp} where it is available there.`;
+  const signingOut = state === 'signing-out';
+  return `<div class="who-head"><span class="avatar large">${initials()}</span><span class="who-words"><strong id="panel-title">${who}</strong><span class="meta">${how}</span></span></div><hr class="separator"><div class="group-label">Fleet</div>${fleets}<p class="context" ${state === 'opening' ? 'role="status"' : ''}>${fleetNote}</p><hr class="separator"><button class="choice" id="signout" ${signingOut ? 'disabled' : ''}>${icon(signingOut ? 'spinner' : 'logout', signingOut ? 'busy-icon' : '')}<span>Sign out</span></button>${signingOut ? '<p class="context" role="status">Signing out…</p>' : ''}`;
+}
+function bar() {
+  const phone = isPhone();
+  const appName = `<span class="app-name">${icon(appIcons[currentApp])}<span>${currentApp}</span></span>`;
+  const after = surface === 'bridge' ? '<div class="tabs"><span class="on">Bridge</span><span>Outside parties</span></div>' : '<span class="crumb">/ Fleet</span>';
+  const accountLabel = bridgeGate() ? 'Account: not signed in' : `Fleet and account: ${currentFleet}, ${identity()}`;
+  return `<header class="bar"><button class="launcher" id="launcher" aria-label="Apps" aria-haspopup="dialog" aria-expanded="${panel === 'apps'}" aria-controls="apps-panel" title="Apps">${icon('grid')}</button>${appName}${after}<div class="bar-end"><button class="account" id="account" aria-label="${accountLabel}" aria-haspopup="dialog" aria-expanded="${panel === 'account'}" aria-controls="account-panel" ${bridgeGate() ? 'disabled' : ''}><span class="who"><span class="fleet-name">${bridgeGate() ? 'No fleet' : currentFleet}</span>${phone ? '' : `<span class="meta">${identity()}</span>`}</span><span class="avatar">${initials()}</span></button></div></header>`;
+}
+function renderAfter() {
+  const sheet = isPhone() ? 'aria-modal="true"' : '';
+  const body = panel === 'apps' ? appsPanel() : panel === 'account' ? accountPanel() : '';
+  document.querySelector('#root').innerHTML = `${bar()}${surface === 'console' ? `<aside class="sidebar">${sideRows()}</aside>` : ''}<div class="workspace ${surface}"><main class="content">${shellContent()}</main>${phoneTabs()}</div>${panel ? `<div class="scrim" id="scrim"></div><section class="panel ${panel}-panel" id="${panel}-panel" role="dialog" aria-labelledby="panel-title" ${sheet}><div class="handle"></div>${body}<button class="btn close" id="close">Cancel</button></section>` : ''}`;
+  wire();
 }
 
-function render() {
-  const plain = isBeforePlain();
-  const panelVisible = opened && !plain;
-  const identity = surface === 'console' && ['argo', 'single'].includes(state) ? 'Signed in as argo' : surface === 'console' && state === 'viewer' ? 'Viewer' : bridgeGate() ? 'Not signed in' : state === 'expired' ? 'Sign-in expired' : 'Your account';
-  document.querySelector('#root').innerHTML = `${surface === 'console' ? `<aside class="sidebar"><div class="brand">${icon('ship')} Aeolus</div>${['Fleet', 'Inbox', 'Trierarchs', 'Settings'].map((label, i) => `<div class="side-row ${i === 0 ? 'on' : ''}">${icon(['ship', 'inbox', 'layers', 'settings'][i])}${label}</div>`).join('')}<div class="sidebar-bottom"><div class="meta">${identity}</div></div></aside>` : ''}<div class="workspace ${surface}"><header class="header">${trigger()}${surface === 'bridge' ? '<div class="tabs"><span class="on">Bridge</span><span>Outside parties</span></div>' : era === 'after' ? '<span class="crumb">/ Fleet</span>' : ''}<div class="header-right"><span class="meta">${identity}</span><span class="avatar" aria-label="${identity}">${bridgeGate() ? '?' : state === 'argo' ? 'ar' : state === 'viewer' ? 'V' : 'TH'}</span></div></header><main class="content">${shellContent()}</main><div class="phone-tabs"><span class="on">${icon(surface === 'bridge' ? 'inbox' : 'ship')}${surface === 'bridge' ? 'Waiting' : 'Fleet'}</span><span>${icon('inbox')}${surface === 'bridge' ? 'Aware' : 'Inbox'}</span><span>${icon('layers')}${surface === 'bridge' ? 'Done' : 'Trierarchs'}</span><span>${icon('settings')}${surface === 'bridge' ? 'Fleet' : 'Settings'}</span></div>${panelVisible ? `<div class="scrim" id="scrim"></div><section class="panel" id="destinations" role="dialog" aria-labelledby="panel-title" ${window.innerWidth < 640 ? 'aria-modal="true"' : ''}><div class="handle"></div>${panelContent()}<button class="btn close" id="close">Cancel</button></section>` : ''}</div>`;
-  document.querySelector('#switcher')?.addEventListener('click', toggle);
-  document.querySelector('#old-app')?.addEventListener('click', toggle);
+/* ---------- Choices: every one shows its feedback at once and its loading while it works. ---------- */
+function wire() {
+  document.querySelector('#launcher')?.addEventListener('click', () => toggle('apps'));
+  document.querySelector('#account')?.addEventListener('click', () => toggle('account'));
   document.querySelector('#close')?.addEventListener('click', close);
   document.querySelector('#scrim')?.addEventListener('click', close);
   document.querySelector('#retry')?.addEventListener('click', () => {
-    lastState = state; state = 'retrying'; render(); announce('Loading apps and fleets');
-    window.setTimeout(() => { state = 'several'; retrying = true; render(); announce('Apps and fleets refreshed'); }, 1600);
+    lastState = state; state = 'retrying'; render(); announce('Loading apps');
+    window.setTimeout(() => { state = 'several'; refreshed = true; render(); announce('Apps refreshed'); }, 1600);
   });
   document.querySelector('#signin')?.addEventListener('click', () => {
     const button = document.querySelector('#signin');
     button.disabled = true; button.innerHTML = `${icon('spinner', 'busy-icon')} Sign in`; announce('Opening sign-in');
     window.setTimeout(() => { fixtureFeedback = `Sign-in opens with a return to ${otherApp()}.`; render(); announce(fixtureFeedback); }, 1600);
   });
-  document.querySelectorAll('.choice').forEach((link) => link.addEventListener('click', (event) => {
+  document.querySelector('#signout')?.addEventListener('click', () => { lastState = state; state = 'signing-out'; render(); announce('Signing out'); });
+  document.querySelectorAll('.tile[data-name], .choice[data-name]').forEach((link) => link.addEventListener('click', (event) => {
     event.preventDefault();
     if (link.getAttribute('aria-disabled') === 'true') return;
     if (link.getAttribute('aria-current') === 'page') { close(); announce(`${link.dataset.name} is already open`); return; }
     openingName = link.dataset.name; openingKind = link.dataset.kind; lastState = state; state = 'opening';
     render(); announce(`Opening ${openingName}`);
     window.setTimeout(() => {
-      if (openingName === 'App 1' || openingName === 'App 2') { state = lastState; fixtureFeedback = `${openingName} selected. This preview ends at the destination link.`; render(); announce(fixtureFeedback); return; }
+      if (openingName === 'App 1' || openingName === 'App 2') { state = lastState; fixtureFeedback = `${openingName} selected. This preview ends at the app’s link.`; render(); announce(fixtureFeedback); return; }
       if (openingKind === 'fleet') currentFleet = openingName;
       else { currentApp = openingName; surface = currentApp === 'Gateway' ? 'bridge' : 'console'; }
-      state = 'arrived'; opened = false; render(); announce(`${currentApp} is open in ${currentFleet}`);
+      state = 'arrived'; panel = ''; render(); announce(`${currentApp} is open in ${currentFleet}`);
     }, 1800);
   }));
 }
-function toggle() { opened = !opened; render(); announce(opened ? 'Apps and fleets opened' : 'Apps and fleets closed'); if (opened) document.querySelector('.choice, #retry, #signin, #close')?.focus(); }
-function close() { opened = false; render(); document.querySelector('#switcher')?.focus(); announce('Apps and fleets closed'); }
+function render() { if (era === 'before') renderBefore(); else renderAfter(); }
+function toggle(which) {
+  const opener = which;
+  panel = panel === which ? '' : which; render();
+  announce(panel ? `${panel === 'apps' ? 'Apps' : 'Fleet and account'} opened` : 'Closed');
+  if (panel) document.querySelector('.panel .tile[data-name], .panel .choice[data-name], #retry, #signin, #close')?.focus();
+  else document.querySelector(`#${opener === 'apps' ? 'launcher' : 'account'}`)?.focus();
+}
+function close() {
+  const opener = panel === 'account' ? '#account' : '#launcher';
+  panel = ''; render(); document.querySelector(opener)?.focus(); announce('Closed');
+}
 document.addEventListener('keydown', (event) => {
-  if (event.key === 'Escape' && opened) close();
-  if (event.key === 'Tab' && opened && window.innerWidth < 640) {
+  if (era === 'before' || !panel) return;
+  if (event.key === 'Escape') { close(); return; }
+  const tiles = [...document.querySelectorAll('.panel .tile[data-name]:not([aria-disabled="true"])')];
+  const at = tiles.indexOf(document.activeElement);
+  const step = { ArrowRight: 1, ArrowLeft: -1, ArrowDown: 3, ArrowUp: -3 }[event.key];
+  if (at >= 0 && step) { event.preventDefault(); tiles[Math.min(tiles.length - 1, Math.max(0, at + step))].focus(); return; }
+  if (event.key === 'Tab' && isPhone()) {
     const items = [...document.querySelectorAll('.panel a:not([aria-disabled="true"]), .panel button:not(:disabled)')];
     if (event.shiftKey && document.activeElement === items[0]) { event.preventDefault(); items.at(-1)?.focus(); }
     else if (!event.shiftKey && document.activeElement === items.at(-1)) { event.preventDefault(); items[0]?.focus(); }

@@ -12,7 +12,7 @@ mkdirSync(output, { recursive: true });
 const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
 const records = [];
 const states = ['several', 'single', 'argo', 'viewer', 'missing', 'expired'];
-const extras = ['closed', 'loading', 'error', 'detail', 'long-name'];
+const extras = ['closed', 'account', 'loading', 'error', 'detail', 'long-name'];
 const findings = [];
 
 for (const surface of ['console', 'bridge']) {
@@ -36,7 +36,7 @@ for (const surface of ['console', 'bridge']) {
           panelScrolls: panel ? panel.scrollHeight > panel.clientHeight : false,
           panelClipped: panel ? panel.getBoundingClientRect().bottom > window.innerHeight + 1 : false,
           phoneTargets: window.innerWidth < 640
-            ? [...document.querySelectorAll('.trigger, .panel a, .panel button')].filter((node) => node.getBoundingClientRect().height < 44).length
+            ? [...document.querySelectorAll('.launcher, .account, .panel a, .panel button')].filter((node) => node.getBoundingClientRect().height < 44).length
             : 0,
           fontsReady: document.fonts.check('13px Geist'),
         };
@@ -47,35 +47,47 @@ for (const surface of ['console', 'bridge']) {
       if (layout.overflow || layout.panelClipped || layout.phoneTargets || !layout.fontsReady || pageErrors.length) findings.push(record);
     };
     for (const state of states) {
-      for (const [era, theme] of [['before', 'light'], ['after', 'light'], ['after', 'dark']]) {
+      for (const [era, theme] of [['before', 'light'], ['before', 'dark'], ['after', 'light'], ['after', 'dark']]) {
         await open(state, { era, theme });
         await capture(state, { era, theme });
       }
     }
-    for (const state of extras) { await open(state); await capture(state); }
+    for (const state of extras) for (const theme of ['light', 'dark']) { await open(state, { theme }); await capture(state, { theme }); }
 
-    // Feedback frames come from pressing the control, not from alternate markup.
+    // Feedback frames come from pressing the controls, not from alternate markup.
     await open('closed');
-    await page.locator('#switcher').focus();
+    await page.locator('#launcher').focus();
     await page.keyboard.press('Enter');
+    await page.keyboard.press('ArrowRight');
     await capture('keyboard');
     await page.keyboard.press('Escape');
-    if (await page.locator('.panel').count() !== 0 || !await page.locator('#switcher').evaluate((node) => node === document.activeElement)) findings.push({ surface, width, interaction: 'Escape returns focus' });
+    if (await page.locator('.panel').count() !== 0 || !await page.locator('#launcher').evaluate((node) => node === document.activeElement)) findings.push({ surface, width, interaction: 'Escape returns focus to the launcher' });
 
-    for (const [kind, name] of [['app', surface === 'console' ? 'Gateway' : 'Console'], ['fleet', 'Harbour']]) {
-      await open('several');
-      await page.locator(`.choice[data-kind="${kind}"][data-name="${name}"]`).click();
-      await page.getByRole('link', { name: `Opening ${name}`, exact: true }).waitFor();
-      await capture(`opening-${kind}`);
-      await page.locator('.arrival').waitFor();
-      await capture(`arrived-${kind}`);
-    }
+    await open('several');
+    const other = surface === 'console' ? 'Gateway' : 'Console';
+    await page.locator(`.tile[data-name="${other}"]`).click();
+    await page.getByRole('link', { name: `Opening ${other}`, exact: true }).waitFor();
+    await capture('opening-app');
+    await page.locator('.arrival').waitFor();
+    await capture('arrived-app');
+
+    await open('account');
+    await page.locator('.choice[data-name="Harbour"]').click();
+    await page.getByRole('link', { name: 'Opening Harbour', exact: true }).waitFor();
+    await capture('opening-fleet');
+    await page.locator('.arrival').waitFor();
+    await capture('arrived-fleet');
+
+    await open('account');
+    await page.locator('#signout').click();
+    await page.locator('#signout:disabled').waitFor();
+    await capture('signing-out');
 
     await open('missing');
     await page.locator('#retry').click();
-    await page.getByText('Loading apps and fleets…').waitFor();
+    await page.getByText('Loading apps…').waitFor();
     await capture('retrying');
-    await page.getByText('Apps and fleets refreshed.').waitFor();
+    await page.getByText('Apps refreshed.').waitFor();
     await capture('refreshed');
 
     await open('expired');

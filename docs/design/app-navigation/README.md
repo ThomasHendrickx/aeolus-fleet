@@ -1,6 +1,6 @@
 # Moving between Aeolus apps
 
-Status: stage 2 mockups for [#1969](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1969), awaiting Thomas’s approval. Thomas approved purpose A and picks A for questions 1 to 5 on 19 Nov 2026. Implementation follows approved mockups. [Draft PR #1970](https://github.com/ThomasHendrickx/aeolus-fleet/pull/1970) stays draft until that approval.
+Status: stage 2 mockups, round 2, for [#1969](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1969), awaiting Thomas’s approval. Thomas approved purpose A and picks A for questions 1 to 5 on 19 Nov 2026. Implementation follows approved mockups. [Draft PR #1970](https://github.com/ThomasHendrickx/aeolus-fleet/pull/1970) stays draft until that approval.
 
 ## 1. Purpose
 
@@ -52,59 +52,69 @@ Thomas’s approved purpose and five picks:
 
 ## 4. Mockups awaiting approval
 
-[Before/after screenshot index](mockups/README.md). These are browser screenshots of documentation fixtures, not a production build or captures of a deployed session. Before reconstructs the navigation source described above; the surrounding content is illustrative. After proposes the shared control. Hosted apps appear only as generic destinations, `App 1` and `App 2`; their page designs belong in their private repository.
+[Before/after screenshot index](mockups/README.md). These are browser screenshots of documentation fixtures, not a production build or captures of a deployed session. Before reconstructs the navigation source described above; the surrounding content is illustrative. After proposes the shared controls. Hosted apps appear only as generic apps, `App 1` and `App 2`; their page designs belong in their private repository.
 
-### One part in every working header
+### Round 2: Thomas's notes on round 1
 
-The existing `AppSwitcher` in `packages/ui` remains props only. The app adapter supplies the current app and fleet, destinations it can safely offer, session description, loading or error explanation, and applicable retry or sign-in action. The part renders those facts and emits choices. It does not fetch, construct destination addresses, infer rights, inspect another app’s session, or choose a different identity.
+1. "I expect a more microsoft office 365 like experience"
+2. "I am missing screens for app"
+
+Round 2 answers the first note here: the app launcher and the fleet and account button below. The second note is answered in the private repository of the hosted app, with its own before and after screens. The pattern follows how Microsoft 365 lays out its bar; no Microsoft name, mark or icon is used. Icons are Lucide shapes the apps already load.
+
+### The bar every app shows
+
+Every working page opens with the same bar across the full width, above any sidebar.
 
 ```text
-App adapter: destinations + current context + state + actions
-  AppHeader / phone TopBar
-    AppSwitcher: one button, app / fleet, chevron
-      Desktop: DropdownMenu
-      Phone: bottom Sheet
-        Apps: current mark + destination links
-        Fleets: current mark + destination links
-        Inline state + applicable action
+App adapter: apps + fleets + current app and fleet + session + state + actions
+  The bar (AppHeader on desktop, the app's phone bar on phone)
+    Start: app launcher button (grid icon)  +  current app's icon and name  +  the page's own part
+      Desktop: a panel under the button / phone: a bottom sheet
+        Apps: one tile per app, icon and name, current tile marked; inline state and its action
+    End: fleet and account button (fleet name, how the person is signed in, avatar)
+      Desktop: a panel under the button / phone: a bottom sheet
+        Who is signed in; Fleet: one row per fleet, current marked; Sign out
 ```
 
-- The trigger reads `Console / Aeolus` in Console and `Gateway / Aeolus` in Bridge. Bridge stays the gateway’s page, identified by its existing navigation. The phone trigger stacks app and fleet in one 44 px target. Page titles and detail breadcrumbs stay separate, so a detail page never loses this control.
-- Opening the trigger reveals both groups together. Desktop uses the existing DropdownMenu; phone uses the existing Sheet with handle, title, 44 px rows and Cancel last. Current choices have a check and an accessible current label. Long names wrap in the list and truncate in the trigger while retaining its full accessible name.
-- Only configured, permitted destinations are offered. A smaller installation has no placeholders for uninstalled apps. The single-app state is an explanation reached through the same trigger, rather than an inert title.
-- Selecting an app follows its adapter-supplied address. Selecting a fleet follows the existing [H9 rule](../header/README.md#h9-switching-fleet-ends-nothing-by-c1): the current app where available, otherwise an app the account may open. It changes no identity and ends no sign-in.
-- While the browser opens a destination, keep the chosen row and its name, add `Opening <name>` with a busy icon, announce it, and block duplicate choices. The destination’s normal header confirms the app and fleet after arrival. The arrival notice in the fixture marks this transition for review; it does not add a cross-app notification service.
+- **The app launcher** is the grid button at the very start of the bar. It reads "Apps" to a screen reader and as its tooltip. Pressing it opens a panel of tiles, three to a row: every app this person can open in the fleet in view, each with its icon and its name. The current app's tile is filled and says "Current" under its name. Nothing else lives in this panel: no fleets, no account, no settings.
+- **The current app** sits right after the launcher, with its icon and name, so the person always sees which app they are in. Console shows "Console / Fleet"; Bridge shows "Gateway" with its own Bridge and Outside parties tabs, as today.
+- **The fleet and account button** sits at the very end of the bar. On desktop it shows the fleet's name over how the person is signed in ("Your account", "Signed in as argo", "Viewer", "Sign-in expired"), then the avatar. On phone it shows the fleet's name and the avatar. Pressing it opens a panel with who is signed in, the fleets they can open with the current one checked, and Sign out. Choosing a fleet follows the existing [H9 rule](../header/README.md#h9-switching-fleet-ends-nothing-by-c1): the current app where available, otherwise an app the account may open. It changes no identity and ends no sign-in.
+- **Phone** has the same two buttons in the same places, each 44 px. Each opens the same content as a bottom sheet with handle, title, 44 px targets and Cancel last; tiles are larger and still three to a row.
+- **Same control in every app.** Console, Bridge and the hosted apps show the same bar. Page titles and detail breadcrumbs stay in the page, so a detail page keeps both buttons.
+
+This keeps pick 3's single discoverable place for apps and fleets, read the way Thomas asked: apps and fleets are clearly told apart by living at opposite ends of the bar, the way Microsoft 365 keeps its app launcher apart from the account. Both buttons are always present and always in the same place.
+
+The parts stay props only, in `packages/ui`: `AppHeader` holds the bar; the launcher grows from the existing `AppSwitcher`; the fleet and account panel grows from the existing `AvatarMenu`, which already shows who is signed in and Sign out. The app adapter supplies the apps, fleets, current app and fleet, session, loading or error explanation, and the applicable retry or sign-in action. The parts render those facts and emit choices. They do not fetch, construct addresses, infer rights, inspect another app's session, or choose a different identity. They use `DropdownMenu` on desktop and `Sheet` on phone, with `Button`, `Skeleton` and the inline error look. No new atom, status colour or product term is proposed.
 
 ### Session and unavailable states
 
-| State | What the person sees | Applicable action |
-| --- | --- | --- |
-| Several apps and fleets | Current app and fleet, Apps and Fleets in one menu or sheet; generic hosted destinations only | Open an app or fleet |
-| Single-app self-hosted installation | Console and Aeolus as current; “No other apps” and the installation explanation | Keep using Console or close the control |
-| argo | “Signed in as argo”; only Console and its fleet; explanation that this sign-in is Console-only | Keep using the existing session or close the control |
-| Viewer | “Viewer”; only Console and its fleet; explanation that other destinations are not supplied for this session | Keep using the existing session or close the control |
-| Missing destination | Unavailable destination without a stale link, what failed, current location, and refresh action; other known destinations remain available | Try again, then updated destinations or the same inline error |
-| Expired destination request | Actual sign-in failure reported by the app, “Your sign-in has expired”, the requested app, and Sign in | Existing shared sign-in with the requested destination as its return journey |
-| Loading | Stable trigger and headings, skeletons in the destination rows’ shapes, “Loading apps and fleets…” | Wait or close; no empty-state claim |
-| Read failure | “Couldn’t load destinations”, current page still open, and Try again | Retry with the button label retained and busy icon, then a refreshed list or inline error |
+| State | Apps panel | Fleet and account | Applicable action |
+| --- | --- | --- | --- |
+| Several apps and fleets | Tiles for Console, Gateway, App 1 and App 2; current marked | Your account; fleets Aeolus (checked) and Harbour | Open an app or a fleet |
+| Single-app self-hosted installation | Console tile alone, current; "No other apps" and the installation explanation | Aeolus alone | Keep using Console or close |
+| argo | Console tile alone; "Signed in as argo" and why other apps need an account | "Signed in as argo", Aeolus alone | Keep using the session or close |
+| Viewer | Console tile alone; "Viewer" and why other apps are not supplied | "Viewer", Aeolus alone | Keep using the session or close |
+| Missing app | That tile greyed with "Unavailable", no link; what failed, where you still are, Try again; other tiles stay | Unchanged | Try again, then updated tiles or the same inline error |
+| Expired sign-in for an app | That tile greyed with "Sign-in required"; "Your sign-in has expired" and Sign in | "Sign-in expired" under the fleet | Existing shared sign-in, returning to the requested app |
+| Loading | Title and tile shapes as skeletons, "Loading apps…" | Unchanged | Wait or close; no empty claim |
+| Read failure | "Couldn’t load apps", current page still open, Try again | Unchanged | Retry with busy icon, then tiles or inline error |
 
-An expired request is not a separate credential system per app. [H5’s shared account sign-in](../header/README.md#h5-one-account-sign-in-across-every-app-option-2) still applies. A retained page does not establish current authorization. The control presents the actual failure supplied by the app rather than diagnosing expiry itself.
+An expired request is not a separate credential system per app. [H5's shared account sign-in](../header/README.md#h5-one-account-sign-in-across-every-app-option-2) still applies. A retained page does not establish current authorization; the control shows the failure the app reports.
 
-Argo and viewer do not acquire Bridge sessions. The Bridge frames for these cases show its account-required destination explanation and no working Bridge content. In a single-app installation, the Bridge frame explains that Bridge is not installed; it is not an offered destination in Console. These comparison fixtures establish the boundary, not a new sign-in page or flow. The working-page scope and existing credential return journeys remain as approved.
-
-The discoverable trigger and inline explanations replace only H8’s inert-title presentation. H8’s session limits and H5’s Console-only argo rule remain applicable. A destination not known to this session is never borrowed from another identity in the browser.
+Argo and viewer do not acquire Bridge sessions. The Bridge frames for these cases show its account-required explanation and no working Bridge content; the launcher shows Console as a configured app without a link, and the fleet and account button shows that no one is signed in. In a single-app installation, the Bridge frame explains that Bridge is not installed; Console offers no Gateway tile. H8's session limits and H5's Console-only argo rule remain.
 
 ### Feedback and accessibility
 
-| Interaction | Immediate feedback and loading | End or failure |
+| Action | Immediate feedback and loading | End or failure |
 | --- | --- | --- |
-| Open menu or sheet | Expanded trigger, visible panel, focus on a choice or applicable action; no read if destinations already supplied | Escape, outside press or Cancel closes it and returns focus to the trigger |
-| Open app or fleet | Named row changes to Opening with busy icon, other destinations wait; polite announcement | Destination header identifies app/fleet; a reported refusal remains inline with its next action |
-| Refresh destinations | Try again retains its label and gains a busy icon; row skeletons retain group headings | Refreshed list with inline confirmation, or the actionable inline read error |
-| Sign in | Sign in retains its label and gains a busy icon before leaving | Existing sign-in returns to the requested destination; cancelled or failed sign-in remains in its existing return journey |
-| Choose current app/fleet | Close the control and announce that the choice is already open | Current header remains visible |
-| Cancel or close | Panel disappears and focus returns to its trigger immediately | No destination or identity changes; there is no asynchronous work to load |
+| Open the launcher or the fleet and account panel | Button shows pressed, panel appears, focus on the first tile or row; announced | Escape, outside press or Cancel closes it and returns focus to its button |
+| Open an app | The tile says "Opening" with a busy icon, other tiles wait, "Opening Gateway…" under the tiles; announced | The new app's bar names it at the start; a reported refusal stays inline with its next action |
+| Open a fleet | The row reads "Opening Harbour" with a busy icon, other rows wait; announced | The bar's end names the new fleet |
+| Try again | Button keeps its label and gains a busy icon; tile skeletons | "Apps refreshed." with the tiles, or the inline error |
+| Sign in | Button keeps its label and gains a busy icon | Existing sign-in returns to the requested app |
+| Sign out | Row gains a busy icon, "Signing out…"; announced | Existing sign-out |
+| Choose the current app or fleet | Panel closes; "already open" announced | The bar stays as it was |
 
-Use Base UI’s keyboard behavior in the eventual shared part: Enter/Space on the trigger, arrow navigation in the desktop menu, Escape to close, and trapped focus in the phone Sheet. Visible focus follows `--ring`. All phone actions are at least 44 px; state labels accompany icons. The fixture uses reduced motion and the existing light/dark tokens, Geist, Lucide path shapes, Button, Skeleton, InlineError, DropdownMenu and Sheet conventions. No new atom, status color or product term is proposed.
+Keyboard: Enter or Space opens either button; in the launcher the arrow keys move between tiles (left, right, up and down by a row), Tab leaves the grid; Escape closes. The phone sheet traps focus. Visible focus follows `--ring`. Every phone target is at least 44 px; states have words, not only icons. Reduced motion and the light and dark tokens apply.
 
-The HTML/CSS/JS fixtures and capture script live only in this documentation folder. They simulate choices, retries and sign-in loading locally. No server, real destination, credential or app behavior is changed. No production implementation is authorized before Thomas approves these mockups.
+The HTML, CSS and JS fixtures and the capture script live only in this documentation folder. They simulate choices, retries, sign-in and sign-out loading locally. No server, real app, credential or app behaviour is changed. No production implementation is authorized before Thomas approves these mockups.
