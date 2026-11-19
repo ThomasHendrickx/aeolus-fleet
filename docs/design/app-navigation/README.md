@@ -1,6 +1,6 @@
 # Moving between Aeolus apps
 
-Status: stage 1 proposed for [#1969](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1969). Purpose awaits Thomas's approval. The picks below are proposals. Mockups follow agreement on the purpose; implementation follows approved mockups.
+Status: stage 2 mockups for [#1969](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1969), awaiting Thomas’s approval. Thomas approved purpose A and picks A for questions 1 to 5 on 19 Nov 2026. Implementation follows approved mockups. [Draft PR #1970](https://github.com/ThomasHendrickx/aeolus-fleet/pull/1970) stays draft until that approval.
 
 ## 1. Purpose
 
@@ -38,34 +38,14 @@ Gateway consumers: `web/features/frame/ui/gateway-header.tsx` through `web/featu
 - [Self-hosted sign-in design](../self-hosted-sign-in.md): a self-hoster may run console, gateway and sign-in without the hosted apps. An installation's actual apps and permitted destinations matter, not a fixed list of hosted addresses. A single available app is a valid installation.
 - Current absence, loading and failure can all leave someone with no usable destination. Later mockups need to distinguish those conditions and cover one app, several apps, several fleets, restricted access and the session states above.
 
-## 3. Open questions for Thomas
+## 3. Current decisions
 
-### 1. Does this purpose describe the problem to solve?
+Thomas’s approved purpose and five picks:
 
-- **A.** Reach every available Aeolus working app from every other, with the same discoverable interaction on phone and desktop and clear app/fleet context.
-- **B.** Only make the existing two dropdowns easier to use where they already appear.
-- **Pick: A.** The reported need to type addresses is a coverage problem as well as an interaction problem. This is the purpose to agree before mockups.
-
-### 2. Which surfaces should “every app” include?
-
-- **A.** Console, gateway including Bridge, and the hosted apps' signed-in working pages. Sign-in pages retain their return journey; public information surfaces keep links appropriate to their purpose.
-- **B.** Those working pages plus sign-in, marketing, documentation, demos and status, all with the same switcher.
-- **Pick: A.** It covers the places a person works without making a credential page or an independently available status page depend on a signed-in app catalogue.
-
-### 3. Should app switching and fleet switching share one entry point?
-
-- **A.** One discoverable entry point for moving between apps and fleets, with the two choices clearly distinguished inside it.
-- **B.** One app entry point, with fleet switching kept separately visible.
-- **Pick: A.** It replaces the finicky adjacent controls and gives phone and desktop the same place to start. The contents and exact presentation remain for mockups; this does not decide a new fleet-switching flow.
-
-### 4. What should someone see when their current app session cannot supply destinations?
-
-- **A.** Keep the navigation entry discoverable, explain the actual state and offer the applicable next step. Do not promise access or silently switch identity.
-- **B.** Keep today's plain title with no navigation until destinations are available.
-- **Pick: A.** Otherwise argo, viewer, expired sessions or an unavailable catalogue can recreate the address-typing problem. Which destinations are safe to offer in each state needs agreement before detailed design; this proposes no new rights or sign-in rules.
-
-### 5. How should an installation with fewer apps appear?
-
-- **A.** Offer only configured destinations available to that person, with a clear single-app state when there is nowhere else to go.
-- **B.** Show the complete hosted app list, with missing apps disabled or advertised.
-- **Pick: A.** A self-hoster's smaller installation should be complete on its own terms, without dead links or suggestions that apps they never installed are broken.
+| Question | Decision |
+| --- | --- |
+| 1. Purpose | A: reach every available Aeolus working app from every other, with the same discoverable interaction on phone and desktop and clear app/fleet context. |
+| 2. Surfaces | A: Console, gateway including Bridge, and the hosted apps’ signed-in working pages. Sign-in pages retain their return journey; public information surfaces keep appropriate links. |
+| 3. Entry point | A: one discoverable entry point for apps and fleets, clearly distinguished inside it. Existing fleet-switching behavior applies. |
+| 4. Destinations unavailable | A: keep the entry discoverable, explain the actual state, and offer the applicable next step. A link promises no access and changes no identity silently. |
+| 5. Smaller installations | A: show only configured destinations available to the person. Explain a single-app installation without disabled advertisements for uninstalled apps. |
