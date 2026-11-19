@@ -18,7 +18,7 @@ Feature designs, one folder each; the status of each is at its top:
 
 | Folder | What it designs |
 | --- | --- |
-| [app-navigation](app-navigation/README.md) | Purpose and five picks approved; app launcher at the start of the bar, fleet button and account button at its end, round 3 mockups await approval |
+| [app-navigation](app-navigation/README.md) | Purpose and five picks approved; one launcher panel for apps and fleets at the start of the bar, account button at its end, round 4 mockups await approval |
 | [a2a](a2a/README.md) | A2A in and out through the gateway |
 | [accounts](accounts/accounts.md) | Accounts and roles: which person acts as which ship, and may do what |
 | [argo-inbox](argo-inbox/README.md) | argo's inbox reaches the people who may act as argo |
