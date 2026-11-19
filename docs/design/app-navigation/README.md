@@ -49,3 +49,62 @@ Thomas’s approved purpose and five picks:
 | 3. Entry point | A: one discoverable entry point for apps and fleets, clearly distinguished inside it. Existing fleet-switching behavior applies. |
 | 4. Destinations unavailable | A: keep the entry discoverable, explain the actual state, and offer the applicable next step. A link promises no access and changes no identity silently. |
 | 5. Smaller installations | A: show only configured destinations available to the person. Explain a single-app installation without disabled advertisements for uninstalled apps. |
+
+## 4. Mockups awaiting approval
+
+[Before/after screenshot index](mockups/README.md). These are browser screenshots of documentation fixtures, not a production build or captures of a deployed session. Before reconstructs the navigation source described above; the surrounding content is illustrative. After proposes the shared control. Hosted apps appear only as generic destinations, `App 1` and `App 2`; their page designs belong in their private repository.
+
+### One part in every working header
+
+The existing `AppSwitcher` in `packages/ui` remains props only. The app adapter supplies the current app and fleet, destinations it can safely offer, session description, loading or error explanation, and applicable retry or sign-in action. The part renders those facts and emits choices. It does not fetch, construct destination addresses, infer rights, inspect another app’s session, or choose a different identity.
+
+```text
+App adapter: destinations + current context + state + actions
+  AppHeader / phone TopBar
+    AppSwitcher: one button, app / fleet, chevron
+      Desktop: DropdownMenu
+      Phone: bottom Sheet
+        Apps: current mark + destination links
+        Fleets: current mark + destination links
+        Inline state + applicable action
+```
+
+- The trigger reads `Console / Aeolus` in Console and `Gateway / Aeolus` in Bridge. Bridge stays the gateway’s page, identified by its existing navigation. The phone trigger stacks app and fleet in one 44 px target. Page titles and detail breadcrumbs stay separate, so a detail page never loses this control.
+- Opening the trigger reveals both groups together. Desktop uses the existing DropdownMenu; phone uses the existing Sheet with handle, title, 44 px rows and Cancel last. Current choices have a check and an accessible current label. Long names wrap in the list and truncate in the trigger while retaining its full accessible name.
+- Only configured, permitted destinations are offered. A smaller installation has no placeholders for uninstalled apps. The single-app state is an explanation reached through the same trigger, rather than an inert title.
+- Selecting an app follows its adapter-supplied address. Selecting a fleet follows the existing [H9 rule](../header/README.md#h9-switching-fleet-ends-nothing-by-c1): the current app where available, otherwise an app the account may open. It changes no identity and ends no sign-in.
+- While the browser opens a destination, keep the chosen row and its name, add `Opening <name>` with a busy icon, announce it, and block duplicate choices. The destination’s normal header confirms the app and fleet after arrival. The arrival notice in the fixture marks this transition for review; it does not add a cross-app notification service.
+
+### Session and unavailable states
+
+| State | What the person sees | Applicable action |
+| --- | --- | --- |
+| Several apps and fleets | Current app and fleet, Apps and Fleets in one menu or sheet; generic hosted destinations only | Open an app or fleet |
+| Single-app self-hosted installation | Console and Aeolus as current; “No other apps” and the installation explanation | Keep using Console or close the control |
+| argo | “Signed in as argo”; only Console and its fleet; explanation that this sign-in is Console-only | Keep using the existing session or close the control |
+| Viewer | “Viewer”; only Console and its fleet; explanation that other destinations are not supplied for this session | Keep using the existing session or close the control |
+| Missing destination | Unavailable destination without a stale link, what failed, current location, and refresh action; other known destinations remain available | Try again, then updated destinations or the same inline error |
+| Expired destination request | Actual sign-in failure reported by the app, “Your sign-in has expired”, the requested app, and Sign in | Existing shared sign-in with the requested destination as its return journey |
+| Loading | Stable trigger and headings, skeletons in the destination rows’ shapes, “Loading apps and fleets…” | Wait or close; no empty-state claim |
+| Read failure | “Couldn’t load destinations”, current page still open, and Try again | Retry with the button label retained and busy icon, then a refreshed list or inline error |
+
+An expired request is not a separate credential system per app. [H5’s shared account sign-in](../header/README.md#h5-one-account-sign-in-across-every-app-option-2) still applies. A retained page does not establish current authorization. The control presents the actual failure supplied by the app rather than diagnosing expiry itself.
+
+Argo and viewer do not acquire Bridge sessions. The Bridge frames for these cases show its account-required destination explanation and no working Bridge content. In a single-app installation, the Bridge frame explains that Bridge is not installed; it is not an offered destination in Console. These comparison fixtures establish the boundary, not a new sign-in page or flow. The working-page scope and existing credential return journeys remain as approved.
+
+The discoverable trigger and inline explanations replace only H8’s inert-title presentation. H8’s session limits and H5’s Console-only argo rule remain applicable. A destination not known to this session is never borrowed from another identity in the browser.
+
+### Feedback and accessibility
+
+| Interaction | Immediate feedback and loading | End or failure |
+| --- | --- | --- |
+| Open menu or sheet | Expanded trigger, visible panel, focus on a choice or applicable action; no read if destinations already supplied | Escape, outside press or Cancel closes it and returns focus to the trigger |
+| Open app or fleet | Named row changes to Opening with busy icon, other destinations wait; polite announcement | Destination header identifies app/fleet; a reported refusal remains inline with its next action |
+| Refresh destinations | Try again retains its label and gains a busy icon; row skeletons retain group headings | Refreshed list with inline confirmation, or the actionable inline read error |
+| Sign in | Sign in retains its label and gains a busy icon before leaving | Existing sign-in returns to the requested destination; cancelled or failed sign-in remains in its existing return journey |
+| Choose current app/fleet | Close the control and announce that the choice is already open | Current header remains visible |
+| Cancel or close | Panel disappears and focus returns to its trigger immediately | No destination or identity changes; there is no asynchronous work to load |
+
+Use Base UI’s keyboard behavior in the eventual shared part: Enter/Space on the trigger, arrow navigation in the desktop menu, Escape to close, and trapped focus in the phone Sheet. Visible focus follows `--ring`. All phone actions are at least 44 px; state labels accompany icons. The fixture uses reduced motion and the existing light/dark tokens, Geist, Lucide path shapes, Button, Skeleton, InlineError, DropdownMenu and Sheet conventions. No new atom, status color or product term is proposed.
+
+The HTML/CSS/JS fixtures and capture script live only in this documentation folder. They simulate choices, retries and sign-in loading locally. No server, real destination, credential or app behavior is changed. No production implementation is authorized before Thomas approves these mockups.
