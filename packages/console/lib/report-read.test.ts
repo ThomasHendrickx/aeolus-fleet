@@ -5,7 +5,7 @@ import { answerReportRead } from './report-read';
 const CURRENT = 'flt_01m66p4k2v9qz8f7x3n5c17acm';
 const OTHER = 'flt_01m5aa4k2v9qz8f7x3n5c19q2d';
 const MESSAGE = 'msg_01m66p4k2v9qz8f7x3n5c1k2q9';
-const ENVIRONMENT = { AEOLUS_PAGASAE_URL: 'https://accounts.example', AEOLUS_PAGASAE_CLIENT_ID: 'console', AEOLUS_PAGASAE_CLIENT_SECRET: 'test-secret', AEOLUS_SERVER_URL: 'https://fleet.example' };
+const ENVIRONMENT = { AEOLUS_ACCOUNT_APP_URL: 'https://accounts.example', AEOLUS_ACCOUNT_APP_CLIENT_ID: 'console', AEOLUS_ACCOUNT_APP_CLIENT_SECRET: 'test-secret', AEOLUS_SERVER_URL: 'https://fleet.example' };
 const REPORT = { state: 'working', note: 'Drafting the guide', task: { kind: 'message', fleetId: OTHER, messageId: MESSAGE }, taskView: { canOpen: false, fleetName: null }, step: null, reportChangedAt: '2026-10-01T09:00:00.000Z', reportedAt: '2026-10-01T09:00:00.000Z', detailsVersion: 0, details: null, detailsBytes: null };
 
 describe('a report and its other-fleet message task in the same read', () => {

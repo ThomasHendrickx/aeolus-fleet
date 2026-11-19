@@ -86,7 +86,7 @@ describe('consoleSessionOutputSchema', () => {
 });
 
 describe('presentAccountTokenInputSchema', () => {
-  it('takes the account token pagasae gave the console', () => {
+  it('takes the account token the account app gave the console', () => {
     expect(presentAccountTokenInputSchema.parse({ token: 'eyJ.a.b' })).toEqual({ token: 'eyJ.a.b' });
   });
 

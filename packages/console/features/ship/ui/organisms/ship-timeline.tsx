@@ -71,7 +71,7 @@ interface ShipTimelineProps {
   now: Date;
   /** Opens the message a row is about. */
   onOpenMessage: (messageId: MessageId) => void;
-  /** The names pagasae gives the accounts signed in as argo that rows name (decision 0054); a row whose account has none shows its id. */
+  /** The names the account app gives the accounts signed in as argo that rows name (decision 0054); a row whose account has none shows its id. */
   accountNames?: Readonly<Partial<Record<AccountId, string>>>;
 }
 

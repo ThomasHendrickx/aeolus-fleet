@@ -77,7 +77,7 @@ export const consoleSessionOutputSchema = z.object({
   featureFlags: z.array(featureFlagSchema),
 });
 
-/** Input of `console.presentAccountToken`: the account token pagasae gave the console's server for this fleet (decision 0058). */
+/** Input of `console.presentAccountToken`: the account token the account app gave the console's server for this fleet (decision 0058). */
 export const presentAccountTokenInputSchema = z.object({ token: z.string().min(1).max(16_384) });
 
 export type ConsoleSessionOutput = z.infer<typeof consoleSessionOutputSchema>;
@@ -94,7 +94,7 @@ export const accountOutputSchema = z.discriminatedUnion('kind', [
   // No email until argo sets one in Settings: fleet:init gives its own sign-in none (accounts design, A1).
   z.object({ kind: z.literal('operator'), email: z.string().nullable(), hasPassword: z.boolean(), session: accountSessionSchema }),
   z.object({ kind: z.literal('viewer'), session: accountSessionSchema }),
-  // An account by its id alone: core keeps no email (decision 0058); the console asks pagasae for its name.
+  // An account by its id alone: core keeps no email (decision 0058); the console asks the account app for its name.
   z.object({ kind: z.literal('account'), accountId: accountIdSchema }),
 ]);
 

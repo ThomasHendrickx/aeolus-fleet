@@ -6,9 +6,9 @@ import { z } from 'zod';
 import type { AccountTokenSignatures } from '../../domain/identity/ports.js';
 
 /**
- * How long the keys core holds count as pagasae's current ones. A key core
+ * How long the keys core holds count as the account app's current ones. A key core
  * does not know makes it fetch them again, and so does a check after this
- * long, so a key pagasae dropped (a leaked one replaced, decision 0058)
+ * long, so a key the account app dropped (a leaked one replaced, decision 0058)
  * stops counting within it; never more often, so a forged key id cannot make
  * core fetch without end.
  */
@@ -25,9 +25,9 @@ const publishedKeySchema = z.object({ kid: z.string().min(1), kty: z.string(), c
 const keySetSchema = z.object({ keys: z.array(z.unknown()) });
 
 /**
- * Checks pagasae's signature on account tokens (decision 0058) with node's
+ * Checks the account app's signature on account tokens (decision 0058) with node's
  * crypto: the issuer's published key set, read from `fetchKeySet` (its
- * `/.well-known/jwks.json`), Ed25519 and P-256 keys. While pagasae does not
+ * `/.well-known/jwks.json`), Ed25519 and P-256 keys. While the account app does not
  * answer, the keys core already holds go on checking.
  */
 export function createAccountTokenSignatures(deps: {
@@ -45,7 +45,7 @@ export function createAccountTokenSignatures(deps: {
       try {
         keys = publicKeys(await deps.fetchKeySet());
       } catch {
-        // pagasae down or answering nonsense: keep the keys held (decision 0058, "pagasae down").
+        // the account app down or answering nonsense: keep the keys held (decision 0058, "the account app down").
       } finally {
         fetching = undefined;
       }

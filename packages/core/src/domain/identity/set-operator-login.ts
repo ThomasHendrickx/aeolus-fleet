@@ -27,7 +27,7 @@ export type SetOperatorLogin = (
 /**
  * Use case: argo, signed in to the console, sets the email and password of
  * its own sign-in (decision 0012, accounts design A1). Only where core trusts
- * no pagasae: a hosted fleet has no own sign-in for argo (decision 0054). The
+ * no the account app: a hosted fleet has no own sign-in for argo (decision 0054). The
  * email is the user name, held by no other operator of the installation.
  * The old email and password stop working; the console session that set
  * them stays, since it is the one argo sign-in.
@@ -44,7 +44,7 @@ export function createSetOperatorLogin(deps: {
   ids: IdGenerator;
   accounts: OperatorAccountLookup;
   passwords: PasswordHasher;
-  /** Whether core trusts no pagasae: argo's own sign-in is then the way in. */
+  /** Whether core trusts no the account app: argo's own sign-in is then the way in. */
   isSelfHosted: boolean;
 }): SetOperatorLogin {
   return async (caller, input) => {

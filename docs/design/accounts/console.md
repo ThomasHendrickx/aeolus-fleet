@@ -19,9 +19,9 @@ Thomas's notes, 21 Oct:
 
 The outcomes:
 
-1. **Hosted.** A human signs in once, through pagasae, for every Aeolus app (header H5). They open the console of any fleet where their account holds `fleet:read`, and the console shows what their scopes allow, nothing else.
+1. **Hosted.** A human signs in once, through the account app, for every Aeolus app (header H5). They open the console of any fleet where their account holds `fleet:read`, and the console shows what their scopes allow, nothing else.
 2. **Two at once.** Mathilde and Thomas manage Acme's fleet together. Neither one's sign-in touches the other's.
-3. **Break-glass.** When accounts cannot act (pagasae misconfigured, or a rule locking everyone out), an allowed account signs in as argo in the console. That sign-in takes argo's lease, as today, and the console makes it plain that this is argo.
+3. **Break-glass.** When accounts cannot act (the account app misconfigured, or a rule locking everyone out), an allowed account signs in as argo in the console. That sign-in takes argo's lease, as today, and the console makes it plain that this is argo.
 4. **Self-hosted, first run.** A developer or founder runs the open-source install and has a signed-in console within minutes of `fleet:init`, with nothing else to install. Self-hosted is one person (A2).
 5. **Leavers and changed rights.** A disabled account loses the console within minutes (0055, 0058). A change of rights lands within one token's life.
 
@@ -48,7 +48,7 @@ Every console sign-in today is a sign-in of a ship, argo or the viewer. A sign-i
   - `fleet.markRead`, `fleet.markDone` and `fleet.reply` take only a crew caller (`trpc.ts:620-633`) whose ship is the operator (`mark-done.ts:38`, `reply-to-message.ts:41`).
   - `markDone` holds the lease while it runs (`mark-done.ts:41`).
   - Compose sends as argo.
-- **The leftover.** `schema.prisma:759-760` reads "One account per fleet in v1". Decision 0057 made an account an actor of its own, but the console never followed. It presents no account token; its one call to pagasae is the account-name lookup.
+- **The leftover.** `schema.prisma:759-760` reads "One account per fleet in v1". Decision 0057 made an account an actor of its own, but the console never followed. It presents no account token; its one call to the account app is the account-name lookup.
 - **The viewer is apart already.** Viewer sign-ins hold no lease, and many run at once (0022). They sit outside the unique index and outside `endAll`.
 
 So a console sign-in ends another only because it is a sign-in as argo, and argo is one ship with one lease.
@@ -69,9 +69,9 @@ So a console sign-in ends another only because it is a sign-in as argo, and argo
 
 ## 3. Lessons checked against
 
-- **0057.** A human acts as their account, and argo is never a normal path. 0057 also says "where no pagasae runs, the way in", which is self-hosted's one person (A2).
+- **0057.** A human acts as their account, and argo is never a normal path. 0057 also says "where no account app runs, the way in", which is self-hosted's one person (A2).
 - **0058.** Core checks the token on every call and stores no account, only its id. Tokens last 10 minutes. A cut-off is pushed, and a change of groups lands at the next token.
-- **0054.** pagasae signs every account in. An allowed account signs in as argo with a ticket that names it. Hosted fleets have no argo's own sign-in (0020).
+- **0054.** the account app signs every account in. An allowed account signs in as argo with a ticket that names it. Hosted fleets have no argo's own sign-in (0020).
 - **0012 and 0010.** One crew per ship. argo has no secret. Cookies are httpOnly, Secure and SameSite=Strict, and the browser calls core directly.
 - **0033.** Tokens are fetched, renewed and parsed on the server. The browser holds only cookies it cannot read.
 - **0043.** No page per person; the console is gated by scopes.
@@ -84,28 +84,28 @@ So a console sign-in ends another only because it is a sign-in as argo, and argo
 
 The people and parts:
 - **Mathilde and Thomas** are accounts of Acme's fleet, both Fleet managers; Mathilde is also allowed as argo.
-- **P** is pagasae; **K** is the console (its server and the browser); **C** is core; **I** is the installation (pagasae acting as it).
-- **The shared sign-in** is pagasae's one sign-in cookie on the shared domain (header H5).
+- **P** is the account app; **K** is the console (its server and the browser); **C** is core; **I** is the installation (the account app acting as it).
+- **The shared sign-in** is the account app's one sign-in cookie on the shared domain (header H5).
 - **The token cookie** is the short httpOnly cookie holding the account token for the fleet in view, which core reads.
 
 ### Every way in
 
 ```mermaid
 flowchart TD
-  start([A human opens the console]) --> issuer{Does core trust pagasae?}
+  start([A human opens the console]) --> issuer{Does core trust the account app?}
   issuer -- "yes (hosted)" --> shared{Shared sign-in present?}
   shared -- yes --> token[The console's server gets an account token for this fleet]
-  shared -- no --> acct[Sign in through pagasae, once for every app]
+  shared -- no --> acct[Sign in through the account app, once for every app]
   acct --> token
   token --> signedAcct[Signed in as my account: no lease]
-  signedAcct -- "Sign in as argo, if allowed (A7)" --> ticket[pagasae's sign-in ticket naming me]
+  signedAcct -- "Sign in as argo, if allowed (A7)" --> ticket[the account app's sign-in ticket naming me]
   ticket --> signedArgo[Signed in as argo: takes argo's lease, ends the other argo sign-in]
   issuer -- "no (self-hosted, one person, A1, A2)" --> own[argo's own sign-in: a link from the terminal]
   own --> signedArgo
   viewerTicket[A viewer ticket from the installation] --> signedViewer[Signed in as the viewer: no lease]
   signedAcct -- "before the token ends (A3)" --> renew[The console's server renews with the shared sign-in]
   renew -- fresh --> signedAcct
-  renew -- "signed out elsewhere, disabled, or pagasae down past the token's end" --> ended[Sign-in ended: sign in again]
+  renew -- "signed out elsewhere, disabled, or the account app down past the token's end" --> ended[Sign-in ended: sign in again]
 ```
 
 ### F1 An account signs in
@@ -114,7 +114,7 @@ flowchart TD
 sequenceDiagram
   actor M as Mathilde
   participant K as Console
-  participant P as pagasae
+  participant P as the account app
   participant C as core
   M->>K: open the console of Acme's fleet
   alt no shared sign-in yet
@@ -149,7 +149,7 @@ sequenceDiagram
   actor M as Mathilde
   participant B as Browser
   participant K as Console's server
-  participant P as pagasae
+  participant P as the account app
   participant C as core
   B->>C: live updates (WebSocket, the token cookie at upgrade)
   loop a minute or two before the token ends (A3)
@@ -162,7 +162,7 @@ sequenceDiagram
       K->>C: console.session
       C-->>K: scopes now
       K-->>B: pages re-gated when the scopes changed (F6)
-    else pagasae down
+    else the account app down
       P--xK: no answer
       K-->>B: "Can't reach the sign-in service. Retrying." The page works until the token ends
       K->>P: retry with backoff until the token ends
@@ -203,7 +203,7 @@ sequenceDiagram
   actor M as Mathilde
   actor T as Thomas
   participant K as Console
-  participant P as pagasae
+  participant P as the account app
   participant C as core
   M->>K: Sign in as argo (avatar menu or sign-in page, A7)
   K->>P: a sign-in ticket for argo of Acme's fleet
@@ -234,7 +234,7 @@ sequenceDiagram
 sequenceDiagram
   actor A as Organisation admin
   actor B as Burak
-  participant P as pagasae
+  participant P as the account app
   participant I as Installation
   participant C as core
   participant K as Console
@@ -258,7 +258,7 @@ sequenceDiagram
 sequenceDiagram
   actor A as Organisation admin
   actor T as Thomas
-  participant P as pagasae
+  participant P as the account app
   participant K as Console
   participant C as core
   A->>P: Thomas leaves group ops (fleet:manage)
@@ -274,13 +274,13 @@ sequenceDiagram
   C-->>T: refused, shown by the control
 ```
 
-### F7 pagasae down (hosted)
+### F7 the account app down (hosted)
 
 ```mermaid
 sequenceDiagram
   actor M as Mathilde
   participant K as Console
-  participant P as pagasae
+  participant P as the account app
   participant C as core
   M->>K: working, token valid for 6 more minutes
   K->>P: renewal
@@ -288,7 +288,7 @@ sequenceDiagram
   K-->>M: "Can't reach the sign-in service. Retrying." (F2)
   Note over M,C: her calls go on until the token ends, then the sign-in ends
   Note over K,C: messaging goes on: ships, leases and the gateway's person ships hold
-  Note over M,P: no new sign-in until pagasae is back, argo's ticket included (0058)
+  Note over M,P: no new sign-in until the account app is back, argo's ticket included (0058)
 ```
 
 ### F8 The viewer (unchanged)
@@ -296,7 +296,7 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
   actor V as Visitor
-  participant P as pagasae
+  participant P as the account app
   participant C as core
   participant K as Console
   V->>P: open the demo
@@ -339,7 +339,7 @@ sequenceDiagram
 **A1. Self-hosted first human: a sign-in link from the terminal (option 1).**
 - `fleet:init` prints a one-use console link, and `aeolus-core sign-in` prints a fresh one at any time.
 - A password is optional, set from the console.
-- The console says "Signed in as argo", with no break-glass warning when no pagasae is configured.
+- The console says "Signed in as argo", with no break-glass warning when no account app is configured.
 - Rejected: email and password at `fleet:init`, as today; local accounts in core (against 0058).
 
 **A2. Self-hosted is one person (option 3).** Thomas: "For now we keep it simple, teams then use 1 account to check console. They can still all have their own ship, it is like how I used aeolus intill now."
@@ -348,7 +348,7 @@ sequenceDiagram
 - Rejected for now: an open-source accounts app; any OpenID Connect provider straight into core.
 
 **A3. The console's server renews the token (option 1).**
-- It asks pagasae for a fresh account token with the shared sign-in (header H5), so the console holds no grant of its own and stays stateless.
+- It asks the account app for a fresh account token with the shared sign-in (header H5), so the console holds no grant of its own and stays stateless.
 - The browser asks a renewal route a minute or two before the token ends, and the proxy renews on any page load past that point.
 - Core reads the token from the token cookie or the `aeolus-account-token` header, with mutations origin-checked as for argo's cookie.
 - Rejected: core holding the grant (against 0058); a silent redirect every 10 minutes.
@@ -357,7 +357,7 @@ sequenceDiagram
 
 **A5. A change of rights lands at the next renewal (option 1),** within 10 minutes as 0058 decided, with the pages re-gated after each renewal.
 
-**A6. A disabled account sees "Your sign-in ended." (option 1).** pagasae says the account is disabled when they try again; core tells nothing more than UNAUTHORIZED.
+**A6. A disabled account sees "Your sign-in ended." (option 1).** the account app says the account is disabled when they try again; core tells nothing more than UNAUTHORIZED.
 
 **A7. "Sign in as argo" is in the avatar menu and on the sign-in page (option 1).**
 - It is shown only to accounts allowed as argo (header H1's list).
@@ -382,7 +382,7 @@ From the header design, answered with option 1 each:
 | --- | --- | --- |
 | 0012 | The console is argo's crew; argo is always crewed; one operator console session | argo is always shown crewed. Its lease is taken only by a sign-in as argo, in the console only: break-glass where accounts exist, self-hosted's one way in otherwise. argo's own sign-in is a one-use link from the terminal, with a password optional (A1). Accounts sign in to the console without a lease, many at once. The rest stands: no secret, one argo sign-in at a time, the cookie's attributes, and `console.session` (which now also answers an account) |
 | 0043 | Core is the fleet server, its API and argo's admin console | Core is the fleet server, its API and the fleet's admin console, for every Fleet manager its scopes allow and for argo. Still no page per person; the questions UI stays frozen |
-| 0054 | pagasae signs accounts in to the gateway and plugin pages, each with its own sign-in; the console takes argo tickets | One account sign-in for every Aeolus app: pagasae's cookie on the shared domain, from which each app's server gets account tokens (header H5). The console signs in accounts; Open console signs in as the account. "Sign in as argo" stays for allowed accounts as break-glass, console only. Self-hosted is one person, as argo (A2) |
+| 0054 | the account app signs accounts in to the gateway and plugin pages, each with its own sign-in; the console takes argo tickets | One account sign-in for every Aeolus app: the account app's cookie on the shared domain, from which each app's server gets account tokens (header H5). The console signs in accounts; Open console signs in as the account. "Sign in as argo" stays for allowed accounts as break-glass, console only. Self-hosted is one person, as argo (A2) |
 | 0057 | An actor is a ship by its crew token or a console sign-in as argo or the viewer; an account by its token | An account by its token, from a header or the token cookie. "argo is never a normal path" stands; self-hosted's one person is its stated case |
 | 0058 | The token is presented by a plugin's page, the gateway or the trierarch plugin's page | The console presents it too, through an httpOnly cookie that core reads beside the header, with mutations origin-checked. What core records: the account id also keys notice dismissals and guide progress |
 | 0050 | "installation admin", "organisation admin"; no fleet-level human name | Adds App admin (manages the Aeolus application and all fleets; replaces installation admin and installation owner), Fleet manager (manages one fleet and its ships) and Ship owner (owns one ship within a fleet) |
@@ -397,5 +397,5 @@ From the header design, answered with option 1 each:
 | --- | --- | --- |
 | Core | Account token from the token cookie; about 18 procedures to the actor check; `console.session` and `console.account` for an account; notices and guide keyed by account id; the terminal sign-in link (A1); tests per procedure for an account in and out of reach | M |
 | Console | Sign-in through the shared sign-in; renewal route and proxy (A3, A4); the avatar menu for an account; argo-only parts (inbox actions, Compose) shown only to argo; Sign in as argo (A7); Nothing to manage here (A8) | M |
-| pagasae | The shared sign-in cookie; account tokens for an app's server, from the shared sign-in; the console as an OpenID Connect client; Open console signs in as the account | S to M |
+| The account app | The shared sign-in cookie; account tokens for an app's server, from the shared sign-in; the console as an OpenID Connect client; Open console signs in as the account | S to M |
 | Squadrons, trierarch plugin | Accept an account from the forwarded token cookie; raise the minimum core version | S each |

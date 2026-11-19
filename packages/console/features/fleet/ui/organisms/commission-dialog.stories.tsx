@@ -51,7 +51,7 @@ export const Empty: Story = {};
 export const Commissioning: Story = { args: { isPending: true } };
 export const Failed: Story = { args: { error: 'An active ship is already named reviewer-01.' } };
 /** At the fleet's ship limit (canvas 12.1): the dialog says so and commissions nothing. */
-export const AtShipLimit: Story = { args: { shipLimit: 10, accountUrl: 'https://pagasae.aeolus-fleet.dev/account' } };
+export const AtShipLimit: Story = { args: { shipLimit: 10, accountUrl: 'https://account-app.aeolus-fleet.dev/account' } };
 /** Fleet access: each scope the picker lists shows the description the fleet gives it (decision 0046), and a picked one shows as a chip. */
 export const FleetAccess: Story = {
   play: async () => {

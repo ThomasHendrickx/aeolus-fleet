@@ -22,8 +22,8 @@ The apps:
 | --- | --- | --- | --- |
 | Console | aeolus-fleet (`packages/console`) | Fleet managers: one fleet and its ships | Next.js |
 | Gateway | aeolus-fleet-gateway | Outside parties, a person's messages and requests | Next.js (part 5; HTML strings from Fastify today) |
-| Account | pagasae | Every account: its fleets, rights and email updates | Next.js |
-| Admin | pagasae | The App admin: the Aeolus application and all fleets | Next.js |
+| Account | the account app | Every account: its fleets, rights and email updates | Next.js |
+| Admin | the account app | The App admin: the Aeolus application and all fleets | Next.js |
 
 **Names (Thomas, 21 Oct):**
 
@@ -47,14 +47,14 @@ Not the purpose:
   - `components/organisms/header.tsx`: breadcrumb, live status, ⌘K trigger, Compose.
   - The AccountMenu: in the Sidebar on desktop, behind the TopBar Avatar on phone.
   - `features/commands`: the CommandPalette.
-- **pagasae.** `features/app-shell` (AppBar, AccountMenu, OwnerNav, OwnerTabBar), built on its own copies of the atoms and of `tokens.css`.
+- **The account app.** `features/app-shell` (AppBar, AccountMenu, OwnerNav, OwnerTabBar), built on its own copies of the atoms and of `tokens.css`.
 - **Gateway.**
   - Its pages are HTML strings from Fastify (`src/adapters/http/html.ts`): one `layout(title, body)` with its own inline style, no React.
   - Live updates come over a `/live` WebSocket.
   - It has its own page sign-in, `aeolus_gateway_session`.
 - **Links between them.**
-  - The console's server asks pagasae for an account's name, server to server.
-  - pagasae's Open console asks core for a sign-in ticket.
+  - The console's server asks the account app for an account's name, server to server.
+  - The account app's Open console asks core for a sign-in ticket.
 
 ## 3. Lessons checked against
 
@@ -64,7 +64,7 @@ Not the purpose:
   - 0043: no micro frontends.
   - 0049: release trains; common from npm at a stated version.
   - 0050: one meaning per term.
-  - 0054 and 0058: pagasae signs accounts in; core stores no account.
+  - 0054 and 0058: the account app signs accounts in; core stores no account.
   - 0057: every call authorised for its actor.
 - **Ports and adapters.** The header is props only; each app reads its data behind its own port.
 - **No package coupling.** No app depends on another's package or internals.
@@ -77,15 +77,15 @@ Not the purpose:
 
 ## 4. Decisions
 
-### H1. The list of apps and fleets an account may open: from pagasae (option 1)
+### H1. The list of apps and fleets an account may open: from the account app (option 1)
 
-One pagasae endpoint, read by each app's server, answers the account's fleets: each fleet where a group or the account's own rights give anything. Per fleet, it answers the apps the account may open:
+One the account app endpoint, read by each app's server, answers the account's fleets: each fleet where a group or the account's own rights give anything. Per fleet, it answers the apps the account may open:
 - Console where it holds `fleet:read`;
 - Gateway where it has rights;
 - Account always;
 - Admin for the App admin.
 
-The shape lives in `@aeolus-fleet/common`. Each app's server asks with the account's shared sign-in (H5), so pagasae answers for the human signed in. Without pagasae (self-hosted, one person as argo), the app's adapter answers only the console and its own fleet.
+The shape lives in `@aeolus-fleet/common`. Each app's server asks with the account's shared sign-in (H5), so the account app answers for the human signed in. Without the account app (self-hosted, one person as argo), the app's adapter answers only the console and its own fleet.
 
 Rejected:
 - core answers it: core stores no account (0058);
@@ -101,7 +101,7 @@ Thomas: "why cant that be part of common? I dont see the point of yet another pa
   - the single copy of `tokens.css`;
   - their Storybook stories.
 
-  It is versioned with common, in core's train. The console imports the atoms and tokens from it; pagasae and the gateway drop their own copies.
+  It is versioned with common, in core's train. The console imports the atoms and tokens from it; the account app and the gateway drop their own copies.
 - **React only for those who import it.** `react`, `react-dom`, `@base-ui/react` and `lucide-react` are optional peer dependencies of common. Server-only users import `.` or `./rules`, never `./header`, so they never install or load React: core, the trierarch, squadrons, the trierarch plugin and the rest. Common's own dependencies stay zod alone.
 - **Client-safe (0033).**
   - Nothing under `src/header` imports zod, `../schemas`, common's root (which re-exports the schemas), Node built-ins or server code.
@@ -140,7 +140,7 @@ Each app serves its pages and actions at a fixed path, with no sign-in: names, d
 - Live data (ships, squadrons) stays the open app's own.
 - The manifest's shape lives in common.
 
-Rejected: pagasae holding every app's pages; a static catalogue in the header; the browser asking each app live.
+Rejected: the account app holding every app's pages; a static catalogue in the header; the browser asking each app live.
 
 ### H5. One account sign-in across every app (option 2)
 
@@ -149,20 +149,20 @@ Thomas: "account is the account your option 1 feels like accepting technical deb
 He is right. With accounts as the sign-in everywhere (the accounts design's C1 and C2), a sign-in per app is the old shape kept alive.
 
 - **One sign-in.**
-  - A human signs in once, through pagasae.
-  - pagasae keeps that sign-in in one httpOnly, Secure cookie on the domain every Aeolus app shares (hosted: `aeolus-fleet.dev`).
-  - Every app's server reads it and asks pagasae, server to server, for the account and an account token for the fleet in view.
+  - A human signs in once, through the account app.
+  - The account app keeps that sign-in in one httpOnly, Secure cookie on the domain every Aeolus app shares (hosted: `aeolus-fleet.dev`).
+  - Every app's server reads it and asks the account app, server to server, for the account and an account token for the fleet in view.
   - Core reads that token from its own short cookie or a header (the accounts design, A3).
 - **Every app takes it:** the console, the gateway's pages, Account and Admin.
   - The gateway's own page sign-in (`aeolus_gateway_session`) goes.
   - Its OAuth for outside MCP clients stays as it is: clients are not browsers.
-- **Sign-out anywhere is sign-out everywhere.** pagasae ends the sign-in; each app's next renewal finds it gone.
+- **Sign-out anywhere is sign-out everywhere.** the account app ends the sign-in; each app's next renewal finds it gone.
 - **Switching app is a link,** with nothing to sign in to again.
 - **argo stays console-only.**
   - Signing in as argo is break-glass, in the console alone: by an allowed account's ticket (0054) or, self-hosted, argo's own sign-in.
   - Its `aeolus_session` cookie and its one lease stand (0012).
   - The gateway's `/parties` page for argo becomes a page for accounts holding the scopes it needs.
-- **Self-hosted, with no pagasae,** has no account sign-in. One person signs in to the console as argo (the accounts design, A2).
+- **Self-hosted, with no account app,** has no account sign-in. One person signs in to the console as argo (the accounts design, A2).
 
 Rejected: a sign-in per app; the console as argo's alone.
 
@@ -228,13 +228,13 @@ One theme cookie on the shared domain, read by every app for the first paint, ar
 **Order of work**, one slice each:
 
 1. **Accounts in the console:** its own design, the backbone C6 put first.
-2. **pagasae:** the shared account sign-in (H5) and the list of apps and fleets (H1).
+2. **The account app:** the shared account sign-in (H5) and the list of apps and fleets (H1).
 3. **`@aeolus-fleet/common/header`:** the atoms and tokens move from the console (H2), and the console takes the header.
 4. **The gateway's Next.js app:**
    - the frame and the shared sign-in first;
    - then the pages, one by one;
    - then the Fastify pages and `aeolus_gateway_session` go.
-5. **pagasae takes the header** and drops its copies of the atoms and tokens.
+5. **The account app takes the header** and drops its copies of the atoms and tokens.
 6. **The manifests and the cross-app palette** (H4, H11).
 
 Steps 4 and 5 can run side by side once step 3 is released.

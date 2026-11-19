@@ -9,7 +9,7 @@ const BIND_ADDRESS = 'https://0.0.0.0:3000';
 /** The console's public address, as the operator configures it. */
 const CONSOLE_URL = 'https://fleet.example.com';
 
-const PAGASAE = { url: 'https://account.example', clientId: 'console', clientSecret: 's'.repeat(32) };
+const ACCOUNT_APP = { url: 'https://account.example', clientId: 'console', clientSecret: 's'.repeat(32) };
 
 const stopAll: (() => void)[] = [];
 afterEach(() => {
@@ -35,8 +35,8 @@ async function aCoreKeepingOrigins(): Promise<{ url: string; origins: (string | 
 }
 
 describe("the console's addresses behind a proxy", () => {
-  it('sends pagasae the redirect on the configured console address, not the bind address', async () => {
-    const started = await startSignIn(new Request(`${BIND_ADDRESS}/sign-in/start`), { pagasae: PAGASAE, environment: { AEOLUS_CONSOLE_URL: CONSOLE_URL } });
+  it('sends the account app the redirect on the configured console address, not the bind address', async () => {
+    const started = await startSignIn(new Request(`${BIND_ADDRESS}/sign-in/start`), { accountApp: ACCOUNT_APP, environment: { AEOLUS_CONSOLE_URL: CONSOLE_URL } });
 
     const authorize = new URL(started.headers.get('location') ?? '');
     expect(authorize.searchParams.get('redirect_uri')).toBe('https://fleet.example.com/sign-in/done');
@@ -45,7 +45,7 @@ describe("the console's addresses behind a proxy", () => {
   it('signs out at core with the configured console address as origin', async () => {
     const core = await aCoreKeepingOrigins();
 
-    await signOutAccount(new Request(`${BIND_ADDRESS}/sign-in/out`), { pagasae: PAGASAE, environment: { AEOLUS_CONSOLE_URL: CONSOLE_URL, AEOLUS_SERVER_INTERNAL_URL: core.url } });
+    await signOutAccount(new Request(`${BIND_ADDRESS}/sign-in/out`), { accountApp: ACCOUNT_APP, environment: { AEOLUS_CONSOLE_URL: CONSOLE_URL, AEOLUS_SERVER_INTERNAL_URL: core.url } });
 
     expect(core.origins).toEqual(['https://fleet.example.com']);
   });
@@ -74,15 +74,15 @@ describe("the console's addresses behind a proxy", () => {
   });
 
   it('keeps the request address when no console address is configured, as in development', async () => {
-    const started = await startSignIn(new Request('http://localhost:3000/sign-in/start'), { pagasae: PAGASAE, environment: {} });
+    const started = await startSignIn(new Request('http://localhost:3000/sign-in/start'), { accountApp: ACCOUNT_APP, environment: {} });
 
     const authorize = new URL(started.headers.get('location') ?? '');
     expect(authorize.searchParams.get('redirect_uri')).toBe('http://localhost:3000/sign-in/done');
   });
 });
 
-/** One server standing for pagasae and for core: the account holds rights in fleet_a and fleet_b, core takes the token, and signing out of argo answers as given. */
-async function aPagasaeAndCore(signOutStatus: number): Promise<{ url: string }> {
+/** One server standing for the account app and for core: the account holds rights in fleet_a and fleet_b, core takes the token, and signing out of argo answers as given. */
+async function aAccountAppAndCore(signOutStatus: number): Promise<{ url: string }> {
   const bodyOf: Record<string, unknown> = {
     '/api/apps': { fleets: ['fleet_a', 'fleet_b'].map((id) => ({ id, name: id, argo: true, apps: [{ app: 'console' }] })) },
     '/oauth/token': { access_token: 'account-token', expires_in: 600 },
@@ -115,13 +115,13 @@ function aSwitchAsArgo(stub: { url: string }): Promise<Response> {
     new Request(`${BIND_ADDRESS}/sign-in/enter?fleet=fleet_b&returnTo=%2F`, {
       headers: { cookie: 'aeolus_account_session=shared; aeolus_console_fleet=fleet_a; aeolus_session=ses_x' },
     }),
-    { pagasae: { ...PAGASAE, url: stub.url }, environment: { AEOLUS_CONSOLE_URL: CONSOLE_URL, AEOLUS_SERVER_INTERNAL_URL: stub.url }, returnTo: '/' },
+    { accountApp: { ...ACCOUNT_APP, url: stub.url }, environment: { AEOLUS_CONSOLE_URL: CONSOLE_URL, AEOLUS_SERVER_INTERNAL_URL: stub.url }, returnTo: '/' },
   );
 }
 
 describe('switching to another fleet while signed in as argo', () => {
   it('ends argo\'s sign-in and opens the other fleet when core signs out', async () => {
-    const answer = await aSwitchAsArgo(await aPagasaeAndCore(200));
+    const answer = await aSwitchAsArgo(await aAccountAppAndCore(200));
 
     expect(answer.headers.get('location')).toBe('/');
     const cookies = answer.headers.getSetCookie();
@@ -130,7 +130,7 @@ describe('switching to another fleet while signed in as argo', () => {
   });
 
   it('does not switch when core fails the sign-out: argo stays signed in to the first fleet and the console says so', async () => {
-    const answer = await aSwitchAsArgo(await aPagasaeAndCore(500));
+    const answer = await aSwitchAsArgo(await aAccountAppAndCore(500));
 
     expect(answer.headers.get('location')).toBe('/sign-in/switch-failed');
     expect(answer.headers.getSetCookie()).toEqual([]);

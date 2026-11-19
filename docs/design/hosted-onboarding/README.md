@@ -39,7 +39,7 @@ Not the purpose: self-hosting (its own path, [one-line-setup](../one-line-setup.
 | L7 | A trierarch runs on the person's computer and keeps ships crewed from crew requests; the computer setup's questions, defaults and help are approved | [computer-setup](../computer-setup/README.md), 0055 |
 | L8 | Scopes are the only source of rights; a ship grants only scopes it holds. A commissioned agent ship's scopes are picked at commission, and `scopes:grant` changes them on a live ship | [scopes](../../guide/scopes.md), [commission-ship](../commission-ship/README.md) |
 | L9 | The site's docs are pulled from each repository at a pinned commit, never copied; llms.txt is built from the same list and never names a page that is not built | aeolus-site `src/data/docs.ts`, `src/pages/llms.txt.ts` |
-| L10 | The live demo is a read-only fleet opened with a viewer ticket: a visitor sees, and cannot answer or send | pagasae `demo/`; [words](../../guide/words.md#viewer) |
+| L10 | The live demo is a read-only fleet opened with a viewer ticket: a visitor sees, and cannot answer or send | the account app `demo/`; [words](../../guide/words.md#viewer) |
 | L11 | Email wakes are off by default: "off by default or it is a violation of peoples rights" | [#1242](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1242) |
 | L12 | One meaning per term; invent no word. Persona, path and first value are the purpose's own words; every product word is the [Words](../../guide/words.md) page's | 0050 |
 | L13 | Before 1.0.0, keep designs minimal: no compatibility layers and no polish for zero customers | 0013 |
@@ -468,7 +468,7 @@ Decided: 1. The paths cross every repository and the site already keeps copy as 
 Context: the demo is read-only (L10); pick 3 makes it the Decider's fallback, and their first value is answering.
 
 Options:
-1. **The demo asks the visitor:** a demo question per visit, answered on the demo page with no account, the scripted ship carrying on; needs a change to pagasae's demo runner and its viewer ticket.
+1. **The demo asks the visitor:** a demo question per visit, answered on the demo page with no account, the scripted ship carrying on; needs a change to the account app's demo runner and its viewer ticket.
 2. **The demo shows a question answered by its scripted person,** and says what to send a builder; the first value then waits for D1.
 3. **No demo step:** the picker sends a Decider alone to ask a builder.
 

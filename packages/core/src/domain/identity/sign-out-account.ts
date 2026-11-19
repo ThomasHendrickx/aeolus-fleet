@@ -16,7 +16,7 @@ export interface SignOutAccountTx extends LeaseTx {
 export type SignOutAccount = (input: { accountId: AccountId }) => Promise<void>;
 
 /**
- * Use case: pagasae, as the installation, says an account signed out in the
+ * Use case: the account app, as the installation, says an account signed out in the
  * account app, and sign-out anywhere is sign-out everywhere. Every console
  * sign-in as argo the account opened ends, in every fleet, and with it the
  * lease on argo it held, the installation the actor. argo's own sign-in and

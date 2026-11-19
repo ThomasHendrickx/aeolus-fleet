@@ -20,7 +20,7 @@ export type ReadArgoSignIn = (caller: AccountCaller) => Promise<Result<ArgoSignI
  * Use case: who holds argo's sign-in in the account's fleet, so the console
  * warns before the account signs in as argo and ends it (accounts design, F4,
  * A7). A sign-in that ended or went unused past its limit holds nothing.
- * Only an account pagasae allows as argo of the fleet may know: any other
+ * Only an account the account app allows as argo of the fleet may know: any other
  * learns nothing, not even whether someone holds it. Reaching argo is
  * untouched.
  */

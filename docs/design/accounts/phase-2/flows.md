@@ -9,7 +9,7 @@ Decisions 0051, 0058. Mathilde signs Acme up for hosted Aeolus.
 ```mermaid
 sequenceDiagram
   actor M as Mathilde
-  participant P as pagasae
+  participant P as the account app
   participant I as core (installation)
   participant C as core (the new fleet)
   M->>P: sign up: email, organisation name, fleet name, terms accepted
@@ -42,7 +42,7 @@ Decision 0052. Mathilde adds Charlotte to Acme and to the group "sales", which i
 ```mermaid
 sequenceDiagram
   actor M as Mathilde (organisation admin)
-  participant P as pagasae
+  participant P as the account app
   participant C as core (fleet)
   participant N as Networking plugin
   actor CH as Charlotte
@@ -67,7 +67,7 @@ sequenceDiagram
     P-->>CH: sign-in link
   end
   Note over P,C: Charlotte's rights are not written in the fleet: her account token carries sales' scopes and group=sales from her first sign-in
-  alt core does not answer pagasae
+  alt core does not answer the account app
     P->>P: keep what is still to do for this account and fleet
     P->>C: again until it lands
   end
@@ -80,7 +80,7 @@ Decision 0052. Charlotte moves from sales to finance while she is signed in at t
 ```mermaid
 sequenceDiagram
   actor M as Mathilde (organisation admin)
-  participant P as pagasae
+  participant P as the account app
   participant C as core (fleet)
   participant G as Gateway
   M->>P: move Charlotte from sales to finance
@@ -96,7 +96,7 @@ sequenceDiagram
   else needs a scope or reach only sales gave
     C-->>G: refused, without reasons
   end
-  alt core did not answer pagasae
+  alt core did not answer the account app
     P->>C: the person ship's labels again until they land
     Note over P,C: her account's rights do not wait on it: they ride on the token
   end
@@ -110,7 +110,7 @@ Decisions 0053, 0057. Thomas is in "team leads" (`fleet:commission`, `fleet:mana
 sequenceDiagram
   actor T as Thomas
   participant G as Gateway
-  participant P as pagasae
+  participant P as the account app
   participant C as core (fleet)
   actor M as Mathilde
   participant N as Networking plugin (its page)
@@ -153,7 +153,7 @@ sequenceDiagram
   actor H as Charlotte
   participant MC as Her Claude
   participant G as Gateway (one address)
-  participant P as pagasae
+  participant P as the account app
   participant C as core (fleet)
   H->>MC: add the gateway's address
   MC->>G: OAuth authorize request
@@ -199,7 +199,7 @@ sequenceDiagram
       G-->>MC: refused: no messaging in this fleet
     end
   end
-  alt pagasae down
+  alt the account app down
     G-->>MC: calls go on until her account token ends, then fail: try later
     Note over G,C: messaging through her person ship goes on: its lease is the gateway's
   end
@@ -213,7 +213,7 @@ Decision 0054. Mathilde signs in as argo of Acme's fleet; Thomas tries without b
 sequenceDiagram
   actor M as Mathilde
   actor T as Thomas
-  participant P as pagasae
+  participant P as the account app
   participant K as Console
   participant C as core (fleet)
   M->>P: sign in as argo of Acme's fleet
@@ -233,7 +233,7 @@ sequenceDiagram
   end
   T->>P: sign in as argo of Acme's fleet
   P-->>T: refused: not allowed for this fleet
-  Note over K,C: without pagasae, the console's form takes argo's own email and password, and the sign-in says so. Wrong password: refused. Hosted: no form.
+  Note over K,C: without the account app, the console's form takes argo's own email and password, and the sign-in says so. Wrong password: refused. Hosted: no form.
 ```
 
 ## F7 A trierarch joins for an account
@@ -244,7 +244,7 @@ Decision 0055. Burak adds his laptop.
 sequenceDiagram
   actor B as Burak
   participant TP as Trierarch plugin (its page)
-  participant P as pagasae
+  participant P as the account app
   participant C as core (fleet)
   participant L as Burak's laptop
   B->>TP: open the trierarch plugin's page
@@ -280,7 +280,7 @@ Decisions 0055, 0058. Burak leaves Acme. He was signed in at the gateway, allowe
 ```mermaid
 sequenceDiagram
   actor M as Mathilde (organisation admin)
-  participant P as pagasae
+  participant P as the account app
   participant G as Gateway
   participant I as core (installation)
   participant C as core (fleet)
@@ -290,7 +290,7 @@ sequenceDiagram
   alt Burak is the last organisation admin
     P-->>M: refused: the organisation needs one
   else disabled
-    P->>P: end his pagasae sign-ins, off the accounts allowed as argo, no new tokens
+    P->>P: end his the account app sign-ins, off the accounts allowed as argo, no new tokens
     P->>I: cut off Burak's account tokens
     I->>C: refuse them until the last has ended
     P->>I: end console sign-ins by Burak's account
@@ -307,7 +307,7 @@ sequenceDiagram
   C-->>L: LEASE_ENDED
   L->>L: stop the sessions
   alt the cut-off did not reach core
-    Note over P,C: his last account token ends within 10 minutes, and pagasae gives no new one
+    Note over P,C: his last account token ends within 10 minutes, and the account app gives no new one
     P->>I: the cut-off and releases again until they land
   end
 ```
@@ -411,18 +411,18 @@ sequenceDiagram
 
 ## F11 An account token is checked
 
-Decision 0058. Every call with an account token, its unhappy paths, and pagasae rotating its key.
+Decision 0058. Every call with an account token, its unhappy paths, and the account app rotating its key.
 
 ```mermaid
 sequenceDiagram
   participant X as Gateway or a plugin's page
-  participant P as pagasae
+  participant P as the account app
   participant C as core (fleet)
   X->>P: an account token for Charlotte, for this fleet
   P-->>X: the token: account id, organisation, fleet, scopes, group values, person ship, 10 minutes, key id
   X->>C: a call with the token
   alt key id unknown to core
-    C->>P: pagasae's keys (at most once a minute)
+    C->>P: the account app's keys (at most once a minute)
     P-->>C: the keys, old and new
   end
   alt signature bad, issuer or fleet wrong
@@ -436,7 +436,7 @@ sequenceDiagram
     C->>C: authorise by its scopes and reach, as any actor
     C-->>X: the answer, events naming Charlotte's account, through X
   end
-  alt pagasae down
+  alt the account app down
     X->>P: a fresh token
     P--xX: no answer
     X-->>X: calls stop as the last token ends, messaging on her person ship goes on

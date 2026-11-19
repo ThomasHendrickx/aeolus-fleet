@@ -1,14 +1,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { authorizeUrlOf, basicAuthOf, codeChallengeOf, exchangeArgoTicket, exchangeSignIn, fleetsOf, pagasaeFrom, revokeSignIn } from './pagasae';
+import { authorizeUrlOf, basicAuthOf, codeChallengeOf, exchangeArgoTicket, exchangeSignIn, fleetsOf, accountAppFrom, revokeSignIn } from './account-app';
 
-const PAGASAE = {
+const ACCOUNT_APP = {
   url: 'https://account.example',
   clientId: 'console',
   clientSecret: 's'.repeat(32),
 };
 
-/** A pagasae that answers each request with the given status and body, and keeps what it was asked. */
+/** A the account app that answers each request with the given status and body, and keeps what it was asked. */
 function answering(status: number, body: unknown) {
   const asked: Request[] = [];
   const fetchImplementation: typeof fetch = (input, init) => {
@@ -23,26 +23,26 @@ function answering(status: number, body: unknown) {
   return { asked, fetchImplementation };
 }
 
-describe('pagasae as the console reaches it', () => {
+describe('the account app as the console reaches it', () => {
   it('is its address without a trailing slash, the client id and the client secret', () => {
     expect(
-      pagasaeFrom({
+      accountAppFrom({
         AEOLUS_ACCOUNT_APP_URL: 'https://account.example/',
         AEOLUS_ACCOUNT_APP_CLIENT_ID: 'console',
         AEOLUS_ACCOUNT_APP_CLIENT_SECRET: 's'.repeat(32),
       }),
-    ).toEqual(PAGASAE);
+    ).toEqual(ACCOUNT_APP);
   });
 
   it('is none unless all three are set', () => {
     expect(
-      pagasaeFrom({
+      accountAppFrom({
         AEOLUS_ACCOUNT_APP_URL: 'https://account.example',
         AEOLUS_ACCOUNT_APP_CLIENT_ID: 'console',
       }),
     ).toBeUndefined();
     expect(
-      pagasaeFrom({
+      accountAppFrom({
         AEOLUS_ACCOUNT_APP_CLIENT_ID: 'console',
         AEOLUS_ACCOUNT_APP_CLIENT_SECRET: 's'.repeat(32),
       }),
@@ -50,14 +50,14 @@ describe('pagasae as the console reaches it', () => {
   });
 
   it('authenticates with HTTP Basic client credentials', () => {
-    expect(basicAuthOf(PAGASAE)).toBe(`Basic ${Buffer.from(`console:${'s'.repeat(32)}`).toString('base64')}`);
+    expect(basicAuthOf(ACCOUNT_APP)).toBe(`Basic ${Buffer.from(`console:${'s'.repeat(32)}`).toString('base64')}`);
   });
 });
 
-describe("the sign-in at pagasae's authorize endpoint", () => {
+describe("the sign-in at the account app's authorize endpoint", () => {
   it('asks for a code for the console, with the state and an S256 challenge', async () => {
     const url = new URL(
-      authorizeUrlOf(PAGASAE, {
+      authorizeUrlOf(ACCOUNT_APP, {
         redirectUri: 'https://fleet.example/sign-in/done',
         state: 'st',
         codeChallenge: await codeChallengeOf('verifier'),
@@ -79,18 +79,18 @@ describe("the sign-in at pagasae's authorize endpoint", () => {
 
 describe('an account token for a fleet, from the shared sign-in', () => {
   it('is exchanged with the sign-in cookie for the fleet, with the client credentials in the body', async () => {
-    const pagasae = answering(200, {
+    const accountApp = answering(200, {
       access_token: 'eyJ.a.b',
       expires_in: 600,
       token_type: 'Bearer',
     });
 
-    await expect(exchangeSignIn({ pagasae: PAGASAE, fetchImplementation: pagasae.fetchImplementation }, { signIn: 'cookie-value', fleetId: 'flt_1' })).resolves.toEqual({
+    await expect(exchangeSignIn({ accountApp: ACCOUNT_APP, fetchImplementation: accountApp.fetchImplementation }, { signIn: 'cookie-value', fleetId: 'flt_1' })).resolves.toEqual({
       kind: 'token',
       token: 'eyJ.a.b',
       expiresInSeconds: 600,
     });
-    const [asked] = pagasae.asked;
+    const [asked] = accountApp.asked;
     expect(asked?.url).toBe('https://account.example/oauth/token');
     expect(Object.fromEntries(new URLSearchParams(await asked?.text()))).toEqual({
       grant_type: 'urn:ietf:params:oauth:grant-type:token-exchange',
@@ -106,11 +106,11 @@ describe('an account token for a fleet, from the shared sign-in', () => {
     { error: 'invalid_grant', kind: 'ended' },
     { error: 'invalid_target', kind: 'noRights' },
     { error: 'invalid_client', kind: 'unreachable' },
-  ])('says $kind when pagasae answers $error', async ({ error, kind }) => {
+  ])('says $kind when the account app answers $error', async ({ error, kind }) => {
     await expect(
       exchangeSignIn(
         {
-          pagasae: PAGASAE,
+          accountApp: ACCOUNT_APP,
           fetchImplementation: answering(400, { error }).fetchImplementation,
         },
         { signIn: 'c', fleetId: 'flt_1' },
@@ -118,11 +118,11 @@ describe('an account token for a fleet, from the shared sign-in', () => {
     ).resolves.toEqual({ kind });
   });
 
-  it('says unreachable when pagasae does not answer', async () => {
+  it('says unreachable when the account app does not answer', async () => {
     await expect(
       exchangeSignIn(
         {
-          pagasae: PAGASAE,
+          accountApp: ACCOUNT_APP,
           fetchImplementation: () => Promise.reject(new Error('down')),
         },
         { signIn: 'c', fleetId: 'flt_1' },
@@ -133,13 +133,13 @@ describe('an account token for a fleet, from the shared sign-in', () => {
 
 describe("core's ticket to sign in as argo of a fleet, from the shared sign-in (accounts design, F4)", () => {
   it('is exchanged with the sign-in cookie for the fleet, asking for the argo sign-in ticket', async () => {
-    const pagasae = answering(200, { access_token: 'ticket-1', issued_token_type: 'urn:aeolus:params:oauth:token-type:argo-sign-in-ticket', token_type: 'N_A', expires_in: 120 });
+    const accountApp = answering(200, { access_token: 'ticket-1', issued_token_type: 'urn:aeolus:params:oauth:token-type:argo-sign-in-ticket', token_type: 'N_A', expires_in: 120 });
 
-    await expect(exchangeArgoTicket({ pagasae: PAGASAE, fetchImplementation: pagasae.fetchImplementation }, { signIn: 'cookie-value', fleetId: 'flt_1' })).resolves.toEqual({
+    await expect(exchangeArgoTicket({ accountApp: ACCOUNT_APP, fetchImplementation: accountApp.fetchImplementation }, { signIn: 'cookie-value', fleetId: 'flt_1' })).resolves.toEqual({
       kind: 'ticket',
       ticket: 'ticket-1',
     });
-    expect(Object.fromEntries(new URLSearchParams(await pagasae.asked[0]?.text()))).toMatchObject({
+    expect(Object.fromEntries(new URLSearchParams(await accountApp.asked[0]?.text()))).toMatchObject({
       grant_type: 'urn:ietf:params:oauth:grant-type:token-exchange',
       subject_token: 'cookie-value',
       resource: 'flt_1',
@@ -151,14 +151,14 @@ describe("core's ticket to sign in as argo of a fleet, from the shared sign-in (
     { error: 'invalid_grant', kind: 'ended' },
     { error: 'invalid_target', kind: 'notAllowed' },
     { error: 'unauthorized_client', kind: 'unreachable' },
-  ])('says $kind when pagasae answers $error', async ({ error, kind }) => {
-    await expect(exchangeArgoTicket({ pagasae: PAGASAE, fetchImplementation: answering(400, { error }).fetchImplementation }, { signIn: 'c', fleetId: 'flt_1' })).resolves.toEqual({ kind });
+  ])('says $kind when the account app answers $error', async ({ error, kind }) => {
+    await expect(exchangeArgoTicket({ accountApp: ACCOUNT_APP, fetchImplementation: answering(400, { error }).fetchImplementation }, { signIn: 'c', fleetId: 'flt_1' })).resolves.toEqual({ kind });
   });
 });
 
 describe('the fleets of the shared sign-in', () => {
-  it('are those pagasae lists, each saying whether it opens the console and whether the account may sign in as argo there', async () => {
-    const pagasae = answering(200, {
+  it('are those the account app lists, each saying whether it opens the console and whether the account may sign in as argo there', async () => {
+    const accountApp = answering(200, {
       account: { id: 'acc-1', email: 'm@example.com' },
       apps: [],
       fleets: [
@@ -177,19 +177,19 @@ describe('the fleets of the shared sign-in', () => {
       ],
     });
 
-    await expect(fleetsOf({ pagasae: PAGASAE, fetchImplementation: pagasae.fetchImplementation }, 'cookie-value')).resolves.toEqual([
+    await expect(fleetsOf({ accountApp: ACCOUNT_APP, fetchImplementation: accountApp.fetchImplementation }, 'cookie-value')).resolves.toEqual([
       { id: 'flt_1', name: 'acme', hasConsole: true, isArgoAllowed: false },
       { id: 'flt_2', name: 'globex', hasConsole: false, isArgoAllowed: true },
     ]);
-    expect(pagasae.asked[0]?.headers.get('aeolus-sign-in')).toBe('cookie-value');
-    expect(pagasae.asked[0]?.headers.get('authorization')).toBe(basicAuthOf(PAGASAE));
+    expect(accountApp.asked[0]?.headers.get('aeolus-sign-in')).toBe('cookie-value');
+    expect(accountApp.asked[0]?.headers.get('authorization')).toBe(basicAuthOf(ACCOUNT_APP));
   });
 
   it('are none once the sign-in ended', async () => {
     await expect(
       fleetsOf(
         {
-          pagasae: PAGASAE,
+          accountApp: ACCOUNT_APP,
           fetchImplementation: answering(401, { error: 'invalid_grant' }).fetchImplementation,
         },
         'c',
@@ -198,12 +198,12 @@ describe('the fleets of the shared sign-in', () => {
   });
 });
 
-describe('signing out at pagasae', () => {
+describe('signing out at the account app', () => {
   it('revokes the shared sign-in with the client credentials', async () => {
-    const pagasae = answering(200, {});
+    const accountApp = answering(200, {});
 
-    await expect(revokeSignIn({ pagasae: PAGASAE, fetchImplementation: pagasae.fetchImplementation }, 'cookie-value')).resolves.toBe(true);
-    expect(Object.fromEntries(new URLSearchParams(await pagasae.asked[0]?.text()))).toEqual({
+    await expect(revokeSignIn({ accountApp: ACCOUNT_APP, fetchImplementation: accountApp.fetchImplementation }, 'cookie-value')).resolves.toBe(true);
+    expect(Object.fromEntries(new URLSearchParams(await accountApp.asked[0]?.text()))).toEqual({
       token: 'cookie-value',
       client_id: 'console',
       client_secret: 's'.repeat(32),
@@ -211,7 +211,7 @@ describe('signing out at pagasae', () => {
   });
 });
 
-describe('why the console says pagasae is unreachable', () => {
+describe('why the console says the account app is unreachable', () => {
   const SIGN_IN = { signIn: 'cookie-secret', fleetId: 'flt_1' };
 
   /** What the console's server logged as a warning, joined. */
@@ -226,55 +226,55 @@ describe('why the console says pagasae is unreachable', () => {
   it('names the token exchange and a timeout', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const timeout = new DOMException('The operation timed out.', 'TimeoutError');
-    await exchangeSignIn({ pagasae: PAGASAE, fetchImplementation: () => Promise.reject(timeout) }, SIGN_IN);
-    expect(logged(warn)).toContain('pagasae unreachable: token exchange: timeout after 10000 ms');
+    await exchangeSignIn({ accountApp: ACCOUNT_APP, fetchImplementation: () => Promise.reject(timeout) }, SIGN_IN);
+    expect(logged(warn)).toContain('the account app unreachable: token exchange: timeout after 10000 ms');
   });
 
   it('names the argo ticket exchange and a network error with its cause', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const failure = new TypeError('fetch failed', { cause: Object.assign(new Error('reset'), { code: 'ECONNRESET' }) });
-    await exchangeArgoTicket({ pagasae: PAGASAE, fetchImplementation: () => Promise.reject(failure) }, SIGN_IN);
-    expect(logged(warn)).toContain('pagasae unreachable: argo ticket exchange: network error TypeError ECONNRESET');
+    await exchangeArgoTicket({ accountApp: ACCOUNT_APP, fetchImplementation: () => Promise.reject(failure) }, SIGN_IN);
+    expect(logged(warn)).toContain('the account app unreachable: argo ticket exchange: network error TypeError ECONNRESET');
   });
 
-  it('names the apps list and the status pagasae answered', async () => {
+  it('names the apps list and the status the account app answered', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    await fleetsOf({ pagasae: PAGASAE, fetchImplementation: answering(502, { error: 'bad_gateway' }).fetchImplementation }, 'cookie-secret');
-    expect(logged(warn)).toContain('pagasae unreachable: apps list: status 502');
+    await fleetsOf({ accountApp: ACCOUNT_APP, fetchImplementation: answering(502, { error: 'bad_gateway' }).fetchImplementation }, 'cookie-secret');
+    expect(logged(warn)).toContain('the account app unreachable: apps list: status 502');
   });
 
   it('names an unparseable body with its status', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const html: typeof fetch = () => Promise.resolve(new Response('<html>bad gateway</html>', { status: 502 }));
-    await exchangeSignIn({ pagasae: PAGASAE, fetchImplementation: html }, SIGN_IN);
-    expect(logged(warn)).toContain('pagasae unreachable: token exchange: status 502, unparseable body');
+    await exchangeSignIn({ accountApp: ACCOUNT_APP, fetchImplementation: html }, SIGN_IN);
+    expect(logged(warn)).toContain('the account app unreachable: token exchange: status 502, unparseable body');
   });
 
-  it('names the OAuth error pagasae answered that the console does not map', async () => {
+  it('names the OAuth error the account app answered that the console does not map', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    await exchangeSignIn({ pagasae: PAGASAE, fetchImplementation: answering(400, { error: 'invalid_client' }).fetchImplementation }, SIGN_IN);
-    expect(logged(warn)).toContain('pagasae unreachable: token exchange: status 400, error invalid_client');
+    await exchangeSignIn({ accountApp: ACCOUNT_APP, fetchImplementation: answering(400, { error: 'invalid_client' }).fetchImplementation }, SIGN_IN);
+    expect(logged(warn)).toContain('the account app unreachable: token exchange: status 400, error invalid_client');
   });
 
   it('names an answer without a token', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    await exchangeSignIn({ pagasae: PAGASAE, fetchImplementation: answering(200, { access_token: 'tok-secret' }).fetchImplementation }, SIGN_IN);
-    expect(logged(warn)).toContain('pagasae unreachable: token exchange: status 200, answer without the expected fields');
+    await exchangeSignIn({ accountApp: ACCOUNT_APP, fetchImplementation: answering(200, { access_token: 'tok-secret' }).fetchImplementation }, SIGN_IN);
+    expect(logged(warn)).toContain('the account app unreachable: token exchange: status 200, answer without the expected fields');
   });
 
   it('logs no secret, token, sign-in or body', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    await exchangeSignIn({ pagasae: PAGASAE, fetchImplementation: answering(200, { access_token: 'tok-secret' }).fetchImplementation }, SIGN_IN);
-    await fleetsOf({ pagasae: PAGASAE, fetchImplementation: answering(500, { detail: 'body-secret' }).fetchImplementation }, 'cookie-secret');
+    await exchangeSignIn({ accountApp: ACCOUNT_APP, fetchImplementation: answering(200, { access_token: 'tok-secret' }).fetchImplementation }, SIGN_IN);
+    await fleetsOf({ accountApp: ACCOUNT_APP, fetchImplementation: answering(500, { detail: 'body-secret' }).fetchImplementation }, 'cookie-secret');
     const output = logged(warn);
-    for (const secret of [PAGASAE.clientSecret, 'tok-secret', 'cookie-secret', 'body-secret']) {
+    for (const secret of [ACCOUNT_APP.clientSecret, 'tok-secret', 'cookie-secret', 'body-secret']) {
       expect(output).not.toContain(secret);
     }
   });
 
-  it('logs nothing when pagasae answers a mapped outcome', async () => {
+  it('logs nothing when the account app answers a mapped outcome', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    await exchangeSignIn({ pagasae: PAGASAE, fetchImplementation: answering(400, { error: 'invalid_grant' }).fetchImplementation }, SIGN_IN);
+    await exchangeSignIn({ accountApp: ACCOUNT_APP, fetchImplementation: answering(400, { error: 'invalid_grant' }).fetchImplementation }, SIGN_IN);
     expect(warn).not.toHaveBeenCalled();
   });
 });

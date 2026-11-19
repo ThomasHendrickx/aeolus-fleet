@@ -1,13 +1,13 @@
 import { appsListSchema, type AppsList } from '@aeolus-fleet/common';
 
-import { basicAuthOf, pagasaeFrom, SHARED_SIGN_IN_COOKIE } from './pagasae';
+import { basicAuthOf, accountAppFrom, SHARED_SIGN_IN_COOKIE } from './account-app';
 
 /**
  * The apps and fleets the signed-in account may open (header design H1), read
- * by the web app's server only: pagasae's GET /api/apps, asked with the
+ * by the web app's server only: the account app's GET /api/apps, asked with the
  * console's app credentials and the shared sign-in the browser sent, never
- * cached. None without pagasae (self-hosted), without the shared sign-in
- * (argo's sign-in, the viewer) or while pagasae gives none: the header then
+ * cached. None without the account app (self-hosted), without the shared sign-in
+ * (argo's sign-in, the viewer) or while the account app gives none: the header then
  * shows the console and its own fleet alone.
  */
 
@@ -28,13 +28,13 @@ export async function appsListFor(input: {
   fetchImplementation?: typeof fetch;
 }): Promise<AppsList | null> {
   const { environment, cookieHeader, fetchImplementation = fetch } = input;
-  const pagasae = pagasaeFrom(environment);
+  const accountApp = accountAppFrom(environment);
   const signIn = sharedSignInOf(cookieHeader);
-  if (pagasae === undefined || signIn === undefined) {
+  if (accountApp === undefined || signIn === undefined) {
     return null;
   }
   try {
-    const response = await fetchImplementation(`${pagasae.url}/api/apps`, { headers: { authorization: basicAuthOf(pagasae), 'aeolus-sign-in': signIn }, cache: 'no-store' });
+    const response = await fetchImplementation(`${accountApp.url}/api/apps`, { headers: { authorization: basicAuthOf(accountApp), 'aeolus-sign-in': signIn }, cache: 'no-store' });
     if (!response.ok) {
       return null;
     }

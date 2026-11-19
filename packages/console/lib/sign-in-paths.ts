@@ -1,7 +1,7 @@
 /** Where an account goes when it holds no scope in the fleet, or in any (accounts design, F1). */
 export const NO_RIGHTS_PATH = '/sign-in/no-rights';
 
-/** Where an account goes when pagasae does not answer. */
+/** Where an account goes when the account app does not answer. */
 export const UNREACHABLE_PATH = '/sign-in/unreachable';
 
 /** Where an account goes when a switch to another fleet could not end argo's sign-in: it stays in the fleet it was in, signed in as argo. */

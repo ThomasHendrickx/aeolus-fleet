@@ -12,16 +12,16 @@ import { newKey } from '../packages/core/src/testing/keys.js';
 import { unwrap } from '../packages/core/src/testing/result.js';
 import { createUseCases, type UseCases } from '../packages/core/src/wiring.js';
 import { FLEET_URL, OPERATOR, operatorCaller } from '../packages/core/test/support/core-fixtures.js';
-import { startFakePagasae, type FakeAccount, type FakePagasae } from './support/fake-pagasae.js';
+import { startFakeAccountApp, type FakeAccount, type FakeAccountApp } from './support/fake-account-app.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 
 // A human signs in to the console as their own account (accounts design, F1,
-// A8): through pagasae's shared sign-in, with an account token for the fleet,
-// no lease, and the console showing what the account's scopes allow. pagasae
-// is the fake one, answering as pagasae does.
+// A8): through the account app's shared sign-in, with an account token for the fleet,
+// no lease, and the console showing what the account's scopes allow. the account app
+// is the fake one, answering as the account app does.
 
 let database: PrismaClient;
-let pagasae: FakePagasae;
+let accountApp: FakeAccountApp;
 let server: FastifyInstance;
 let web: RunningWeb;
 let browser: Browser;
@@ -45,11 +45,11 @@ beforeAll(async () => {
   lookoutId = lookout.shipId;
   unwrap(await useCases.claimShip({ shipId: lookoutId, secret: secretOf(lookout.secret), location: { kind: 'CLOUD' }, harness: 'claude-code' }));
 
-  pagasae = await startFakePagasae();
+  accountApp = await startFakeAccountApp();
   const webUrl = await reserveWebUrl();
-  server = createApp({ databaseUrl, publicUrl: FLEET_URL, consoleOrigin: webUrl, logger: false, accountTokenIssuer: pagasae.url });
+  server = createApp({ databaseUrl, publicUrl: FLEET_URL, consoleOrigin: webUrl, logger: false, accountTokenIssuer: accountApp.url });
   const serverUrl = await server.listen({ host: '127.0.0.1', port: 0 });
-  web = await startWeb({ url: webUrl, serverUrl, pagasae });
+  web = await startWeb({ url: webUrl, serverUrl, accountApp });
   browser = await launchChromium();
 });
 
@@ -58,7 +58,7 @@ afterAll(async () => {
   await browser.close();
   await web.stop();
   await server.close();
-  await pagasae.close();
+  await accountApp.close();
   await database.$disconnect();
 });
 
@@ -69,8 +69,8 @@ async function newPage(): Promise<Page> {
 }
 
 describe('an account signing in to the console', () => {
-  it('signs in through pagasae once and sees the fleet as itself, with no Compose and no lease taken', async () => {
-    pagasae.signInAs(mathilde());
+  it('signs in through the account app once and sees the fleet as itself, with no Compose and no lease taken', async () => {
+    accountApp.signInAs(mathilde());
     const leasesBefore = await database.lease.count({ where: { fleetId } });
     const page = await newPage();
 
@@ -90,44 +90,44 @@ describe('an account signing in to the console', () => {
     await expect(database.consoleSession.count({ where: { fleetId } })).resolves.toBe(0);
   });
 
-  it('enters at once with the shared sign-in already there: no second sign-in at pagasae', async () => {
-    pagasae.signInAs(mathilde());
+  it('enters at once with the shared sign-in already there: no second sign-in at the account app', async () => {
+    accountApp.signInAs(mathilde());
     const page = await newPage();
     await page.goto('/');
     await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
-    const asked = pagasae.signInsAsked();
+    const asked = accountApp.signInsAsked();
     const context = page.context();
-    // The console's own sign-in cookies go; pagasae's shared sign-in stays.
+    // The console's own sign-in cookies go; the account app's shared sign-in stays.
     await context.clearCookies({ name: 'aeolus_account_token' });
 
     await page.goto('/ships');
 
     await page.waitForURL(`${web.url}/ships`);
-    expect(pagasae.signInsAsked()).toBe(asked);
+    expect(accountApp.signInsAsked()).toBe(asked);
   });
 
-  it("asks pagasae for the account's apps list once per page load: the header and the avatar menu share it", async () => {
-    pagasae.signInAs(mathilde());
+  it("asks the account app for the account's apps list once per page load: the header and the avatar menu share it", async () => {
+    accountApp.signInAs(mathilde());
     const page = await newPage();
     await page.goto('/');
     await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
     await page.waitForLoadState('networkidle');
-    const asked = pagasae.appsListsAsked();
+    const asked = accountApp.appsListsAsked();
 
     await page.reload();
     await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
     await page.waitForLoadState('networkidle');
 
-    expect(pagasae.appsListsAsked() - asked).toBe(1);
+    expect(accountApp.appsListsAsked() - asked).toBe(1);
   });
 
-  it("asks pagasae for the apps list no more when the account comes back to the page's tab", async () => {
-    pagasae.signInAs(mathilde());
+  it("asks the account app for the apps list no more when the account comes back to the page's tab", async () => {
+    accountApp.signInAs(mathilde());
     const page = await newPage();
     await page.goto('/');
     await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
     await page.waitForLoadState('networkidle');
-    const asked = pagasae.appsListsAsked();
+    const asked = accountApp.appsListsAsked();
     const reads: Request[] = [];
     page.on('request', (request) => {
       if (request.url().includes('/api/reads/')) {
@@ -142,11 +142,11 @@ describe('an account signing in to the console', () => {
     await listedAgain;
     await Promise.all(reads.map((read) => read.response()));
 
-    expect(pagasae.appsListsAsked()).toBe(asked);
+    expect(accountApp.appsListsAsked()).toBe(asked);
   });
 
   it("pings a crewed ship from its page: argo's ping, the event naming the account", async () => {
-    pagasae.signInAs(mathilde());
+    accountApp.signInAs(mathilde());
     const page = await newPage();
 
     await page.goto(`/ships/${lookoutId}`);
@@ -159,7 +159,7 @@ describe('an account signing in to the console', () => {
 
   it('shows the notices for accounts above every page, and keeps one it dismissed gone (accounts design, A9)', async () => {
     await useCases.setNotices({ notices: [{ id: 'teams', audience: 'accounts', text: 'Your organisation now signs in with its own accounts.', links: [], isDismissible: true }] });
-    pagasae.signInAs(mathilde());
+    accountApp.signInAs(mathilde());
     const page = await newPage();
     await page.goto('/');
 
@@ -175,7 +175,7 @@ describe('an account signing in to the console', () => {
 
   it('keeps the theme the account picks in the cookie every Aeolus app reads, from the first paint of the next page (header-across-apps T1)', async () => {
     // Given an account signed in to the console
-    pagasae.signInAs(mathilde());
+    accountApp.signInAs(mathilde());
     const page = await newPage();
     await page.goto('/');
     await page.locator('[data-testid="avatar-menu"]:visible').click();
@@ -191,7 +191,7 @@ describe('an account signing in to the console', () => {
 
   it('shows the theme another Aeolus app kept in this browser, from the first paint (header-across-apps T1)', async () => {
     // Given a browser where Bridge kept Dark
-    pagasae.signInAs(mathilde());
+    accountApp.signInAs(mathilde());
     const page = await newPage();
     await page.context().addCookies([{ name: THEME_COOKIE, value: 'dark', url: web.url }]);
 
@@ -203,7 +203,7 @@ describe('an account signing in to the console', () => {
   });
 
   it('says there is nothing to manage here for an account without fleet:read', async () => {
-    pagasae.signInAs(mathilde(['messages:send']));
+    accountApp.signInAs(mathilde(['messages:send']));
     const page = await newPage();
 
     await page.goto('/');
@@ -213,7 +213,7 @@ describe('an account signing in to the console', () => {
   });
 
   it('says the account has no rights in the fleet when it holds none', async () => {
-    pagasae.signInAs({ id: 'acc-burak', email: 'burak@acme.example', fleets: [] });
+    accountApp.signInAs({ id: 'acc-burak', email: 'burak@acme.example', fleets: [] });
     const page = await newPage();
 
     await page.goto('/');
@@ -223,7 +223,7 @@ describe('an account signing in to the console', () => {
   });
 
   it("says a sign-in that did not go through in an account's words, never argo's terminal link", async () => {
-    pagasae.signInAs(mathilde());
+    accountApp.signInAs(mathilde());
     const page = await newPage();
 
     await page.goto('/sign-in/done?code=forged&state=forged');
@@ -235,19 +235,19 @@ describe('an account signing in to the console', () => {
     await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
   });
 
-  it('signs out of every app: the shared sign-in ends at pagasae and the console asks to sign in again', async () => {
-    pagasae.signInAs(mathilde());
+  it('signs out of every app: the shared sign-in ends at the account app and the console asks to sign in again', async () => {
+    accountApp.signInAs(mathilde());
     const page = await newPage();
     await page.goto('/');
     await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
-    const revokedBefore = pagasae.revoked().length;
+    const revokedBefore = accountApp.revoked().length;
 
     await page.locator('[data-testid="avatar-menu"]:visible').click();
     await page.getByRole('menuitem', { name: 'Sign out' }).click();
 
     await page.waitForURL(`${web.url}/sign-in?signed=out`);
     await page.getByTestId('sign-in-signed-out').waitFor();
-    expect(pagasae.revoked().length).toBe(revokedBefore + 1);
+    expect(accountApp.revoked().length).toBe(revokedBefore + 1);
     const cookies = await page.context().cookies();
     expect(cookies.map(({ name }) => name)).not.toContain('aeolus_account_token');
   });

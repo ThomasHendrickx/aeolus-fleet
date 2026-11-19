@@ -10,18 +10,18 @@ import { newKey } from '../packages/core/src/testing/keys.js';
 import { unwrap } from '../packages/core/src/testing/result.js';
 import { createUseCases } from '../packages/core/src/wiring.js';
 import { FLEET_URL } from '../packages/core/test/support/core-fixtures.js';
-import { FAKE_CONSOLE_URL, startFakePagasae, type FakeAccount, type FakePagasae } from './support/fake-pagasae.js';
+import { FAKE_CONSOLE_URL, startFakeAccountApp, type FakeAccount, type FakeAccountApp } from './support/fake-account-app.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 
 // An account switches the console between two fleets of one organisation
 // with the one sign-in it has (second fleet design; header design, H9): the
-// console asks pagasae for the other fleet's account token, never a new
+// console asks the account app for the other fleet's account token, never a new
 // sign-in, and renews for the fleet in view from then on.
 
 const ACCOUNT_URL = 'https://account.acme.example/account';
 
 let database: PrismaClient;
-let pagasae: FakePagasae;
+let accountApp: FakeAccountApp;
 let server: FastifyInstance;
 let web: RunningWeb;
 let browser: Browser;
@@ -44,18 +44,18 @@ beforeAll(async () => {
   const databaseUrl = await createMigratedDatabase();
   database = createPrismaClient(databaseUrl);
   const useCases = createUseCases({ prisma: database });
-  // Two fleets the installation creates, as pagasae creates an organisation's fleets.
+  // Two fleets the installation creates, as the account app creates an organisation's fleets.
   ({ fleetId: fleetA } = unwrap(await useCases.createFleet({ requestId: newKey(), name: 'home fleet', operatorEmail: 'admin@acme.example' })));
   ({ fleetId: fleetB } = unwrap(await useCases.createFleet({ requestId: newKey(), name: 'second fleet', operatorEmail: 'admin-second@acme.example' })));
 
   const webUrl = await reserveWebUrl();
-  pagasae = await startFakePagasae({
+  accountApp = await startFakeAccountApp({
     accountUrl: ACCOUNT_URL,
     argoTickets: async (forFleet, accountId) => unwrap(await useCases.issueSignInTicket({ fleetId: idSchema('fleet').parse(forFleet), account: { id: accountIdSchema.parse(accountId) } })).ticket,
   });
-  server = createApp({ databaseUrl, publicUrl: FLEET_URL, consoleOrigin: webUrl, logger: false, accountTokenIssuer: pagasae.url });
+  server = createApp({ databaseUrl, publicUrl: FLEET_URL, consoleOrigin: webUrl, logger: false, accountTokenIssuer: accountApp.url });
   const serverUrl = await server.listen({ host: '127.0.0.1', port: 0 });
-  web = await startWeb({ url: webUrl, serverUrl, pagasae });
+  web = await startWeb({ url: webUrl, serverUrl, accountApp });
   browser = await launchChromium();
 });
 
@@ -64,13 +64,13 @@ afterAll(async () => {
   await browser.close();
   await web.stop();
   await server.close();
-  await pagasae.close();
+  await accountApp.close();
   await database.$disconnect();
 });
 
 /** A new browser signed in to the console in fleet A as the account, the page hydrated. */
 async function signedInToA(who: FakeAccount): Promise<Page> {
-  pagasae.signInAs(who);
+  accountApp.signInAs(who);
   const context = await browser.newContext({ baseURL: web.url });
   contexts.push(context);
   const page = await context.newPage();
@@ -112,7 +112,7 @@ async function isSignedInAsAccount(page: Page): Promise<void> {
 describe('switching the console between two fleets of one organisation', () => {
   it("lands in the console in fleet B from the header's switcher, with the same sign-in, and renews for fleet B", async () => {
     const page = await signedInToA(mathilde());
-    const signInsBefore = pagasae.signInsAsked();
+    const signInsBefore = accountApp.signInsAsked();
 
     await openFleets(page);
     const link = new URL((await page.getByTestId('app-switcher-fleet').filter({ hasText: 'second fleet' }).getAttribute('href')) ?? '');
@@ -124,7 +124,7 @@ describe('switching the console between two fleets of one organisation', () => {
     await page.waitForURL(`${web.url}/?fleet=${fleetB}`);
     await isHydrated(page);
     await expect(page.locator('[data-testid="app-switcher-fleets"]:visible').getAttribute('aria-label')).resolves.toContain('second fleet');
-    expect(pagasae.signInsAsked()).toBe(signInsBefore);
+    expect(accountApp.signInsAsked()).toBe(signInsBefore);
     expect(await tokenFleetOf(page)).toBe(fleetB);
     const renewal = await page.request.post('/sign-in/renew', { headers: { origin: web.url } });
     expect(renewal.status()).toBe(200);
@@ -141,7 +141,7 @@ describe('switching the console between two fleets of one organisation', () => {
 
   it('says the account has no rights in fleet B once its rights there are gone', async () => {
     const page = await signedInToA(mathilde());
-    pagasae.changeScopes({ accountId: 'acc-mathilde', fleetId: fleetB, scopes: [] });
+    accountApp.changeScopes({ accountId: 'acc-mathilde', fleetId: fleetB, scopes: [] });
 
     await page.goto(`/?fleet=${fleetB}`);
 
@@ -167,7 +167,7 @@ describe('switching the console between two fleets of one organisation', () => {
 
   it('signs in again and lands in fleet B when the shared sign-in ended before the switch', async () => {
     const page = await signedInToA(mathilde());
-    pagasae.endSignIns();
+    accountApp.endSignIns();
 
     await page.goto(`/?fleet=${fleetB}`);
 

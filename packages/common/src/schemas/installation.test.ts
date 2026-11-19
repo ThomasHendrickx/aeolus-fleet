@@ -239,7 +239,7 @@ describe("a fleet's limits", () => {
 });
 
 describe('installationAccountsCutOffInputSchema', () => {
-  it("takes the account pagasae cut off, by its id only (decision 0058)", () => {
+  it("takes the account the account app cut off, by its id only (decision 0058)", () => {
     expect(installationAccountsCutOffInputSchema.parse({ accountId: 'acc-burak' })).toEqual({ accountId: 'acc-burak' });
   });
 

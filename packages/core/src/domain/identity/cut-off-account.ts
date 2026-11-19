@@ -23,7 +23,7 @@ export interface CutOffAccountTx extends LeaseTx {
 export type CutOffAccount = (input: { accountId: AccountId }) => Promise<void>;
 
 /**
- * Use case: pagasae, as the installation, cuts off a disabled account
+ * Use case: the account app, as the installation, cuts off a disabled account
  * (decisions 0055, 0058). Every token of it issued before now is refused in
  * every fleet of the installation, until the longest of them has ended; then
  * core forgets the account. Recording one forgets those that ended. The
@@ -31,7 +31,7 @@ export type CutOffAccount = (input: { accountId: AccountId }) => Promise<void>;
  * fleet, and names no ship.
  *
  * Every console sign-in as argo by the account ends too, in every fleet, and
- * with it the lease on argo it held, the installation the actor. pagasae calls
+ * with it the lease on argo it held, the installation the actor. the account app calls
  * again when a call fails: both halves are safe to repeat.
  */
 export function createCutOffAccount(deps: {

@@ -11,7 +11,7 @@ import { idempotencyKeySchema } from './idempotency-key.js';
 
 /**
  * The installation API (docs/architecture.md, "Installation"): what a service
- * hosting many fleets on one server, such as pagasae, calls with the
+ * hosting many fleets on one server, such as the account app, calls with the
  * installation token. Create and delete take the caller's own request id, so
  * a replay answers what the first call answered.
  */
@@ -168,7 +168,7 @@ export const installationFleetsSetLimitsInputSchema = z.strictObject({
 });
 
 /**
- * Input of `installation.accounts.cutOff`: the account pagasae disabled, by
+ * Input of `installation.accounts.cutOff`: the account the account app disabled, by
  * its id only; every token of it issued before now is refused in every
  * fleet of the installation until the longest has ended (decision 0058).
  */

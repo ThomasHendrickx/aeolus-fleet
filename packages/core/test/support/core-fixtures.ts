@@ -206,7 +206,7 @@ export function identityUseCases(core: InMemoryCore) {
     random: core.random,
     passwords: core.passwords,
   };
-  // No pagasae signs here, and no cut-off is kept: the account-token tests wire their own.
+  // No the account app signs here, and no cut-off is kept: the account-token tests wire their own.
   const cutOffs: AccountCutOffRepository = { record: () => Promise.resolve(), cutOffAt: () => Promise.resolve(undefined), forget: () => Promise.resolve() };
   const fleets: HostedFleets = { isHosted: (fleetId) => Promise.resolve(core.state.fleets.some((fleet) => fleet.id === fleetId)) };
   return {
@@ -217,7 +217,7 @@ export function identityUseCases(core: InMemoryCore) {
     signIn: createSignIn(deps),
     signOut: createSignOut(deps),
     resetOperatorPassword: createResetOperatorPassword(deps),
-    // No pagasae here: argo's own sign-in is the way in.
+    // No the account app here: argo's own sign-in is the way in.
     setOperatorLogin: createSetOperatorLogin({ ...deps, isSelfHosted: true }),
     readAccount: createReadAccount(deps),
     readArgoSignIn: createReadArgoSignIn(deps),

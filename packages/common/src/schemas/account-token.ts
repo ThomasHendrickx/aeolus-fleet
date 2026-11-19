@@ -3,10 +3,10 @@ import { z } from 'zod';
 import { scopeNameSchema } from '../fleet/index.js';
 import { idSchema } from '../ids/index.js';
 
-/** The longest account id core accepts: pagasae's opaque id, never an email (decision 0058). */
+/** The longest account id core accepts: the account app's opaque id, never an email (decision 0058). */
 export const ACCOUNT_ID_MAX_LENGTH = 128;
 
-/** An account's id as pagasae names it: opaque to core, which stores no account (decision 0058). */
+/** An account's id as the account app names it: opaque to core, which stores no account (decision 0058). */
 export const accountIdSchema = z.string().min(1).max(ACCOUNT_ID_MAX_LENGTH).brand<'AccountId'>();
 export type AccountId = z.infer<typeof accountIdSchema>;
 
@@ -15,7 +15,7 @@ const MILLISECONDS_PER_SECOND = 1000;
 const tokenDateSchema = z.number().transform((seconds) => new Date(seconds * MILLISECONDS_PER_SECOND)).pipe(z.date());
 
 /**
- * The claims of an account token pagasae signed for one account in one fleet
+ * The claims of an account token the account app signed for one account in one fleet
  * (decision 0058), read once its signature and issuer are checked: the
  * account, its organisation, the fleet (its audience), the scopes and `group`
  * values its groups and own rights give there, its person ship there if it

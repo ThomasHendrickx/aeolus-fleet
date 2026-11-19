@@ -4,29 +4,29 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { createTestIssuer, type TestIssuer } from '../../packages/core/src/testing/account-token-issuer.js';
 
 /**
- * pagasae as the console meets it in the end-to-end tests: the shared sign-in
+ * the account app as the console meets it in the end-to-end tests: the shared sign-in
  * cookie, the console as an OpenID Connect client with PKCE, the token
  * exchange that answers an account token core trusts, the apps list, the
- * account-name lookup and revoke, with the answers pagasae gives (its
+ * account-name lookup and revoke, with the answers the account app gives (its
  * `lib/app-tokens.ts`, `app/api/apps`, `app/oauth/revoke`). Its sign-in page
  * signs in whoever the test says, at once. Given argo's tickets, it answers
  * an account allowed as argo of a fleet core's ticket for it (accounts
- * design, F4), as pagasae asks core for one.
+ * design, F4), as the account app asks core for one.
  */
 
 export interface FakeAccount {
   id: string;
   email: string;
-  /** The fleets the account holds scopes in, with them, in the order pagasae lists them. */
+  /** The fleets the account holds scopes in, with them, in the order the account app lists them. */
   fleets: readonly { id: string; name: string; scopes: readonly string[]; isArgoAllowed?: boolean }[];
 }
 
-/** Core's sign-in ticket as argo of the fleet, naming the account, as pagasae gets it with the installation token. */
+/** Core's sign-in ticket as argo of the fleet, naming the account, as the account app gets it with the installation token. */
 export type ArgoTickets = (fleetId: string, accountId: string) => Promise<string>;
 
 const ARGO_TICKET_TOKEN_TYPE = 'urn:aeolus:params:oauth:token-type:argo-sign-in-ticket';
 
-export interface FakePagasae {
+export interface FakeAccountApp {
   url: string;
   issuer: TestIssuer;
   clientId: string;
@@ -37,13 +37,13 @@ export interface FakePagasae {
   signInsAsked(): number;
   /** The shared sign-ins revoked so far. */
   revoked(): readonly string[];
-  /** How long each account token lasts from now on, in seconds: 600 as pagasae's, or shorter to see a renewal soon. */
+  /** How long each account token lasts from now on, in seconds: 600 as the account app's, or shorter to see a renewal soon. */
   issueTokensFor(seconds: number): void;
   /** The scopes the account holds in the fleet from now on, as an organisation admin changing its groups would give. */
   changeScopes(change: { accountId: string; fleetId: string; scopes: readonly string[] }): void;
   /** Every shared sign-in ends, as signing out elsewhere or disabling the account does. */
   endSignIns(): void;
-  /** pagasae stops answering, or answers again. */
+  /** the account app stops answering, or answers again. */
   setDown(isDown: boolean): void;
   /** How many account tokens it issued. */
   tokensIssued(): number;
@@ -74,8 +74,8 @@ function json(response: ServerResponse, answer: { status: number; body: unknown 
 /** The console's address in the apps list: the header's switcher links there. */
 export const FAKE_CONSOLE_URL = 'https://console.acme.example';
 
-/** The apps list names Account at accountUrl when given, as pagasae always does; by default it names none. With gatewayUrl, each fleet names the gateway there too. */
-export async function startFakePagasae(options: { argoTickets?: ArgoTickets; accountUrl?: string; gatewayUrl?: string } = {}): Promise<FakePagasae> {
+/** The apps list names Account at accountUrl when given, as the account app always does; by default it names none. With gatewayUrl, each fleet names the gateway there too. */
+export async function startFakeAccountApp(options: { argoTickets?: ArgoTickets; accountUrl?: string; gatewayUrl?: string } = {}): Promise<FakeAccountApp> {
   const { accountUrl, gatewayUrl } = options;
   let account: FakeAccount | undefined;
   let asked = 0;
@@ -91,7 +91,7 @@ export async function startFakePagasae(options: { argoTickets?: ArgoTickets; acc
 
   const server = createServer((request, response) => {
     void (async () => {
-      const url = new URL(request.url ?? '/', 'http://pagasae');
+      const url = new URL(request.url ?? '/', 'http://account-app');
       if (isDown && url.pathname !== '/.well-known/jwks.json') {
         request.socket.destroy();
         return;
@@ -118,7 +118,7 @@ export async function startFakePagasae(options: { argoTickets?: ArgoTickets; acc
         codes.set(code, { session, challenge: params.get('code_challenge') ?? '', redirectUri: params.get('redirect_uri') ?? '' });
         const back = new URL(params.get('redirect_uri') ?? '');
         back.search = new URLSearchParams({ code, state: params.get('state') ?? '' }).toString();
-        // Host-only on localhost, as pagasae's is without SIGN_IN_COOKIE_DOMAIN: every app on localhost gets it.
+        // Host-only on localhost, as the account app's is without SIGN_IN_COOKIE_DOMAIN: every app on localhost gets it.
         response.writeHead(302, { location: back.toString(), 'set-cookie': `${COOKIE}=${session}; Path=/; HttpOnly; SameSite=Lax` });
         response.end();
         return;
@@ -178,7 +178,7 @@ export async function startFakePagasae(options: { argoTickets?: ArgoTickets; acc
           body: {
             account: { id: holder.id, email: holder.email },
             apps: accountUrl === undefined ? [] : [{ app: 'account', url: accountUrl }],
-            // As pagasae lists them: each fleet where the account holds any scope.
+            // As the account app lists them: each fleet where the account holds any scope.
             fleets: holder.fleets
               .filter(({ scopes }) => scopes.length > 0)
               .map(({ id, name, scopes, isArgoAllowed }) => ({ id, name, argo: isArgoAllowed === true, apps: [...(scopes.includes('fleet:read') ? [{ app: 'console', url: FAKE_CONSOLE_URL }] : []), ...(gatewayUrl === undefined ? [] : [{ app: 'gateway', url: gatewayUrl }])] })),
@@ -206,7 +206,7 @@ export async function startFakePagasae(options: { argoTickets?: ArgoTickets; acc
   await new Promise<void>((listening) => server.listen(0, listening));
   const bound = server.address();
   if (bound === null || typeof bound === 'string') {
-    throw new Error('the fake pagasae listens on no port');
+    throw new Error('the fake the account app listens on no port');
   }
   const url = `http://localhost:${String(bound.port)}`;
   const issuer = createTestIssuer(url);

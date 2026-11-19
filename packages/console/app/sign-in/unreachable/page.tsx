@@ -3,7 +3,7 @@ import { AuthCard } from '../../../features/sign-in/ui/organisms/auth-card';
 
 export const dynamic = 'force-dynamic';
 
-/** pagasae did not answer, so no account signs in until it does (decision 0058); messaging goes on meanwhile. */
+/** the account app did not answer, so no account signs in until it does (decision 0058); messaging goes on meanwhile. */
 export default function SignInUnreachablePage() {
   return (
     <AuthCard recovery={null}>

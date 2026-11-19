@@ -343,7 +343,7 @@ export interface RequestCredentials {
   sessionToken?: string;
   /** The ship a plugin reads on behalf of, as the `Aeolus-On-Behalf-Of` header named it (decision 0034). */
   onBehalfOf?: string;
-  /** An account token pagasae signed, from the `Aeolus-Account-Token` header; a bearer crew token beside it names the ship that presented it (decision 0058). */
+  /** An account token the account app signed, from the `Aeolus-Account-Token` header; a bearer crew token beside it names the ship that presented it (decision 0058). */
   accountToken?: string;
   /** An account token from the console's account token cookie: an account signed in to the console (accounts design, F1). */
   accountTokenCookie?: string;

@@ -39,7 +39,7 @@ beforeAll(async () => {
   const databaseUrl = await createMigratedDatabase();
   database = createPrismaClient(databaseUrl);
   hostedSignIn = createServer((_request, response) => {
-    response.writeHead(200, { 'content-type': 'text/html' }).end('<!doctype html><title>pagasae</title><h1>Sign in or sign up</h1>');
+    response.writeHead(200, { 'content-type': 'text/html' }).end('<!doctype html><title>Account app</title><h1>Sign in or sign up</h1>');
   });
   await new Promise<void>((resolve) => hostedSignIn.listen(0, '127.0.0.1', resolve));
   const address = hostedSignIn.address();

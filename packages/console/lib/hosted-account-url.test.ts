@@ -4,7 +4,7 @@ import { hostedAccountUrlFrom } from './hosted-account-url';
 
 describe('hostedAccountUrlFrom', () => {
   it("reads the hosting service's account page", () => {
-    expect(hostedAccountUrlFrom({ AEOLUS_HOSTED_ACCOUNT_URL: 'https://pagasae.aeolus-fleet.dev/account' })).toBe('https://pagasae.aeolus-fleet.dev/account');
+    expect(hostedAccountUrlFrom({ AEOLUS_HOSTED_ACCOUNT_URL: 'https://account-app.aeolus-fleet.dev/account' })).toBe('https://account-app.aeolus-fleet.dev/account');
   });
 
   it.each([

@@ -1284,7 +1284,7 @@ model Event {
   /// Who caused it (decision 0057): a ship, an account, the installation or the system.
   actorKind              EventActorKind @default(system) @map("actor_kind")
   actorShipId            String?        @map("actor_ship_id")
-  /// The account that caused it, by pagasae's id only: never an email.
+  /// The account that caused it, by the account app's id only: never an email.
   actorAccountId         String?        @map("actor_account_id")
   /// The ship that presented the account's token, a plugin's page or the gateway, if one did.
   actorThroughShipId     String?        @map("actor_through_ship_id")
@@ -1517,7 +1517,7 @@ model NoticeDismissal {
 
 /// A notice an account signed in to the console as itself dismissed, for
 /// itself, kept by its account id in each fleet (accounts design, A9). Core
-/// stores no account: the id is pagasae's. It goes with its fleet.
+/// stores no account: the id is the account app's. It goes with its fleet.
 model AccountNoticeDismissal {
   fleetId     String   @map("fleet_id")
   accountId   String   @map("account_id")
@@ -1581,10 +1581,10 @@ model AccountGuideProgress {
   @@map("account_guide_progress")
 }
 
-/// An account pagasae cut off (decision 0058): its tokens issued before
+/// An account the account app cut off (decision 0058): its tokens issued before
 /// cut_off_at are refused in every fleet until forget_at, when the longest of
 /// them has ended. The installation's, not a fleet's: no fleet_id (ADR 0007).
-/// Never an email: the account by pagasae's id only.
+/// Never an email: the account by the account app's id only.
 model AccountCutOff {
   accountId String   @id @map("account_id")
   cutOffAt  DateTime @map("cut_off_at") @db.Timestamptz(3)

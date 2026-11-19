@@ -3,7 +3,7 @@ import type { AppsList, HeaderApp } from '../schemas/apps-list.js';
 
 /*
  * What the switcher in the title offers (header design H1, H8, H9): the fleets
- * of the account and the apps of the fleet in view, from the list pagasae
+ * of the account and the apps of the fleet in view, from the list the account app
  * answers. Without a list (argo's sign-in, the viewer, self-hosted) it offers
  * the fleet in view and the app open alone, and switches nothing. Every app
  * takes the fleet in view from its address, `?fleet=<fleet id>`; Account

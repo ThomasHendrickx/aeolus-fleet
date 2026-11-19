@@ -16,7 +16,7 @@ A good outcome:
 1. On the CRM's page the approver sets search_leads and read_lead to need `crm:read-leads`, and update_lead to need `crm:write-leads`. On the company vault's page, write_note and delete_note need `company-memory:write`; search and read need none.
 2. A ship that reaches the CRM's proxy ship without `crm:write-leads` gets a plain refusal on update_lead, and the call never reaches the CRM.
 3. One scope may guard tools of several parties: `finance:read` on the accounting server and on the payroll server.
-4. Defined scopes are granted like any scope (`scopes:grant`, or a group in pagasae), effective at the next call, with its event. No network rule or label changes.
+4. Defined scopes are granted like any scope (`scopes:grant`, or a group in the account app), effective at the next call, with its event. No network rule or label changes.
 5. Renaming or retiring a proxy ship moves no grant: nothing is keyed by a ship's name.
 
 How it holds together:
@@ -62,7 +62,7 @@ Part A:
 | L26 | The gateway sends an outside A2A agent an A2A message with no skill named; the card's skills only describe the agent | gateway `src/core/a2a-out/agent-message.ts`, `agent-statement.ts` |
 | L27 | Labels are defined by an actor holding `labels:define`, owned by it and retired with it, referred to by ids so a text change moves nothing | [0031](../../decisions/0031-labels.md) |
 | L28 | Owner is only a ship's; the fleet manager manages one fleet and holds every scope it offers | [0050](../../decisions/0050-domain-language.md), [0051](../../decisions/0051-organisation.md) |
-| L29 | Groups in pagasae give scopes per fleet; an account's scopes ride in its token | [0052](../../decisions/0052-groups.md), [0058](../../decisions/0058-pagasae-core-link.md) |
+| L29 | Groups in the account app give scopes per fleet; an account's scopes ride in its token | [0052](../../decisions/0052-groups.md), [0058](../../decisions/0058-account-app-core-link.md) |
 
 Part B:
 
@@ -76,7 +76,7 @@ Part B:
 | L16 | Who may message whom is network rules (send reach), refused with a plain "No rule matches"; no rights travel with a message | [0034](../../decisions/0034-network-rules.md), 0046 |
 | L17 | An outside party needs an owner, which only a real account can be; an anonymous request was rejected. The fleet's outside parties are a switch per fleet, off by default | [0056](../../decisions/0056-outside-parties.md) |
 | L18 | A chat bot's token belongs to the app, not a person, and outlives whoever installed it | [actors](../accounts/actors.md), line 96 |
-| L19 | Identity is pagasae's, and the address stays there; core holds no email | [0054](../../decisions/0054-sign-in.md), [0058](../../decisions/0058-pagasae-core-link.md) |
+| L19 | Identity is the account app's, and the address stays there; core holds no email | [0054](../../decisions/0054-sign-in.md), [0058](../../decisions/0058-account-app-core-link.md) |
 | L20 | A delivery once reached another ship's session after a restart (P1); a Slack user to person ship mapping, and a bot to ship mapping, must be exact | #881 |
 | L21 | Bots that answer every message flood or loop; Slack bots skip `bot_message` | [meetings](../meetings/meetings.md), L1 |
 | L22 | A ship's statement (summary, capabilities) is what others see of it; payloads are at most 64 KB | [0047](../../decisions/0047-discovery-and-statements.md), [0006](../../decisions/0006-payload-limit.md) |
@@ -105,7 +105,7 @@ Thomas: "Ok that design for gateway with your picks I agree with. It allows for 
 - **Change the description** (`fleet.describeScope`). Writes `ScopeDescribed`. A scope is never renamed: a new name is a new scope.
 - **Remove** (`fleet.removeScope`): refused while an active ship holds it (SCOPE_HELD, naming how many ships), as 0046 refuses a declaration that drops a held scope. Writes `ScopeRemoved`. An account token naming a removed scope gives nothing: the scope no longer exists to be checked.
 - **A namespace holds either the fleet's scopes or one plugin's.** `fleet.declareScopes` by a plugin for a namespace the fleet uses is refused NAMESPACE_TAKEN, "by the fleet". Removing the fleet's last scope of a namespace frees it.
-- **Listed** by `fleet.scopes` beside the core and plugin namespaces, each namespace saying whose it is: core, a plugin's ship, or the fleet. pagasae's group editor and every scope picker read this list, so the fleet's scopes appear there with their descriptions (#1205).
+- **Listed** by `fleet.scopes` beside the core and plugin namespaces, each namespace saying whose it is: core, a plugin's ship, or the fleet. The account app's group editor and every scope picker read this list, so the fleet's scopes appear there with their descriptions (#1205).
 - **Granted as any scope** (0046): at commission or by `scopes:grant`, only by an actor that holds it. A newly defined scope is held by argo and the fleet manager, who grant it onwards. Holding `scopes:define` does not let an actor grant a scope it does not hold, so no one widens their own access by defining one.
 - **No cap.** Every refusal of a malformed or taken name names the rule.
 - **Console.** A Scopes page beside Labels and Network: every namespace with its scopes and descriptions, read-only for core and plugin namespaces; for the fleet's, Define scope (Dialog), Change description and Remove (each refusal inline). Shown to actors holding `fleet:read`; the controls to actors holding `scopes:define`.
@@ -146,7 +146,7 @@ The Tools section of an outside MCP server's page becomes a table. Same parts as
 
 ## 5. Part A: flows
 
-**Define and grant.** The fleet manager opens Scopes in the console and defines `crm:read-leads` ("Read leads in the CRM") and `crm:write-leads`. Core writes `ScopeDefined` twice. pagasae's group editor now offers both; the fleet manager gives Sales agents `crm:read-leads`, or grants it on the ship `lead-scout` with `scopes:grant` (`ScopesChanged`).
+**Define and grant.** The fleet manager opens Scopes in the console and defines `crm:read-leads` ("Read leads in the CRM") and `crm:write-leads`. Core writes `ScopeDefined` twice. The account app's group editor now offers both; the fleet manager gives Sales agents `crm:read-leads`, or grants it on the ship `lead-scout` with `scopes:grant` (`ScopesChanged`).
 - Unhappy: `squadrons:read` is reserved; `gateway:x` is taken by the gateway's ship; `crm:read-leads` exists already; each refused by name, nothing written.
 
 **Set the requirements.** An approver opens the CRM's page: 50 tools, skeleton rows, then the table. They set Every tool needs to nothing, use Suggest from hints with `crm:read-leads` and `crm:write-leads`: 31 tools get read, 14 get write, 5 have no hint and are listed apart. They filter by "delete", select the 3 delete tools and Add `crm:admin`. Each step one transaction, a Toast, rows highlighted.
@@ -212,7 +212,7 @@ These change W1 (Slack joins web push and email as a channel; still no chat webh
 
 ### 9.3 Linking a person's Slack account
 
-- From the gateway's Overview, Link Slack: pagasae's sign-in if needed (0054), then Sign in with Slack (OpenID Connect), which gives the Slack user and workspace ids. The link is kept by fleet, Slack workspace and user, and person ship.
+- From the gateway's Overview, Link Slack: the account app's sign-in if needed (0054), then Sign in with Slack (OpenID Connect), which gives the Slack user and workspace ids. The link is kept by fleet, Slack workspace and user, and person ship.
 - From Slack: an unlinked person who messages or mentions a bot gets an answer only they see: "Link your Slack account to talk to release-notes", with a button to the same flow. Their message is not stored, since it has no sender yet: the answer says to send it again once linked.
 - One Slack user links to one account per fleet; a second link is refused, naming the first. Unlink on the Overview. An account with no person ship in the fleet cannot link ("Your account has no person ship in this fleet").
 - A disabled account (0055): its person ship is released, its links stop; a message from that Slack user is answered "Your account cannot message the fleet now".
@@ -286,7 +286,7 @@ On P-B3, Thomas asked: "what is the difference between agents ships and proxy sh
 
 ## 12. Part B: slices for 0.33.0
 
-All in aeolus-fleet-gateway; core and pagasae unchanged (`handed` takes the channel `slack` as it is).
+All in aeolus-fleet-gateway; core and the account app unchanged (`handed` takes the channel `slack` as it is).
 
 | # | Slice | Done when |
 | --- | --- | --- |

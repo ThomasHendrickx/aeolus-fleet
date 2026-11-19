@@ -24,7 +24,7 @@ Not the purpose:
 ### What production showed on 22 Oct (core and console 0.29.1, one fleet, 2 vCPU at load ~3)
 
 - `installation.fleets.get` p50 4.6 s, p90 6.4 s. It sums the UTF-8 bytes of every payload the fleet ever stored (#1126), counts messages per UTC day, and replays 7 days of health.
-- pagasae's `/api/apps` called it per fleet, uncached, on every header load in every app; the console asked twice per page and again on tab focus (cut to once in #1128; pagasae's side in pagasae#122).
+- The account app's `/api/apps` called it per fleet, uncached, on every header load in every app; the console asked twice per page and again on tab focus (cut to once in #1128; the account app's side in the account app issue #122).
 - `fleet.health` p50 about 2 s. The overview reads `fleet.list` and `fleet.health` twice on first load (#1127, also in 0.28.3).
 - A navigation click waited on `console.session` (p90 1.3 s) before showing anything (#1128 shows it opening).
 - Locally the overview loads as in 0.28.3: the cost is server load from reads, not render. This is one fleet, so it gets worse with every message and every fleet.
@@ -35,7 +35,7 @@ Not the purpose:
 flowchart LR
   page[Console page load] --> layout[Signed-in layout: stuck count]
   page --> overview[Overview: fleet.list, fleet.health, fleet.labels, fleet.scopes]
-  header[Shared header, every app] --> apps[pagasae /api/apps] --> get[installation.fleets.get per fleet]
+  header[Shared header, every app] --> apps[the account app /api/apps] --> get[installation.fleets.get per fleet]
   layout --> health[fleet.health]
   overview --> health
   get --> health
@@ -59,7 +59,7 @@ flowchart LR
 - **0003:** Postgres is the broker and the one system to run; snapshots and counters live in it.
 - **CLAUDE.md:** every state change writes its event in the same transaction, so a counter kept on send is written in the send's transaction; every query scoped by `fleet_id`.
 - **0033:** logic runs on the web app's server; the browser renders what it is given.
-- **0058, 0054:** pagasae signs accounts in and issues the account token for one account in one fleet; the header is pagasae's.
+- **0058, 0054:** the account app signs accounts in and issues the account token for one account in one fleet; the header is the account app's.
 - **0005:** ids are time-ordered ULIDs, so a list can page by id.
 - **0011:** every candidate is walked on staging (`staging-walk`) before release.
 - **0013:** no compatibility layers; a paged procedure replaces the unpaged one.
@@ -71,7 +71,7 @@ flowchart LR
 3. **Live updates** reload only the resource the event concerns: the ship's row for a ship event, the stuck count for a delivery that moves; never the whole fleet snapshot or the full health.
 4. **Every list procedure is paged**, the fleet snapshot included: by cursor on the time-ordered id, newest or oldest first as the list is today, with a page size the caller asks within a maximum. No offset.
 5. **Budgets per read** at the target scale on a production-sized host, checked by the scale tests: p95 under 100 ms, p99 under 500 ms, error rate under 1%. Thomas: "lets set them and see where we land, we can always adjust. But these are amazon numbers, so might be setting the bar high."
-6. **The shared header** reads the account's apps and fleets from a cookie pagasae writes at sign-in and at each token renewal, from its own records, with no core call; an app refuses a link the account can no longer open. Built in pagasae; core is off the header's path.
+6. **The shared header** reads the account's apps and fleets from a cookie the account app writes at sign-in and at each token renewal, from its own records, with no core call; an app refuses a link the account can no longer open. Built in the account app; core is off the header's path.
 7. **Scale tests run on staging**, seeded at the target (10,000,000 messages, 3,000 ships in one fleet), with staging's containers capped to production's size (Thomas: "Ok on your capping the containers"; infra#70). The walker measures the budgets of decision 5 in `staging-walk` (decision 11). The walk's own checks run in a fleet of their own beside the seeded one.
 8. **Order:** measure first (decisions 5, 7), then the stuck history (9), counters (1), reads cut and live (2, 3), paging (4).
 9. **The 7 days of stuck per hour are cumulative hourly snapshots** (Q1, pattern 2 of section 4; Thomas: "cumulative snapshots it is"). The snapshot of hour H is built from the snapshot of H-1 and the events after it, once, and is true for everything before H: no read or write looks at an event the snapshot already holds. A read takes the latest snapshot and folds the events after it. Section 5 holds the parts. This replaces 0041's and 0042's "read, not stored" and their rejection of a health table kept by the server; the decision files change in the slice that builds it (S2).
@@ -219,4 +219,4 @@ Every read a console page, the shared header or an installation caller makes. Th
 | `installation.fleets.list` | installation | |
 | `installation.fleets.get` | installation | `{"fleetId":"<fleet id>"}` |
 
-Decision 6 (the header's cookie) is pagasae's slice, in its own train (pagasae#122), and can go at any time.
+Decision 6 (the header's cookie) is the account app's slice, in its own train (the account app issue #122), and can go at any time.

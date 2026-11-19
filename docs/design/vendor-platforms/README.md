@@ -21,7 +21,7 @@ Not the purpose:
 
 ## 2. What is true today in Aeolus
 
-- **Gateway** `@aeolus-fleet/gateway` v0.28.1 (21 Oct 2026). Built: MCP out (an outside MCP server as an app proxy ship) and MCP in (an outside MCP client signs in through pagasae, sees the capabilities of reachable ships as tools, and calls them with a bounded wait and a handle). Built too: approving, the outside parties switch and verified facts (`tlsHost`, `clientIdDocumentDomain`).
+- **Gateway** `@aeolus-fleet/gateway` v0.28.1 (21 Oct 2026). Built: MCP out (an outside MCP server as an app proxy ship) and MCP in (an outside MCP client signs in through the account app, sees the capabilities of reachable ships as tools, and calls them with a bounded wait and a handle). Built too: approving, the outside parties switch and verified facts (`tlsHost`, `clientIdDocumentDomain`).
 - **A2A in and out** is designed (interop, `design/interop`, slices 4 and 5) and open in [#878](https://github.com/ThomasHendrickx/aeolus-fleet/issues/878). The design has an agent card per alias, JSON-RPC and HTTP+JSON, and push webhooks.
 - **Statements** borrow the field names of A2A's agent card and MCP's tool list (0047, 0048).
 - **Verified facts** come from a closed list: `clientIdDocumentDomain`, `tlsHost`, `a2aCardDomain` and `oauthSubject` with issuer (0059).
@@ -183,7 +183,7 @@ The vendor stores the client id and secret (VS1). A leaked or expired secret nee
 Tracer bullets (V6) need accounts that exist outside the repository.
 
 1. Every platform's tenant, the identity providers and a public staging.
-2. **Narrowed:** both Entra tenants, the Google Cloud project, the Okta free org, Copilot Studio as the one vendor, and staging opened to the internet for the gateway and pagasae only.
+2. **Narrowed:** both Entra tenants, the Google Cloud project, the Okta free org, Copilot Studio as the one vendor, and staging opened to the internet for the gateway and the account app only.
 3. Mini CRM and machine client only (V7), no vendor.
 
 **Decided: 2.** Thomas: "For now, I will need to see what the cost is." The rest waits on that cost.
@@ -266,10 +266,10 @@ Acceptance:
 
 ### VS3 A vendor agent over MCP in (V6, V9)
 
-Copilot Studio is the one vendor (V9), on staging opened to the internet for the gateway and pagasae.
+Copilot Studio is the one vendor (V9), on staging opened to the internet for the gateway and the account app.
 
 Acceptance:
-1. A Copilot Studio agent, connected by an admin signed in through pagasae, lists a fleet ship's capabilities and calls one, getting its answer. The slow tool answers a handle.
+1. A Copilot Studio agent, connected by an admin signed in through the account app, lists a fleet ship's capabilities and calls one, getting its answer. The slow tool answers a handle.
 2. A gateway guide states how to connect Copilot Studio.
 3. Each gap found is an issue.
 

@@ -110,7 +110,7 @@ export const QuietBadges: Story = {
   },
 };
 
-/** A status an app names itself, from its tone, icon and label: the gateway's outside parties and pagasae's limits (docs/design/ui-package/mockups). */
+/** A status an app names itself, from its tone, icon and label: the gateway's outside parties and the account app's limits (docs/design/ui-package/mockups). */
 export const Approved: Story = { args: { tone: 'ok', icon: CircleCheck, label: 'Approved' } };
 export const WaitingForApproval: Story = { args: { tone: 'waiting', icon: Clock, label: 'Waiting for approval' } };
 export const SignInFailed: Story = { args: { tone: 'attention', icon: CircleX, label: 'Sign-in failed' } };

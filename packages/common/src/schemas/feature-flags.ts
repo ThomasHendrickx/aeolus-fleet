@@ -5,8 +5,8 @@ import { idSchema } from '../ids/index.js';
 /**
  * The feature flags there are (decision 0069): each a key, a name, one line
  * saying what it turns on, and the line the installation shows while a fleet
- * uses the feature, so the flag cannot go off. Core names them; pagasae lists
- * what core names, so a new flag needs no pagasae change.
+ * uses the feature, so the flag cannot go off. Core names them; the account app lists
+ * what core names, so a new flag needs no the account app change.
  */
 export const featureFlagSchema = z.enum(['sealing']);
 

@@ -24,8 +24,8 @@ let address: string;
 let fleetId: FleetId;
 
 const upgrade = { id: 'upgrade', audience: 'everyone' as const, text: 'Interruptions expected between 00:00 and 01:00.', links: [], isDismissible: false };
-const welcome = { id: 'welcome', audience: 'viewers' as const, text: 'You are looking at a live fleet.', links: [{ label: 'Leave', url: 'https://pagasae.example.com', isSignOut: true }], isDismissible: true };
-const limits = { id: 'limits', audience: 'operators' as const, text: 'Your fleet is near its ship limit.', links: [{ label: 'View limits', url: 'https://pagasae.example.com/account' }], isDismissible: true };
+const welcome = { id: 'welcome', audience: 'viewers' as const, text: 'You are looking at a live fleet.', links: [{ label: 'Leave', url: 'https://account-app.example.com', isSignOut: true }], isDismissible: true };
+const limits = { id: 'limits', audience: 'operators' as const, text: 'Your fleet is near its ship limit.', links: [{ label: 'View limits', url: 'https://account-app.example.com/account' }], isDismissible: true };
 
 beforeAll(async () => {
   const databaseUrl = await createMigratedDatabase();

@@ -12,9 +12,9 @@ export const APPS_LIST_KEY = ['apps-list'] as const;
 
 /**
  * Whether this console sign-in is an account's own (accounts design C1): only
- * then is pagasae's list the signed-in human's to show. argo's sign-in and the
+ * then is the account app's list the signed-in human's to show. argo's sign-in and the
  * viewer's are not (header design H8), even where the browser carries the
- * shared sign-in, as a sign-in as argo from pagasae does.
+ * shared sign-in, as a sign-in as argo from the account app does.
  */
 export function isAccountSignIn(kind: ConsoleSessionOutput['kind']): boolean {
   switch (kind) {
@@ -28,14 +28,14 @@ export function isAccountSignIn(kind: ConsoleSessionOutput['kind']): boolean {
 
 /**
  * The apps and fleets the signed-in account may open (lib/apps-list.ts), read
- * only for an account's own sign-in; none otherwise, and while pagasae gives
+ * only for an account's own sign-in; none otherwise, and while the account app gives
  * none.
  */
 export function useAppsList() {
   const trpc = useTRPC();
   const session = useQuery(trpc.console.session.queryOptions());
   const isForAccount = session.data !== undefined && isAccountSignIn(session.data.kind);
-  // Held for the page's life: each read costs pagasae a core read per fleet (#1117), and the list changes rarely.
+  // Held for the page's life: each read costs the account app a core read per fleet (#1117), and the list changes rarely.
   const list = useQuery({ queryKey: APPS_LIST_KEY, queryFn: () => fetchConsoleRead({ read: 'apps-list' }), enabled: isForAccount, staleTime: Infinity });
   return isForAccount ? (list.data ?? undefined) : undefined;
 }
@@ -43,7 +43,7 @@ export function useAppsList() {
 /**
  * Whether the apps list allows the account as argo of the fleet the console
  * shows (accounts design, A7): the avatar menu reads it from the list the
- * header already holds, so a page load asks pagasae once (#1117).
+ * header already holds, so a page load asks the account app once (#1117).
  */
 export function isArgoAllowedIn(list: AppsList | undefined, fleetId: string | undefined): boolean {
   return list?.fleets.some((fleet) => fleet.id === fleetId && fleet.argo) ?? false;

@@ -162,7 +162,7 @@ export interface GuideProgressRepository {
 }
 
 /**
- * Outbound port: pagasae's signature on an account token (decision 0058).
+ * Outbound port: the account app's signature on an account token (decision 0058).
  * Core trusts one issuer and its published keys.
  */
 export interface AccountTokenSignatures {
@@ -174,7 +174,7 @@ export interface AccountTokenSignatures {
   verify(token: string): Promise<AccountTokenClaims | undefined>;
 }
 
-/** An account pagasae cut off (decision 0058): its tokens issued before `cutOffAt` are refused until `forgetAt`. */
+/** An account the account app cut off (decision 0058): its tokens issued before `cutOffAt` are refused until `forgetAt`. */
 export interface AccountCutOff {
   accountId: AccountId;
   cutOffAt: Date;
@@ -182,7 +182,7 @@ export interface AccountCutOff {
 }
 
 /**
- * Outbound port: the accounts pagasae cut off (decision 0058), kept by the
+ * Outbound port: the accounts the account app cut off (decision 0058), kept by the
  * installation for every fleet it hosts, each until the longest token it
  * refuses has ended. Not scoped by fleet: an account's tokens go to several
  * fleets, and the cut-off holds in each (ADR 0007, the installation).

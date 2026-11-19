@@ -4,7 +4,7 @@ import { sessionOf, signInUrlFor } from './console-gate';
 
 describe('signInUrlFor', () => {
   it("is the hosting service's sign-in when AEOLUS_HOSTED_SIGN_IN_URL is set", () => {
-    expect(signInUrlFor({ AEOLUS_HOSTED_SIGN_IN_URL: 'https://pagasae.example.com/sign-in' }, { requestUrl: 'https://fleet.example.com/ships' }).href).toBe('https://pagasae.example.com/sign-in');
+    expect(signInUrlFor({ AEOLUS_HOSTED_SIGN_IN_URL: 'https://account-app.example.com/sign-in' }, { requestUrl: 'https://fleet.example.com/ships' }).href).toBe('https://account-app.example.com/sign-in');
   });
 
   it("is the console's own sign-in otherwise", () => {
@@ -16,21 +16,21 @@ describe('signInUrlFor', () => {
   });
 
   it("is the console's own sign-in with the notice on a hosted console when the operator signed in somewhere else, so the notice shows before the hosting service's sign-in", () => {
-    expect(signInUrlFor({ AEOLUS_HOSTED_SIGN_IN_URL: 'https://pagasae.example.com/sign-in' }, { requestUrl: 'https://fleet.example.com/ships', ended: 'signedInElsewhere' }).href).toBe('https://fleet.example.com/sign-in?notice=signed-in-elsewhere');
+    expect(signInUrlFor({ AEOLUS_HOSTED_SIGN_IN_URL: 'https://account-app.example.com/sign-in' }, { requestUrl: 'https://fleet.example.com/ships', ended: 'signedInElsewhere' }).href).toBe('https://fleet.example.com/sign-in?notice=signed-in-elsewhere');
   });
 });
 
-describe('signInUrlFor, where the console signs accounts in through pagasae', () => {
-  const PAGASAE = { AEOLUS_PAGASAE_URL: 'https://account.example.com', AEOLUS_PAGASAE_CLIENT_ID: 'console', AEOLUS_PAGASAE_CLIENT_SECRET: 's'.repeat(32) };
+describe('signInUrlFor, where the console signs accounts in through the account app', () => {
+  const ACCOUNT_APP = { AEOLUS_ACCOUNT_APP_URL: 'https://account.example.com', AEOLUS_ACCOUNT_APP_CLIENT_ID: 'console', AEOLUS_ACCOUNT_APP_CLIENT_SECRET: 's'.repeat(32) };
 
   it('enters the fleet at once with the shared sign-in, coming back to the page asked for', () => {
-    expect(signInUrlFor(PAGASAE, { requestUrl: 'https://fleet.example.com/ships?tab=messages', hasSharedSignIn: true }).href).toBe(
+    expect(signInUrlFor(ACCOUNT_APP, { requestUrl: 'https://fleet.example.com/ships?tab=messages', hasSharedSignIn: true }).href).toBe(
       'https://fleet.example.com/sign-in/enter?returnTo=%2Fships%3Ftab%3Dmessages',
     );
   });
 
-  it("starts pagasae's sign-in without it", () => {
-    expect(signInUrlFor(PAGASAE, { requestUrl: 'https://fleet.example.com/ships', hasSharedSignIn: false }).href).toBe('https://fleet.example.com/sign-in/start?returnTo=%2Fships');
+  it("starts the account app's sign-in without it", () => {
+    expect(signInUrlFor(ACCOUNT_APP, { requestUrl: 'https://fleet.example.com/ships', hasSharedSignIn: false }).href).toBe('https://fleet.example.com/sign-in/start?returnTo=%2Fships');
   });
 });
 

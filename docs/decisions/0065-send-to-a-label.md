@@ -10,4 +10,4 @@ A ship sends one message to the ships a label selection names (`{ kind: 'label',
 
 Why: telling a set of ships the same thing was one send per ship, after the sender found out who is in the set (#976).
 
-Rejected: a selector named `group` (pagasae's, 0052); a whole-fleet send (a fleet labels its ships); a send to the reachable part of the list; a scope of its own; richer selections (0031).
+Rejected: a selector named `group` (the account app's, 0052); a whole-fleet send (a fleet labels its ships); a send to the reachable part of the list; a scope of its own; richer selections (0031).

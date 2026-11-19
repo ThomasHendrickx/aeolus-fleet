@@ -1,6 +1,6 @@
 # Aeolus brand
 
-The one source of the Aeolus logo files. Every Aeolus surface (console, squadrons, pagasae, docs, the website) takes its mark, wordmark and icons from this folder, copied or referenced. Never redraw, recolour or retype them by hand.
+The one source of the Aeolus logo files. Every Aeolus surface (console, squadrons, the account app, docs, the website) takes its mark, wordmark and icons from this folder, copied or referenced. Never redraw, recolour or retype them by hand.
 
 How the mark is built, its colours, clear space and don'ts: the Mark section of the brandbook (`brand/source/brandbook.html` on the `brandbook-source` branch). Every file here draws the mark exactly as that section does.
 

@@ -23,7 +23,7 @@ type Story = StoryObj<typeof meta>;
 export const Default: Story = {};
 /** A ping from argo, taken and answered with pong. */
 export const Pinged: Story = { args: { entries: [...PING_TIMELINE, ...TIMELINE] } };
-/** argo pinged it while an account was signed in as argo, which pagasae names (decision 0054): the row says by whom, beside its time. */
+/** argo pinged it while an account was signed in as argo, which the account app names (decision 0054): the row says by whom, beside its time. */
 export const BySignedInAccount: Story = {
   args: { entries: SIGNED_IN_PING_TIMELINE, accountNames: { [SIGNED_IN_ACCOUNT_ID]: 'mathilde@acme.example' } },
   play: async ({ canvasElement }) => {
@@ -31,7 +31,7 @@ export const BySignedInAccount: Story = {
     await expect(rows.map((row) => row.textContent)).toEqual([' · by mathilde@acme.example']);
   },
 };
-/** The same while pagasae gives no name, or none runs: the account shows by its id. */
+/** The same while the account app gives no name, or none runs: the account shows by its id. */
 export const BySignedInAccountUnnamed: Story = {
   args: { entries: SIGNED_IN_PING_TIMELINE },
   play: async ({ canvasElement }) => {

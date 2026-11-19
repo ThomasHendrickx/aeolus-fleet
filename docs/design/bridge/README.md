@@ -113,7 +113,7 @@ What carries over: the item is the thing that waits (a question, a request), not
 | Bridge, always on | Every item: what waits with its count, the stay-aware feed, the record with each outcome and where it was done | Open, answer into the basket and send it, mark a step done or cannot with its note | The gateway's web app (CC9) |
 | Slack | The items of each job turned on, as 9.5 shows them | A button press, a thread reply; a Seen button where an item has no other | The gateway's Slack part |
 | A chat (claude.ai or any MCP client of the gateway) | The items of each job turned on and not done, when the chat calls `aeolus_inbox` | `aeolus_open`, `aeolus_answer`, `aeolus_done` | The gateway's MCP tools |
-| Web push, email | Only that something waits, with a link to Bridge (W4) | None: the link opens Bridge | The gateway's wakes; pagasae sends the email (W2) |
+| Web push, email | Only that something waits, with a link to Bridge (W4) | None: the link opens Bridge | The gateway's wakes; the account app sends the email (W2) |
 
 ## 7. The parts and where each lives
 

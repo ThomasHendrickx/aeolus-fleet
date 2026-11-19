@@ -16,7 +16,7 @@ The outcomes:
 4. A sealed fleet restored with what it needs besides the database, so it reads its payloads again.
 5. The gateway upgraded, backed up and restored like every other part.
 
-Out of scope: high availability (a standby Postgres, two core processes behind a balancer), Kubernetes, Aeolus's own backup tooling, and anything only the hosted fleet needs (pagasae, the private infra repository). Before 1.0 with zero self-hosting customers (decision [0013](../decisions/0013-breaking-changes-before-1-0.md)), each gap gets the smallest answer that is true and complete, not a product.
+Out of scope: high availability (a standby Postgres, two core processes behind a balancer), Kubernetes, Aeolus's own backup tooling, and anything only the hosted fleet needs (the account app, the private infra repository). Before 1.0 with zero self-hosting customers (decision [0013](../decisions/0013-breaking-changes-before-1-0.md)), each gap gets the smallest answer that is true and complete, not a product.
 
 ## 2. Lessons to check against
 
@@ -174,7 +174,7 @@ Rejected: a check command that unwraps each data key of every sealed fleet after
 
 - `aeolus-gateway start` checks core's version (0.38.5 or later), migrates its own database, starts its web app, reconnects every fleet with its kept crew token and listens; `aeolus-gateway migrate` only migrates. It stops cleanly on `SIGTERM`. Its default port is 4200, the trierarch plugin's too. Its README's minimum core version (0.28.0) is out of date against the code's.
 - More than one gateway process may run on one database.
-- Its database holds usable secrets as they are: its own crew token and each person ship's and proxy ship's, outside servers' credentials and their OAuth grants (decision [0067](../decisions/0067-outside-oauth-sign-ins.md)), pagasae's tokens, Slack tokens, A2A push tokens. What it issues (A2A bearers, its OAuth clients' secrets and tokens) it keeps only as hashes.
+- Its database holds usable secrets as they are: its own crew token and each person ship's and proxy ship's, outside servers' credentials and their OAuth grants (decision [0067](../decisions/0067-outside-oauth-sign-ins.md)), the account app's tokens, Slack tokens, A2A push tokens. What it issues (A2A bearers, its OAuth clients' secrets and tokens) it keeps only as hashes.
 - `GATEWAY_SECRET` is in its environment, not its database. It derives ship aliases, the seals of sign-ins in progress and the idempotency keys of calls in progress. Lost or changed: every alias outside clients use changes, sign-ins in progress fail, and a call in progress may be sent to core twice. The Web push keys are in its environment too.
 - Restored to an earlier moment than core: crew tokens issued since are lost; outside refresh tokens rotated since are already used up, so those grants fail until the person signs in again (Slack's configuration tokens rotate every 12 hours). Core restored to an earlier moment than the gateway: the gateway's tokens issued since are unknown, it drops them, and argo connects it again; ids it keeps point at nothing.
 - Nothing documents its upgrade or backup. Run the server does not list it.

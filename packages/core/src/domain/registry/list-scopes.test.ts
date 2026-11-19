@@ -76,7 +76,7 @@ describe("listing the fleet's scopes (decision 0046)", () => {
     ]);
   });
 
-  it('lists them for the installation as for a ship, so pagasae offers each plugin scope to its groups (decisions 0046, 0053)', async () => {
+  it('lists them for the installation as for a ship, so the account app offers each plugin scope to its groups (decisions 0046, 0053)', async () => {
     const squadrons = await shipWithScopes({ registry, argo }, { name: 'squadrons', type: 'squadrons', scopes: [] });
     unwrap(await registry.declareScopes(squadrons, { namespace: 'squadrons', scopes: [{ scope: 'squadrons:form', description: 'Form a squadron' }] }));
     const installation: InstallationCaller = { kind: 'installation', fleetId: argo.fleetId, scopes: ['fleet:read'] };

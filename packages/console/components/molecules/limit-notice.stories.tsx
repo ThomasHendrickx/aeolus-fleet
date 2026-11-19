@@ -8,7 +8,7 @@ const meta = {
   args: {
     title: 'Your fleet reached today’s message limit',
     description: 'It sent 1,000 messages today, its daily limit. New messages are refused until the limit resets at 00:00 UTC.',
-    accountUrl: 'https://pagasae.aeolus-fleet.dev/account',
+    accountUrl: 'https://account-app.aeolus-fleet.dev/account',
   },
 } satisfies Meta<typeof LimitNotice>;
 

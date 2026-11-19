@@ -15,8 +15,8 @@ import { renew } from '../../../lib/renew-account-token';
  * A3 to A6): a little before the token ends the console's server renews it
  * with the shared sign-in; the live updates then reopen with the fresh
  * cookie and the session is read again, so the pages follow its scopes. When
- * pagasae does not answer it retries, more slowly each time, until the token
- * ends; when pagasae ended the sign-in the account goes to sign in again,
+ * the account app does not answer it retries, more slowly each time, until the token
+ * ends; when the account app ended the sign-in the account goes to sign in again,
  * back to the page it was on. Argo's and the viewer's sessions renew nothing.
  */
 export function useAccountRenewal(): { isRetrying: boolean } {

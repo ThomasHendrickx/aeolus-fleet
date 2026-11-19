@@ -5,7 +5,7 @@ import { AuthCard } from '../../../../features/sign-in/ui/organisms/auth-card';
 
 export const dynamic = 'force-dynamic';
 
-/** An account pagasae does not allow as argo of the fleet (accounts design, F4). */
+/** An account the account app does not allow as argo of the fleet (accounts design, F4). */
 export default function ArgoRefusedPage() {
   return (
     <AuthCard recovery={null}>

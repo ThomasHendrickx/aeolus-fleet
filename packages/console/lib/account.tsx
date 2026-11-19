@@ -25,7 +25,7 @@ const SHORTCUTS = [
 
 /**
  * An account signs out of every Aeolus app at once (header design, H5): the
- * web app's server ends the shared sign-in at pagasae and core's token
+ * web app's server ends the shared sign-in at the account app and core's token
  * cookie, so the browser posts there and follows where it leads.
  */
 function signOutOfEveryApp(): void {
@@ -53,7 +53,7 @@ function signedInAccountIdOf(account: Account): string | null {
  * Network on phone, the theme, shortcuts, help, and Sign out. A theme shows
  * at once and is kept in this browser for every Aeolus app. Signing out ends the session and
  * goes to sign in; a failure says so in a toast with Try again, and the
- * operator stays signed in. An account goes by the name pagasae gives it,
+ * operator stays signed in. An account goes by the name the account app gives it,
  * with no session line, and signs out of
  * every app.
  */
@@ -61,7 +61,7 @@ export function useAccountMenu(now: Date): AvatarMenuProps {
   const trpc = useTRPC();
   const account = useQuery(trpc.console.account.queryOptions());
   const signedInAccountId = account.data === undefined ? null : signedInAccountIdOf(account.data);
-  // The account's name as pagasae gives it, asked by the web app's server and never stored (decisions 0054, 0058); the id shows until it answers.
+  // The account's name as the account app gives it, asked by the web app's server and never stored (decisions 0054, 0058); the id shows until it answers.
   const accountName = useQuery({
     queryKey: ['account-name', signedInAccountId],
     queryFn: () => fetchConsoleRead({ read: 'account-name' }),

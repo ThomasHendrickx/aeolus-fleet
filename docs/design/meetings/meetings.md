@@ -38,7 +38,7 @@ From Aeolus:
 - **A person reads slower than agents speak (Thomas, on #1172).** Agents go back and forth fast; a person in the loop must not miss the mic because they need more time to read.
 - **Person ships (0044, 0052, 0054).** Thomas takes part as his person ship through the gateway, never as argo: ordinary work never routes to argo (0053). A person ship runs no clocks (0040).
 - **Addressing today.** A selector is `ship` or `type`; a type is one delivery that one ship of the type claims, not a fan-out. The blueprint defers n-to-n addressing with its hook: "Selector with a kind, one delivery row per recipient". #976: the name for a set of ships is chosen here; Thomas: "Maybe call by label?".
-- **Terms taken.** `turn` is a pushed session's idle or busy (0040); `channel` is what a hand-over went through (0040, wake-a-person W6); `group` is pagasae's group of accounts (0052). This design uses meeting, participant, moderator and mic, Thomas's words.
+- **Terms taken.** `turn` is a pushed session's idle or busy (0040); `channel` is what a hand-over went through (0040, wake-a-person W6); `group` is the account app's group of accounts (0052). This design uses meeting, participant, moderator and mic, Thomas's words.
 - **Pre-1 (0013).** Breaking changes allowed, no compatibility work.
 
 ## 3. Decisions (Thomas, 24 Oct, on #1172)

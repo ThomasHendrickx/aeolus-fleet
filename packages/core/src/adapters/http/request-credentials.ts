@@ -1,7 +1,7 @@
 /**
  * How a request says who it is: a crew token as a bearer token, or the console
  * session cookie, and for a plugin's read, the ship it reads on behalf of; an
- * account token pagasae signed, or the installation token with the fleet it
+ * account token the account app signed, or the installation token with the fleet it
  * acts in (decision 0057). The ship secret travels only in the body of
  * `register`.
  *
@@ -54,7 +54,7 @@ export function clearedSessionCookie(domain?: string): string {
 }
 
 /**
- * The cookie of an account's console sign-in: the account token pagasae
+ * The cookie of an account's console sign-in: the account token the account app
  * signed (decision 0058), which core checks on every call as it does the
  * header. Core sets it when the console's server presents the token, with
  * the session cookie's attributes, for as long as the token lasts.

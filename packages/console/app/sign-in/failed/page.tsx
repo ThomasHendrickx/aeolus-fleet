@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { Button } from '@aeolus-fleet/ui';
 import { AuthCard } from '../../../features/sign-in/ui/organisms/auth-card';
 import { hostedSignInUrlFrom } from '../../../lib/hosted-sign-in';
-import { pagasaeFrom } from '../../../lib/pagasae';
+import { accountAppFrom } from '../../../lib/account-app';
 
 // The hosted sign-in URL is runtime config: read on each request.
 export const dynamic = 'force-dynamic';
@@ -11,13 +11,13 @@ export const dynamic = 'force-dynamic';
 /**
  * A sign-in link did not go through (its ticket was used, expired or
  * unknown). Hosted, the operator starts again at the hosting service.
- * Where pagasae runs, an account's sign-in did not go through, and it signs
+ * Where the account app runs, an account's sign-in did not go through, and it signs
  * in again: there is no argo's own sign-in. Otherwise the link came from the
  * terminal, and a new one does too (accounts design, A1).
  */
 export default function SignInFailedPage() {
   const hosted = hostedSignInUrlFrom(process.env);
-  if (hosted === undefined && pagasaeFrom(process.env) !== undefined) {
+  if (hosted === undefined && accountAppFrom(process.env) !== undefined) {
     return (
       <AuthCard recovery={null}>
         <div className="flex flex-col gap-4" data-testid="sign-in-failed">
