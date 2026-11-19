@@ -54,12 +54,11 @@ Thomas’s approved purpose and five picks:
 
 [Before/after screenshot index](mockups/README.md). These are browser screenshots of documentation fixtures, not a production build or captures of a deployed session. Before reconstructs the navigation source described above; the surrounding content is illustrative. After proposes the shared controls. Hosted apps appear only as generic apps, `App 1` and `App 2`; their page designs belong in their private repository.
 
-### Round 2: Thomas's notes on round 1
+### Round 2: Thomas's note on round 1
 
-1. "I expect a more microsoft office 365 like experience"
-2. "I am missing screens for app"
+"I expect a more microsoft office 365 like experience"
 
-Round 2 answers the first note here: the app launcher and the fleet and account button below. Screens for the hosted apps belong in their private repositories. The pattern follows how Microsoft 365 lays out its bar; no Microsoft name, mark or icon is used. Icons are Lucide shapes the apps already load.
+Round 2 answers it with the app launcher and the fleet and account button below. The pattern follows how Microsoft 365 lays out its bar; no Microsoft name, mark or icon is used. Icons are Lucide shapes the apps already load.
 
 ### The bar every app shows
 
