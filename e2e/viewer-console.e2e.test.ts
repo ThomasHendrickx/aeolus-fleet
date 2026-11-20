@@ -109,6 +109,16 @@ describe('the console of a viewer session', () => {
     await expect(page.getByRole('button', { name: 'Dark' }).count()).resolves.toBe(0);
   });
 
+  it('explains in the Apps and fleets panel that a viewer sign-in is for Console alone (docs/design/app-navigation, viewer)', async () => {
+    const page = await signedIn('viewer');
+    await page.locator('[data-slot="live-status"][data-state="live"]:visible').waitFor({ timeout: 20_000 });
+
+    await page.getByRole('button', { name: 'Apps and fleets' }).filter({ visible: true }).click();
+
+    await page.getByText(/^This viewer sign-in is for Console in /).waitFor();
+    await accountButton(page, 'Account: Viewer').waitFor();
+  });
+
   it("offers only Copy ship id in a ship's row menu", async () => {
     const page = await signedIn('viewer');
 

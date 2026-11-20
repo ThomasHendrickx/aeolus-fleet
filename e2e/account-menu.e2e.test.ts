@@ -214,6 +214,16 @@ describe.each([
     await expect.poll(() => shortcuts.and(page.locator(':focus')).count()).toBe(1);
   });
 
+  it('explains in the Apps and fleets panel that this installation has Console alone (docs/design/app-navigation, single-app)', async () => {
+    const page = await signedInPage({ isPhone });
+    await hydrated(page);
+
+    await page.getByRole('button', { name: 'Apps and fleets' }).filter({ visible: true }).click();
+
+    await page.getByText('Only Console is configured in this installation. There are no other apps to open.').waitFor();
+    await page.getByText('This is the only fleet you can open.').waitFor();
+  });
+
   it('offers no Your account on a self-hosted console', async () => {
     const page = await signedInPage({ isPhone });
 

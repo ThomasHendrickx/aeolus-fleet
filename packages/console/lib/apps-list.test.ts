@@ -24,7 +24,7 @@ describe('the apps and fleets the signed-in account may open (header design H1)'
   it("is the account app's list, asked with the console's app credentials and the shared sign-in", async () => {
     const accountApp = aAccountApp(() => Response.json(LIST));
 
-    await expect(appsListFor({ environment: ACCOUNT_APP, cookieHeader: COOKIE, fetchImplementation: accountApp.fetchImplementation })).resolves.toEqual(LIST);
+    await expect(appsListFor({ environment: ACCOUNT_APP, cookieHeader: COOKIE, fetchImplementation: accountApp.fetchImplementation })).resolves.toEqual({ kind: 'list', list: LIST });
     expect(accountApp.asked.map((request) => ({ url: request.url, authorization: request.headers.get('authorization'), signIn: request.headers.get('aeolus-sign-in') }))).toEqual([
       { url: 'https://account-app.example/api/apps', authorization: `Basic ${btoa(`console:${'s'.repeat(32)}`)}`, signIn: 'sgn-charlotte' },
     ]);
@@ -33,32 +33,38 @@ describe('the apps and fleets the signed-in account may open (header design H1)'
   it('is none without the shared sign-in, and the account app is not asked', async () => {
     const accountApp = aAccountApp(() => Response.json(LIST));
 
-    await expect(appsListFor({ environment: ACCOUNT_APP, cookieHeader: 'aeolus_session=argo', fetchImplementation: accountApp.fetchImplementation })).resolves.toBeNull();
+    await expect(appsListFor({ environment: ACCOUNT_APP, cookieHeader: 'aeolus_session=argo', fetchImplementation: accountApp.fetchImplementation })).resolves.toEqual({ kind: 'none' });
     expect(accountApp.asked).toEqual([]);
   });
 
   it('is none without the account app (self-hosted)', async () => {
     const accountApp = aAccountApp(() => Response.json(LIST));
 
-    await expect(appsListFor({ environment: {}, cookieHeader: COOKIE, fetchImplementation: accountApp.fetchImplementation })).resolves.toBeNull();
+    await expect(appsListFor({ environment: {}, cookieHeader: COOKIE, fetchImplementation: accountApp.fetchImplementation })).resolves.toEqual({ kind: 'none' });
   });
 
-  it('is none when the account app refuses the sign-in', async () => {
+  it('says the sign-in ended when the account app refuses it (docs/design/app-navigation, expired sign-in)', async () => {
     const accountApp = aAccountApp(() => Response.json({ error: 'invalid_grant' }, { status: 401 }));
 
-    await expect(appsListFor({ environment: ACCOUNT_APP, cookieHeader: COOKIE, fetchImplementation: accountApp.fetchImplementation })).resolves.toBeNull();
+    await expect(appsListFor({ environment: ACCOUNT_APP, cookieHeader: COOKIE, fetchImplementation: accountApp.fetchImplementation })).resolves.toEqual({ kind: 'ended' });
   });
 
-  it('is none when the account app answers a shape it does not know', async () => {
+  it('could not be read when the account app answers a shape it does not know (docs/design/app-navigation, read failure)', async () => {
     const accountApp = aAccountApp(() => Response.json({ apps: 'all' }));
 
-    await expect(appsListFor({ environment: ACCOUNT_APP, cookieHeader: COOKIE, fetchImplementation: accountApp.fetchImplementation })).resolves.toBeNull();
+    await expect(appsListFor({ environment: ACCOUNT_APP, cookieHeader: COOKIE, fetchImplementation: accountApp.fetchImplementation })).resolves.toEqual({ kind: 'unreachable' });
   });
 
-  it('is none when the account app does not answer', async () => {
+  it('could not be read when the account app does not answer (docs/design/app-navigation, read failure)', async () => {
     const fetchImplementation: typeof fetch = () => Promise.reject(new Error('connect ECONNREFUSED'));
 
-    await expect(appsListFor({ environment: ACCOUNT_APP, cookieHeader: COOKIE, fetchImplementation })).resolves.toBeNull();
+    await expect(appsListFor({ environment: ACCOUNT_APP, cookieHeader: COOKIE, fetchImplementation })).resolves.toEqual({ kind: 'unreachable' });
+  });
+
+  it('could not be read when the account app fails', async () => {
+    const accountApp = aAccountApp(() => new Response('', { status: 502 }));
+
+    await expect(appsListFor({ environment: ACCOUNT_APP, cookieHeader: COOKIE, fetchImplementation: accountApp.fetchImplementation })).resolves.toEqual({ kind: 'unreachable' });
   });
 });
 

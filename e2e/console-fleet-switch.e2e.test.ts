@@ -177,3 +177,38 @@ describe('switching the console between two fleets of one organisation', () => {
     expect(await tokenFleetOf(page)).toBe(fleetB);
   });
 });
+
+describe("the Apps and fleets panel of an account's console (docs/design/app-navigation, section 4)", () => {
+  it("says it couldn't load the apps and fleets while the account app does not answer, and Try again reads them", async () => {
+    // Given the account app down as the console's page loads
+    accountApp.signInAs(mathilde());
+    const context = await browser.newContext({ baseURL: web.url });
+    contexts.push(context);
+    const page = await context.newPage();
+    await page.goto(`/?fleet=${fleetA}`);
+    await isHydrated(page);
+    accountApp.setDown(true);
+    await page.reload();
+    await isHydrated(page);
+
+    // When the panel opens
+    await openFleets(page);
+
+    // Then it says so, and once the account app answers again Try again reads them
+    await page.getByText('Couldn’t load apps and fleets').waitFor();
+    accountApp.setDown(false);
+    await page.getByRole('button', { name: 'Try again' }).click();
+    await page.getByText('Apps and fleets refreshed.').waitFor();
+    await page.getByRole('link', { name: /second fleet/ }).waitFor();
+  });
+
+  it('says on the account button that the sign-in expired once the account app ended it', async () => {
+    const page = await signedInToA(mathilde());
+    accountApp.endSignIns();
+
+    await page.reload();
+    await isHydrated(page);
+
+    await accountButton(page, 'Account: Sign-in expired').waitFor();
+  });
+});
