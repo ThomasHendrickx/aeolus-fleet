@@ -11,6 +11,7 @@ import { unwrap } from '../packages/core/src/testing/result.js';
 import { createUseCases } from '../packages/core/src/wiring.js';
 import { FLEET_URL } from '../packages/core/test/support/core-fixtures.js';
 import { FAKE_CONSOLE_URL, startFakeAccountApp, type FakeAccount, type FakeAccountApp } from './support/fake-account-app.js';
+import { accountButton, openSettings } from './support/console.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 
 // An account switches the console between two fleets of one organisation
@@ -103,8 +104,7 @@ async function openFleets(page: Page): Promise<void> {
 
 /** The avatar menu says the page is signed in as the account itself, not as argo. */
 async function isSignedInAsAccount(page: Page): Promise<void> {
-  const trigger = page.locator('[data-testid="avatar-menu"][aria-label*="Signed in as"]:visible');
-  await trigger.click();
+  await accountButton(page, 'Account: Your account').click();
   await page.getByTestId('avatar-menu-signed-in-as').getByText('Signed in with your account').waitFor();
   await page.keyboard.press('Escape');
 }
@@ -151,8 +151,8 @@ describe('switching the console between two fleets of one organisation', () => {
 
   it('is in fleet B as the account itself after switching there signed in as argo of fleet A', async () => {
     const page = await signedInToA(mathilde({ scopes: ['fleet:read'], isArgoAllowedInA: true }));
-    await page.locator('[data-testid="avatar-menu"][aria-label*="Signed in as"]:visible').click();
-    await page.getByRole('menuitem', { name: 'Sign in as argo' }).click();
+    await openSettings(page);
+    await page.getByRole('button', { name: 'Sign in as argo' }).click();
     await page.getByTestId('argo-banner').getByText('You are signed in as argo').waitFor();
 
     await page.goto(`/?fleet=${fleetB}`);

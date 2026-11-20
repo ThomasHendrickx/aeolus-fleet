@@ -14,6 +14,7 @@ import { createUseCases, type UseCases } from '../packages/core/src/wiring.js';
 import { FLEET_URL, OPERATOR, operatorCaller } from '../packages/core/test/support/core-fixtures.js';
 import { startFakeAccountApp, type FakeAccount, type FakeAccountApp } from './support/fake-account-app.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
+import { openSettings } from './support/console.js';
 
 // A human signs in to the console as their own account (accounts design, F1,
 // A8): through the account app's shared sign-in, with an account token for the fleet,
@@ -178,10 +179,10 @@ describe('an account signing in to the console', () => {
     accountApp.signInAs(mathilde());
     const page = await newPage();
     await page.goto('/');
-    await page.locator('[data-testid="avatar-menu"]:visible').click();
+    await openSettings(page);
 
     // When it picks Dark
-    await page.getByTestId('avatar-menu-theme-dark').click();
+    await page.getByRole('button', { name: 'Dark' }).click();
 
     // Then the browser keeps Dark for every app, and the next page paints it
     await expect.poll(async () => (await page.context().cookies()).find((cookie) => cookie.name === THEME_COOKIE)?.value).toBe('dark');

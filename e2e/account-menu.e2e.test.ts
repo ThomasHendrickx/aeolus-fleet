@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import type { Browser, BrowserContext, Locator, Page } from 'playwright';
+import type { Browser, BrowserContext, Page } from 'playwright';
 import { THEME_COOKIE } from '@aeolus-fleet/common/rules';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -10,14 +10,15 @@ import { FLEET_URL, OPERATOR } from '../packages/core/test/support/core-fixtures
 import { createMigratedDatabase } from '../packages/core/src/testing/database.js';
 import { createTestClock } from '../packages/core/test/support/postgres-core.js';
 import { unwrap } from '../packages/core/src/testing/result.js';
-import { holdSignOutSlow, signIn } from './support/console.js';
+import { accountButton, holdSignOutSlow, openSettings, signIn } from './support/console.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 import { withOperatorLogin } from '../packages/core/test/support/operator-login.js';
 
 
-// The AccountMenu, end to end, on desktop and on phone: the session's device
-// and argo's theme, which applies at once and comes back from this browser's
-// theme cookie on the next load, and Sign out.
+// The account panel and Settings, end to end, on desktop and on phone: who is
+// signed in, the session's device and Sign out in the panel; argo's theme in
+// Settings, which applies at once and comes back from this browser's theme
+// cookie on the next load (docs/design/app-navigation).
 
 const clock = createTestClock('2026-10-01T09:00:00.000Z');
 /** Sign-ins are rate limited per window; each test signs in after the window of the one before. */
@@ -126,25 +127,47 @@ async function isDark(page: Page): Promise<boolean> {
 describe.each([
   ['desktop', false],
   ['phone', true],
-])('the AccountMenu on %s', (_device, isPhone) => {
-  it('argo follows this browser: a theme picked shows at once, is kept in the theme cookie every app reads, and comes back on the next load (header-across-apps T2)', async () => {
-    // Given argo signed in, its avatar menu open
+])('the account panel and Settings on %s', (_device, isPhone) => {
+  it('holds who is signed in, this session and Sign out only, in the account panel at the end of the bar (docs/design/app-navigation)', async () => {
+    // Given argo signed in
     const page = await signedInPage({ isPhone });
-    await visible(page, 'avatar-menu').click();
+
+    // When argo opens the account panel
+    await accountButton(page, 'Account: Signed in as argo').click();
+
+    // Then it names argo and this session, and offers Sign out alone
     await visible(page, 'avatar-menu-session').getByText(/Device · .*Chrome, since/).waitFor();
+    const panel = page.locator('[data-testid="avatar-menu-panel"], [data-testid="avatar-menu-sheet"]').filter({ visible: true });
+    await panel.getByText('Signed in as argo, for Console in home fleet').waitFor();
+    await expect(panel.getByRole(isPhone ? 'button' : 'menuitem').allTextContents()).resolves.toEqual(isPhone ? ['Sign out', 'Cancel'] : ['Sign out']);
+  });
+
+  it('offers Settings last in the navigation, the tab bar\'s last tab on phone (docs/design/app-navigation)', async () => {
+    const page = await signedInPage({ isPhone });
+
+    const navigation = page.getByRole('navigation', { name: 'Console' }).filter({ visible: true });
+
+    await expect(navigation.getByRole('link').last().textContent()).resolves.toBe('Settings');
+  });
+
+  it('argo follows this browser: a theme picked in Settings shows at once, is kept in the theme cookie every app reads, and comes back on the next load (header-across-apps T2)', async () => {
+    // Given argo signed in, on Settings
+    const page = await signedInPage({ isPhone });
+    await openSettings(page);
 
     // When argo picks Dark
-    await visible(page, 'avatar-menu-theme-dark').click();
+    await page.getByRole('button', { name: 'Dark' }).click();
 
-    // Then it shows at once, the browser keeps it, and the next load paints it
+    // Then it shows at once, focus stays on it, the browser keeps it, and the next load paints it
     await expect.poll(() => isDark(page)).toBe(true);
+    await page.getByRole('status').filter({ hasText: 'Theme: Dark' }).waitFor();
+    await expect(page.getByRole('button', { name: 'Dark' }).and(page.locator(':focus')).count()).resolves.toBe(1);
     await expect.poll(() => themeCookieOf(page)).toBe('dark');
     await page.reload({ waitUntil: 'domcontentloaded' });
     await expect(isDark(page)).resolves.toBe(true);
 
     await hydrated(page);
-    await visible(page, 'avatar-menu').click();
-    await visible(page, 'avatar-menu-theme-light').click();
+    await page.getByRole('button', { name: 'Light' }).click();
     await expect.poll(() => isDark(page)).toBe(false);
     await expect.poll(() => themeCookieOf(page)).toBe('light');
     await page.reload({ waitUntil: 'domcontentloaded' });
@@ -159,42 +182,45 @@ describe.each([
     // When the next page loads
     await page.reload({ waitUntil: 'domcontentloaded' });
 
-    // Then it is dark from the first paint, and the menu says Dark
+    // Then it is dark from the first paint, and Settings says Dark
     await expect(isDark(page)).resolves.toBe(true);
-    await hydrated(page);
-    await visible(page, 'avatar-menu').click();
-    await expect.poll(() => themeChosen(visible(page, 'avatar-menu-theme-dark'))).toBe(true);
+    await openSettings(page);
+    await expect.poll(() => page.getByRole('button', { name: 'Dark' }).getAttribute('aria-pressed')).toBe('true');
   });
 
-  it('links to the source on GitHub as Help in the avatar menu, opening in a new tab', async () => {
+  it('links to the source on GitHub as Help in Settings, opening in a new tab', async () => {
     const page = await signedInPage({ isPhone });
-    await visible(page, 'avatar-menu').click();
-    const source = visible(page, 'avatar-menu-help');
+    await openSettings(page);
+    const source = page.getByRole('link', { name: /^Help/ });
 
     await expect(source.getAttribute('href')).resolves.toBe('https://github.com/ThomasHendrickx/aeolus-fleet');
     await expect(source.getAttribute('target')).resolves.toBe('_blank');
   });
 
+  it('opens Keyboard shortcuts from Settings on desktop only, and Escape returns to its row (H6)', async () => {
+    const page = await signedInPage({ isPhone });
+    await openSettings(page);
+    await page.getByRole('heading', { name: 'Help' }).waitFor();
+    const shortcuts = page.getByRole('button', { name: 'Keyboard shortcuts' });
+    if (isPhone) {
+      await expect(shortcuts.count()).resolves.toBe(0);
+      return;
+    }
+
+    await shortcuts.click();
+    await page.getByRole('dialog', { name: 'Keyboard shortcuts' }).getByText('Search ships or jump to').waitFor();
+    await page.keyboard.press('Escape');
+
+    await expect.poll(() => shortcuts.and(page.locator(':focus')).count()).toBe(1);
+  });
+
   it('offers no Your account on a self-hosted console', async () => {
     const page = await signedInPage({ isPhone });
 
-    await visible(page, 'avatar-menu').click();
+    await openSettings(page);
 
-    await visible(page, 'avatar-menu-session').waitFor();
-    await expect(visible(page, 'avatar-menu-account').count()).resolves.toBe(0);
-  });
-
-  it('keeps the theme controlled while the account is read, and logs no warning', async () => {
-    const page = await signedInPage({ isPhone });
-    const warnings = controlledWarnings(page);
-    const account = holdOneAnswer(page, 'console.account');
-    await page.reload();
-
-    await visible(page, 'avatar-menu').click();
-    await account.answered;
-    await visible(page, 'avatar-menu-session').getByText(/Device · .*Chrome, since/).waitFor();
-
-    expect(warnings).toEqual([]);
+    await page.getByRole('heading', { name: 'Help' }).waitFor();
+    await expect(page.getByRole('heading', { name: 'Your account' }).count()).resolves.toBe(0);
   });
 
   it('signs out from the menu, and logs no warning about the theme', async () => {
@@ -330,11 +356,6 @@ describe.each([
 /** The theme this browser keeps in the cookie every Aeolus app reads; undefined without one. */
 async function themeCookieOf(page: Page): Promise<string | undefined> {
   return (await page.context().cookies()).find((cookie) => cookie.name === THEME_COOKIE)?.value;
-}
-
-/** Whether a theme choice shows as chosen: checked in the desktop menu, pressed in the phone sheet. */
-async function themeChosen(choice: Locator): Promise<boolean> {
-  return (await choice.getAttribute('aria-checked')) === 'true' || (await choice.getAttribute('aria-pressed')) === 'true';
 }
 
 /** The page shows live once hydrated: a menu click before that does nothing. */

@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
+import { expect, within } from 'storybook/test';
 
 import { TabBar } from './tab-bar';
 
@@ -23,3 +24,32 @@ export const HealthActiveNoCounts: Story = {
 
 /** With squadrons and the trierarch plugin on: Trierarchs follows Squadrons, counting its silent machines. */
 export const WithTrierarchs: Story = { args: { active: 'trierarchs', hasSquadrons: true, hasTrierarchs: true, trierarchsCount: 1 } };
+
+/** Settings is the last tab for every sign-in (docs/design/app-navigation, where the account menu's items go). */
+export const SettingsLast: Story = {
+  play: async ({ canvasElement }) => {
+    const tabs = within(within(canvasElement).getByRole('navigation', { name: 'Console' })).getAllByRole('link');
+    await expect(tabs.map((tab) => tab.textContent)).toEqual(['Fleet', 'Health2 stuck', 'Inbox3 open', 'Settings']);
+    await expect(tabs.at(-1)).toHaveAttribute('href', '/settings');
+  },
+};
+
+export const SettingsActive: Story = {
+  args: { active: 'settings' },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getByRole('link', { name: 'Settings' })).toHaveAttribute('aria-current', 'page');
+  },
+};
+
+/** At its most tabs, squadrons and the trierarch plugin on: six, each label whole and each tab 44 px at 375 px. */
+export const MostTabs: Story = {
+  args: { hasSquadrons: true, hasTrierarchs: true, trierarchsCount: 1 },
+  play: async ({ canvasElement }) => {
+    const tabs = within(within(canvasElement).getByRole('navigation', { name: 'Console' })).getAllByRole('link');
+    await expect(tabs).toHaveLength(6);
+    for (const tab of tabs) {
+      await expect(tab.getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
+      await expect(tab.scrollWidth).toBeLessThanOrEqual(tab.clientWidth);
+    }
+  },
+};

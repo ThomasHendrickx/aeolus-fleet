@@ -30,6 +30,6 @@ export const Phone: Story = { globals: { viewport: { value: 'mobile1' } } };
 
 /** With squadrons and the trierarch plugin, which add them to the navigation. */
 export const WithPlugins: Story = {
-  args: { nav: { active: 'trierarchs', inboxCount: 3, stuckCount: 2, hasSquadrons: true, hasTrierarchs: true, trierarchsCount: 2, hasNetwork: true, hasSettings: true } },
+  args: { nav: { active: 'trierarchs', inboxCount: 3, stuckCount: 2, hasSquadrons: true, hasTrierarchs: true, trierarchsCount: 2, hasNetwork: true } },
 };
 export const WithPluginsPhone: Story = { ...WithPlugins, globals: { viewport: { value: 'mobile1' } } };

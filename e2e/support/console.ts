@@ -125,3 +125,19 @@ export function holdSignOutSlow(page: Page): { callsSent: string[]; started: Pro
   );
   return { callsSent, started: started.promise, answered: answered.promise };
 }
+
+/**
+ * Opens Settings from the navigation the width shows: the sidebar's item on
+ * desktop, the tab bar's last tab on phone (docs/design/app-navigation, where
+ * the account menu's items go), once the page is hydrated.
+ */
+export async function openSettings(page: Page): Promise<void> {
+  await page.locator('[data-slot="live-status"][data-state="live"]:visible').waitFor({ timeout: 20_000 });
+  await page.getByRole('navigation', { name: 'Console' }).filter({ visible: true }).getByRole('link', { name: 'Settings' }).click();
+  await page.getByRole('heading', { name: 'Settings', exact: true }).waitFor();
+}
+
+/** The account button at the end of the bar, once it says how the page is signed in ("Account: Your account"). */
+export function accountButton(page: Page, words: string | RegExp = /^Account: \S/) {
+  return page.getByRole('button', { name: words }).filter({ visible: true });
+}
