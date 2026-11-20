@@ -9,6 +9,7 @@ import { useState } from 'react';
 import { useHasAccountApp } from './account-app-client';
 import type { AppsListRead } from './apps-list-read';
 import { fetchConsoleRead } from './fetch-console-read';
+import { useFleetSwitch } from './fleet-switch';
 import { useTRPC } from './trpc';
 
 /** The apps list's query key: one read per page load, shared by the bar, Settings and the palette. */
@@ -151,8 +152,9 @@ export interface ConsoleSwitcher {
  * The bar's Apps and fleets (docs/design/app-navigation, section 4; header
  * design H1, H8, H9): this console's fleet, by the name console.session
  * gives it, and the apps and fleets an account may open, with the read's
- * state; Try again reads the list again, and Sign in goes to the existing
- * shared sign-in, back to this page.
+ * state; Try again reads the list again, Sign in goes to the existing
+ * shared sign-in, back to this page, and a fleet chosen opens as
+ * useFleetSwitch says.
  */
 export function useAppSwitcher(): ConsoleSwitcher {
   const trpc = useTRPC();
@@ -162,6 +164,7 @@ export function useAppSwitcher(): ConsoleSwitcher {
   const read = useAppsListRead(isForAccount);
   const [hasRetried, setHasRetried] = useState(false);
   const [isSigningIn, setIsSigningIn] = useState(false);
+  const { fleetSwitch, onOpenFleet } = useFleetSwitch();
   if (session.data === undefined) {
     return { switcher: undefined, switcherState: { read: 'loading' }, isSignInExpired: false };
   }
@@ -174,6 +177,8 @@ export function useAppSwitcher(): ConsoleSwitcher {
     switcher: appSwitcherOf({ list: view.list, fleet: { id: session.data.fleetId, name: session.data.fleetName }, app: 'console' }),
     switcherState: {
       ...view.state,
+      ...(fleetSwitch === undefined ? {} : { fleetSwitch }),
+      onOpenFleet,
       onRetry: () => {
         setHasRetried(true);
         void read.refetch();

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 
-import { classNames, type AppsAndFleetsState, type AvatarMenuProps } from '@aeolus-fleet/ui';
+import { ArrivalLine, classNames, type AppsAndFleetsState, type AvatarMenuProps } from '@aeolus-fleet/ui';
 import type { AppSwitcherModel } from '@aeolus-fleet/common/rules';
 import type { LiveState } from '../molecules/live-status';
 import { Header } from './header';
@@ -30,6 +30,8 @@ interface ListPageProps {
   account: AvatarMenuProps;
   /** The installation's notices for this session, above the page on desktop and phone. */
   banner?: ReactNode;
+  /** Set on the page another fleet opened on: the page says so at its top. */
+  arrival?: { appLabel: string; fleetName: string };
   /** A bar of the page's own on phone, in place of the console's: an open inbox conversation's TopBar. */
   phoneTopBar?: ReactNode;
   children: ReactNode;
@@ -41,7 +43,7 @@ interface ListPageProps {
  * action share the first row, the toolbar sits under it and the list fills
  * the rest. On phone the TabBar's height is kept free at the bottom.
  */
-export function ListPage({ title, description, titleMeta, primaryAction, isActionInTitleRow = false, toolbar, live, onCompose, onSearch, switcher, switcherState, account, banner, phoneTopBar, children }: ListPageProps) {
+export function ListPage({ title, description, titleMeta, primaryAction, isActionInTitleRow = false, toolbar, live, onCompose, onSearch, switcher, switcherState, account, banner, arrival, phoneTopBar, children }: ListPageProps) {
   return (
     <>
       <Header
@@ -56,6 +58,7 @@ export function ListPage({ title, description, titleMeta, primaryAction, isActio
       />
       {banner}
       <main className="flex grow flex-col gap-4 px-6 py-5 max-sm:gap-3.5 max-sm:px-4 max-sm:pt-3.5 max-sm:pb-[calc(var(--size-tabbar)+var(--spacing)*4)]">
+        {arrival === undefined ? null : <ArrivalLine appLabel={arrival.appLabel} fleetName={arrival.fleetName} />}
         <div className={classNames('flex flex-wrap items-start justify-between gap-4 max-sm:gap-3', isActionInTitleRow && 'max-sm:flex-nowrap')}>
           <div className="flex min-w-0 flex-col gap-1">
             <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">

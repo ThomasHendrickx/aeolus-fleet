@@ -18,6 +18,8 @@ export interface ConsoleFrame {
   /** What the console knows of the apps and fleets beyond the list, and its handlers. */
   switcherState: AppsAndFleetsState;
   account: AvatarMenuProps;
+  /** Set on the page another fleet opened on: "Console is open in Harbour." */
+  arrival?: { appLabel: string; fleetName: string };
   /** Opens Compose; none while the session may not send. */
   onCompose?: () => void;
   onSearch: () => void;
