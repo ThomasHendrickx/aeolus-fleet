@@ -212,10 +212,10 @@ export const Loading: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByRole('heading', { level: 1, name: 'Settings' })).toBeVisible();
-    await expect(canvas.getByRole('status')).toHaveTextContent('Loading Settings');
+    await expect(canvas.getAllByRole('status').filter((status) => status.textContent === 'Loading Settings')).toHaveLength(1);
     await expect(canvas.queryByRole('button', { name: 'Light' })).toBeNull();
     await expect(canvas.queryByText('A viewer sign-in shows this browser’s theme and has no theme switch.')).toBeNull();
-    await expect(sectionsOf(canvasElement)).toEqual([]);
+    await expect(canvas.queryAllByRole('heading', { level: 2 })).toEqual([]);
   },
 };
 export const LoadingPhone: Story = { ...Loading, globals: PHONE };

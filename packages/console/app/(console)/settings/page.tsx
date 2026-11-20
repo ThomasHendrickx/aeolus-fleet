@@ -1,7 +1,9 @@
 'use client';
 
 import { OwnSignInSection } from '../../../features/settings/state/own-sign-in-section';
+import { useIsSettingsRead } from '../../../features/settings/hooks/use-settings-read';
 import { SettingsItems } from '../../../features/settings/state/settings-items';
+import { SettingsLoading } from '../../../features/settings/ui/organisms/settings-loading';
 import { GatewayConnection } from '../../../features/settings/ui/organisms/gateway-connection';
 import { SquadronsConnection } from '../../../features/settings/ui/organisms/squadrons-connection';
 import { TemplateRepositories } from '../../../features/settings/ui/organisms/template-repositories';
@@ -30,7 +32,8 @@ import { useConnectWatchPlugin, useWatchPluginSettings } from '../../../lib/watc
  * nothing of squadrons. Whenever Settings is offered, the trierarch plugin:
  * not set up, connecting it, or connected. With the gateway on for the
  * fleet, connecting it, or the ship it is connected as; the same for the
- * watch plugin, after the gateway (design watch-connection).
+ * watch plugin, after the gateway (design watch-connection). Until what it
+ * shows is read, its loading shape under the title, so nothing flips in.
  */
 export default function SettingsPage() {
   const frame = useConsoleFrame();
@@ -38,7 +41,15 @@ export default function SettingsPage() {
   const liveFleet = useLiveFleet();
   const pluginNav = usePluginNav();
   useSignInWhenSessionEnds([attention.error, liveFleet.error]);
+  const isRead = useIsSettingsRead();
 
+  if (!isRead) {
+    return (
+      <ListPage {...frame} title="Settings" live={liveFleet.live}>
+        <SettingsLoading />
+      </ListPage>
+    );
+  }
   return (
     <ListPage
       {...frame}

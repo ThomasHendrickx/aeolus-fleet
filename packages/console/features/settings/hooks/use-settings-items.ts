@@ -64,7 +64,8 @@ export function useSettingsItems(): SettingsItems {
     // Unknown until the sign-in is: a viewer's has no switch.
     theme: account.data === undefined ? undefined : theme,
     themes,
-    hasThemeSwitch: account.data?.kind !== 'viewer',
+    // A viewer's has none; none shows either until the sign-in is known.
+    hasThemeSwitch: account.data !== undefined && account.data.kind !== 'viewer',
     onThemeChange: keepTheme,
     shortcuts: SHORTCUTS,
     helpUrl: SOURCE_URL,

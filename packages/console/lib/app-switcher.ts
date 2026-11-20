@@ -131,6 +131,15 @@ export function useAppsList(): AppsList | undefined {
   return isForAccount && read.data?.kind === 'list' ? read.data.list : undefined;
 }
 
+/** Whether the apps list is read, or not asked, as for argo's and the viewer's sign-ins: Settings waits for it, as it names Your account. */
+export function useIsAppsListRead(): boolean {
+  const trpc = useTRPC();
+  const session = useQuery(trpc.console.session.queryOptions());
+  const isForAccount = session.data !== undefined && isAccountSignIn(session.data.kind);
+  const read = useAppsListRead(isForAccount);
+  return !isForAccount || !read.isPending;
+}
+
 /**
  * Whether the apps list allows the account as argo of the fleet the console
  * shows (accounts design, A7): Settings reads it from the list the bar
