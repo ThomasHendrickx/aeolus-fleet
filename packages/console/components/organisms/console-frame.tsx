@@ -1,7 +1,5 @@
 import type { ReactNode } from 'react';
 
-import type { AvatarMenuProps } from '@aeolus-fleet/ui';
-
 import { Sidebar, type SidebarDestination } from './sidebar';
 import { TabBar } from './tab-bar';
 
@@ -25,11 +23,11 @@ export interface ConsoleNav {
 
 /**
  * The frame around every signed-in page (docs/design/png/ListPage.png,
- * DetailPage.png): the Sidebar on desktop, with the avatar menu in its foot, the TabBar on phone, and the
- * page between them, a ListPage or a DetailPage. The signed-in route layout
- * fills it.
+ * DetailPage.png): the Sidebar on desktop, under the page's bar, which spans
+ * the full width, the TabBar on phone, and the page, a ListPage or a
+ * DetailPage. The signed-in route layout fills it.
  */
-export function ConsoleFrame({ nav, account, fleetName, children }: { nav: ConsoleNav; account?: AvatarMenuProps; fleetName?: string; children: ReactNode }) {
+export function ConsoleFrame({ nav, children }: { nav: ConsoleNav; children: ReactNode }) {
   return (
     <div className="flex min-h-dvh bg-background">
       <Sidebar
@@ -42,8 +40,6 @@ export function ConsoleFrame({ nav, account, fleetName, children }: { nav: Conso
         trierarchsCount={nav.trierarchsCount}
         hasNetwork={nav.hasNetwork}
         hasSettings={nav.hasSettings}
-        account={account}
-        fleetName={fleetName}
       />
       <div className="flex min-w-0 grow flex-col">{children}</div>
       <TabBar

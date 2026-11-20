@@ -1,87 +1,38 @@
-import { AppSwitcher, AvatarMenuSheet, Button, type AvatarMenuProps } from '@aeolus-fleet/ui';
-import type { AppSwitcherModel } from '@aeolus-fleet/common/rules';
-import { ChevronLeft, Search } from 'lucide-react';
+import { ChevronLeft } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
 import { LiveStatus, type LiveState } from '../molecules/live-status';
 
 interface TopBarProps {
-  /** The page title: in detail mode the bar's title; in root mode the switcher stands in its place, and the page shows its own title. */
+  /** The bar's title, beside the back link; the page below carries its own, so it is no heading. */
   title: string;
-  /** Root mode: the Apps and fleets launcher with the app and the fleet (docs/design/app-navigation); undefined until the session is read. */
-  switcher?: AppSwitcherModel;
-  /** Root mode: the page's title stands in until the session is read, as the fleet overview's "Fleet" (docs/design/fleet-overview). */
-  isTitled?: boolean;
   live: LiveState;
   /** Up to two icon-only Buttons, each with its aria-label. */
   actions?: ReactNode;
-  /**
-   * Detail mode: the back link, labelled with the page it returns to. The page
-   * below carries its own title then, so the bar's title is no heading.
-   */
-  back?: { href: string; label: string };
-  /** Root mode: the avatar menu, always last. Detail and modal modes need none. */
-  account?: AvatarMenuProps;
-  /** Root mode: the search icon that opens the CommandPalette full screen, before the other actions. */
-  onSearch?: () => void;
+  /** The back link, labelled with the page it returns to. */
+  back: { href: string; label: string };
 }
 
 /**
- * Phone top bar (docs/design/png/TopBar.png), 56 px. Root mode: the
- * Apps and fleets launcher, the app and the fleet, whose panel opens as a bottom
- * Sheet (docs/design/app-navigation), the live status, the CommandPalette's search
- * icon, up to two icon actions and the avatar menu, always last, which opens
- * as a bottom Sheet. Detail mode: a back link
- * labelled with the previous page, the title and the live status. Modal mode
- * comes with the pages that need it.
+ * A page's own phone bar (docs/design/png/TopBar.png), 56 px, in place of
+ * the console's bar: an open inbox conversation's, with a back link labelled
+ * with the page it returns to, the title, the live status and up to two icon
+ * actions. It holds no launcher: the page is a step inside another.
  */
-export function TopBar({ title, live, actions, back, switcher, isTitled = false, account, onSearch }: TopBarProps) {
-  const search = onSearch && !back ? onSearch : undefined;
+export function TopBar({ title, live, actions, back }: TopBarProps) {
   return (
-    <header
-      data-slot="top-bar"
-      data-mode={back ? 'detail' : 'root'}
-      className="sticky top-0 z-30 flex h-(--size-header) items-center gap-2.5 border-b border-border bg-background px-4 sm:hidden"
-    >
-      {back ? (
-        <>
-          <Link
-            href={back.href}
-            className="-ml-1.5 inline-flex h-(--size-control-touch) shrink-0 items-center gap-0.5 rounded-md pr-2 text-body-touch text-foreground focus-visible:outline-2 focus-visible:outline-ring [&_svg]:size-(--size-icon)"
-          >
-            <ChevronLeft aria-hidden />
-            {back.label}
-          </Link>
-          <p className="min-w-0 flex-1 truncate text-center text-body-touch font-semibold text-foreground">{title}</p>
-        </>
-      ) : (
-        // Until the session is read the console's own name stands in: the switcher only adds where else to go.
-        switcher ? (
-          <AppSwitcher switcher={switcher} layout="sheet" className="min-w-0" />
-        ) : (
-          <p className="truncate px-1.5 text-title-touch font-semibold text-foreground">{isTitled ? title : 'Console'}</p>
-        )
-      )}
-      <LiveStatus state={live} className={isTitled && !back ? 'ml-auto' : undefined} />
-      {actions || search || (account && !back) ? (
-        <div className="ml-auto flex items-center gap-1">
-          {search ? (
-            <Button
-              variant="ghost"
-              size="touch"
-              isIconOnly
-              aria-label="Search ships or jump to"
-              data-testid="top-bar-search"
-              onClick={search}
-            >
-              <Search aria-hidden />
-            </Button>
-          ) : null}
-          {actions}
-          {account && !back ? <AvatarMenuSheet {...account} /> : null}
-        </div>
-      ) : null}
+    <header data-slot="top-bar" data-mode="detail" className="sticky top-0 z-30 flex h-(--size-header) items-center gap-2.5 border-b border-border bg-background px-4 sm:hidden">
+      <Link
+        href={back.href}
+        className="-ml-1.5 inline-flex h-(--size-control-touch) shrink-0 items-center gap-0.5 rounded-md pr-2 text-body-touch text-foreground focus-visible:outline-2 focus-visible:outline-ring [&_svg]:size-(--size-icon)"
+      >
+        <ChevronLeft aria-hidden />
+        {back.label}
+      </Link>
+      <p className="min-w-0 flex-1 truncate text-center text-body-touch font-semibold text-foreground">{title}</p>
+      <LiveStatus state={live} />
+      {actions ? <div className="ml-auto flex items-center gap-1">{actions}</div> : null}
     </header>
   );
 }

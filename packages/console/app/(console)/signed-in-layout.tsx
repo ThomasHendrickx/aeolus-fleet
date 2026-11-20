@@ -64,7 +64,7 @@ export function SignedInLayout({ children }: { children: ReactNode }) {
         ),
       }}
     >
-      <ConsoleFrame nav={{ active, inboxCount, stuckCount, ...pluginNav }} account={account} {...(switcher === undefined ? {} : { fleetName: switcher.fleet.name })}>
+      <ConsoleFrame nav={{ active, inboxCount, stuckCount, ...pluginNav }}>
         {children}
       </ConsoleFrame>
       <ComposeMessage
