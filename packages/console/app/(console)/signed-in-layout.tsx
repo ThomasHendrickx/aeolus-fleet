@@ -28,7 +28,7 @@ import { usePluginNav } from '../../lib/plugin-nav';
 export function SignedInLayout({ children }: { children: ReactNode }) {
   const now = useNow();
   const account = useAccountMenu(now);
-  const switcher = useAppSwitcher();
+  const { switcher, switcherState, isSignInExpired } = useAppSwitcher();
   const access = useAccess();
   const inboxCount = useOpenInboxCount();
   const stuckCount = useStuckCount().data?.count;
@@ -49,7 +49,8 @@ export function SignedInLayout({ children }: { children: ReactNode }) {
     <ConsoleFrameContext
       value={{
         switcher,
-        account,
+        switcherState,
+        account: { ...account, isSignInExpired },
         onCompose: access.canSend ? compose : undefined,
         onSearch: () => {
           setIsSearching(true);

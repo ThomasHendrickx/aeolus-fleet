@@ -41,6 +41,7 @@ export default function TemplatePage({
   return (
     <DetailPage
       switcher={frame.switcher}
+      switcherState={frame.switcherState}
       account={frame.account}
       onCompose={frame.onCompose}
       onSearch={frame.onSearch}

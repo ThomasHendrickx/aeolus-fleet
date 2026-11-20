@@ -122,6 +122,7 @@ export function ShipPageFor({ shipId, tab, messageId }: { shipId: ShipId; tab: S
   return (
     <DetailPage
       switcher={frame.switcher}
+      switcherState={frame.switcherState}
       account={frame.account}
       onCompose={frame.onCompose}
       onSearch={frame.onSearch}

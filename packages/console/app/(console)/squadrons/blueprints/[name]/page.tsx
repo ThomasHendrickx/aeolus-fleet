@@ -48,6 +48,7 @@ export default function BlueprintPage({
   return (
     <DetailPage
       switcher={frame.switcher}
+      switcherState={frame.switcherState}
       account={frame.account}
       onCompose={frame.onCompose}
       onSearch={frame.onSearch}
