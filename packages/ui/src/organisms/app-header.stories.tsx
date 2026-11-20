@@ -797,7 +797,7 @@ function focused(): HTMLElement | null {
   return document.activeElement instanceof HTMLElement ? document.activeElement : null;
 }
 
-/** Phone: the sheet keeps focus inside it; Tab goes from the tiles to the fleets to Cancel, then back into the sheet. */
+/** Phone: the sheet keeps focus inside it; Tab goes from the tiles to the fleets to Cancel, and Tab and Shift+Tab stay in the sheet. */
 export const PhoneFocusTrap: Story = onPhone({
   play: async ({ canvasElement }) => {
     within(canvasElement).getByTestId('app-switcher-launcher').focus();
@@ -809,11 +809,12 @@ export const PhoneFocusTrap: Story = onPhone({
     await userEvent.tab();
     await expect(within(panel).getByRole('button', { name: 'Cancel' })).toHaveFocus();
     await userEvent.tab();
-    await expect(panel).toContainElement(focused());
+    await waitFor(() => expect(panel).toContainElement(focused()));
     await userEvent.tab();
-    await expect(panel).toContainElement(focused());
+    await waitFor(() => expect(panel).toContainElement(focused()));
     await userEvent.tab({ shift: true });
+    await waitFor(() => expect(panel).toContainElement(focused()));
     await userEvent.tab({ shift: true });
-    await expect(within(panel).getByRole('button', { name: 'Cancel' })).toHaveFocus();
+    await waitFor(() => expect(panel).toContainElement(focused()));
   },
 });

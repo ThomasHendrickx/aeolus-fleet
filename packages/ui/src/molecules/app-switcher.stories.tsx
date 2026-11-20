@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import type { MouseEvent } from 'react';
-import { expect, screen, userEvent, waitFor, within } from 'storybook/test';
+import { expect, fireEvent, screen, userEvent, waitFor, within } from 'storybook/test';
 
 import { accountIdSchema, createIdGenerator, type AppsList } from '@aeolus-fleet/common';
 import { appSwitcherOf } from '@aeolus-fleet/common/rules';
@@ -109,9 +109,7 @@ export const ModifierOpensAppElsewhere: Story = {
   play: async ({ canvasElement }) => {
     await userEvent.click(within(canvasElement).getByTestId('app-switcher-launcher'));
     const panel = await screen.findByTestId('app-switcher-panel');
-    await userEvent.keyboard('{Control>}');
-    await userEvent.click(choiceIn(panel, { testId: 'app-switcher-app', name: 'Gateway' }));
-    await userEvent.keyboard('{/Control}');
+    await fireEvent.click(choiceIn(panel, { testId: 'app-switcher-app', name: 'Gateway' }), { ctrlKey: true });
     await expect(choiceIn(panel, { testId: 'app-switcher-app', name: 'Gateway' })).toHaveAccessibleName('Gateway');
     await expect(choiceIn(panel, { testId: 'app-switcher-app', name: 'Account' })).not.toHaveAttribute('aria-disabled');
     await expect(choiceIn(panel, { testId: 'app-switcher-fleet', name: 'Harbour' })).not.toHaveAttribute('aria-disabled');
@@ -154,9 +152,7 @@ export const ModifierOpensFleetElsewhere: Story = {
   play: async ({ canvasElement }) => {
     await userEvent.click(within(canvasElement).getByTestId('app-switcher-launcher'));
     const panel = await screen.findByTestId('app-switcher-panel');
-    await userEvent.keyboard('{Control>}');
-    await userEvent.click(choiceIn(panel, { testId: 'app-switcher-fleet', name: 'Harbour' }));
-    await userEvent.keyboard('{/Control}');
+    await fireEvent.click(choiceIn(panel, { testId: 'app-switcher-fleet', name: 'Harbour' }), { ctrlKey: true });
     await expect(choiceIn(panel, { testId: 'app-switcher-fleet', name: 'Harbour' })).toHaveTextContent(/^Harbour$/);
     await expect(choiceIn(panel, { testId: 'app-switcher-app', name: 'Gateway' })).not.toHaveAttribute('aria-disabled');
     await expect(within(canvasElement).getByTestId('app-switcher-fleet-pill')).not.toHaveAttribute('aria-busy');
