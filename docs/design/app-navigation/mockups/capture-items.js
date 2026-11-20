@@ -25,7 +25,7 @@ for (const width of [375, 1440]) {
     await page.goto(`file://${folder}/items.html?state=${state}&era=${era}&theme=${theme}&view=${view}${squadrons ? '&squadrons=1' : ''}`);
     await page.evaluate(() => document.fonts.ready);
   };
-  const capture = async (state, shot, { era = 'after', theme = 'light' } = {}) => {
+  const capture = async ({ state, shot, era = 'after', theme = 'light' }) => {
     const name = `items-${state}-${shot}-${era}-${width}-${theme}.png`;
     const layout = await page.evaluate(() => {
       const panel = document.querySelector('.menu, .panel, .dialog');
@@ -50,18 +50,18 @@ for (const width of [375, 1440]) {
   for (const state of states) {
     for (const theme of ['light', 'dark']) {
       await open(state, { era: 'before', theme });
-      await capture(state, 'menu', { era: 'before', theme });
+      await capture({ state, shot: 'menu', era: 'before', theme });
       await open(state, { theme });
-      await capture(state, 'settings', { theme });
+      await capture({ state, shot: 'settings', theme });
       await open(state, { theme, view: 'account' });
-      await capture(state, 'account-panel', { theme });
+      await capture({ state, shot: 'account-panel', theme });
       if (width === 1440) {
         // Keyboard shortcuts by keyboard: the row opens the dialog, Escape closes it and returns focus to the row.
         await open(state, { theme });
         await page.locator('#shortcuts').focus();
         await page.keyboard.press('Enter');
         if (!await isFocused('#dialog-close')) findings.push({ width, state, theme, interaction: 'Keyboard shortcuts opens its dialog with focus inside' });
-        await capture(state, 'shortcuts', { theme });
+        await capture({ state, shot: 'shortcuts', theme });
         await page.keyboard.press('Escape');
         if (await page.locator('.dialog').count() !== 0 || !await isFocused('#shortcuts')) findings.push({ width, state, theme, interaction: 'Escape closes the dialog and returns focus to Keyboard shortcuts' });
       }
@@ -70,7 +70,7 @@ for (const width of [375, 1440]) {
   // The phone tab bar at its most tabs: squadrons and the trierarch plugin on, Settings last.
   for (const theme of ['light', 'dark']) {
     await open('argo', { theme, squadrons: true });
-    await capture('argo', 'most-tabs', { theme });
+    await capture({ state: 'argo', shot: 'most-tabs', theme });
   }
 
   // Feedback frames come from pressing the controls, not from alternate markup.
@@ -79,17 +79,17 @@ for (const width of [375, 1440]) {
     await page.locator('#theme-dark').click();
     if (!await page.evaluate(() => document.documentElement.classList.contains('dark')) || await page.locator('#theme-dark').getAttribute('aria-pressed') !== 'true') findings.push({ width, state, interaction: 'Choosing Dark shows it at once' });
     if (!await isFocused('#theme-dark')) findings.push({ width, state, interaction: 'Focus stays on the chosen theme' });
-    await capture(state, 'theme-chosen');
+    await capture({ state, shot: 'theme-chosen' });
   }
   await open('account');
   await page.locator('#sign-in-as-argo').click();
   if (await page.locator('#sign-in-as-argo').textContent() !== 'Signing in as argo' || !await page.locator('#sign-in-as-argo').isDisabled()) findings.push({ width, interaction: 'Sign in as argo shows it is working' });
-  await capture('account', 'signing-in-as-argo');
+  await capture({ state: 'account', shot: 'signing-in-as-argo' });
   for (const state of states) {
     await open(state);
     await page.locator('#tour').click();
     if (!await isFocused('#tour-next')) findings.push({ width, state, interaction: 'Take the tour opens its first step with focus on Next' });
-    await capture(state, 'tour');
+    await capture({ state, shot: 'tour' });
   }
   await page.close();
 }

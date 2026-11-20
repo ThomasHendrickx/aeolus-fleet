@@ -95,21 +95,21 @@ function fleetPage() {
 }
 
 /* ---------- Before: today's account menu, open, as the console builds it. ---------- */
-function menuRow(key, label, shape, extra = '') {
+function menuRow({ key, label, shape, extra = '' }) {
   return `<a class="menu-row" href="#${key}" data-item="${key}">${icon(shape)}<span>${label}</span>${extra}</a>`;
 }
 function beforeMenu() {
   const phone = isPhone();
   const rows = [];
-  if (has.accountPages) rows.push(menuRow('account', 'Your account', 'user'), menuRow('rights', 'Your rights', 'shield'), menuRow('updates', 'Email updates', 'bell'));
-  if (has.tour) rows.push(menuRow('tour', 'Take the tour', 'compass'));
-  if (has.argoSignIn) rows.push(menuRow('argo', 'Sign in as argo', 'key'));
-  if (phone && has.network) rows.push(menuRow('network', 'Network', 'network'));
-  if (phone && has.manages) rows.push(menuRow('settings', 'Settings', 'settings'));
+  if (has.accountPages) rows.push(menuRow({ key: 'account', label: 'Your account', shape: 'user' }), menuRow({ key: 'rights', label: 'Your rights', shape: 'shield' }), menuRow({ key: 'updates', label: 'Email updates', shape: 'bell' }));
+  if (has.tour) rows.push(menuRow({ key: 'tour', label: 'Take the tour', shape: 'compass' }));
+  if (has.argoSignIn) rows.push(menuRow({ key: 'argo', label: 'Sign in as argo', shape: 'key' }));
+  if (phone && has.network) rows.push(menuRow({ key: 'network', label: 'Network', shape: 'network' }));
+  if (phone && has.manages) rows.push(menuRow({ key: 'settings', label: 'Settings', shape: 'settings' }));
   const themeBlock = !has.theme ? '' : phone
     ? `<div class="menu-theme" role="group" aria-label="Theme"><p class="meta">Theme<br>${THEME_SCOPE}</p><div class="segmented">${themes.map(([value, label, shape]) => `<button aria-pressed="${value === theme}">${icon(shape)}${label}</button>`).join('')}</div></div>`
     : `<hr class="separator"><p class="menu-label">Theme<br><span>${THEME_SCOPE}</span></p>${themes.map(([value, label, shape]) => `<a class="menu-row" href="#theme-${value}" role="menuitemradio" aria-checked="${value === theme}">${icon(shape)}<span>${label}</span>${value === theme ? '<span class="dot"></span>' : ''}</a>`).join('')}`;
-  const tail = `${phone ? '' : `<hr class="separator">${menuRow('shortcuts', 'Keyboard shortcuts', 'keyboard')}`}${menuRow('help', 'Help', 'help', '<span class="sr-only"> (opens in a new tab)</span>')}${phone ? '' : '<hr class="separator">'}${menuRow('signout', 'Sign out', 'logout')}`;
+  const tail = `${phone ? '' : `<hr class="separator">${menuRow({ key: 'shortcuts', label: 'Keyboard shortcuts', shape: 'keyboard' })}`}${menuRow({ key: 'help', label: 'Help', shape: 'help', extra: '<span class="sr-only"> (opens in a new tab)</span>' })}${phone ? '' : '<hr class="separator">'}${menuRow({ key: 'signout', label: 'Sign out', shape: 'logout' })}`;
   return `<div class="scrim"></div><section class="menu ${phone ? 'sheet' : ''}" role="${phone ? 'dialog' : 'menu'}" aria-label="Account"><div class="handle"></div><div class="menu-who"><span class="avatar">${initials}</span><span class="who-words"><strong>${name}</strong><span class="meta">${signedInLine}</span></span></div>${sessionLine}${rows.join('')}${themeBlock}${tail}${phone ? '<button class="btn close">Cancel</button>' : ''}</section>`;
 }
 function renderBefore() {
@@ -128,7 +128,7 @@ function row({ id, label, shape, href, caption = '', end = '', busy = false, ext
   const attrs = href ? `href="${href}"${external ? ' target="_blank" rel="noreferrer"' : ''}` : `type="button"${busy ? ' disabled' : ''}`;
   return `<${tag} class="setting-row" id="${id}" data-item="${id}" ${attrs}>${busy ? icon('spinner', 'busy-icon') : icon(shape)}<span class="row-words"><span class="row-label">${label}</span>${caption ? `<span class="meta">${caption}</span>` : ''}</span><span class="row-end">${end}</span></${tag}>`;
 }
-function section(id, title, description, body, { quiet = false } = {}) {
+function section({ id, title, description, body, quiet = false }) {
   if (!title) return `<section class="settings-card" aria-label="${id}" data-section="${id}">${body}</section>`;
   return `<section class="settings-card ${quiet ? 'quiet' : ''}" aria-labelledby="${id}-title" data-section="${id}"><div class="card-head"><h2 id="${id}-title">${title}</h2>${description ? `<p class="meta">${description}</p>` : ''}</div>${body}</section>`;
 }
@@ -136,28 +136,28 @@ function settingsPage() {
   const phone = isPhone();
   const parts = [];
   // Network has a sidebar item on desktop; on phone, where the tab bar has no room, Settings leads to it.
-  if (phone && has.network) parts.push(section('Network', '', '', row({ id: 'network', label: 'Network', shape: 'network', href: '#network', end: icon('chevron') })));
-  parts.push(section('theme', 'Theme', THEME_SCOPE, has.theme
+  if (phone && has.network) parts.push(section({ id: 'Network', title: '', description: '', body: row({ id: 'network', label: 'Network', shape: 'network', href: '#network', end: icon('chevron') }) }));
+  parts.push(section({ id: 'theme', title: 'Theme', description: THEME_SCOPE, body: has.theme
     ? `<div class="segmented" role="group" aria-label="Theme">${themes.map(([value, label, shape]) => `<button type="button" id="theme-${value}" aria-pressed="${value === theme}">${icon(shape)}${label}</button>`).join('')}</div>`
-    : '<p class="meta">A viewer sign-in shows this browser’s theme and has no theme switch.</p>'));
-  parts.push(section('help', 'Help', '', [
+    : '<p class="meta">A viewer sign-in shows this browser’s theme and has no theme switch.</p>' }));
+  parts.push(section({ id: 'help', title: 'Help', description: '', body: [
     phone ? '' : row({ id: 'shortcuts', label: 'Keyboard shortcuts', shape: 'keyboard' }),
     row({ id: 'help', label: 'Help', shape: 'help', href: 'https://github.com/ThomasHendrickx/aeolus-fleet', external: true, caption: 'Opens in a new tab', end: icon('arrow') }),
     has.tour ? row({ id: 'tour', label: 'Take the tour', shape: 'compass' }) : '',
-  ].join('')));
+  ].join('') }));
   if (has.accountPages || has.argoSignIn) {
-    parts.push(section('your-account', 'Your account', has.accountPages ? 'These pages open in Account.' : '', [
+    parts.push(section({ id: 'your-account', title: 'Your account', description: has.accountPages ? 'These pages open in Account.' : '', body: [
       ...(has.accountPages ? [
         row({ id: 'account-page', label: 'Your account', shape: 'user', href: '#account-app', end: icon('arrow') }),
         row({ id: 'rights', label: 'Your rights', shape: 'shield', href: '#account-app-rights', end: icon('arrow') }),
         row({ id: 'updates', label: 'Email updates', shape: 'bell', href: '#account-app-updates', end: icon('arrow') }),
       ] : []),
       ...(has.argoSignIn ? [row({ id: 'sign-in-as-argo', label: signingInAsArgo ? 'Signing in as argo' : 'Sign in as argo', shape: 'key', busy: signingInAsArgo })] : []),
-    ].join('')));
+    ].join('') }));
   }
   // The sections Settings holds today, unchanged, after the personal ones.
-  if (state === 'single') parts.push(section('own-sign-in', 'Your sign-in', 'argo’s email and password for this console.', '<p class="meta">operator@example.com</p>', { quiet: true }));
-  if (has.manages && has.trierarchs) parts.push(section('trierarch', 'Trierarch plugin', 'Connected.', '', { quiet: true }));
+  if (state === 'single') parts.push(section({ id: 'own-sign-in', title: 'Your sign-in', description: 'argo’s email and password for this console.', body: '<p class="meta">operator@example.com</p>', quiet: true }));
+  if (has.manages && has.trierarchs) parts.push(section({ id: 'trierarch', title: 'Trierarch plugin', description: 'Connected.', body: '', quiet: true }));
   const description = has.manages ? 'How this console looks for you, and how this installation runs.' : 'How this console looks for you.';
   return `<div class="heading"><h1>Settings</h1></div><p class="meta page-description">${description}</p>${parts.join('')}`;
 }
