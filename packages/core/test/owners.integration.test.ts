@@ -13,6 +13,7 @@ import { unwrap } from '../src/testing/result.js';
 import { newKey } from '../src/testing/keys.js';
 import { withOperatorLogin } from './support/operator-login.js';
 import { unsealedFleetsOnly } from './support/sealing.js';
+import { ok } from '../src/domain/shared/result.js';
 
 // Owners on a real Postgres (decision 0045): every ship but argo and the
 // viewer has one, set and changed with its event in the same transaction.
@@ -147,6 +148,44 @@ describe('a retired owner on Postgres', () => {
       ['OwnerChanged', { fromShipId: argoId, toShipId: thomasId, why: 'set' }],
       ['OwnerChanged', { fromShipId: thomasId, toShipId: argoId, why: 'ownerRetired' }],
     ]);
+  });
+
+  it('serializes retirement behind an ownership holder that also locks its meeting', async () => {
+    // Given an open meeting and a transaction holding ownership before its meeting lock.
+    const { meetingId } = unwrap(await core.useCases.openMeeting(argo, {
+      ships: [{ shipId: thomasId }], idempotencyKey: newKey(),
+    }));
+    const held = heldUnitOfWork(core.prisma, (tx, hold) => ({
+      ...tx,
+      ships: {
+        ...tx.ships,
+        lockOwnership: async (id) => {
+          await tx.ships.lockOwnership(id);
+          await hold();
+        },
+      },
+    }));
+    const holder = held.uow.run(async (tx) => {
+      await tx.ships.lockOwnership(fleetId);
+      const meeting = await tx.meetings.findForUpdate(fleetId, meetingId);
+      expect(meeting?.endedAt).toBeNull();
+      return ok(undefined);
+    });
+    await held.reached;
+
+    // When retirement races the holder, it must wait without holding the meeting.
+    const results = await Promise.allSettled([holder, core.useCases.retireShip(argo, { shipId: thomasId })]);
+
+    // Then neither transaction deadlocks and retirement commits its state and owner event.
+    expect(results.filter((result) => result.status === 'rejected')).toEqual([]);
+    expect(results).toMatchObject([
+      { status: 'fulfilled', value: { isOk: true } },
+      { status: 'fulfilled', value: { isOk: true } },
+    ]);
+    await expect(core.prisma.ship.findUniqueOrThrow({ where: { id: thomasId } })).resolves.toMatchObject({ status: 'retired' });
+    await expect(ownerOf(scoutId)).resolves.toBe(argoId);
+    expect(await ownerEventsAbout(scoutId)).toContainEqual(['OwnerChanged', { fromShipId: thomasId, toShipId: argoId, why: 'ownerRetired' }]);
+    await expect(core.prisma.meetingParticipant.findMany({ where: { meetingId, shipId: thomasId } })).resolves.toMatchObject([{ leftAt: core.clock.now() }]);
   });
 
   it('stores nothing, the owner not retired, when an OwnerChanged cannot be written', async () => {

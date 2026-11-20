@@ -383,8 +383,37 @@ describe('the fixed exceptions', () => {
       await expect(sent(thomas, aMessage(toShip(vault), { model: undefined }))).resolves.toMatch(/^msg_/);
     });
 
-    it('is not reached by the ship it owns', async () => {
-      expect(refusalOf(await messaging.sendMessage(vault, aMessage(toShip(thomas))))).toEqual(NOT_REACHABLE);
+    it('is reached by the ship it owns by send only', async () => {
+      // Given a ship with a direct person owner and no ordinary reach.
+      const input = aMessage(toShip(thomas));
+
+      // When the child sends to its owner and its reach is explained.
+      const messageId = await sent(vault, input);
+      const reach = unwrap(await registry.explainReach(argo, { fromShipId: vault.shipId, toShipId: thomas.shipId }));
+
+      // Then the send succeeds without read or manage reach back to the owner.
+      expect(messageId).toMatch(/^msg_/);
+      expect(reach).toEqual({ send: [{ shipId: thomas.shipId, rule: { builtIn: 'sendToOwner' } }], read: [], manage: [] });
+    });
+
+    it('does not extend reach further up or down the ownership chain', async () => {
+      // Given a child, direct agent owner and person ancestor under restricted rules.
+      unwrap(await registry.setOwner(argo, { shipId: planner.shipId, ownerShipId: thomas.shipId }));
+      unwrap(await registry.setOwner(argo, { shipId: vault.shipId, ownerShipId: planner.shipId }));
+
+      // When the child sends to its direct owner and its further ancestor.
+      const messageId = await sent(vault, aMessage(toShip(planner)));
+      const ancestorSend = await messaging.sendMessage(vault, aMessage(toShip(thomas)));
+      const toOwner = unwrap(await registry.explainReach(argo, { fromShipId: vault.shipId, toShipId: planner.shipId }));
+      const toAncestor = unwrap(await registry.explainReach(argo, { fromShipId: vault.shipId, toShipId: thomas.shipId }));
+      const toDescendant = unwrap(await registry.explainReach(argo, { fromShipId: thomas.shipId, toShipId: vault.shipId }));
+
+      // Then only the direct owner's send is granted, with no transitive reach either way.
+      expect(messageId).toMatch(/^msg_/);
+      expect(refusalOf(ancestorSend)).toEqual(NOT_REACHABLE);
+      expect(toOwner).toEqual({ send: [{ shipId: planner.shipId, rule: { builtIn: 'sendToOwner' } }], read: [], manage: [] });
+      expect(toAncestor).toEqual({ send: [], read: [], manage: [] });
+      expect(toDescendant).toEqual({ send: [], read: [], manage: [] });
     });
 
     it('does not send to a ship it does not own', async () => {
