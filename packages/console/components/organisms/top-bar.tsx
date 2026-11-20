@@ -9,9 +9,9 @@ import { LiveStatus, type LiveState } from '../molecules/live-status';
 interface TopBarProps {
   /** The page title: in detail mode the bar's title; in root mode the switcher stands in its place, and the page shows its own title. */
   title: string;
-  /** Root mode: the switcher, compact (header design H6); undefined until the session is read. */
+  /** Root mode: the Apps and fleets launcher with the app and the fleet (docs/design/app-navigation); undefined until the session is read. */
   switcher?: AppSwitcherModel;
-  /** Root mode: the switcher reads the title in place of the app's name, as the fleet overview's "Fleet" (docs/design/fleet-overview). */
+  /** Root mode: the page's title stands in until the session is read, as the fleet overview's "Fleet" (docs/design/fleet-overview). */
   isTitled?: boolean;
   live: LiveState;
   /** Up to two icon-only Buttons, each with its aria-label. */
@@ -29,8 +29,8 @@ interface TopBarProps {
 
 /**
  * Phone top bar (docs/design/png/TopBar.png), 56 px. Root mode: the
- * switcher, the app's name (or the page's, titled) with ▾ that opens the fleets and apps in a bottom
- * Sheet (header design H6), the live status, the CommandPalette's search
+ * Apps and fleets launcher, the app and the fleet, whose panel opens as a bottom
+ * Sheet (docs/design/app-navigation), the live status, the CommandPalette's search
  * icon, up to two icon actions and the avatar menu, always last, which opens
  * as a bottom Sheet. Detail mode: a back link
  * labelled with the previous page, the title and the live status. Modal mode
@@ -58,7 +58,7 @@ export function TopBar({ title, live, actions, back, switcher, isTitled = false,
       ) : (
         // Until the session is read the console's own name stands in: the switcher only adds where else to go.
         switcher ? (
-          <AppSwitcher switcher={switcher} layout="compact" {...(isTitled ? { title } : {})} className="min-w-0" />
+          <AppSwitcher switcher={switcher} layout="sheet" className="min-w-0" />
         ) : (
           <p className="truncate px-1.5 text-title-touch font-semibold text-foreground">{isTitled ? title : 'Console'}</p>
         )

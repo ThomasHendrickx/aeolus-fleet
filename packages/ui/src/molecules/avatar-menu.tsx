@@ -4,7 +4,7 @@ import { BellRing, CircleHelp, CircleUserRound, Keyboard, LaptopMinimal, LoaderC
 import { useState } from 'react';
 
 import type { Theme } from '@aeolus-fleet/common';
-import { signedInAsOf, type SignedInAs } from './signed-in-as.js';
+import { accountButtonWordsOf, howSignedInOf, signedInAsOf, type SignedInAs } from './signed-in-as.js';
 import { shownEntryOf, type AvatarMenuEntry } from './avatar-entry.js';
 import { Avatar } from '../atoms/avatar.js';
 import { Button } from '../atoms/button.js';
@@ -29,22 +29,35 @@ export interface AvatarMenuProps {
   session?: string;
   /** Account's address from the apps list: set, the menu offers Your account, Your rights and Email updates (H8). */
   accountUrl?: string;
+  /** Where argo's or the viewer's sign-in holds, as the panel says it ("Console in Aeolus"). */
+  signedInFor?: string;
+  /** The account's sign-in expired for an app: the account button says so. */
+  isSignInExpired?: boolean;
+  /*
+   * The app's extras, after who is signed in: unset, the panel holds who is
+   * signed in and Sign out only, as docs/design/app-navigation draws it.
+   * Where each extra goes in that design is still open (#1969).
+   */
   /** The theme chosen; undefined while unknown, or for a sign-in that has none (the viewer). */
-  theme: Theme | undefined;
-  themes: readonly Theme[];
+  theme?: Theme | undefined;
+  themes?: readonly Theme[];
   /** Whether the menu offers the theme at all. */
-  hasTheme: boolean;
-  onThemeChange: (theme: Theme) => void;
-  shortcuts: readonly Shortcut[];
-  helpUrl: string;
+  hasTheme?: boolean;
+  onThemeChange?: (theme: Theme) => void;
+  shortcuts?: readonly Shortcut[];
+  helpUrl?: string;
   onSignOut: () => void;
   isSigningOut: boolean;
   entries?: readonly AvatarMenuEntry[];
 }
 
 interface AvatarMenuLayout {
-  /** avatar: the avatar alone, last in a header. row: the avatar, the name and the caption, in an app's sidebar foot. */
-  layout?: 'avatar' | 'row';
+  /**
+   * bar: the account button at the end of the bar, how someone is signed in
+   * then the avatar. avatar: the avatar alone. row: the avatar, the name and
+   * the caption, in an app's sidebar foot.
+   */
+  layout?: 'bar' | 'avatar' | 'row';
   /** row: the line under the name, such as the fleet in view ("Acme fleet"). */
   caption?: string;
   className?: string;
@@ -78,16 +91,16 @@ function themeOf(value: unknown, themes: readonly Theme[]): Theme | undefined {
 }
 
 /** Who is signed in here, and how (H10), with this session when the app words it. */
-function WhoHeader({ name, signedInAs, session }: Pick<AvatarMenuProps, 'name' | 'signedInAs' | 'session'>) {
+function WhoHeader({ name, signedInAs, session, signedInFor }: Pick<AvatarMenuProps, 'name' | 'signedInAs' | 'session' | 'signedInFor'>) {
   const shown = displayNameOf(name, signedInAs);
   return (
     <div className="flex shrink-0 flex-col gap-2 px-2.5 pt-2 pb-2.5">
-      <div className="flex items-center gap-2.5">
-        <Avatar kind={signedInAs === 'argo' ? 'argo' : 'account'} size={28} name={shown} />
+      <div className="flex items-center gap-3">
+        <Avatar kind={signedInAs === 'argo' ? 'argo' : 'account'} size={36} name={shown} />
         <span className="flex min-w-0 flex-col">
-          <span className="truncate text-body font-medium text-foreground">{shown}</span>
-          <span data-testid="avatar-menu-signed-in-as" className="truncate text-caption text-muted-foreground">
-            {signedInAs === undefined ? ' ' : signedInAsOf(signedInAs)}
+          <span className="truncate text-body font-semibold text-foreground">{shown}</span>
+          <span data-testid="avatar-menu-signed-in-as" className="text-meta text-muted-foreground">
+            {signedInAs === undefined ? ' ' : howSignedInOf(signedInAs, signedInFor)}
           </span>
         </span>
       </div>
@@ -112,17 +125,22 @@ function EntryContent({ entry }: { entry: AvatarMenuEntry }) {
   );
 }
 
+/** Sign out keeps its label and gains a busy icon while it runs. */
 function SignOutLabel({ isSigningOut }: { isSigningOut: boolean }) {
-  return isSigningOut ? (
+  return (
     <>
-      <LoaderCircle aria-hidden className="animate-spin motion-reduce:animate-none" />
-      Signing out
-    </>
-  ) : (
-    <>
-      <LogOut aria-hidden />
+      {isSigningOut ? <LoaderCircle aria-hidden className="animate-spin motion-reduce:animate-none" /> : <LogOut aria-hidden />}
       Sign out
     </>
+  );
+}
+
+/** Signing out, announced under Sign out. */
+function SigningOutLine({ isSigningOut }: { isSigningOut: boolean }) {
+  return (
+    <p role="status" data-testid="avatar-menu-signing-out" className="px-2.5 text-caption text-muted-foreground empty:hidden">
+      {isSigningOut ? 'Signing out…' : ''}
+    </p>
   );
 }
 
@@ -152,49 +170,75 @@ function ShortcutsDialog({ isOpen, onOpenChange, shortcuts }: { isOpen: boolean;
   );
 }
 
+/** The account button's words and the avatar, at the end of the bar: "Account: Your account" to a screen reader. */
+function barLabelOf(signedInAs: SignedInAs | undefined, isSignInExpired: boolean): string {
+  return signedInAs === undefined ? 'Account' : `Account: ${accountButtonWordsOf(signedInAs, isSignInExpired)}`;
+}
+
 /**
- * The avatar menu on desktop (header design H8, H10, H13): the avatar, last in
- * a header, or a row of the avatar, the name and a caption in an app's sidebar
- * foot (docs/design/fleet-overview), opens a
- * DropdownMenu with who is signed in here and how, the account's own pages
- * in Account, the app's entries, the theme (applied at once, held for this
- * browser in every app), keyboard
- * shortcuts, help and sign out, which shows "Signing out" until it ends.
+ * The account panel (docs/design/app-navigation, section 4; header design
+ * H8, H10): the account button at the end of the bar, the avatar alone, or a
+ * row of the avatar, the name and a caption in an app's sidebar foot, opens a
+ * DropdownMenu with who is signed in here and how, and Sign out, which keeps
+ * its label with a busy icon and says "Signing out…" until it ends. The
+ * app's extras, when it passes them, sit between: the account's own pages,
+ * its entries, the theme, keyboard shortcuts and help.
  */
 export function AvatarMenu(props: AvatarMenuProps & AvatarMenuLayout) {
-  const { name, signedInAs, accountUrl, theme, themes, hasTheme, onThemeChange, shortcuts, helpUrl, onSignOut, isSigningOut, entries = [], layout = 'avatar', caption, className } = props;
+  const { name, signedInAs, accountUrl, theme, themes = [], hasTheme = false, onThemeChange, shortcuts, helpUrl, onSignOut, isSigningOut, isSignInExpired = false, entries = [], layout = 'avatar', caption, className } = props;
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
   const shown = displayNameOf(name, signedInAs);
-  const label = `Account menu, ${shown}${signedInAs === undefined ? '' : `, ${signedInAsOf(signedInAs)}`}`;
+  const label = layout === 'bar' ? barLabelOf(signedInAs, isSignInExpired) : `Account menu, ${shown}${signedInAs === undefined ? '' : `, ${signedInAsOf(signedInAs)}`}`;
+  const hasLinks = shortcuts !== undefined || helpUrl !== undefined;
+  const avatar = <Avatar kind={signedInAs === 'argo' ? 'argo' : 'account'} size={28} name={shown} />;
+  const triggers = {
+    row: (
+      <DropdownMenuTrigger
+        data-testid="avatar-menu"
+        aria-label={label}
+        className={classNames(
+          'flex w-full min-w-0 items-center gap-2.5 rounded-md p-2 text-left outline-none transition-colors duration-(--duration-fast) hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring aria-expanded:bg-accent',
+          className,
+        )}
+      >
+        {avatar}
+        <span data-slot="avatar-menu-words" className="flex min-w-0 flex-col">
+          <span className="truncate text-body font-medium text-foreground">{shown}</span>
+          {caption === undefined ? null : <span className="truncate text-caption text-muted-foreground">{caption}</span>}
+        </span>
+      </DropdownMenuTrigger>
+    ),
+    bar: (
+      <DropdownMenuTrigger
+        data-testid="avatar-menu"
+        aria-label={label}
+        className={classNames(
+          'inline-flex h-(--size-control) min-w-0 shrink-0 items-center gap-2.5 rounded-full py-0.5 pr-0.5 pl-2.5 outline-none transition-colors duration-(--duration-fast) hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring aria-expanded:bg-accent',
+          className,
+        )}
+      >
+        <span data-testid="avatar-menu-words" className="truncate text-caption text-muted-foreground">
+          {signedInAs === undefined ? '' : accountButtonWordsOf(signedInAs, isSignInExpired)}
+        </span>
+        {avatar}
+      </DropdownMenuTrigger>
+    ),
+    avatar: (
+      <DropdownMenuTrigger
+        data-testid="avatar-menu"
+        aria-label={label}
+        className={classNames('inline-flex size-(--size-control) shrink-0 items-center justify-center rounded-full outline-none focus-visible:outline-2 focus-visible:outline-ring', className)}
+      >
+        {avatar}
+      </DropdownMenuTrigger>
+    ),
+  };
   return (
     <>
       <DropdownMenu>
-        {layout === 'row' ? (
-          <DropdownMenuTrigger
-            data-testid="avatar-menu"
-            aria-label={label}
-            className={classNames(
-              'flex w-full min-w-0 items-center gap-2.5 rounded-md p-2 text-left outline-none transition-colors duration-(--duration-fast) hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring aria-expanded:bg-accent',
-              className,
-            )}
-          >
-            <Avatar kind={signedInAs === 'argo' ? 'argo' : 'account'} size={28} name={shown} />
-            <span data-slot="avatar-menu-words" className="flex min-w-0 flex-col">
-              <span className="truncate text-body font-medium text-foreground">{shown}</span>
-              {caption === undefined ? null : <span className="truncate text-caption text-muted-foreground">{caption}</span>}
-            </span>
-          </DropdownMenuTrigger>
-        ) : (
-          <DropdownMenuTrigger
-            data-testid="avatar-menu"
-            aria-label={label}
-            className={classNames('inline-flex size-(--size-control) shrink-0 items-center justify-center rounded-full outline-none focus-visible:outline-2 focus-visible:outline-ring', className)}
-          >
-            <Avatar kind={signedInAs === 'argo' ? 'argo' : 'account'} size={28} name={shown} />
-          </DropdownMenuTrigger>
-        )}
-        <DropdownMenuContent align={layout === 'row' ? 'start' : 'end'} side={layout === 'row' ? 'top' : 'bottom'} className="w-64">
-          <WhoHeader name={name} signedInAs={signedInAs} session={props.session} />
+        {triggers[layout]}
+        <DropdownMenuContent align={layout === 'row' ? 'start' : 'end'} side={layout === 'row' ? 'top' : 'bottom'} sideOffset={layout === 'bar' ? 8 : 4} data-testid="avatar-menu-panel" className={layout === 'bar' ? 'w-75 p-2' : 'w-64'}>
+          <WhoHeader name={name} signedInAs={signedInAs} session={props.session} signedInFor={props.signedInFor} />
           {accountUrl === undefined
             ? null
             : accountPagesOf(accountUrl).map(({ key, label: pageLabel, href, Icon }) => (
@@ -249,7 +293,7 @@ export function AvatarMenu(props: AvatarMenuProps & AvatarMenuLayout) {
                   onValueChange={(value: unknown) => {
                     const picked = themeOf(value, themes);
                     if (picked !== undefined) {
-                      onThemeChange(picked);
+                      onThemeChange?.(picked);
                     }
                   }}
                 >
@@ -266,35 +310,40 @@ export function AvatarMenu(props: AvatarMenuProps & AvatarMenuLayout) {
               </DropdownMenuGroup>
             </>
           ) : null}
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            data-testid="avatar-menu-shortcuts"
-            onClick={() => {
-              setIsShortcutsOpen(true);
-            }}
-          >
-            <Keyboard aria-hidden />
-            Keyboard shortcuts
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            data-testid="avatar-menu-help"
-            render={(itemProps) => (
-              <a {...itemProps} href={helpUrl} target="_blank" rel="noreferrer">
-                {itemProps.children}
-              </a>
-            )}
-          >
-            <CircleHelp aria-hidden />
-            Help
-            <span className="sr-only"> (opens in a new tab)</span>
-          </DropdownMenuItem>
+          {hasLinks ? <DropdownMenuSeparator /> : null}
+          {shortcuts === undefined ? null : (
+            <DropdownMenuItem
+              data-testid="avatar-menu-shortcuts"
+              onClick={() => {
+                setIsShortcutsOpen(true);
+              }}
+            >
+              <Keyboard aria-hidden />
+              Keyboard shortcuts
+            </DropdownMenuItem>
+          )}
+          {helpUrl === undefined ? null : (
+            <DropdownMenuItem
+              data-testid="avatar-menu-help"
+              render={(itemProps) => (
+                <a {...itemProps} href={helpUrl} target="_blank" rel="noreferrer">
+                  {itemProps.children}
+                </a>
+              )}
+            >
+              <CircleHelp aria-hidden />
+              Help
+              <span className="sr-only"> (opens in a new tab)</span>
+            </DropdownMenuItem>
+          )}
           <DropdownMenuSeparator />
           <DropdownMenuItem data-testid="avatar-menu-sign-out" disabled={isSigningOut} closeOnClick={false} onClick={onSignOut}>
             <SignOutLabel isSigningOut={isSigningOut} />
           </DropdownMenuItem>
+          <SigningOutLine isSigningOut={isSigningOut} />
         </DropdownMenuContent>
       </DropdownMenu>
-      <ShortcutsDialog isOpen={isShortcutsOpen} onOpenChange={setIsShortcutsOpen} shortcuts={shortcuts} />
+      {shortcuts === undefined ? null : <ShortcutsDialog isOpen={isShortcutsOpen} onOpenChange={setIsShortcutsOpen} shortcuts={shortcuts} />}
     </>
   );
 }
@@ -309,21 +358,21 @@ const rowClass =
  * phone.
  */
 export function AvatarMenuSheet(props: AvatarMenuProps) {
-  const { name, signedInAs, accountUrl, theme, themes, hasTheme, onThemeChange, helpUrl, onSignOut, isSigningOut, entries = [] } = props;
+  const { name, signedInAs, accountUrl, theme, themes = [], hasTheme = false, onThemeChange, helpUrl, onSignOut, isSigningOut, isSignInExpired = false, entries = [] } = props;
   const [isOpen, setIsOpen] = useState(false);
   const shown = displayNameOf(name, signedInAs);
   return (
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
       <SheetTrigger
         data-testid="avatar-menu"
-        aria-label={`Account menu, ${shown}${signedInAs === undefined ? '' : `, ${signedInAsOf(signedInAs)}`}`}
+        aria-label={barLabelOf(signedInAs, isSignInExpired)}
         className="inline-flex size-(--size-control-touch) shrink-0 items-center justify-center rounded-full outline-none focus-visible:outline-2 focus-visible:outline-ring"
       >
-        <Avatar kind={signedInAs === 'argo' ? 'argo' : 'account'} size={28} name={shown} />
+        <Avatar kind={signedInAs === 'argo' ? 'argo' : 'account'} size={36} name={shown} />
       </SheetTrigger>
       <SheetContent side="bottom" data-testid="avatar-menu-sheet" className="gap-3 overflow-y-auto">
         <SheetTitle className="sr-only">Account</SheetTitle>
-        <WhoHeader name={name} signedInAs={signedInAs} session={props.session} />
+        <WhoHeader name={name} signedInAs={signedInAs} session={props.session} signedInFor={props.signedInFor} />
         {accountUrl === undefined
           ? null
           : accountPagesOf(accountUrl).map(({ key, label, href, Icon }) => (
@@ -383,7 +432,7 @@ export function AvatarMenuSheet(props: AvatarMenuProps) {
                     disabled={theme === undefined}
                     data-testid={`avatar-menu-theme-${option}`}
                     onClick={() => {
-                      onThemeChange(option);
+                      onThemeChange?.(option);
                     }}
                     className={classNames(
                       'inline-flex h-(--size-control-touch) items-center justify-center gap-1.5 rounded-md text-body-touch text-muted-foreground outline-none focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-60 [&_svg]:size-(--size-icon)',
@@ -398,14 +447,17 @@ export function AvatarMenuSheet(props: AvatarMenuProps) {
             </div>
           </div>
         ) : null}
-        <a href={helpUrl} target="_blank" rel="noreferrer" data-testid="avatar-menu-help" className={rowClass}>
-          <CircleHelp aria-hidden />
-          Help
-          <span className="sr-only"> (opens in a new tab)</span>
-        </a>
+        {helpUrl === undefined ? null : (
+          <a href={helpUrl} target="_blank" rel="noreferrer" data-testid="avatar-menu-help" className={rowClass}>
+            <CircleHelp aria-hidden />
+            Help
+            <span className="sr-only"> (opens in a new tab)</span>
+          </a>
+        )}
         <button type="button" data-testid="avatar-menu-sign-out" disabled={isSigningOut} onClick={onSignOut} className={rowClass}>
           <SignOutLabel isSigningOut={isSigningOut} />
         </button>
+        <SigningOutLine isSigningOut={isSigningOut} />
         <SheetClose render={<Button size="touch" className="w-full shrink-0" />}>Cancel</SheetClose>
       </SheetContent>
     </Sheet>

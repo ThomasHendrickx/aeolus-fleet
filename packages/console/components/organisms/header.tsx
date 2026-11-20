@@ -37,7 +37,6 @@ export function Header({ breadcrumb, parents = [], live, switcher, onCompose, on
   return (
     <AppHeader
       switcher={switcher}
-      switcherLayout="fleet"
       onSearch={onSearch}
       search="field"
       searchLabel="Search"
