@@ -1,5 +1,6 @@
 import type { Account } from '@aeolus-fleet/common';
 import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
 
 import type { AvatarMenuProps } from '@aeolus-fleet/ui';
 
@@ -39,7 +40,8 @@ function signedInAccountIdOf(account: Account): string | null {
  * ("Console in Aeolus"), this session, and Sign out. Signing out ends the
  * session and goes to sign in; a failure says so in a toast with Try again,
  * and the operator stays signed in. An account goes by the name the account
- * app gives it, with no session line, and signs out of every app. The other
+ * app gives it, with no session line, and signs out of every app, Sign out
+ * busy and saying so until the browser leaves. The other
  * items live in Settings (useSettingsItems).
  */
 export function useAccountMenu(now: Date): AvatarMenuProps {
@@ -54,8 +56,11 @@ export function useAccountMenu(now: Date): AvatarMenuProps {
     enabled: signedInAccountId !== null,
   });
   const { signOut, isSigningOut } = useSignOut();
+  // An account's way out leaves the page by a form post: Sign out stays busy until the browser goes.
+  const [isLeavingEveryApp, setIsLeavingEveryApp] = useState(false);
   const trySignOut = () => {
     if (account.data?.kind === 'account') {
+      setIsLeavingEveryApp(true);
       signOutOfEveryApp();
       return;
     }
@@ -76,6 +81,6 @@ export function useAccountMenu(now: Date): AvatarMenuProps {
     ...(held === undefined || held.kind === 'account' ? {} : { session: sessionSince(held.session, now) }),
     ...(held === undefined || held.kind === 'account' || session.data === undefined ? {} : { signedInFor: `Console in ${session.data.fleetName}` }),
     onSignOut: trySignOut,
-    isSigningOut,
+    isSigningOut: isSigningOut || isLeavingEveryApp,
   };
 }
