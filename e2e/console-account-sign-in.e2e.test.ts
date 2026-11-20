@@ -14,7 +14,7 @@ import { createUseCases, type UseCases } from '../packages/core/src/wiring.js';
 import { FLEET_URL, OPERATOR, operatorCaller } from '../packages/core/test/support/core-fixtures.js';
 import { startFakeAccountApp, type FakeAccount, type FakeAccountApp } from './support/fake-account-app.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
-import { openSettings } from './support/console.js';
+import { formPostHeld, holdFormPosts, letFormPostsGo, openSettings } from './support/console.js';
 
 // A human signs in to the console as their own account (accounts design, F1,
 // A8): through the account app's shared sign-in, with an account token for the fleet,
@@ -62,18 +62,6 @@ afterAll(async () => {
   await accountApp.close();
   await database.$disconnect();
 });
-
-/** Holds every form the page posts (window.heldForms) until window.letFormsGo() sends them: page source, as the e2e project has no DOM types. */
-const HOLD_FORM_POSTS = `{
-  const submit = HTMLFormElement.prototype.submit;
-  const held = [];
-  HTMLFormElement.prototype.submit = function hold() { held.push(this); };
-  window.heldForms = held;
-  window.letFormsGo = () => {
-    HTMLFormElement.prototype.submit = submit;
-    for (const form of held) form.submit();
-  };
-}`;
 
 async function newPage(): Promise<Page> {
   const context = await browser.newContext({ baseURL: web.url });
@@ -273,17 +261,17 @@ describe('an account signing in to the console', () => {
     await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
     await page.getByText('Live', { exact: true }).filter({ visible: true }).first().waitFor({ timeout: 20_000 });
     // A page that has started leaving cannot be read, so the form's post waits here until the test lets it go.
-    await page.evaluate(HOLD_FORM_POSTS);
+    await holdFormPosts(page);
 
     // When the account presses Sign out
     await page.locator('[data-testid="avatar-menu"]:visible').click();
     await page.getByRole('menuitem', { name: 'Sign out' }).click();
-    await page.waitForFunction("window.heldForms.some((form) => new URL(form.action).pathname === '/sign-in/out')");
+    await formPostHeld(page, '/sign-in/out');
 
     // Then the row waits with its busy icon and the panel says it is signing out, until the way out answers
     await page.getByRole('status').getByText('Signing out…').waitFor();
     await expect(page.getByRole('menuitem', { name: 'Sign out' }).getAttribute('aria-disabled')).resolves.toBe('true');
-    await page.evaluate('window.letFormsGo()');
+    await letFormPostsGo(page);
     await page.waitForURL(`${web.url}/sign-in?signed=out`);
   });
 });

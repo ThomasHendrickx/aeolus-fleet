@@ -141,3 +141,34 @@ export async function openSettings(page: Page): Promise<void> {
 export function accountButton(page: Page, words: string | RegExp = /^Account: \S/) {
   return page.getByRole('button', { name: words }).filter({ visible: true });
 }
+
+/** Holds every form the page posts (window.heldForms) until window.letFormsGo() sends them: page source, as the e2e project has no DOM types. */
+const HOLD_FORM_POSTS = `{
+  const submit = HTMLFormElement.prototype.submit;
+  const held = [];
+  HTMLFormElement.prototype.submit = function hold() { held.push(this); };
+  window.heldForms = held;
+  window.letFormsGo = () => {
+    HTMLFormElement.prototype.submit = submit;
+    for (const form of held) form.submit();
+  };
+}`;
+
+/**
+ * Holds the forms the page posts, such as Sign out's and Sign in as argo's,
+ * before the browser leaves the page: a page that has started leaving cannot
+ * be read, so its busy state can be seen only while the post waits.
+ */
+export async function holdFormPosts(page: Page): Promise<void> {
+  await page.evaluate(HOLD_FORM_POSTS);
+}
+
+/** Waits until the page has posted a form to the path, held by holdFormPosts. */
+export async function formPostHeld(page: Page, pathname: string): Promise<void> {
+  await page.waitForFunction(`window.heldForms.some((form) => new URL(form.action).pathname === ${JSON.stringify(pathname)})`);
+}
+
+/** Sends the forms holdFormPosts held, and every later one at once. */
+export async function letFormPostsGo(page: Page): Promise<void> {
+  await page.evaluate('window.letFormsGo()');
+}

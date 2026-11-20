@@ -11,7 +11,7 @@ import { unwrap } from '../packages/core/src/testing/result.js';
 import { createUseCases } from '../packages/core/src/wiring.js';
 import { FLEET_URL, OPERATOR, operatorCaller } from '../packages/core/test/support/core-fixtures.js';
 import { startFakeAccountApp, type FakeAccount, type FakeAccountApp } from './support/fake-account-app.js';
-import { accountButton, openSettings } from './support/console.js';
+import { accountButton, formPostHeld, holdFormPosts, letFormPostsGo, openSettings } from './support/console.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 
 // Break-glass (accounts design, F4, A7): an account allowed as argo signs in
@@ -111,8 +111,14 @@ describe('signing in as argo from the console', () => {
   it('signs an allowed account in as argo with one press while no one holds argo: the banner, and Compose', async () => {
     mathildePage = await signedInAs(account('mathilde', { isArgoAllowed: true }));
     await openSettings(mathildePage);
+    await holdFormPosts(mathildePage);
 
     await mathildePage.getByRole('button', { name: 'Sign in as argo' }).click();
+
+    // The row says it is signing in as argo, busy, until the page leaves (docs/design/app-navigation, feedback).
+    await formPostHeld(mathildePage, '/sign-in/argo');
+    await expect(mathildePage.getByRole('button', { name: 'Signing in as argo' }).isDisabled()).resolves.toBe(true);
+    await letFormPostsGo(mathildePage);
 
     await mathildePage.getByTestId('argo-banner').getByText('You are signed in as argo').waitFor();
     await mathildePage.getByTestId('header-compose').first().waitFor();

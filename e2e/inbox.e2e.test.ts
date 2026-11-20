@@ -103,9 +103,12 @@ const MAC_USER_AGENT =
 const WINDOWS_USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36';
 
-async function signedInPage(userAgent?: string): Promise<Page> {
+/** A phone: below the sm breakpoint, where an open conversation shows its own bar. */
+const PHONE = { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true };
+
+async function signedInPage(userAgent?: string, device: object = {}): Promise<Page> {
   clock.advance(SIGN_IN_WINDOW_MS);
-  const context = await browser.newContext({ baseURL: web.url, ...(userAgent === undefined ? {} : { userAgent }) });
+  const context = await browser.newContext({ baseURL: web.url, ...(userAgent === undefined ? {} : { userAgent }), ...device });
   contexts.push(context);
   const page = await context.newPage();
   await signIn(page, OPERATOR);
@@ -241,5 +244,23 @@ describe('the send shortcut', () => {
     await inboxRow(page, 'Release 2.15 is staged.').waitFor({ state: 'detached' });
     const { deliveries } = receivedSchema.parse(await captain.call('receive', {}));
     expect(deliveries).toEqual([expect.objectContaining({ payload: 'go', inReplyTo: asked })]);
+  });
+});
+
+describe('an inbox conversation on phone (docs/design/app-navigation, the bar every app shows)', () => {
+  it('keeps its own bar, with the way back to Inbox and no Apps and fleets launcher', async () => {
+    // Given a message to argo, and argo signed in on a phone
+    const scout = await crewedOverRest({ name: 'phone-scout', type: 'scout' });
+    await toArgo(scout, 'The harbour is clear. Sail at dawn?');
+    const page = await signedInPage(undefined, PHONE);
+
+    // When argo opens the conversation from the inbox
+    await page.goto('/inbox');
+    await inboxRow(page, 'Sail at dawn?').click();
+
+    // Then the conversation's own bar leads back to Inbox, and no bar offers the launcher
+    await page.getByRole('banner').filter({ visible: true }).getByRole('link', { name: 'Inbox' }).waitFor();
+    await page.getByText('The harbour is clear. Sail at dawn?').filter({ visible: true }).first().waitFor();
+    await expect(page.getByRole('button', { name: 'Apps and fleets' }).filter({ visible: true }).count()).resolves.toBe(0);
   });
 });
