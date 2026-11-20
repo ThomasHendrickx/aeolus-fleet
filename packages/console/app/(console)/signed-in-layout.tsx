@@ -64,7 +64,7 @@ export function SignedInLayout({ children }: { children: ReactNode }) {
         ),
       }}
     >
-      <ConsoleFrame nav={{ active, inboxCount, stuckCount, ...pluginNav }}>
+      <ConsoleFrame nav={{ active, inboxCount, stuckCount, needsCrewCount: pluginNav.needsCrewCount, hasSquadrons: pluginNav.hasSquadrons, hasTrierarchs: pluginNav.hasTrierarchs, trierarchsCount: pluginNav.trierarchsCount, hasNetwork: pluginNav.hasNetwork }}>
         {children}
       </ConsoleFrame>
       <ComposeMessage

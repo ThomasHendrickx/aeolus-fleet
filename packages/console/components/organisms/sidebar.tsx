@@ -28,8 +28,6 @@ interface SidebarProps {
   trierarchsCount?: number;
   /** Whether Network is offered: argo's alone, while the networking plugin is connected (decision 0036). */
   hasNetwork?: boolean;
-  /** Whether Settings is offered: it holds the plugins, and only a session that manages the fleet changes them. */
-  hasSettings?: boolean;
 }
 
 /** Each destination's icon. */
@@ -136,12 +134,12 @@ function AttentionCount({ count, testId, words }: { count: number | undefined; t
  * plugin on, Trierarchs, counting its silent machines in the attention tone
  * (#245), and Usage; Operator inbox, which counts its open questions and open
  * messages in --primary; Network, the networking plugin's rules, for argo
- * while it is connected; and Settings, which holds the plugins. A count simply
+ * while it is connected; and Settings, for every sign-in. A count simply
  * hides until it is known. The bar above holds the app, the fleet and the
  * account button.
  */
-export function Sidebar({ active, inboxCount, stuckCount, needsCrewCount, hasSquadrons = false, hasTrierarchs = false, trierarchsCount, hasNetwork = false, hasSettings = false }: SidebarProps) {
-  const shown: Partial<Record<SidebarDestination, boolean>> = { squadrons: hasSquadrons, trierarchs: hasTrierarchs, usage: hasTrierarchs, network: hasNetwork, settings: hasSettings };
+export function Sidebar({ active, inboxCount, stuckCount, needsCrewCount, hasSquadrons = false, hasTrierarchs = false, trierarchsCount, hasNetwork = false }: SidebarProps) {
+  const shown: Partial<Record<SidebarDestination, boolean>> = { squadrons: hasSquadrons, trierarchs: hasTrierarchs, usage: hasTrierarchs, network: hasNetwork };
   const counts: Partial<Record<SidebarDestination, ReactNode>> = {
     health: <AttentionCount count={stuckCount} testId="nav-health-count" words="stuck" />,
     'needs-crew': <NeedsCrewCount count={needsCrewCount} />,

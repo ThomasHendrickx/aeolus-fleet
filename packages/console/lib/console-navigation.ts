@@ -26,9 +26,9 @@ export const CONSOLE_NAVIGATION: readonly NavigationPage[] = [
   { destination: 'trierarchs', label: 'Trierarchs', path: '/trierarchs', rights: ['fleet:read'], plugin: 'trierarchs' },
   { destination: 'usage', label: 'Usage', path: '/usage', rights: ['fleet:read'], plugin: 'trierarchs' },
   { destination: 'inbox', label: 'Operator inbox', path: '/inbox', rights: ['fleet:read'] },
-  // Network shows for a session holding fleet:network, Settings for one that manages the fleet (usePluginNav).
+  // Network shows for a session holding fleet:network (usePluginNav); Settings for every sign-in (docs/design/app-navigation).
   { destination: 'network', label: 'Network', path: '/network', rights: ['fleet:network'] },
-  { destination: 'settings', label: 'Settings', path: '/settings', rights: ['fleet:manage'] },
+  { destination: 'settings', label: 'Settings', path: '/settings', rights: ['fleet:read'] },
 ];
 
 /** The navigation's pages a console with these plugins has. */

@@ -29,8 +29,8 @@ export const WithTrierarchs: Story = { args: { active: 'trierarchs', hasSquadron
 export const SettingsLast: Story = {
   play: async ({ canvasElement }) => {
     const tabs = within(within(canvasElement).getByRole('navigation', { name: 'Console' })).getAllByRole('link');
-    await expect(tabs.map((tab) => tab.textContent)).toEqual(['Fleet', 'Health2 stuck', 'Inbox3 open', 'Settings']);
-    await expect(tabs.at(-1)).toHaveAttribute('href', '/settings');
+    await expect(tabs.map((tab) => tab.getAttribute('href'))).toEqual(['/', '/fleet-health', '/inbox', '/settings']);
+    await expect(tabs.at(-1)).toHaveTextContent(/^Settings$/);
   },
 };
 

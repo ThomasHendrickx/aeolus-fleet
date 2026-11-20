@@ -6,8 +6,7 @@ import { TabBar } from './tab-bar';
 /**
  * Where the operator is, and the counts the navigation shows once known.
  * hasSquadrons, hasTrierarchs: whether the console has squadrons or the trierarch plugin, which adds them to the navigation;
- * hasNetwork: whether Network is offered (argo, the networking plugin connected);
- * hasSettings: whether Settings is offered (a plugin on and a session that manages the fleet).
+ * hasNetwork: whether Network is offered (argo, the networking plugin connected).
  */
 export interface ConsoleNav {
   active: SidebarDestination;
@@ -18,7 +17,6 @@ export interface ConsoleNav {
   hasTrierarchs?: boolean;
   trierarchsCount?: number;
   hasNetwork?: boolean;
-  hasSettings?: boolean;
 }
 
 /**
@@ -39,11 +37,10 @@ export function ConsoleFrame({ nav, children }: { nav: ConsoleNav; children: Rea
         hasTrierarchs={nav.hasTrierarchs}
         trierarchsCount={nav.trierarchsCount}
         hasNetwork={nav.hasNetwork}
-        hasSettings={nav.hasSettings}
       />
       <div className="flex min-w-0 grow flex-col">{children}</div>
       <TabBar
-        active={nav.active === 'overview' || nav.active === 'needs-crew' ? 'fleet' : nav.active === 'settings' || nav.active === 'network' || nav.active === 'usage' ? undefined : nav.active}
+        active={nav.active === 'overview' || nav.active === 'needs-crew' ? 'fleet' : nav.active === 'network' || nav.active === 'usage' ? undefined : nav.active}
         hasSquadrons={nav.hasSquadrons}
         hasTrierarchs={nav.hasTrierarchs}
         trierarchsCount={nav.trierarchsCount}

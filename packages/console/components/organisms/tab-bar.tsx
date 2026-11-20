@@ -1,4 +1,4 @@
-import { Activity, Inbox, Shapes, Ship, ShipWheel } from 'lucide-react';
+import { Activity, Inbox, Settings2, Shapes, Ship, ShipWheel } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
@@ -6,10 +6,10 @@ import { classNames } from '@aeolus-fleet/ui';
 import { NavLinkIcon } from '../molecules/nav-link-icon';
 
 /** The console's destinations on phone so far. */
-export type TabBarDestination = 'fleet' | 'squadrons' | 'trierarchs' | 'inbox' | 'health';
+export type TabBarDestination = 'fleet' | 'squadrons' | 'trierarchs' | 'inbox' | 'health' | 'settings';
 
 interface TabBarProps {
-  /** The page the operator is on: its tab is marked current; none on a page no tab leads to, such as Settings. */
+  /** The page the operator is on: its tab is marked current; none on a page no tab leads to, such as Network. */
   active: TabBarDestination | undefined;
   /** What waits on the operator in argo's inbox, open questions and open messages; hidden until known, and when there are none. */
   inboxCount?: number;
@@ -71,7 +71,8 @@ function Tab({
  * Attention with
  * the undeliverable deliveries counted in the attention tone. With squadrons
  * on, Squadrons is the second tab; with the trierarch plugin on, Trierarchs
- * follows it. Settings and Network have no tab: the account sheet offers them.
+ * follows it. Settings is the last tab, for every sign-in; Network has no
+ * tab: it is Settings' first row (docs/design/app-navigation).
  * The active tab uses --primary for icon and label. It hides while a page
  * pins its own bar to the bottom, marked data-hides-tab-bar (an open inbox
  * question or message).
@@ -111,6 +112,7 @@ export function TabBar({ active, inboxCount, stuckCount, hasSquadrons = false, h
         testId="tab-inbox"
         count={{ value: inboxCount, tone: 'primary', words: 'open' }}
       />
+      <Tab href="/settings" label="Settings" icon={<Settings2 aria-hidden />} isActive={active === 'settings'} testId="tab-settings" />
     </nav>
   );
 }

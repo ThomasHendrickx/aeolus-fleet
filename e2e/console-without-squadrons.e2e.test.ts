@@ -78,7 +78,7 @@ describe('a console without squadrons', () => {
       }
 
       // Then the text includes the account owner and the permission needed.
-      await expect(page.getByText('How this installation runs. You can use these settings as argo, the operator, or as an account owner with permission to manage the fleet.').count()).resolves.toBe(1);
+      await expect(page.getByText('How this console looks for you, and how this installation runs.').count()).resolves.toBe(1);
       await expect(page.getByText('Only argo, the operator, sees this page.', { exact: false }).count()).resolves.toBe(0);
     } finally {
       await settingsContext.close();
