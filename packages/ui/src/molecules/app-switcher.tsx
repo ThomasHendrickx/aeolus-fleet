@@ -1,7 +1,7 @@
 'use client';
 
 import { Box, CircleCheck, DoorOpen, Layers, LayoutGrid, LoaderCircle, Ship, TriangleAlert, type LucideIcon } from 'lucide-react';
-import { useState, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react';
+import { useEffect, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react';
 
 import type { FleetId, HeaderApp } from '@aeolus-fleet/common';
 import type { AppSwitcherModel, SwitcherApp, SwitcherFleet } from '@aeolus-fleet/common/rules';
@@ -83,7 +83,7 @@ const spin = 'animate-spin motion-reduce:animate-none';
 /**
  * One tab stop for a group: the arrow keys move between its items, the
  * focused one keeping the tab stop. Tiles move by one and by a row; fleet
- * rows move up and down, Home and End jump to the ends.
+ * rows move up and down; in both, Home and End jump to the ends.
  */
 interface Step {
   key: string;
@@ -109,9 +109,10 @@ function moveWithin(event: KeyboardEvent<HTMLElement>, group: { selector: string
   target?.focus();
 }
 
-function tileStepOf({ key, at }: Step): number | undefined {
+function tileStepOf({ key, at, count }: Step): number | undefined {
+  const ends: Partial<Record<string, number>> = { Home: 0, End: count - 1 };
   const step = TILE_STEPS[key];
-  return step === undefined ? undefined : at + step;
+  return step === undefined ? ends[key] : at + step;
 }
 
 function rowStepOf({ key, at, count }: Step): number | undefined {
@@ -168,12 +169,24 @@ interface PanelProps {
   fleetSwitch: FleetSwitch | undefined;
   openingApp: HeaderApp | undefined;
   isPhone: boolean;
-  onOpenApp: (app: SwitcherApp) => void;
+  onOpenApp: (app: SwitcherApp, event: MouseEvent) => void;
   onOpenFleet: (fleet: SwitcherFleet, event: MouseEvent) => void;
   onChooseCurrent: (name: string) => void;
 }
 
-function AppTile({ app, access, isOpening, isWaiting, isPhone, onOpen, onChooseCurrent }: { app: SwitcherApp; access: TileAccess | undefined; isOpening: boolean; isWaiting: boolean; isPhone: boolean; onOpen: () => void; onChooseCurrent: () => void }) {
+interface AppTileProps {
+  app: SwitcherApp;
+  access: TileAccess | undefined;
+  /** The tiles' one tab stop: the current app's tile, or the first that opens when the app open is not among them. */
+  isTabStop: boolean;
+  isOpening: boolean;
+  isWaiting: boolean;
+  isPhone: boolean;
+  onOpen: (event: MouseEvent) => void;
+  onChooseCurrent: () => void;
+}
+
+function AppTile({ app, access, isTabStop, isOpening, isWaiting, isPhone, onOpen, onChooseCurrent }: AppTileProps) {
   const Icon = APP_ICONS[app.app];
   const tileClass = classNames(
     'flex flex-col items-center gap-1.5 rounded-md border border-transparent px-1 pt-3 pb-2 text-center outline-none focus-visible:outline-2 focus-visible:outline-ring',
@@ -202,7 +215,7 @@ function AppTile({ app, access, isOpening, isWaiting, isPhone, onOpen, onChooseC
       aria-current={app.isCurrent ? 'page' : undefined}
       aria-disabled={isWaiting || undefined}
       aria-label={isOpening ? `Opening ${app.label}` : app.isCurrent ? `${app.label}, current app` : app.label}
-      tabIndex={app.isCurrent ? 0 : -1}
+      tabIndex={isTabStop ? 0 : -1}
       onKeyDown={(event) => {
         moveWithin(event, { selector: '[data-testid="app-switcher-app"][href]', stepOf: tileStepOf });
       }}
@@ -216,7 +229,7 @@ function AppTile({ app, access, isOpening, isWaiting, isPhone, onOpen, onChooseC
           onChooseCurrent();
           return;
         }
-        onOpen();
+        onOpen(event);
       }}
       className={classNames(tileClass, app.isCurrent ? 'border-border bg-highlight' : 'hover:bg-accent', 'aria-disabled:opacity-60')}
     >
@@ -359,10 +372,25 @@ function Panel({ switcher, state, fleetSwitch, openingApp, isPhone, onOpenApp, o
   const unavailable = apps.find((app) => appAccess[app.app] === 'unavailable');
   const expired = apps.find((app) => appAccess[app.app] === 'sign-in-required');
   const isOnlyFleet = fleets.length === 1;
+  const opens = apps.filter((app) => appAccess[app.app] === undefined);
+  const tabStop = (opens.find((app) => app.isCurrent) ?? opens[0])?.app;
+  // Try again shows only where the app can open the fleet again.
+  const { onOpenFleet: openFleet } = state;
+  const openFleetAgain =
+    openFleet === undefined || switchTarget === undefined
+      ? undefined
+      : () => {
+          openFleet(switchTarget);
+        };
   return (
     <>
       <section aria-labelledby="app-switcher-apps-heading">
         <SectionHead id="app-switcher-apps-heading" Icon={LayoutGrid} label="Apps" context={`Apps you can open in ${fleet.name}`} />
+        {expired !== undefined && isSigningIn ? (
+          <p role="status" data-testid="app-switcher-sign-in-return" className="m-2 rounded-md bg-muted p-3 text-body text-foreground">
+            {`Sign-in opens with a return to ${expired.label}.`}
+          </p>
+        ) : null}
         <div
           role="group"
           aria-labelledby="app-switcher-apps-heading"
@@ -373,11 +401,12 @@ function Panel({ switcher, state, fleetSwitch, openingApp, isPhone, onOpenApp, o
               key={app.app}
               app={app}
               access={appAccess[app.app]}
+              isTabStop={app.app === tabStop}
               isOpening={openingApp === app.app}
               isWaiting={(openingApp !== undefined && openingApp !== app.app) || isSwitching}
               isPhone={isPhone}
-              onOpen={() => {
-                onOpenApp(app);
+              onOpen={(event) => {
+                onOpenApp(app, event);
               }}
               onChooseCurrent={() => {
                 onChooseCurrent(app.label);
@@ -436,9 +465,7 @@ function Panel({ switcher, state, fleetSwitch, openingApp, isPhone, onOpenApp, o
             <NoticeText>{`You are still in ${fleet.name}. Try again to open ${switchTarget.name}.`}</NoticeText>
             <RetryButton
               isRetrying={fleetSwitch.state === 'retrying'}
-              onRetry={() => {
-                state.onOpenFleet?.(switchTarget);
-              }}
+              onRetry={openFleetAgain}
               testId="app-switcher-fleet-retry"
               shouldFocusOnMount={fleetSwitch.state === 'failed'}
             />
@@ -459,7 +486,7 @@ function FleetlessPanel({ switcher, limit, isPhone }: { switcher: FleetlessSwitc
         <SectionHead id="app-switcher-apps-heading" Icon={LayoutGrid} label="Apps" context="Apps this installation offers" />
         <div role="group" aria-labelledby="app-switcher-apps-heading" className={classNames('grid grid-cols-3 px-1 pb-2', isPhone ? 'gap-2' : 'gap-1')}>
           {switcher.apps.map((app) => (
-            <AppTile key={app.app} app={{ ...app, url: '', isCurrent: false }} access="configured" isOpening={false} isWaiting={false} isPhone={isPhone} onOpen={() => undefined} onChooseCurrent={() => undefined} />
+            <AppTile key={app.app} app={{ ...app, url: '', isCurrent: false }} access="configured" isTabStop={false} isOpening={false} isWaiting={false} isPhone={isPhone} onOpen={() => undefined} onChooseCurrent={() => undefined} />
           ))}
         </div>
         {limit === undefined ? null : <LimitNotice limit={limit} appLabel={switcher.heldIn.appLabel} fleetName={switcher.heldIn.fleetName} isFleetless />}
@@ -491,7 +518,7 @@ function WhereYouAre({ switcher, isSwitching, isPhone }: { switcher: AppSwitcher
         data-testid="app-switcher-fleet-pill"
         title={`Fleet: ${fleetName}`}
         aria-busy={isSwitching || undefined}
-        className="inline-flex min-w-0 items-center gap-1.5 rounded-full bg-secondary px-2 py-0.5 text-meta font-medium text-foreground [&_svg]:size-(--size-icon-sm) [&_svg]:shrink-0"
+        className="inline-flex min-w-0 items-center gap-1.5 rounded-full bg-muted px-2 py-0.5 text-meta font-medium text-foreground [&_svg]:size-(--size-icon-sm) [&_svg]:shrink-0"
       >
         {isSwitching ? <LoaderCircle aria-hidden data-testid="app-switcher-busy" className={spin} /> : <Layers aria-hidden />}
         <span className="sr-only">Fleet: </span>
@@ -524,7 +551,22 @@ export function AppSwitcher({ switcher, layout, state = {}, className }: AppSwit
   const fleetSwitch = state.fleetSwitch ?? (openingFleet === undefined ? undefined : { fleetId: openingFleet, state: 'opening' as const });
   const isSwitching = fleetSwitch !== undefined && fleetSwitch.state !== 'failed';
 
+  // Opening ends when the browser leaves: a page that stays (the panel closed, or the page back from the history) has nothing on its way.
+  useEffect(() => {
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) {
+        setOpeningApp(undefined);
+        setOpeningFleet(undefined);
+      }
+    };
+    window.addEventListener('pageshow', onPageShow);
+    return () => {
+      window.removeEventListener('pageshow', onPageShow);
+    };
+  }, []);
   const onOpenChange = (isOpening: boolean) => {
+    setOpeningApp(undefined);
+    setOpeningFleet(undefined);
     setOpenedIn(isOpening ? inView : undefined);
     setAnnouncement(isOpening ? 'Apps and fleets opened' : '');
   };
@@ -538,18 +580,22 @@ export function AppSwitcher({ switcher, layout, state = {}, className }: AppSwit
       fleetSwitch={fleetSwitch}
       openingApp={openingApp}
       isPhone={isPhone}
-      onOpenApp={(app) => {
-        setOpeningApp(app.app);
+      onOpenApp={(app, event) => {
+        // A press with a modifier opens the app elsewhere and this page stays: nothing is on its way here.
+        if (isPlainPress(event)) {
+          setOpeningApp(app.app);
+        }
       }}
       onOpenFleet={(fleet, event) => {
+        if (!isPlainPress(event)) {
+          return;
+        }
         if (state.onOpenFleet === undefined) {
           setOpeningFleet(fleet.id);
           return;
         }
-        if (isPlainPress(event)) {
-          event.preventDefault();
-          state.onOpenFleet(fleet);
-        }
+        event.preventDefault();
+        state.onOpenFleet(fleet);
       }}
       onChooseCurrent={(name) => {
         setOpenedIn(undefined);

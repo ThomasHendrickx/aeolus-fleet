@@ -88,6 +88,12 @@ function displayNameOf(name: string | undefined, signedInAs: SignedInAs | undefi
   return signedInAs === 'viewer' ? 'viewer' : signedInAs === 'argo' ? 'argo' : ' ';
 }
 
+/** The account panel's bold line (docs/design/app-navigation): "Your account", argo or Viewer; the account's name only while how is unknown. */
+function whoOf(name: string | undefined, signedInAs: SignedInAs | undefined): string {
+  const words: Record<SignedInAs, string> = { account: 'Your account', argo: 'argo', viewer: 'Viewer' };
+  return signedInAs === undefined ? (name ?? ' ') : words[signedInAs];
+}
+
 function themeOf(value: unknown, themes: readonly Theme[]): Theme | undefined {
   return themes.find((theme) => theme === value);
 }
@@ -100,7 +106,9 @@ function WhoHeader({ name, signedInAs, session, signedInFor }: Pick<AvatarMenuPr
       <div className="flex items-center gap-3">
         <Avatar kind={signedInAs === 'argo' ? 'argo' : 'account'} size={36} name={shown} />
         <span className="flex min-w-0 flex-col">
-          <span className="truncate text-body font-semibold text-foreground">{shown}</span>
+          <span data-testid="avatar-menu-who" className="truncate text-body font-semibold text-foreground">
+            {whoOf(name, signedInAs)}
+          </span>
           <span data-testid="avatar-menu-signed-in-as" className="text-meta text-muted-foreground">
             {signedInAs === undefined ? ' ' : howSignedInOf(signedInAs, signedInFor)}
           </span>
@@ -143,6 +151,15 @@ function SigningOutLine({ isSigningOut }: { isSigningOut: boolean }) {
     <p role="status" data-testid="avatar-menu-signing-out" className="px-2.5 text-caption text-muted-foreground empty:hidden">
       {isSigningOut ? 'Signing out…' : ''}
     </p>
+  );
+}
+
+/** The account panel opening, announced as the design's feedback table says. */
+function OpenedAnnouncement({ isOpen }: { isOpen: boolean }) {
+  return (
+    <span role="status" className="sr-only">
+      {isOpen ? 'Account opened' : ''}
+    </span>
   );
 }
 
@@ -193,6 +210,7 @@ function barLabelOf(signedInAs: SignedInAs | undefined, sign: { isSignInExpired:
 export function AvatarMenu(props: AvatarMenuProps & AvatarMenuLayout) {
   const { name, signedInAs, accountUrl, theme, themes = [], hasTheme = false, onThemeChange, shortcuts, helpUrl, onSignOut, isSigningOut, isSignInExpired = false, isNotSignedIn = false, entries = [], layout = 'avatar', caption, className } = props;
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
   const shown = isNotSignedIn ? '?' : displayNameOf(name, signedInAs);
   const label = layout === 'bar' ? barLabelOf(signedInAs, { isSignInExpired, isNotSignedIn }) : `Account menu, ${shown}${signedInAs === undefined ? '' : `, ${signedInAsOf(signedInAs)}`}`;
   const hasLinks = shortcuts !== undefined || helpUrl !== undefined;
@@ -242,7 +260,7 @@ export function AvatarMenu(props: AvatarMenuProps & AvatarMenuLayout) {
   };
   return (
     <>
-      <DropdownMenu>
+      <DropdownMenu onOpenChange={setIsOpen}>
         {triggers[layout]}
         <DropdownMenuContent align={layout === 'row' ? 'start' : 'end'} side={layout === 'row' ? 'top' : 'bottom'} sideOffset={layout === 'bar' ? 8 : 4} data-testid="avatar-menu-panel" className={layout === 'bar' ? 'w-75 p-2' : 'w-64'}>
           <WhoHeader name={name} signedInAs={signedInAs} session={props.session} signedInFor={props.signedInFor} />
@@ -350,6 +368,7 @@ export function AvatarMenu(props: AvatarMenuProps & AvatarMenuLayout) {
           <SigningOutLine isSigningOut={isSigningOut} />
         </DropdownMenuContent>
       </DropdownMenu>
+      <OpenedAnnouncement isOpen={isOpen} />
       {shortcuts === undefined ? null : <ShortcutsDialog isOpen={isShortcutsOpen} onOpenChange={setIsShortcutsOpen} shortcuts={shortcuts} />}
     </>
   );
@@ -369,105 +388,108 @@ export function AvatarMenuSheet(props: AvatarMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const shown = isNotSignedIn ? '?' : displayNameOf(name, signedInAs);
   return (
-    <Sheet open={isOpen} onOpenChange={setIsOpen}>
-      <SheetTrigger
-        data-testid="avatar-menu"
-        aria-label={barLabelOf(signedInAs, { isSignInExpired, isNotSignedIn })}
-        disabled={isNotSignedIn}
-        className="inline-flex size-(--size-control-touch) shrink-0 items-center justify-center rounded-full outline-none focus-visible:outline-2 focus-visible:outline-ring"
-      >
-        <Avatar kind={signedInAs === 'argo' ? 'argo' : 'account'} size={36} name={shown} />
-      </SheetTrigger>
-      <SheetContent side="bottom" data-testid="avatar-menu-sheet" className="gap-3 overflow-y-auto">
-        <SheetTitle className="sr-only">Account</SheetTitle>
-        <WhoHeader name={name} signedInAs={signedInAs} session={props.session} signedInFor={props.signedInFor} />
-        {accountUrl === undefined
-          ? null
-          : accountPagesOf(accountUrl).map(({ key, label, href, Icon }) => (
-              <a key={key} href={href} data-testid={`avatar-menu-${key}`} className={rowClass}>
-                <Icon aria-hidden />
-                {label}
-              </a>
-            ))}
-        {entries.map((entry) =>
-          entry.href === undefined ? (
-            <button
-              key={entry.key}
-              type="button"
-              data-testid={`avatar-menu-${entry.key}`}
-              className={rowClass}
-              disabled={shownEntryOf(entry).isWorking}
-              onClick={() => {
-                if (shownEntryOf(entry).shouldCloseMenu) {
+    <>
+      <Sheet open={isOpen} onOpenChange={setIsOpen}>
+        <SheetTrigger
+          data-testid="avatar-menu"
+          aria-label={barLabelOf(signedInAs, { isSignInExpired, isNotSignedIn })}
+          disabled={isNotSignedIn}
+          className="inline-flex size-(--size-control-touch) shrink-0 items-center justify-center rounded-full outline-none focus-visible:outline-2 focus-visible:outline-ring"
+        >
+          <Avatar kind={signedInAs === 'argo' ? 'argo' : 'account'} size={36} name={shown} />
+        </SheetTrigger>
+        <SheetContent side="bottom" data-testid="avatar-menu-sheet" className="gap-3 overflow-y-auto">
+          <SheetTitle className="sr-only">Account</SheetTitle>
+          <WhoHeader name={name} signedInAs={signedInAs} session={props.session} signedInFor={props.signedInFor} />
+          {accountUrl === undefined
+            ? null
+            : accountPagesOf(accountUrl).map(({ key, label, href, Icon }) => (
+                <a key={key} href={href} data-testid={`avatar-menu-${key}`} className={rowClass}>
+                  <Icon aria-hidden />
+                  {label}
+                </a>
+              ))}
+          {entries.map((entry) =>
+            entry.href === undefined ? (
+              <button
+                key={entry.key}
+                type="button"
+                data-testid={`avatar-menu-${entry.key}`}
+                className={rowClass}
+                disabled={shownEntryOf(entry).isWorking}
+                onClick={() => {
+                  if (shownEntryOf(entry).shouldCloseMenu) {
+                    setIsOpen(false);
+                  }
+                  entry.onSelect?.();
+                }}
+              >
+                <EntryContent entry={entry} />
+              </button>
+            ) : (
+              <a
+                key={entry.key}
+                href={entry.href}
+                data-testid={`avatar-menu-${entry.key}`}
+                className={rowClass}
+                onClick={() => {
                   setIsOpen(false);
-                }
-                entry.onSelect?.();
-              }}
-            >
-              <EntryContent entry={entry} />
-            </button>
-          ) : (
-            <a
-              key={entry.key}
-              href={entry.href}
-              data-testid={`avatar-menu-${entry.key}`}
-              className={rowClass}
-              onClick={() => {
-                setIsOpen(false);
-                entry.onSelect?.();
-              }}
-            >
-              {entry.icon}
-              {entry.label}
-            </a>
-          ),
-        )}
-        {hasTheme ? (
-          <div role="group" aria-label="Theme" className="flex shrink-0 flex-col gap-1.5 border-t border-border pt-3">
-            <p className="flex flex-col text-caption text-muted-foreground">
-              Theme
-              <span data-testid="avatar-menu-theme-scope">{THEME_SCOPE}</span>
-            </p>
-            <div className="grid grid-cols-3 gap-1 rounded-lg bg-muted p-1">
-              {themes.map((option) => {
-                const Icon = THEME_ICONS[option];
-                const isChosen = option === theme;
-                return (
-                  <button
-                    key={option}
-                    type="button"
-                    aria-pressed={isChosen}
-                    disabled={theme === undefined}
-                    data-testid={`avatar-menu-theme-${option}`}
-                    onClick={() => {
-                      onThemeChange?.(option);
-                    }}
-                    className={classNames(
-                      'inline-flex h-(--size-control-touch) items-center justify-center gap-1.5 rounded-md text-body-touch text-muted-foreground outline-none focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-60 [&_svg]:size-(--size-icon)',
-                      isChosen ? 'bg-background text-foreground shadow-xs' : undefined,
-                    )}
-                  >
-                    <Icon aria-hidden />
-                    {THEME_LABELS[option]}
-                  </button>
-                );
-              })}
+                  entry.onSelect?.();
+                }}
+              >
+                {entry.icon}
+                {entry.label}
+              </a>
+            ),
+          )}
+          {hasTheme ? (
+            <div role="group" aria-label="Theme" className="flex shrink-0 flex-col gap-1.5 border-t border-border pt-3">
+              <p className="flex flex-col text-caption text-muted-foreground">
+                Theme
+                <span data-testid="avatar-menu-theme-scope">{THEME_SCOPE}</span>
+              </p>
+              <div className="grid grid-cols-3 gap-1 rounded-lg bg-muted p-1">
+                {themes.map((option) => {
+                  const Icon = THEME_ICONS[option];
+                  const isChosen = option === theme;
+                  return (
+                    <button
+                      key={option}
+                      type="button"
+                      aria-pressed={isChosen}
+                      disabled={theme === undefined}
+                      data-testid={`avatar-menu-theme-${option}`}
+                      onClick={() => {
+                        onThemeChange?.(option);
+                      }}
+                      className={classNames(
+                        'inline-flex h-(--size-control-touch) items-center justify-center gap-1.5 rounded-md text-body-touch text-muted-foreground outline-none focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-60 [&_svg]:size-(--size-icon)',
+                        isChosen ? 'bg-background text-foreground shadow-xs' : undefined,
+                      )}
+                    >
+                      <Icon aria-hidden />
+                      {THEME_LABELS[option]}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        ) : null}
-        {helpUrl === undefined ? null : (
-          <a href={helpUrl} target="_blank" rel="noreferrer" data-testid="avatar-menu-help" className={rowClass}>
-            <CircleHelp aria-hidden />
-            Help
-            <span className="sr-only"> (opens in a new tab)</span>
-          </a>
-        )}
-        <button type="button" data-testid="avatar-menu-sign-out" disabled={isSigningOut} onClick={onSignOut} className={rowClass}>
-          <SignOutLabel isSigningOut={isSigningOut} />
-        </button>
-        <SigningOutLine isSigningOut={isSigningOut} />
-        <SheetClose render={<Button size="touch" className="w-full shrink-0" />}>Cancel</SheetClose>
-      </SheetContent>
-    </Sheet>
+          ) : null}
+          {helpUrl === undefined ? null : (
+            <a href={helpUrl} target="_blank" rel="noreferrer" data-testid="avatar-menu-help" className={rowClass}>
+              <CircleHelp aria-hidden />
+              Help
+              <span className="sr-only"> (opens in a new tab)</span>
+            </a>
+          )}
+          <button type="button" data-testid="avatar-menu-sign-out" disabled={isSigningOut} onClick={onSignOut} className={rowClass}>
+            <SignOutLabel isSigningOut={isSigningOut} />
+          </button>
+          <SigningOutLine isSigningOut={isSigningOut} />
+          <SheetClose render={<Button size="touch" className="w-full shrink-0" />}>Cancel</SheetClose>
+        </SheetContent>
+      </Sheet>
+      <OpenedAnnouncement isOpen={isOpen} />
+    </>
   );
 }
