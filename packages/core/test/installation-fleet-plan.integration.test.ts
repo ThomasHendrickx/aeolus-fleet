@@ -1,4 +1,4 @@
-import type { FleetId } from '@aeolus-fleet/common';
+import { idSchema, type FleetId } from '@aeolus-fleet/common';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { createPrismaClientTellingStatements } from '../src/adapters/prisma/client.js';
@@ -61,6 +61,29 @@ describe('an installation fleet on a fleet with a long history (#1126)', () => {
      await createPrismaFleetLimitReads(client).activeShips(fleetId);
 
      // Then both counts stay fleet-scoped and use its ship index.
+     expect(statements).toHaveLength(2);
+     for (const statement of statements) {
+       const plan = await assertIndexedPlan(core.prisma, statement);
+       expect(plan).toContain('Index');
+       expect(plan).toContain('fleet_id');
+     }
+   } finally {
+     await client.$disconnect();
+   }
+ });
+
+ it('walks owner ancestors and finds direct children through fleet-scoped ship indexes', async () => {
+   // Given a fleet and a client capturing the ownership reads.
+   const argo = await core.prisma.ship.findFirstOrThrow({ where: { fleetId, kind: 'operator' } });
+   const statements: { query: string; params: string }[] = [];
+   const client = createPrismaClientTellingStatements(core.databaseUrl, (query, params) => statements.push({ query, params }));
+   try {
+     // When validation looks up an ancestor and retirement looks up its children.
+     const ships = createPrismaShipRepository(client);
+     await ships.find(fleetId, idSchema('ship').parse(argo.id));
+     await ships.listActiveOwnedByForUpdate(fleetId, idSchema('ship').parse(argo.id));
+
+     // Then the queries use the scoped indexes without scanning history.
      expect(statements).toHaveLength(2);
      for (const statement of statements) {
        const plan = await assertIndexedPlan(core.prisma, statement);

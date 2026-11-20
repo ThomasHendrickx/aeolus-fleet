@@ -531,7 +531,7 @@ describe('the direct-owner send built-in on Postgres (#1989)', () => {
     const ancestor = await aShip('ancestor');
     unwrap(await core.useCases.setOwner(argo, { shipId: planner.shipId, ownerShipId: ancestor.shipId }));
     unwrap(await core.useCases.setOwner(argo, { shipId: vault.shipId, ownerShipId: planner.shipId }));
-    await apply(await networker(), []);
+    await apply(await aNetworker(), []);
 
     // When the child sends to the owner and the ancestor.
     unwrap(await core.useCases.sendMessage(vault, aMessage(planner)));

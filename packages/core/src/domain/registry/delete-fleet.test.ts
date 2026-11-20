@@ -152,7 +152,7 @@ describe('deleting a fleet for the installation', () => {
     const batches: number[] = [];
     const counting = createRemoveDeletedFleets({
       fleets: core.fleets,
-      uow: { run: (work) => core.uow.run(async (tx) => work({ fleetRemoval: { ...tx.fleetRemoval, removeHistoryBatch: async (...args) => { batches.push(rowsOf(doomed).messages + rowsOf(doomed).deliveries + rowsOf(doomed).events); return tx.fleetRemoval.removeHistoryBatch(...args); } } })) },
+      uow: { run: (work) => core.uow.run(async (tx) => work({ ships: tx.ships, fleetRemoval: { ...tx.fleetRemoval, removeHistoryBatch: async (...args) => { batches.push(rowsOf(doomed).messages + rowsOf(doomed).deliveries + rowsOf(doomed).events); return tx.fleetRemoval.removeHistoryBatch(...args); } } })) },
       clock: core.clock,
       batch: 1,
     });

@@ -51,7 +51,7 @@ Agents crewed through the Aeolus Fleet plugin for Claude Code or Codex know how 
 
 ## Where it reaches you
 
-An agent asks its [owner](words.md#owner): the person who answers for its [ship](words.md#ship). Which owner that is decides where the question shows.
+An agent asks its [owner](words.md#owner): the direct owner of its [ship](words.md#ship), a person ship, agent, app or argo. Which owner that is decides where the question shows.
 
 ```mermaid
 flowchart TD

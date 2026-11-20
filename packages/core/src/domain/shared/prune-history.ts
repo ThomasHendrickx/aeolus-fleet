@@ -1,6 +1,6 @@
 import type { FleetId, IdGenerator } from '@aeolus-fleet/common';
 
-import { appliedLimits, type AppliedLimitsTx, type FleetRepository } from '../registry/public.js';
+import { appliedLimits, type AppliedLimitsTx, type FleetRepository, type ShipRepository } from '../registry/public.js';
 import type { Clock } from './clock.js';
 import { recordEvent, SYSTEM, type EventLog } from './events.js';
 import { isFinished, pruningCutoff, type HistoryPruner, type PruneCursor } from './history-pruning.js';
@@ -14,6 +14,7 @@ export const PRUNE_BATCH = 500;
 export const PRUNE_BUDGET_MS = 10_000;
 
 export interface PruneHistoryTx extends AppliedLimitsTx {
+  ships: Pick<ShipRepository, 'lockOwnership'>;
   historyPruner: HistoryPruner;
   events: EventLog;
 }
@@ -67,6 +68,7 @@ export function createPruneHistory(deps: {
 
   const pruneBatch = (fleetId: FleetId, input: { cutoff: Date; after: PruneCursor | null }) =>
     deps.uow.run(async (tx) => {
+      await tx.ships.lockOwnership(fleetId);
       const pruner = tx.historyPruner;
       if (!(await pruner.tryLock(fleetId))) {
         return ok<Batch>({ kind: 'skipped' });

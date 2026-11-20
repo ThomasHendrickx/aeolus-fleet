@@ -46,7 +46,7 @@ export interface Ship {
    * Null for the operator ship, which the fleet's initialisation creates.
    */
   commission: { by: Commissioner; idempotencyKey: string; requestHash: string } | null;
-  /** The ship that answers for it, a person's ship or argo (decision 0045); null for argo and the viewer. */
+  /** The ship that directly owns it, a person ship, agent, app or argo (decision 0045); null for argo and the viewer. */
   owner: ShipId | null;
 }
 
@@ -358,11 +358,11 @@ export function commissionShip(
 /** Why a ship's owner changed: argo set it, or its owner's ship retired and it fell to argo. */
 export type OwnerChangedWhy = 'set' | 'ownerRetired';
 
-export type ChangeOwnerRefusal = DomainError<'SHIP_HAS_NO_OWNER' | 'SHIP_OWNS_ITSELF' | 'SHIP_ALREADY_RETIRED' | 'INVALID_OWNER'>;
+export type ChangeOwnerRefusal = DomainError<'SHIP_HAS_NO_OWNER' | 'SHIP_OWNS_ITSELF' | 'SHIP_ALREADY_RETIRED' | 'INVALID_OWNER' | 'OWNERSHIP_CYCLE'>;
 
 /**
  * The ship with its new owner and OwnerChanged (decision 0045). The owner is
- * an active person's ship or argo; argo and the viewer have none, a person's
+ * an active person, agent, app or argo; argo and the viewer have none, a person's
  * ship owns itself (decision 0052), and a retired ship keeps the owner it had. The same owner again changes nothing
  * and writes no event.
  */
@@ -380,8 +380,11 @@ export function changeOwner(
   if (ship.retiredAt !== null) {
     return refuse('SHIP_ALREADY_RETIRED', `${ship.name} is retired: it keeps the owner it had`);
   }
-  if (owner?.retiredAt !== null || (owner.kind !== 'person' && owner.kind !== 'operator')) {
-    return refuse('INVALID_OWNER', "An owner is an active person's ship or argo");
+  if (owner?.retiredAt !== null || owner.fleetId !== ship.fleetId || !isEligibleOwner(owner)) {
+    return refuse('INVALID_OWNER', "An owner is an active person, agent, app or argo");
+  }
+  if (ship.id === owner.id) {
+    return refuse('OWNERSHIP_CYCLE', 'A ship cannot own itself unless it is a person ship');
   }
   if (ship.owner === owner.id) {
     return ok({ ship, events: [] });
@@ -441,8 +444,8 @@ function checkNamedOwner(named: {
     return refuse('INVALID_OWNER', 'Name the owner or the ship that asked, not both');
   }
   const { namedOwner } = named;
-  if (namedOwner?.retiredAt !== null || (namedOwner.kind !== 'person' && namedOwner.kind !== 'operator')) {
-    return refuse('INVALID_OWNER', "An owner is an active person's ship or argo");
+  if (namedOwner?.retiredAt !== null || !isEligibleOwner(namedOwner)) {
+    return refuse('INVALID_OWNER', "An owner is an active person, agent, app or argo");
   }
   return ok(undefined);
 }
@@ -797,4 +800,9 @@ export function checkCanBeRequestedCrew(ship: Ship): Result<void, CrewRequestShi
 function checkNotOperatorShip(ship: Ship, action: 'retired' | 'released' | 'renamed' | 'crewed by request'): Result<void, Permanent> {
   const permanent = PERMANENT_SHIPS[ship.kind];
   return permanent === undefined ? ok(undefined) : refuse('OPERATOR_SHIP_IS_PERMANENT', `${ship.name} is ${permanent} and can never be ${action}`);
+}
+
+/** The kinds that can own a ship; plugins, trierarchs and the viewer cannot. */
+export function isEligibleOwner(ship: Ship): boolean {
+  return ship.kind === 'person' || ship.kind === 'operator' || ship.kind === 'agent' || ship.kind === 'app';
 }

@@ -1,3 +1,4 @@
+import { validateOwnership, type OwnershipRefusal } from './ownership.js';
 import { findShipWithOwnerHeld, findWithOwnerHeld } from './held-ship.js';
 import type { AccountId, CommissionedShipKind, FleetId, IdGenerator, LabelValueId, ShipId } from '@aeolus-fleet/common';
 
@@ -55,6 +56,7 @@ export interface CommissionedShip {
 }
 
 export type CommissionShipRefusal =
+  | OwnershipRefusal
   | CommissionRefusal
   | DomainError<'INVALID_IDEMPOTENCY_KEY' | 'IDEMPOTENCY_KEY_REUSED' | 'SHIP_LIMIT_REACHED' | 'SHIP_NOT_FOUND' | 'LABEL_VALUE_NOT_FOUND' | 'NOT_THE_LABEL_OWNER' | 'COMMISSION_APPROVAL_NOT_FOUND'>;
 
@@ -250,6 +252,7 @@ export function createCommissionShip(deps: {
   return (caller, input) =>
     deps.uow.run(async (tx): Promise<Result<CommissionedShip, CommissionShipRefusal>> => {
       const { fleetId } = caller;
+      await tx.ships.lockOwnership(fleetId);
       const actor = actorOf(caller);
       const at = deps.clock.now();
       const key = idempotencyKey(input.idempotencyKey);
@@ -320,6 +323,12 @@ export function createCommissionShip(deps: {
         return commissioned;
       }
       const { ship, events } = commissioned.value;
+      if (ship.kind !== 'person' && ship.owner !== null) {
+        const valid = await validateOwnership(tx.ships, { fleetId, shipId: ship.id, ownerShipId: ship.owner });
+        if (!valid.isOk) {
+          return valid;
+        }
+      }
       const { given, missing } = await givenValues(tx, { fleetId, valueIds: input.valueIds ?? [] });
       if (missing !== undefined) {
         return refuse('LABEL_VALUE_NOT_FOUND', `The fleet has no label value ${missing}`);

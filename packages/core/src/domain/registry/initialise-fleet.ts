@@ -31,13 +31,15 @@ export function createInitialiseFleet(deps: { uow: UnitOfWork<InitialiseFleetTx>
     }
     const name = named.value;
 
+    const fleetId = deps.ids('fleet');
     return deps.uow.run(async (tx) => {
+      await tx.ships.lockOwnership(fleetId);
       await tx.fleets.lockInitialisation();
       if ((await tx.fleets.count()) > 0) {
         return refuse('FLEET_ALREADY_EXISTS', 'A fleet already exists: a fleet is initialised only once');
       }
 
-      return ok(await foundFleet({ tx, ids: deps.ids }, { name, email: null, passwordHash: null, at: deps.clock.now() }));
+      return ok(await foundFleet({ tx, ids: deps.ids }, { fleetId, name, email: null, passwordHash: null, at: deps.clock.now() }));
     });
   };
 }

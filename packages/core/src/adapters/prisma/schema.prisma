@@ -192,7 +192,7 @@ model Ship {
   commissionedBy        String?           @map("commissioned_by")
   commissionKey         String?           @map("commission_key")
   commissionRequestHash String?           @map("commission_request_hash")
-  /// The ship that answers for it, a person's ship or argo (decision 0045); null for argo and the viewer.
+  /// The ship that directly owns it, a person ship, agent, app or argo (decision 0045); null for argo and the viewer.
   ownerShipId           String?           @map("owner_ship_id")
 
   fleet                Fleet                  @relation(fields: [fleetId], references: [id])

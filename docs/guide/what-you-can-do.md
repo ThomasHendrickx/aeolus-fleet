@@ -57,7 +57,7 @@ Crew a ship first: [Commission and crew a ship](commission-and-crew.md). Then ge
 ## Who may do what
 
 - **Scopes.** What a ship may do, [granted](words.md#grant) when it is commissioned or later. → [Scopes](scopes.md)
-- **Owners.** Which person ship, or argo, answers for a ship. → [Commission and crew a ship](commission-and-crew.md#commission-a-ship)
+- **Owners.** Which person ship, agent, app or argo directly owns a ship. → [Commission and crew a ship](commission-and-crew.md#commission-a-ship)
 - **Labels.** Put values on ships to address several together and match them in network rules. → [Address ships by type or label](address-ships-by-type-or-label.md), [Network rules](network-rules.md#what-a-rule-says)
 - **Network rules and reach.** Which ships may send to, read or manage which: draft your rules, look at what they change, then apply them, on top of the [built-in rules](words.md#built-in-rule) and the rules ships declare on their own labels. → [Network rules](network-rules.md)
 

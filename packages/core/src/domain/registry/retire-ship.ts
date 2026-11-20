@@ -116,6 +116,7 @@ export function createRetireShip(deps: {
       const { fleetId } = caller;
       const meetings = await lockMeetingsOf(tx, { fleetId, shipId });
       const schedules = await lockSchedulesOf(tx, { fleetId, shipId });
+      await tx.ships.lockOwnership(fleetId);
       const ship = await tx.ships.findForUpdate(fleetId, shipId);
       if (!ship) {
         return refuse('SHIP_NOT_FOUND', `Ship ${shipId} does not exist`);
@@ -160,6 +161,9 @@ export function createRetireShip(deps: {
       }
       const argo = await tx.ships.findOperatorShip(fleetId);
       for (const ownedShip of await tx.ships.listActiveOwnedByForUpdate(fleetId, shipId)) {
+        if (ownedShip.id === shipId) {
+          continue;
+        }
         // Never refused: an owned ship is active and never argo's own, and argo is always active.
         const changed = changeOwner(ownedShip, { owner: argo, why: 'ownerRetired', at, actor });
         if (changed.isOk && changed.value.ship.owner !== null && changed.value.ship.owner !== ownedShip.owner) {

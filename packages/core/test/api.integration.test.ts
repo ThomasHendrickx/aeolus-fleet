@@ -968,9 +968,11 @@ describe('ship.send at the API', () => {
     });
   });
 
-  it('refuses a ship without messages:send, and stores nothing', async () => {
+  it('refuses a ship without messages:send even to its direct owner, and stores nothing', async () => {
     const reader = client({ authorization: `Bearer ${await crewedShip(['fleet:read'])}` });
-    const input = toArgo();
+    const { shipId } = await reader.ship.whoami.query();
+    await (await signedInArgo()).fleet.setOwner.mutate({ shipId, ownerShipId: ownerId });
+    const input = { ...toArgo(), selector: { kind: 'ship' as const, shipId: ownerId } };
 
     await expect(refusalOf(reader.ship.send.mutate(input))).resolves.toEqual({
       code: 'FORBIDDEN',
@@ -1823,7 +1825,7 @@ describe('owners at the API (decision 0045)', () => {
     await expect(asArgo.fleet.setOwner.mutate({ shipId, ownerShipId })).resolves.toEqual({});
   });
 
-  it('refuse any ship but argo, argo itself and an agent ship as the owner', async () => {
+  it('requires fleet:owner, keeps argo ownerless and accepts an agent owner', async () => {
     const asArgo = await signedInArgo();
     const { shipId } = await asArgo.fleet.commission.mutate({ idempotencyKey: newKey(), owner: ownerId, name: `owned-${newId('ship').slice(-6)}`, type: 'reviewer' });
     const { shipId: agentShipId } = await asArgo.fleet.commission.mutate({ idempotencyKey: newKey(), owner: ownerId, name: `agent-${newId('ship').slice(-6)}`, type: 'reviewer' });
@@ -1831,7 +1833,8 @@ describe('owners at the API (decision 0045)', () => {
 
     await expect(codeOf(manager.fleet.setOwner.mutate({ shipId, ownerShipId: argoId }))).resolves.toBe('FORBIDDEN');
     await expect(codeOf(asArgo.fleet.setOwner.mutate({ shipId: argoId, ownerShipId: argoId }))).resolves.toBe('FORBIDDEN');
-    await expect(codeOf(asArgo.fleet.setOwner.mutate({ shipId, ownerShipId: agentShipId }))).resolves.toBe('BAD_REQUEST');
+    await expect(asArgo.fleet.setOwner.mutate({ shipId, ownerShipId: agentShipId })).resolves.toEqual({});
+    await expect(codeOf(asArgo.fleet.setOwner.mutate({ shipId: agentShipId, ownerShipId: shipId }))).resolves.toBe('BAD_REQUEST');
   });
 });
 

@@ -122,8 +122,7 @@ describe("setting a ship's owner (decisions 0045, 0053)", () => {
     // Given a ship belonging to another fleet.
     const other = await initialiseFleet(createInMemoryCore('2027-01-01T00:00:00.000Z'));
     const foreign = core.ids('ship');
-    const source = core.state.ships.find((ship) => ship.id === scoutId);
-    if (!source) throw new Error('missing scout');
+    const source = core.state.ships.find((ship) => ship.id === scoutId) ?? expect.fail('missing scout');
     core.state.ships.push({ ...source, id: foreign, fleetId: other.fleetId });
 
     // When it is named as owner.
@@ -136,8 +135,7 @@ describe("setting a ship's owner (decisions 0045, 0053)", () => {
 
   it('refuses an already cyclic ancestor chain without state or event writes', async () => {
     // Given corrupt persisted ancestors, which are not person roots.
-    const ship = core.state.ships.find((held) => held.id === scoutId);
-    if (!ship) throw new Error('missing scout');
+    const ship = core.state.ships.find((held) => held.id === scoutId) ?? expect.fail('missing scout');
     const first = core.ids('ship');
     const second = core.ids('ship');
     core.state.ships.push({ ...ship, id: first, name: 'first', owner: second }, { ...ship, id: second, name: 'second', owner: first });
@@ -153,8 +151,7 @@ describe("setting a ship's owner (decisions 0045, 0053)", () => {
 
   it('refuses a fresh commission inheriting a cyclic owner chain', async () => {
     // Given an agent whose stored owner chain loops.
-    const scout = core.state.ships.find((ship) => ship.id === scoutId);
-    if (!scout) throw new Error('missing scout');
+    const scout = core.state.ships.find((ship) => ship.id === scoutId) ?? expect.fail('missing scout');
     scout.owner = scoutId;
     const caller: ShipCaller = { kind: 'agent', fleetId: argo.fleetId, shipId: scoutId, scopes: ['fleet:commission'] };
     scout.scopes = ['messages:send', 'messages:receive', 'fleet:commission'];
@@ -167,6 +164,25 @@ describe("setting a ship's owner (decisions 0045, 0053)", () => {
     expect(result).toMatchObject({ isOk: false, error: { kind: 'OWNERSHIP_CYCLE' } });
     expect(core.state.ships).toEqual(before);
     expect(core.state.events).toEqual([]);
+  });
+
+  it.each(['plugin', 'trierarch', 'viewer'] as const)('refuses a %s as an owner without state or event writes', async (kind) => {
+    // Given a ship of a kind outside the eligible owners.
+    const scout = core.state.ships.find((ship) => ship.id === scoutId) ?? expect.fail('missing scout');
+    const ownerShipId = core.ids('ship');
+    core.state.ships.push({ ...scout, id: ownerShipId, name: kind, kind, owner: kind === 'viewer' ? null : argoId });
+
+    // When it is named as owner.
+    const result = await registry.setOwner(argo, { shipId: scoutId, ownerShipId });
+
+    // Then the assignment is refused without writes.
+    expect(result).toMatchObject({ isOk: false, error: { kind: 'INVALID_OWNER' } });
+    expect(ownerOf(scoutId)).toBe(argoId);
+    expect(core.state.events).toEqual([]);
+    if (kind === 'viewer') {
+      expect(await registry.setOwner(argo, { shipId: ownerShipId, ownerShipId: thomasId })).toMatchObject({ isOk: false, error: { kind: 'SHIP_HAS_NO_OWNER' } });
+      expect(ownerOf(ownerShipId)).toBeNull();
+    }
   });
 
   it('refuses a retired owner', async () => {
