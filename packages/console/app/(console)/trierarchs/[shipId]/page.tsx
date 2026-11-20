@@ -58,6 +58,7 @@ export default function MachinePage({ params }: { params: Promise<{ shipId: stri
   return (
     <DetailPage
       switcher={frame.switcher}
+      switcherState={frame.switcherState}
       account={frame.account}
       onCompose={frame.onCompose}
       onSearch={frame.onSearch}

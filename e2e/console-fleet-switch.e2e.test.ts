@@ -10,7 +10,8 @@ import { newKey } from '../packages/core/src/testing/keys.js';
 import { unwrap } from '../packages/core/src/testing/result.js';
 import { createUseCases } from '../packages/core/src/wiring.js';
 import { FLEET_URL } from '../packages/core/test/support/core-fixtures.js';
-import { FAKE_CONSOLE_URL, startFakeAccountApp, type FakeAccount, type FakeAccountApp } from './support/fake-account-app.js';
+import { startFakeAccountApp, type FakeAccount, type FakeAccountApp } from './support/fake-account-app.js';
+import { accountButton, openSettings } from './support/console.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 
 // An account switches the console between two fleets of one organisation
@@ -51,6 +52,8 @@ beforeAll(async () => {
   const webUrl = await reserveWebUrl();
   accountApp = await startFakeAccountApp({
     accountUrl: ACCOUNT_URL,
+    // The apps list names this console for every fleet, as a hosted installation runs one console for an organisation's fleets.
+    consoleUrl: webUrl,
     argoTickets: async (forFleet, accountId) => unwrap(await useCases.issueSignInTicket({ fleetId: idSchema('fleet').parse(forFleet), account: { id: accountIdSchema.parse(accountId) } })).ticket,
   });
   server = createApp({ databaseUrl, publicUrl: FLEET_URL, consoleOrigin: webUrl, logger: false, accountTokenIssuer: accountApp.url });
@@ -82,7 +85,7 @@ async function signedInToA(who: FakeAccount): Promise<Page> {
 /** The overview shows live once the page is hydrated: a menu click before that does nothing. */
 async function isHydrated(page: Page): Promise<void> {
   await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
-  await page.locator('[data-slot="live-status"][data-state="live"]:visible').waitFor({ timeout: 20_000 });
+  await page.getByText('Live', { exact: true }).filter({ visible: true }).first().waitFor({ timeout: 20_000 });
 }
 
 /** The fleet the console's account token names, its audience. */
@@ -103,31 +106,50 @@ async function openFleets(page: Page): Promise<void> {
 
 /** The avatar menu says the page is signed in as the account itself, not as argo. */
 async function isSignedInAsAccount(page: Page): Promise<void> {
-  const trigger = page.locator('[data-testid="avatar-menu"][aria-label*="Signed in as"]:visible');
-  await trigger.click();
-  await page.getByTestId('avatar-menu-signed-in-as').getByText('Signed in with your account').waitFor();
+  await accountButton(page, 'Account: Your account').click();
+  await page.getByText('Signed in with your account').filter({ visible: true }).waitFor();
   await page.keyboard.press('Escape');
 }
 
 describe('switching the console between two fleets of one organisation', () => {
-  it("lands in the console in fleet B from the header's switcher, with the same sign-in, and renews for fleet B", async () => {
+  it('opens fleet B from the Apps and fleets panel: Opening, then Console is open in fleet B, with the same sign-in, and renews for fleet B (H9)', async () => {
+    // Given the account in the console in fleet A, the panel open
     const page = await signedInToA(mathilde());
     const signInsBefore = accountApp.signInsAsked();
-
     await openFleets(page);
-    const link = new URL((await page.getByTestId('app-switcher-fleet').filter({ hasText: 'second fleet' }).getAttribute('href')) ?? '');
-    expect(link.origin).toBe(FAKE_CONSOLE_URL);
-    expect(link.searchParams.get('fleet')).toBe(fleetB);
-    // The apps list names the hosted console's address: the same path and query on this console.
-    await page.goto(`${link.pathname}${link.search}`);
 
-    await page.waitForURL(`${web.url}/?fleet=${fleetB}`);
+    // When it chooses fleet B
+    await page.getByRole('link', { name: 'second fleet' }).click();
+
+    // Then the row says it is opening, and the console arrives in fleet B and says so, focus on the launcher
+    await page.getByText('Opening second fleet').first().waitFor();
+    await page.getByText('Console is open in second fleet.').waitFor({ timeout: 20_000 });
     await isHydrated(page);
     await expect(page.locator('[data-testid="app-switcher-fleet-pill"]:visible').getAttribute('title')).resolves.toContain('second fleet');
+    await expect.poll(() => page.getByRole('button', { name: 'Apps and fleets' }).and(page.locator(':focus')).count()).toBe(1);
     expect(accountApp.signInsAsked()).toBe(signInsBefore);
     expect(await tokenFleetOf(page)).toBe(fleetB);
     const renewal = await page.request.post('/sign-in/renew', { headers: { origin: web.url } });
     expect(renewal.status()).toBe(200);
+    expect(await tokenFleetOf(page)).toBe(fleetB);
+  });
+
+  it("says it couldn't open fleet B while the account app does not answer, keeps the console in fleet A, and Try again opens it", async () => {
+    // Given the account in the console in fleet A, the panel open, the account app down
+    const page = await signedInToA(mathilde());
+    await openFleets(page);
+    accountApp.setDown(true);
+
+    // When it chooses fleet B
+    await page.getByRole('link', { name: 'second fleet' }).click();
+
+    // Then the panel says so, focus on Try again, the console still in fleet A; Try again opens fleet B once the account app answers
+    await page.getByText('Couldn’t open second fleet').waitFor();
+    await page.getByText('You are still in home fleet. Try again to open second fleet.').waitFor();
+    expect(await tokenFleetOf(page)).toBe(fleetA);
+    accountApp.setDown(false);
+    await page.getByRole('button', { name: 'Try again' }).click();
+    await page.getByText('Console is open in second fleet.').waitFor({ timeout: 20_000 });
     expect(await tokenFleetOf(page)).toBe(fleetB);
   });
 
@@ -151,8 +173,8 @@ describe('switching the console between two fleets of one organisation', () => {
 
   it('is in fleet B as the account itself after switching there signed in as argo of fleet A', async () => {
     const page = await signedInToA(mathilde({ scopes: ['fleet:read'], isArgoAllowedInA: true }));
-    await page.locator('[data-testid="avatar-menu"][aria-label*="Signed in as"]:visible').click();
-    await page.getByRole('menuitem', { name: 'Sign in as argo' }).click();
+    await openSettings(page);
+    await page.getByRole('button', { name: 'Sign in as argo' }).click();
     await page.getByTestId('argo-banner').getByText('You are signed in as argo').waitFor();
 
     await page.goto(`/?fleet=${fleetB}`);
@@ -175,5 +197,40 @@ describe('switching the console between two fleets of one organisation', () => {
     await isHydrated(page);
     await expect(page.locator('[data-testid="app-switcher-fleet-pill"]:visible').getAttribute('title')).resolves.toContain('second fleet');
     expect(await tokenFleetOf(page)).toBe(fleetB);
+  });
+});
+
+describe("the Apps and fleets panel of an account's console (docs/design/app-navigation, section 4)", () => {
+  it("says it couldn't load the apps and fleets while the account app does not answer, and Try again reads them", async () => {
+    // Given the account app down as the console's page loads
+    accountApp.signInAs(mathilde());
+    const context = await browser.newContext({ baseURL: web.url });
+    contexts.push(context);
+    const page = await context.newPage();
+    await page.goto(`/?fleet=${fleetA}`);
+    await isHydrated(page);
+    accountApp.setDown(true);
+    await page.reload();
+    await isHydrated(page);
+
+    // When the panel opens
+    await openFleets(page);
+
+    // Then it says so, and once the account app answers again Try again reads them
+    await page.getByText('Couldn’t load apps and fleets').waitFor();
+    accountApp.setDown(false);
+    await page.getByRole('button', { name: 'Try again' }).click();
+    await page.getByText('Apps and fleets refreshed.').waitFor();
+    await page.getByRole('link', { name: /second fleet/ }).waitFor();
+  });
+
+  it('says on the account button that the sign-in expired once the account app ended it', async () => {
+    const page = await signedInToA(mathilde());
+    accountApp.endSignIns();
+
+    await page.reload();
+    await isHydrated(page);
+
+    await accountButton(page, 'Account: Sign-in expired').waitFor();
   });
 });

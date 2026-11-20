@@ -14,6 +14,7 @@ import { createUseCases, type UseCases } from '../packages/core/src/wiring.js';
 import { FLEET_URL, OPERATOR, operatorCaller } from '../packages/core/test/support/core-fixtures.js';
 import { startFakeAccountApp, type FakeAccount, type FakeAccountApp } from './support/fake-account-app.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
+import { formPostHeld, holdFormPosts, letFormPostsGo, openSettings } from './support/console.js';
 
 // A human signs in to the console as their own account (accounts design, F1,
 // A8): through the account app's shared sign-in, with an account token for the fleet,
@@ -82,7 +83,7 @@ describe('an account signing in to the console', () => {
     // Live shows once the page is hydrated: a menu click before that does nothing.
     await page.getByRole('banner').getByText('Live', { exact: true }).waitFor({ timeout: 20_000 });
     await page.locator('[data-testid="avatar-menu"]:visible').click();
-    await page.getByTestId('avatar-menu-signed-in-as').getByText('Signed in with your account').waitFor();
+    await page.getByText('Signed in with your account').filter({ visible: true }).waitFor();
     await page.getByTestId('avatar-menu-who').getByText('Your account', { exact: true }).waitFor();
     await page.keyboard.press('Escape');
     await expect(page.getByTestId('header-compose').count()).resolves.toBe(0);
@@ -178,10 +179,10 @@ describe('an account signing in to the console', () => {
     accountApp.signInAs(mathilde());
     const page = await newPage();
     await page.goto('/');
-    await page.locator('[data-testid="avatar-menu"]:visible').click();
+    await openSettings(page);
 
     // When it picks Dark
-    await page.getByTestId('avatar-menu-theme-dark').click();
+    await page.getByRole('button', { name: 'Dark' }).click();
 
     // Then the browser keeps Dark for every app, and the next page paints it
     await expect.poll(async () => (await page.context().cookies()).find((cookie) => cookie.name === THEME_COOKIE)?.value).toBe('dark');
@@ -250,5 +251,27 @@ describe('an account signing in to the console', () => {
     expect(accountApp.revoked().length).toBe(revokedBefore + 1);
     const cookies = await page.context().cookies();
     expect(cookies.map(({ name }) => name)).not.toContain('aeolus_account_token');
+  });
+
+  it('shows Sign out busy and says "Signing out…" while the account signs out of every app (docs/design/app-navigation, feedback)', async () => {
+    // Given an account signed in, whose way out the browser holds before it leaves the page
+    accountApp.signInAs(mathilde());
+    const page = await newPage();
+    await page.goto('/');
+    await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
+    await page.getByText('Live', { exact: true }).filter({ visible: true }).first().waitFor({ timeout: 20_000 });
+    // A page that has started leaving cannot be read, so the form's post waits here until the test lets it go.
+    await holdFormPosts(page);
+
+    // When the account presses Sign out
+    await page.locator('[data-testid="avatar-menu"]:visible').click();
+    await page.getByRole('menuitem', { name: 'Sign out' }).click();
+    await formPostHeld(page, '/sign-in/out');
+
+    // Then the row waits with its busy icon and the panel says it is signing out, until the way out answers
+    await page.getByRole('status').getByText('Signing out…').waitFor();
+    await expect(page.getByRole('menuitem', { name: 'Sign out' }).getAttribute('aria-disabled')).resolves.toBe('true');
+    await letFormPostsGo(page);
+    await page.waitForURL(`${web.url}/sign-in?signed=out`);
   });
 });

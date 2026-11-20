@@ -11,6 +11,7 @@ import { unwrap } from '../packages/core/src/testing/result.js';
 import { createUseCases } from '../packages/core/src/wiring.js';
 import { FLEET_URL, OPERATOR, operatorCaller } from '../packages/core/test/support/core-fixtures.js';
 import { startFakeAccountApp, type FakeAccount, type FakeAccountApp } from './support/fake-account-app.js';
+import { accountButton, formPostHeld, holdFormPosts, letFormPostsGo, openSettings } from './support/console.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 
 // Break-glass (accounts design, F4, A7): an account allowed as argo signs in
@@ -74,20 +75,18 @@ async function signedInAs(who: FakeAccount): Promise<Page> {
 /** The overview shows live once the page is hydrated: a menu click before that does nothing. */
 async function isHydrated(page: Page): Promise<void> {
   await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
-  await page.locator('[data-slot="live-status"][data-state="live"]:visible').waitFor({ timeout: 20_000 });
+  await page.getByText('Live', { exact: true }).filter({ visible: true }).first().waitFor({ timeout: 20_000 });
 }
 
-/** The avatar's label says how the page is signed in only once the console has read its account: a menu opened before that shows a blank line. */
-async function openAccountMenu(page: Page): Promise<void> {
-  const trigger = page.locator('[data-testid="avatar-menu"][aria-label*="Signed in as"]:visible');
-  await trigger.waitFor();
-  await trigger.click();
+/** The account button says how the page is signed in only once the console has read its account: a panel opened before that shows a blank line. */
+async function openAccountPanel(page: Page): Promise<void> {
+  await accountButton(page).click();
 }
 
-/** The avatar menu says the page is signed in as the account itself, not as argo. */
+/** The account panel says the page is signed in as the account itself, not as argo. */
 async function isSignedInAsAccount(page: Page): Promise<void> {
-  await openAccountMenu(page);
-  await page.getByTestId('avatar-menu-signed-in-as').getByText('Signed in with your account').waitFor();
+  await openAccountPanel(page);
+  await page.getByText('Signed in with your account').filter({ visible: true }).waitFor();
   await page.keyboard.press('Escape');
 }
 
@@ -98,12 +97,11 @@ async function argoSessionsOf(accountId: string) {
 describe('signing in as argo from the console', () => {
   it('offers an account not allowed as argo no Sign in as argo, and refuses one it forges', async () => {
     const page = await signedInAs(account('burak', { isArgoAllowed: false }));
-    await openAccountMenu(page);
-    await page.getByRole('menuitem', { name: 'Sign out' }).waitFor();
-    await expect(page.getByRole('menuitem', { name: 'Sign in as argo' }).count()).resolves.toBe(0);
-    await page.keyboard.press('Escape');
+    await openSettings(page);
+    await page.getByRole('heading', { name: 'Help' }).waitFor();
+    await expect(page.getByRole('button', { name: 'Sign in as argo' }).count()).resolves.toBe(0);
 
-    // The POST the menu would make, from the console's own page.
+    // The POST Settings would make, from the console's own page.
     await page.evaluate("const form = document.createElement('form'); form.method = 'post'; form.action = '/sign-in/argo'; document.body.append(form); form.submit();");
 
     await page.getByText('Your account may not sign in as argo of this fleet.').waitFor();
@@ -112,9 +110,15 @@ describe('signing in as argo from the console', () => {
 
   it('signs an allowed account in as argo with one press while no one holds argo: the banner, and Compose', async () => {
     mathildePage = await signedInAs(account('mathilde', { isArgoAllowed: true }));
-    await openAccountMenu(mathildePage);
+    await openSettings(mathildePage);
+    await holdFormPosts(mathildePage);
 
-    await mathildePage.getByRole('menuitem', { name: 'Sign in as argo' }).click();
+    await mathildePage.getByRole('button', { name: 'Sign in as argo' }).click();
+
+    // The row says it is signing in as argo, busy, until the page leaves (docs/design/app-navigation, feedback).
+    await formPostHeld(mathildePage, '/sign-in/argo');
+    await expect(mathildePage.getByRole('button', { name: 'Signing in as argo' }).isDisabled()).resolves.toBe(true);
+    await letFormPostsGo(mathildePage);
 
     await mathildePage.getByTestId('argo-banner').getByText('You are signed in as argo').waitFor();
     await mathildePage.getByTestId('header-compose').first().waitFor();
@@ -123,9 +127,9 @@ describe('signing in as argo from the console', () => {
 
   it('warns before taking argo from another account, and Cancel leaves both as they were', async () => {
     thomasPage = await signedInAs(account('thomas', { isArgoAllowed: true }));
-    await openAccountMenu(thomasPage);
+    await openSettings(thomasPage);
 
-    await thomasPage.getByRole('menuitem', { name: 'Sign in as argo' }).click();
+    await thomasPage.getByRole('button', { name: 'Sign in as argo' }).click();
 
     await thomasPage.getByText('This signs mathilde@acme.example out of argo.').waitFor();
     await thomasPage.getByTestId('sign-in-argo-cancel').click();
@@ -135,8 +139,8 @@ describe('signing in as argo from the console', () => {
   });
 
   it('takes argo over on Continue: the other account is signed out of argo', async () => {
-    await openAccountMenu(thomasPage);
-    await thomasPage.getByRole('menuitem', { name: 'Sign in as argo' }).click();
+    await openSettings(thomasPage);
+    await thomasPage.getByRole('button', { name: 'Sign in as argo' }).click();
 
     await thomasPage.getByTestId('sign-in-argo-continue').click();
 

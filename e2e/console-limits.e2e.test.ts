@@ -14,7 +14,7 @@ import { createMigratedDatabase } from '../packages/core/src/testing/database.js
 import { newKey } from '../packages/core/src/testing/keys.js';
 import { createTestClock } from '../packages/core/test/support/postgres-core.js';
 import { unwrap } from '../packages/core/src/testing/result.js';
-import { signIn } from './support/console.js';
+import { openSettings, signIn } from './support/console.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 import { withOperatorLogin } from '../packages/core/test/support/operator-login.js';
 
@@ -73,13 +73,13 @@ async function signedInPage(): Promise<Page> {
 }
 
 describe('a hosted console', () => {
-  it('offers no Your account in the avatar menu for argo\'s sign-in, which has no account (header design H8)', async () => {
+  it('offers no Your account in Settings for argo\'s sign-in, which has no account (header design H8)', async () => {
     const page = await signedInPage();
 
-    await page.locator('[data-testid="avatar-menu"]:visible').click();
+    await openSettings(page);
 
-    await page.locator('[data-testid="avatar-menu-session"]:visible').waitFor();
-    await expect(page.locator('[data-testid="avatar-menu-account"]:visible').count()).resolves.toBe(0);
+    await page.getByRole('heading', { name: 'Help' }).waitFor();
+    await expect(page.getByRole('heading', { name: 'Your account' }).count()).resolves.toBe(0);
   });
 });
 

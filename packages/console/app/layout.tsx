@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import { connection } from 'next/server';
 import type { ReactNode } from 'react';
 
+import { accountAppFrom } from '../lib/account-app';
 import { analyticsAdapterFrom } from '../lib/analytics-adapter';
 import { serverUrlFrom } from '../lib/server-url';
 import { hostedAccountUrlFrom } from '../lib/hosted-account-url';
@@ -36,7 +37,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         <script dangerouslySetInnerHTML={{ __html: themeScript(theme) }} />
       </head>
       <body>
-        <Providers serverUrl={serverUrl} constants={consoleConstantsOf()} hostedAccountUrl={hostedAccountUrlFrom(process.env)} hasOwnSignIn={hostedSignInUrlFrom(process.env) === undefined} themeCookieDomain={themeCookieDomainFrom(process.env)} isAnalyticsOn={analyticsAdapterFrom(process.env) !== undefined}>
+        <Providers serverUrl={serverUrl} constants={consoleConstantsOf()} hostedAccountUrl={hostedAccountUrlFrom(process.env)} hasOwnSignIn={hostedSignInUrlFrom(process.env) === undefined} themeCookieDomain={themeCookieDomainFrom(process.env)} isAnalyticsOn={analyticsAdapterFrom(process.env) !== undefined} hasAccountApp={accountAppFrom(process.env) !== undefined}>
           {children}
         </Providers>
       </body>

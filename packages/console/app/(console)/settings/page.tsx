@@ -1,10 +1,10 @@
 'use client';
 
-import { LoadingSkeleton } from '@aeolus-fleet/ui';
-import { useQuery } from '@tanstack/react-query';
-import { notFound } from 'next/navigation';
-
 import { OwnSignInSection } from '../../../features/settings/state/own-sign-in-section';
+import { useIsSettingsRead } from '../../../features/settings/hooks/use-settings-read';
+import { SettingsItems } from '../../../features/settings/state/settings-items';
+import { SettingsColumn } from '../../../features/settings/ui/molecules/settings-column';
+import { SettingsLoading } from '../../../features/settings/ui/organisms/settings-loading';
 import { GatewayConnection } from '../../../features/settings/ui/organisms/gateway-connection';
 import { SquadronsConnection } from '../../../features/settings/ui/organisms/squadrons-connection';
 import { TemplateRepositories } from '../../../features/settings/ui/organisms/template-repositories';
@@ -21,26 +21,60 @@ import { useLiveFleet } from '../../../lib/live-fleet';
 import { useConnectSquadrons, useSquadronsConnection, useSquadronsSettings, useHasSquadrons } from '../../../lib/squadrons';
 import { useAddRepository, useCatalogue, useRefreshCatalogue, useRemoveRepository, useRepositories } from '../../../lib/squadrons-api';
 import { usePluginNav } from '../../../lib/plugin-nav';
-import { useTRPC } from '../../../lib/trpc';
 import { useConnectTrierarchPlugin, useTrierarchPluginSettings } from '../../../lib/trierarch-plugin';
 import { useConnectWatchPlugin, useWatchPluginSettings } from '../../../lib/watch-plugin';
 
 /**
- * Settings for sessions with permission to manage the fleet: where the console
+ * Settings, for every sign-in (docs/design/app-navigation, where the account
+ * menu's items go): first the theme, help and the account's own pages; then,
+ * for a session that manages the fleet, how the installation runs: where the console
  * signs argo in itself, argo's email and password; with squadrons,
  * connecting it, and once connected, the repositories it reads; without,
  * nothing of squadrons. Whenever Settings is offered, the trierarch plugin:
  * not set up, connecting it, or connected. With the gateway on for the
  * fleet, connecting it, or the ship it is connected as; the same for the
- * watch plugin, after the gateway (design watch-connection).
+ * watch plugin, after the gateway (design watch-connection). Until what it
+ * shows is read, its loading shape under the title, so nothing flips in.
  */
 export default function SettingsPage() {
-  const trpc = useTRPC();
-  const session = useQuery(trpc.console.session.queryOptions());
-  const now = useNow();
   const frame = useConsoleFrame();
-  const hasSquadrons = useHasSquadrons();
   const attention = useNeedsAttention();
+  const liveFleet = useLiveFleet();
+  const pluginNav = usePluginNav();
+  useSignInWhenSessionEnds([attention.error, liveFleet.error]);
+  const isRead = useIsSettingsRead();
+
+  if (!isRead) {
+    return (
+      <ListPage {...frame} title="Settings" live={liveFleet.live}>
+        <SettingsColumn>
+          <SettingsLoading />
+        </SettingsColumn>
+      </ListPage>
+    );
+  }
+  return (
+    <ListPage
+      {...frame}
+      title="Settings"
+      description={pluginNav.hasInstallationSettings ? 'How this console looks for you, and how this installation runs.' : 'How this console looks for you.'}
+      live={liveFleet.live}
+    >
+      <SettingsColumn>
+        <SettingsItems />
+        {pluginNav.hasInstallationSettings ? <InstallationSettings /> : null}
+      </SettingsColumn>
+    </ListPage>
+  );
+}
+
+/**
+ * How the installation runs, for a session that manages the fleet, each
+ * section under its own rule.
+ */
+function InstallationSettings() {
+  const now = useNow();
+  const hasSquadrons = useHasSquadrons();
   const settings = useSquadronsSettings();
   const connect = useConnectSquadrons();
   const trierarchPlugin = useTrierarchPluginSettings();
@@ -49,31 +83,15 @@ export default function SettingsPage() {
   const connectGateway = useConnectGateway();
   const watchPlugin = useWatchPluginSettings();
   const connectWatchPlugin = useConnectWatchPlugin();
-  const liveFleet = useLiveFleet();
   const connection = useSquadronsConnection();
   const repositories = useRepositories();
   const catalogue = useCatalogue();
   const addRepository = useAddRepository();
   const removeRepository = useRemoveRepository();
   const refreshCatalogue = useRefreshCatalogue();
-  const pluginNav = usePluginNav();
   const hasOwnSignIn = useHasOwnSignIn();
-  useSignInWhenSessionEnds([attention.error, liveFleet.error]);
-
-  if (!pluginNav.hasSettings) {
-    if (session.isPending || settings.isPending || trierarchPlugin.isPending || gateway.isPending || watchPlugin.isPending) {
-      return <LoadingSkeleton variant="list" label="Loading Settings" />;
-    }
-    notFound();
-  }
-
   return (
-    <ListPage
-      {...frame}
-      title="Settings"
-      description="How this installation runs. You can use these settings as argo, the operator, or as an account owner with permission to manage the fleet."
-      live={liveFleet.live}
-    >
+    <>
       {hasOwnSignIn && <OwnSignInSection />}
       {hasSquadrons && (
         <SquadronsConnection
@@ -151,6 +169,6 @@ export default function SettingsPage() {
           now={now}
         />
       )}
-    </ListPage>
+    </>
   );
 }

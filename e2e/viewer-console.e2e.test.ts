@@ -14,6 +14,7 @@ import { createMigratedDatabase } from '../packages/core/src/testing/database.js
 import { newKey } from '../packages/core/src/testing/keys.js';
 import { unwrap } from '../packages/core/src/testing/result.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
+import { accountButton, openSettings } from './support/console.js';
 
 // The read-only console of a viewer session (decision 0022), end to end: a
 // fleet created with a viewer, a viewer ticket redeemed in the browser, and
@@ -72,19 +73,22 @@ async function signedIn(as: 'operator' | 'viewer'): Promise<Page> {
 }
 
 describe('the console of a viewer session', () => {
-  it('shows Page not found when a viewer opens Settings', async () => {
+  it('opens Settings from the navigation with the theme as a line and Help, and nothing of how the installation runs (docs/design/app-navigation)', async () => {
     const page = await signedIn('viewer');
 
-    await page.goto('/settings');
+    await openSettings(page);
 
-    await page.getByRole('heading', { name: 'Page not found' }).waitFor();
-    await expect(page.getByRole('heading', { name: 'Settings', exact: true }).count()).resolves.toBe(0);
+    await page.getByText('How this console looks for you.', { exact: true }).waitFor();
+    await page.getByText('A viewer sign-in shows this browser’s theme and has no theme switch.').waitFor();
+    await page.getByRole('heading', { name: 'Help' }).waitFor();
+    await expect(page.getByRole('button', { name: 'Dark' }).count()).resolves.toBe(0);
+    await expect(page.getByRole('heading', { name: 'Trierarchs' }).count()).resolves.toBe(0);
   });
 
   it('offers no Commission and no Compose, and names the viewer, reading only, in the account menu', async () => {
     const page = await signedIn('viewer');
     // The account answers once the session is known, so the writes it removes are settled by then.
-    await page.locator('[data-testid="avatar-menu"][aria-label="Account menu, viewer, Viewer"]').first().waitFor();
+    await accountButton(page, 'Account: Viewer').waitFor();
 
     await expect(page.getByTestId('fleet-commission').count()).resolves.toBe(0);
     await expect(page.getByTestId('header-compose').count()).resolves.toBe(0);
@@ -98,13 +102,21 @@ describe('the console of a viewer session', () => {
     // When the next page loads
     await page.reload({ waitUntil: 'domcontentloaded' });
 
-    // Then it is dark from the first paint, and the menu offers no theme
+    // Then it is dark from the first paint, and Settings offers no theme switch
     await expect(page.locator('html').getAttribute('class')).resolves.toMatch(/(^|\s)dark(\s|$)/);
-    // Live shows once the page is hydrated: a menu click before that does nothing.
-    await page.locator('[data-slot="live-status"][data-state="live"]:visible').waitFor({ timeout: 20_000 });
-    await page.locator('[data-testid="avatar-menu"][aria-label="Account menu, viewer, Viewer"]').first().click();
-    await page.getByTestId('avatar-menu-shortcuts').waitFor();
-    await expect(page.getByTestId('avatar-menu-theme-dark').count()).resolves.toBe(0);
+    await openSettings(page);
+    await page.getByRole('button', { name: 'Keyboard shortcuts' }).waitFor();
+    await expect(page.getByRole('button', { name: 'Dark' }).count()).resolves.toBe(0);
+  });
+
+  it('explains in the Apps and fleets panel that a viewer sign-in is for Console alone (docs/design/app-navigation, viewer)', async () => {
+    const page = await signedIn('viewer');
+    await page.getByText('Live', { exact: true }).filter({ visible: true }).first().waitFor({ timeout: 20_000 });
+
+    await page.getByRole('button', { name: 'Apps and fleets' }).filter({ visible: true }).click();
+
+    await page.getByText(/^This viewer sign-in is for Console in /).waitFor();
+    await accountButton(page, 'Account: Viewer').waitFor();
   });
 
   it("offers only Copy ship id in a ship's row menu", async () => {

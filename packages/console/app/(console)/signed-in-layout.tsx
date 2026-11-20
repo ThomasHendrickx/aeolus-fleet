@@ -1,7 +1,7 @@
 'use client';
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 
 import { ConsoleFrame } from '../../components/organisms/console-frame';
 import { AccountRenewal } from '../../features/account-renewal/state/account-renewal';
@@ -14,6 +14,7 @@ import { useAccess } from '../../lib/access';
 import { useAccountMenu } from '../../lib/account';
 import { useAppSwitcher } from '../../lib/app-switcher';
 import { ConsoleFrameContext, destinationOf } from '../../lib/console-frame';
+import { ARRIVED_PARAMETER } from '../../lib/fleet-switch';
 import { useOpenInboxCount } from '../../lib/inbox';
 import { useStuckCount } from '../../lib/fleet-health';
 import { useNow } from '../../lib/now';
@@ -28,7 +29,7 @@ import { usePluginNav } from '../../lib/plugin-nav';
 export function SignedInLayout({ children }: { children: ReactNode }) {
   const now = useNow();
   const account = useAccountMenu(now);
-  const switcher = useAppSwitcher();
+  const { switcher, switcherState, isSignInExpired } = useAppSwitcher();
   const access = useAccess();
   const inboxCount = useOpenInboxCount();
   const stuckCount = useStuckCount().data?.count;
@@ -44,12 +45,24 @@ export function SignedInLayout({ children }: { children: ReactNode }) {
   const compose = () => {
     setIsComposing(true);
   };
+  // Another fleet opened from the panel: once the bar names it, the page says so (docs/design/app-navigation, section 4).
+  const arrivedIn = searchParams.get(ARRIVED_PARAMETER);
+  const arrival = switcher !== undefined && arrivedIn !== null && arrivedIn === switcher.fleet.id ? { appLabel: switcher.appLabel, fleetName: switcher.fleet.name } : undefined;
+  const hasArrived = arrival !== undefined;
+  // Focus goes back to the launcher on arrival: the page is an outside system to it.
+  useEffect(() => {
+    if (hasArrived) {
+      [...document.querySelectorAll<HTMLElement>('[data-testid="app-switcher-launcher"]')].find((launcher) => launcher.getClientRects().length > 0)?.focus();
+    }
+  }, [hasArrived]);
 
   return (
     <ConsoleFrameContext
       value={{
         switcher,
-        account,
+        switcherState,
+        ...(arrival === undefined ? {} : { arrival }),
+        account: { ...account, isSignInExpired },
         onCompose: access.canSend ? compose : undefined,
         onSearch: () => {
           setIsSearching(true);
@@ -64,7 +77,7 @@ export function SignedInLayout({ children }: { children: ReactNode }) {
         ),
       }}
     >
-      <ConsoleFrame nav={{ active, inboxCount, stuckCount, ...pluginNav }} account={account} {...(switcher === undefined ? {} : { fleetName: switcher.fleet.name })}>
+      <ConsoleFrame nav={{ active, inboxCount, stuckCount, needsCrewCount: pluginNav.needsCrewCount, hasSquadrons: pluginNav.hasSquadrons, hasTrierarchs: pluginNav.hasTrierarchs, trierarchsCount: pluginNav.trierarchsCount, hasNetwork: pluginNav.hasNetwork }}>
         {children}
       </ConsoleFrame>
       <ComposeMessage

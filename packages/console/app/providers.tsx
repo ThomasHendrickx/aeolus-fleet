@@ -12,6 +12,7 @@ import { trpcErrorCode } from '../lib/errors';
 import { HostedAccountUrlContext } from '../lib/hosted-account';
 import { createLiveUpdates, LiveUpdatesContext } from '../lib/live-updates';
 import { OwnSignInContext } from '../lib/own-sign-in';
+import { AccountAppContext } from '../lib/account-app-client';
 import { ThemeCookieDomainContext } from '../lib/browser-theme-client';
 import { WayOutContext, useWayOutEndsWithPage } from '../lib/session';
 import { createSessionFetch } from '../lib/session-fetch';
@@ -90,6 +91,7 @@ function Pageviews(): null {
  * hostedAccountUrl: AEOLUS_HOSTED_ACCOUNT_URL, where a hosted operator's account lists the fleet's limits.
  * themeCookieDomain: AEOLUS_THEME_COOKIE_DOMAIN, the domain the Aeolus apps share for the browser's one theme.
  * isAnalyticsOn: whether AEOLUS_HOSTED_ANALYTICS_* configure an adapter (decision 0025); off, the console sends no analytics.
+ * hasAccountApp: whether AEOLUS_ACCOUNT_APP_URL configures the account app; without it the installation is a single-app one.
  */
 export function Providers({
   serverUrl,
@@ -98,6 +100,7 @@ export function Providers({
   hasOwnSignIn,
   themeCookieDomain,
   isAnalyticsOn,
+  hasAccountApp,
   children,
 }: {
   serverUrl: string;
@@ -106,6 +109,7 @@ export function Providers({
   hasOwnSignIn: boolean;
   themeCookieDomain?: string;
   isAnalyticsOn: boolean;
+  hasAccountApp: boolean;
   children: ReactNode;
 }) {
   const [queryClient] = useState(() => new QueryClient({ defaultOptions: { queries: { retry } } }));
@@ -127,6 +131,7 @@ export function Providers({
         <ConsoleConstantsContext value={constants}>
           <HostedAccountUrlContext value={hostedAccountUrl}>
             <OwnSignInContext value={hasOwnSignIn}>
+            <AccountAppContext value={hasAccountApp}>
             <ThemeCookieDomainContext value={themeCookieDomain}>
             <AnalyticsContext value={isAnalyticsOn}>
               <WayOutContext value={wayOut}>
@@ -139,6 +144,7 @@ export function Providers({
               <Toaster />
             </AnalyticsContext>
             </ThemeCookieDomainContext>
+            </AccountAppContext>
             </OwnSignInContext>
           </HostedAccountUrlContext>
         </ConsoleConstantsContext>

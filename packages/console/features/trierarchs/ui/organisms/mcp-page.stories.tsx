@@ -96,7 +96,6 @@ function McpPageStory({ frame }: { frame: Frame }) {
           hasTrierarchs: true,
           trierarchsCount: 1,
           hasNetwork: true,
-          hasSettings: true,
         }}
       >
         <ListPage

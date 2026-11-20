@@ -74,9 +74,12 @@ function json(response: ServerResponse, answer: { status: number; body: unknown 
 /** The console's address in the apps list: the header's switcher links there. */
 export const FAKE_CONSOLE_URL = 'https://console.acme.example';
 
-/** The apps list names Account at accountUrl when given, as the account app always does; by default it names none. With gatewayUrl, each fleet names the gateway there too. */
-export async function startFakeAccountApp(options: { argoTickets?: ArgoTickets; accountUrl?: string; gatewayUrl?: string } = {}): Promise<FakeAccountApp> {
-  const { accountUrl, gatewayUrl } = options;
+/**
+ * The apps list names Account at accountUrl when given, as the account app always does; by default it names none. With
+ * gatewayUrl, each fleet names the gateway there too. Each fleet names the console at consoleUrl, FAKE_CONSOLE_URL by default.
+ */
+export async function startFakeAccountApp(options: { argoTickets?: ArgoTickets; accountUrl?: string; gatewayUrl?: string; consoleUrl?: string } = {}): Promise<FakeAccountApp> {
+  const { accountUrl, gatewayUrl, consoleUrl = FAKE_CONSOLE_URL } = options;
   let account: FakeAccount | undefined;
   let asked = 0;
   let tokenSeconds = 600;
@@ -181,7 +184,7 @@ export async function startFakeAccountApp(options: { argoTickets?: ArgoTickets; 
             // As the account app lists them: each fleet where the account holds any scope.
             fleets: holder.fleets
               .filter(({ scopes }) => scopes.length > 0)
-              .map(({ id, name, scopes, isArgoAllowed }) => ({ id, name, argo: isArgoAllowed === true, apps: [...(scopes.includes('fleet:read') ? [{ app: 'console', url: FAKE_CONSOLE_URL }] : []), ...(gatewayUrl === undefined ? [] : [{ app: 'gateway', url: gatewayUrl }])] })),
+              .map(({ id, name, scopes, isArgoAllowed }) => ({ id, name, argo: isArgoAllowed === true, apps: [...(scopes.includes('fleet:read') ? [{ app: 'console', url: consoleUrl }] : []), ...(gatewayUrl === undefined ? [] : [{ app: 'gateway', url: gatewayUrl }])] })),
           },
         });
         return;

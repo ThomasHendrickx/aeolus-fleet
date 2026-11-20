@@ -74,6 +74,7 @@ export default function LabelsPage() {
   return (
     <DetailPage
       switcher={frame.switcher}
+      switcherState={frame.switcherState}
       account={frame.account}
       onCompose={frame.onCompose}
       onSearch={frame.onSearch}

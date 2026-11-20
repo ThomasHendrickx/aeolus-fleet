@@ -96,19 +96,46 @@ export const ActionInTitleRowPhone: Story = {
 };
 
 /**
- * The fleet overview on phone (docs/design/fleet-overview/console-phone.html): the TopBar reads "Fleet" and opens the
- * switcher, with no search or Compose icons, and the page's title row gives way to it, its heading kept for assistive technology.
+ * The fleet overview on phone (docs/design/app-navigation, section 4): the bar holds the launcher, Console and the
+ * fleet, and the page shows its own title under it, as every page does.
  */
-export const PhoneTitledPhone: Story = {
-  args: { phoneTitle: 'Fleet' },
+export const FleetOverviewPhone: Story = {
+  args: { title: 'Fleet', description: '4 ships' },
   globals: { viewport: { value: 'mobile1' } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getAllByTestId('app-switcher').find((switcher) => switcher.closest('[data-slot="top-bar"]') !== null)).toHaveTextContent(/Console/);
-    await expect(canvas.queryByTestId('top-bar-search')).toBeNull();
-    await expect(canvas.queryByTestId('top-bar-compose')).toBeNull();
-    // Kept for assistive technology, out of sight: clipped to a pixel by the title row (sr-only).
-    await expect(canvas.getByRole('heading', { level: 1 }).parentElement?.parentElement?.parentElement?.getBoundingClientRect().height).toBeLessThanOrEqual(1);
-    await expect(canvas.getByRole('button', { name: 'Commission ship', hidden: true })).not.toBeVisible();
+    await expect(canvas.getByRole('heading', { level: 1, name: 'Fleet' })).toBeVisible();
+    await expect(canvas.getByRole('button', { name: 'Apps and fleets' })).toBeVisible();
   },
 };
+
+/**
+ * The bar spans the full width above the sidebar (docs/design/app-navigation, section 4): the launcher at its very
+ * start, the account button at its very end, and no account in the sidebar.
+ */
+export const BarAboveTheSidebar: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const bar = [...canvasElement.querySelectorAll<HTMLElement>('[data-slot="app-header"]')].find((header) => header.getClientRects().length > 0);
+    const sidebar = canvasElement.querySelector('[data-slot="sidebar"]');
+    await expect(bar?.getBoundingClientRect().left).toBe(canvasElement.getBoundingClientRect().left);
+    await expect(sidebar?.getBoundingClientRect().top).toBeGreaterThanOrEqual(bar?.getBoundingClientRect().bottom ?? Infinity);
+    await expect(canvas.getByRole('button', { name: 'Account: Signed in as argo' }).closest('[data-slot="app-header"]')).toBe(bar);
+    await expect(sidebar?.querySelector('[data-testid="avatar-menu"]')).toBeNull();
+  },
+};
+
+/**
+ * Another fleet opened from the Apps and fleets panel (docs/design/app-navigation, section 4): the page says
+ * "Console is open in Harbour." at its top, announced, the bar naming Harbour.
+ */
+export const Arrived: Story = {
+  args: { switcher: { ...SWITCHER, fleet: { ...SWITCHER.fleet, name: 'Harbour' } }, arrival: { appLabel: 'Console', fleetName: 'Harbour' } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText('Console is open in Harbour.')).toBeVisible();
+    await expect(canvas.getByText('Console is open in Harbour.').closest('[role="status"]')).not.toBeNull();
+    await expect(canvas.getByText('Console is open in Harbour.').getBoundingClientRect().top).toBeLessThan(canvas.getByRole('heading', { level: 1 }).getBoundingClientRect().top);
+  },
+};
+export const ArrivedPhone: Story = { ...Arrived, globals: { viewport: { value: 'mobile1' } } };

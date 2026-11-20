@@ -10,6 +10,7 @@ import { FLEET_URL } from '../packages/core/test/support/core-fixtures.js';
 import { createMigratedDatabase } from '../packages/core/src/testing/database.js';
 import { newKey } from '../packages/core/src/testing/keys.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
+import { openSettings } from './support/console.js';
 
 // The installation's guide (decision 0024), end to end: set through the
 // installation procedures, it opens by itself in a session of its audience,
@@ -67,11 +68,6 @@ async function signedIn(as: 'operator' | 'viewer'): Promise<Page> {
   return page;
 }
 
-/** The one of a test id's elements this width shows: the desktop menu, not the phone sheet's trigger. */
-function visible(page: Page, testId: string) {
-  return page.locator(`[data-testid="${testId}"]:visible`);
-}
-
 describe('the guide', () => {
   it('opens by itself on the first page of a session of its audience, pointing at its anchor', async () => {
     const page = await signedIn('viewer');
@@ -125,8 +121,8 @@ describe('the guide', () => {
     await page.getByRole('heading', { name: 'Inbox' }).waitFor();
     await expect(page.getByTestId('tour-step').count()).resolves.toBe(0);
 
-    await visible(page, 'avatar-menu').click();
-    await visible(page, 'avatar-menu-take-tour').click();
+    await openSettings(page);
+    await page.getByRole('button', { name: 'Take the tour' }).click();
     await page.waitForURL((url) => url.pathname === '/');
     await page.getByTestId('tour-step').getByText('Your fleet at a glance').waitFor();
   });
@@ -151,10 +147,10 @@ describe('the guide', () => {
 
   it('shows the operator no guide set for viewers, and no Take the tour', async () => {
     const page = await signedIn('operator');
-    await visible(page, 'avatar-menu').click();
-    await visible(page, 'avatar-menu-sign-out').waitFor();
+    await openSettings(page);
+    await page.getByRole('heading', { name: 'Help' }).waitFor();
 
     await expect(page.getByTestId('tour-step').count()).resolves.toBe(0);
-    await expect(page.getByTestId('avatar-menu-take-tour').count()).resolves.toBe(0);
+    await expect(page.getByRole('button', { name: 'Take the tour' }).count()).resolves.toBe(0);
   });
 });

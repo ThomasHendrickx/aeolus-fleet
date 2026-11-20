@@ -2,20 +2,24 @@
 
 import { createContext, useContext, type ReactNode } from 'react';
 
-import type { AvatarMenuProps } from '@aeolus-fleet/ui';
+import type { AppsAndFleetsState, AvatarMenuProps } from '@aeolus-fleet/ui';
 import type { AppSwitcherModel } from '@aeolus-fleet/common/rules';
 
 import type { SidebarDestination } from '../components/organisms/sidebar';
 
 /**
  * What the signed-in route layout hands each page for its ListPage or
- * DetailPage: the header's switcher and avatar menu, Compose and the
+ * DetailPage: the bar's Apps and fleets and account button, Compose and the
  * CommandPalette (both held by the layout), and the installation's notices.
  */
 export interface ConsoleFrame {
   /** Undefined until the session is read. */
   switcher: AppSwitcherModel | undefined;
+  /** What the console knows of the apps and fleets beyond the list, and its handlers. */
+  switcherState: AppsAndFleetsState;
   account: AvatarMenuProps;
+  /** Set on the page another fleet opened on: "Console is open in Harbour." */
+  arrival?: { appLabel: string; fleetName: string };
   /** Opens Compose; none while the session may not send. */
   onCompose?: () => void;
   onSearch: () => void;

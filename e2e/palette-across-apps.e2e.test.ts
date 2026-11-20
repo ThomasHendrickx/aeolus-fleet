@@ -120,7 +120,7 @@ describe('the palette across apps', () => {
       { key: 'needs-crew', kind: 'page', path: '/needs-crew', rights: ['fleet:read'] },
       { key: 'inbox', kind: 'page', path: '/inbox', rights: ['fleet:read'] },
       { key: 'network', kind: 'page', path: '/network', rights: ['fleet:network'] },
-      { key: 'settings', kind: 'page', path: '/settings', rights: ['fleet:manage'] },
+      { key: 'settings', kind: 'page', path: '/settings', rights: ['fleet:read'] },
     ]);
   });
 

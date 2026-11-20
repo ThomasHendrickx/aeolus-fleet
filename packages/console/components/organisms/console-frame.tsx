@@ -1,15 +1,12 @@
 import type { ReactNode } from 'react';
 
-import type { AvatarMenuProps } from '@aeolus-fleet/ui';
-
 import { Sidebar, type SidebarDestination } from './sidebar';
 import { TabBar } from './tab-bar';
 
 /**
  * Where the operator is, and the counts the navigation shows once known.
  * hasSquadrons, hasTrierarchs: whether the console has squadrons or the trierarch plugin, which adds them to the navigation;
- * hasNetwork: whether Network is offered (argo, the networking plugin connected);
- * hasSettings: whether Settings is offered (a plugin on and a session that manages the fleet).
+ * hasNetwork: whether Network is offered (argo, the networking plugin connected).
  */
 export interface ConsoleNav {
   active: SidebarDestination;
@@ -20,16 +17,15 @@ export interface ConsoleNav {
   hasTrierarchs?: boolean;
   trierarchsCount?: number;
   hasNetwork?: boolean;
-  hasSettings?: boolean;
 }
 
 /**
  * The frame around every signed-in page (docs/design/png/ListPage.png,
- * DetailPage.png): the Sidebar on desktop, with the avatar menu in its foot, the TabBar on phone, and the
- * page between them, a ListPage or a DetailPage. The signed-in route layout
- * fills it.
+ * DetailPage.png): the Sidebar on desktop, under the page's bar, which spans
+ * the full width, the TabBar on phone, and the page, a ListPage or a
+ * DetailPage. The signed-in route layout fills it.
  */
-export function ConsoleFrame({ nav, account, fleetName, children }: { nav: ConsoleNav; account?: AvatarMenuProps; fleetName?: string; children: ReactNode }) {
+export function ConsoleFrame({ nav, children }: { nav: ConsoleNav; children: ReactNode }) {
   return (
     <div className="flex min-h-dvh bg-background">
       <Sidebar
@@ -41,13 +37,10 @@ export function ConsoleFrame({ nav, account, fleetName, children }: { nav: Conso
         hasTrierarchs={nav.hasTrierarchs}
         trierarchsCount={nav.trierarchsCount}
         hasNetwork={nav.hasNetwork}
-        hasSettings={nav.hasSettings}
-        account={account}
-        fleetName={fleetName}
       />
       <div className="flex min-w-0 grow flex-col">{children}</div>
       <TabBar
-        active={nav.active === 'overview' || nav.active === 'needs-crew' ? 'fleet' : nav.active === 'settings' || nav.active === 'network' || nav.active === 'usage' ? undefined : nav.active}
+        active={nav.active === 'overview' || nav.active === 'needs-crew' ? 'fleet' : nav.active === 'network' || nav.active === 'usage' ? undefined : nav.active}
         hasSquadrons={nav.hasSquadrons}
         hasTrierarchs={nav.hasTrierarchs}
         trierarchsCount={nav.trierarchsCount}

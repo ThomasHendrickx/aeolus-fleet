@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
-import { fn } from 'storybook/test';
+import { expect, fn, within } from 'storybook/test';
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@aeolus-fleet/ui';
 
@@ -65,4 +65,30 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Desktop: Story = {};
-export const Phone: Story = { globals: { viewport: { value: 'mobile1' } } };
+/**
+ * A detail page keeps the bar on phone (docs/design/app-navigation, section 4): the launcher and the account button,
+ * with the breadcrumb in the page, each level above it a link up to it.
+ */
+export const Phone: Story = {
+  globals: { viewport: { value: 'mobile1' } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByRole('button', { name: 'Apps and fleets' })).toBeVisible();
+    await expect(canvas.getByRole('button', { name: 'Account: Signed in as argo' })).toBeVisible();
+    const breadcrumb = canvas.getAllByRole('navigation', { name: 'Breadcrumb' }).find((navigation) => navigation.getClientRects().length > 0);
+    await expect(breadcrumb).toHaveTextContent(/^Fleet overview\s*\/\s*reviewer-01$/);
+    await expect(within(breadcrumb ?? canvasElement).getByRole('link', { name: 'Fleet overview' })).toHaveAttribute('href', '/');
+  },
+};
+
+/** Several levels above a squadron member's page, on phone: each links up to it. */
+export const MemberPhone: Story = {
+  args: {
+    title: 'tester-a1b2',
+    parents: [
+      { href: '/squadrons', label: 'Squadrons' },
+      { href: '/squadrons/team-a1b2c3', label: 'team-a1b2c3' },
+    ],
+  },
+  globals: { viewport: { value: 'mobile1' } },
+};

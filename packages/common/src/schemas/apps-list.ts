@@ -16,8 +16,8 @@ export const HEADER_APPS = ['console', 'gateway', 'account', 'admin'] as const;
 export const headerAppSchema = z.enum(HEADER_APPS);
 export type HeaderApp = z.infer<typeof headerAppSchema>;
 
-/** An app the header links to, and where: an http(s) address only, since the browser follows it. */
-export const appLinkSchema = z.object({ app: headerAppSchema, url: z.httpUrl() });
+/** An app the header links to, and where: an http(s) address only, since the browser follows it; any host, a local one too. */
+export const appLinkSchema = z.object({ app: headerAppSchema, url: z.url({ protocol: /^https?$/ }) });
 export type AppLink = z.infer<typeof appLinkSchema>;
 
 export const appsListSchema = z.object({

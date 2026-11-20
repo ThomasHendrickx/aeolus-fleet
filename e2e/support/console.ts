@@ -125,3 +125,50 @@ export function holdSignOutSlow(page: Page): { callsSent: string[]; started: Pro
   );
   return { callsSent, started: started.promise, answered: answered.promise };
 }
+
+/**
+ * Opens Settings from the navigation the width shows: the sidebar's item on
+ * desktop, the tab bar's last tab on phone (docs/design/app-navigation, where
+ * the account menu's items go), once the page is hydrated.
+ */
+export async function openSettings(page: Page): Promise<void> {
+  await page.getByText('Live', { exact: true }).filter({ visible: true }).first().waitFor({ timeout: 20_000 });
+  await page.getByRole('navigation', { name: 'Console' }).filter({ visible: true }).getByRole('link', { name: 'Settings' }).click();
+  await page.getByRole('heading', { name: 'Settings', exact: true }).waitFor();
+}
+
+/** The account button at the end of the bar, once it says how the page is signed in ("Account: Your account"). */
+export function accountButton(page: Page, words: string | RegExp = /^Account: \S/) {
+  return page.getByRole('button', { name: words }).filter({ visible: true });
+}
+
+/** Holds every form the page posts (window.heldForms) until window.letFormsGo() sends them: page source, as the e2e project has no DOM types. */
+const HOLD_FORM_POSTS = `{
+  const submit = HTMLFormElement.prototype.submit;
+  const held = [];
+  HTMLFormElement.prototype.submit = function hold() { held.push(this); };
+  window.heldForms = held;
+  window.letFormsGo = () => {
+    HTMLFormElement.prototype.submit = submit;
+    for (const form of held) form.submit();
+  };
+}`;
+
+/**
+ * Holds the forms the page posts, such as Sign out's and Sign in as argo's,
+ * before the browser leaves the page: a page that has started leaving cannot
+ * be read, so its busy state can be seen only while the post waits.
+ */
+export async function holdFormPosts(page: Page): Promise<void> {
+  await page.evaluate(HOLD_FORM_POSTS);
+}
+
+/** Waits until the page has posted a form to the path, held by holdFormPosts. */
+export async function formPostHeld(page: Page, pathname: string): Promise<void> {
+  await page.waitForFunction(`window.heldForms.some((form) => new URL(form.action).pathname === ${JSON.stringify(pathname)})`);
+}
+
+/** Sends the forms holdFormPosts held, and every later one at once. */
+export async function letFormPostsGo(page: Page): Promise<void> {
+  await page.evaluate('window.letFormsGo()');
+}

@@ -197,62 +197,128 @@ export function fleetSwitchPathOf(page: URL, cookies: string | null): string | u
   return `/sign-in/enter?${new URLSearchParams({ fleet: asked, returnTo: `${page.pathname}${page.search}` }).toString()}`;
 }
 
+/** Where entering a fleet came to: in, with its cookies, or why not. */
+type Entered = { kind: 'entered'; cookies: readonly string[] } | { kind: 'startAgain' } | { kind: 'noRights' } | { kind: 'unreachable' } | { kind: 'failed' } | { kind: 'switchFailed' };
+
 /**
- * With the shared sign-in, into a fleet: the one the address asks for, else
- * the one chosen last, an account token for it from the account app, kept by core in
- * its token cookie, then on to the page asked for, clearing argo's sign-in
- * once it ended or the fleet changed.
+ * With the shared sign-in, into a fleet: the one asked for, else the one
+ * chosen last, an account token for it from the account app, kept by core in
+ * its token cookie, clearing argo's sign-in once it ended or the fleet changed.
  * No shared sign-in, or one that ended, starts the sign-in again; no rights,
- * as in a fleet asked for that the account holds none in, goes to say so;
- * the account app not answering says that.
+ * as in a fleet asked for that the account holds none in, says so; the
+ * account app not answering says that.
  */
-export async function enterFleet(request: Request, deps: SignInDeps & { returnTo: string }): Promise<Response> {
-  const { accountApp, environment, returnTo } = deps;
+async function enteredFleet(request: Request, deps: SignInDeps & { asked: string | null }): Promise<Entered> {
+  const { accountApp, environment, asked } = deps;
   const cookies = request.headers.get('cookie');
   const signIn = cookieValueOf(cookies, SHARED_SIGN_IN_COOKIE);
-  const startAgain = `/sign-in/start?returnTo=${encodeURIComponent(returnTo)}`;
   if (signIn === undefined) {
-    return redirectTo(startAgain);
+    return { kind: 'startAgain' };
   }
   const fleets = await fleetsOf({ accountApp }, signIn);
   if (fleets === 'ended') {
-    return redirectTo(startAgain);
+    return { kind: 'startAgain' };
   }
   if (fleets === 'unreachable') {
-    return redirectTo(UNREACHABLE_PATH);
+    return { kind: 'unreachable' };
   }
-  const asked = new URL(request.url).searchParams.get('fleet');
   const inView = cookieValueOf(cookies, FLEET_COOKIE);
   // A fleet asked for is that fleet or none: never another one in its place.
   const fleetId = asked === null ? fleetToEnter(fleets, inView) : fleets.find(({ id }) => id === asked)?.id;
   if (fleetId === undefined) {
-    return redirectTo(NO_RIGHTS_PATH);
+    return { kind: 'noRights' };
   }
   const exchanged = await exchangeSignIn({ accountApp }, { signIn, fleetId });
   switch (exchanged.kind) {
     case 'ended':
-      return redirectTo(startAgain);
+      return { kind: 'startAgain' };
+    case 'noRights':
+    case 'unreachable':
+      return exchanged;
+    case 'token': {
+      const tokenCookie = await presentToCore(exchanged.token, environment);
+      if (tokenCookie === undefined) {
+        return { kind: 'failed' };
+      }
+      const argoCleared = await argoSessionCleared(request, { environment, isFleetSwitch: inView !== undefined && fleetId !== inView });
+      return argoCleared === 'failed'
+        ? { kind: 'switchFailed' }
+        : { kind: 'entered', cookies: [tokenCookie, ...argoCleared, consoleCookie(FLEET_COOKIE, { value: fleetId, maxAgeSeconds: FLEET_COOKIE_LIFE_SECONDS })] };
+    }
+  }
+}
+
+/** Where a sign-in that has to start again returns to. */
+function startAgainPathOf(returnTo: string): string {
+  return `/sign-in/start?returnTo=${encodeURIComponent(returnTo)}`;
+}
+
+/**
+ * With the shared sign-in, into a fleet: the one the address asks for, else
+ * the one chosen last, then on to the page asked for (header design, H5, H9).
+ * No shared sign-in, or one that ended, starts the sign-in again; no rights
+ * goes to say so; the account app not answering says that.
+ */
+export async function enterFleet(request: Request, deps: SignInDeps & { returnTo: string }): Promise<Response> {
+  const { returnTo } = deps;
+  const entered = await enteredFleet(request, { ...deps, asked: new URL(request.url).searchParams.get('fleet') });
+  switch (entered.kind) {
+    case 'entered':
+      return redirectTo(returnTo, entered.cookies);
+    case 'startAgain':
+      return redirectTo(startAgainPathOf(returnTo));
     case 'noRights':
       return redirectTo(NO_RIGHTS_PATH);
     case 'unreachable':
       return redirectTo(UNREACHABLE_PATH);
-    case 'token': {
-      const tokenCookie = await presentToCore(exchanged.token, environment);
-      if (tokenCookie === undefined) {
-        return redirectTo('/sign-in/failed');
-      }
-      const argoCleared = await argoSessionCleared(request, { environment, isFleetSwitch: inView !== undefined && fleetId !== inView });
-      return argoCleared === 'failed'
-        ? redirectTo(SWITCH_FAILED_PATH)
-        : redirectTo(returnTo, [
-            tokenCookie,
-            ...argoCleared,
-            consoleCookie(FLEET_COOKIE, {
-              value: fleetId,
-              maxAgeSeconds: FLEET_COOKIE_LIFE_SECONDS,
-            }),
-          ]);
-    }
+    case 'failed':
+      return redirectTo('/sign-in/failed');
+    case 'switchFailed':
+      return redirectTo(SWITCH_FAILED_PATH);
+  }
+}
+
+/** What the Apps and fleets panel hears back when it opens a fleet in place. */
+export type OpenFleetAnswer = { outcome: 'opened' } | { outcome: 'failed' } | { outcome: 'sign-in'; location: string };
+
+/** A JSON answer, uncached, with the cookies given. */
+function answerOf(body: OpenFleetAnswer, cookies: readonly string[] = []): Response {
+  const headers = new Headers({ 'content-type': 'application/json', 'cache-control': 'no-store' });
+  for (const cookie of cookies) {
+    headers.append('set-cookie', cookie);
+  }
+  return new Response(JSON.stringify(body), { status: 200, headers });
+}
+
+/**
+ * Opens another fleet from the Apps and fleets panel, in place
+ * (docs/design/app-navigation, section 4; H9): the same sign-in, an account
+ * token for that fleet, and the page then says it arrived. A POST from the
+ * console's own pages only. Opened answers with the fleet's cookies; a
+ * failure answers with none, so the console stays in the fleet it was in and
+ * the panel offers Try again; a shared sign-in that ended answers where to
+ * sign in again, back to that fleet. Changes no identity and ends no sign-in
+ * but argo's, as a switch does.
+ */
+export async function openFleet(request: Request, deps: SignInDeps): Promise<Response> {
+  if (request.headers.get('origin') !== consoleOriginOf(request, deps.environment)) {
+    return new Response(null, { status: 403 });
+  }
+  const asked = new URL(request.url).searchParams.get('fleet');
+  if (asked === null) {
+    return answerOf({ outcome: 'failed' });
+  }
+  const entered = await enteredFleet(request, { ...deps, asked });
+  switch (entered.kind) {
+    case 'entered':
+      return answerOf({ outcome: 'opened' }, entered.cookies);
+    case 'startAgain':
+      return answerOf({ outcome: 'sign-in', location: startAgainPathOf(`/?${new URLSearchParams({ fleet: asked }).toString()}`) });
+    case 'noRights':
+    case 'unreachable':
+    case 'failed':
+    case 'switchFailed':
+      return answerOf({ outcome: 'failed' });
   }
 }
 

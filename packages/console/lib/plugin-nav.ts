@@ -16,7 +16,7 @@ import { useHasWatchPlugin } from './watch-plugin';
  * crew, not here); Network for a session holding fleet:network; and Settings, which holds the plugins, the gateway, the watch plugin and
  * argo's own sign-in, for a session that manages the fleet.
  */
-export function usePluginNav(): { needsCrewCount?: number; hasSquadrons: boolean; hasTrierarchs: boolean; trierarchsCount?: number; hasNetwork: boolean; hasSettings: boolean } {
+export function usePluginNav(): { needsCrewCount?: number; hasSquadrons: boolean; hasTrierarchs: boolean; trierarchsCount?: number; hasNetwork: boolean; hasInstallationSettings: boolean } {
   const access = useAccess();
   const hasSquadrons = useHasSquadrons();
   const hasTrierarchs = useHasTrierarchPlugin();
@@ -31,6 +31,6 @@ export function usePluginNav(): { needsCrewCount?: number; hasSquadrons: boolean
     hasTrierarchs,
     ...(machines.data === undefined ? {} : { trierarchsCount: silentCount(machines.data) }),
     hasNetwork: access.canEditNetwork,
-    hasSettings: access.canManage && (hasSquadrons || hasTrierarchs || hasGateway || hasWatchPlugin || hasOwnSignIn),
+    hasInstallationSettings: access.canManage && (hasSquadrons || hasTrierarchs || hasGateway || hasWatchPlugin || hasOwnSignIn),
   };
 }

@@ -4,9 +4,8 @@ import { Activity, ChartColumn, Inbox, Network, Settings2, Shapes, Ship, ShipWhe
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
-import { AvatarMenu, type AvatarMenuProps, Badge } from '@aeolus-fleet/ui';
+import { Badge } from '@aeolus-fleet/ui';
 import { CONSOLE_NAVIGATION } from '../../lib/console-navigation';
-import { BrandLogo } from '../atoms/brand-logo';
 import { NavLinkIcon } from '../molecules/nav-link-icon';
 
 /** The console's destinations so far. */
@@ -29,12 +28,6 @@ interface SidebarProps {
   trierarchsCount?: number;
   /** Whether Network is offered: argo's alone, while the networking plugin is connected (decision 0036). */
   hasNetwork?: boolean;
-  /** Whether Settings is offered: it holds the plugins, and only a session that manages the fleet changes them. */
-  hasSettings?: boolean;
-  /** The avatar menu, in the foot; unset, no foot. */
-  account?: AvatarMenuProps;
-  /** The fleet in view, under the name in the foot; undefined until the session is read. */
-  fleetName?: string;
 }
 
 /** Each destination's icon. */
@@ -132,8 +125,8 @@ function AttentionCount({ count, testId, words }: { count: number | undefined; t
 }
 
 /**
- * Desktop navigation (docs/design/fleet-overview/console-desktop.html): the
- * mark and "Aeolus", then the destinations in one list, CONSOLE_NAVIGATION's. 256 px from 1024 px; a
+ * Desktop navigation (docs/design/fleet-overview/console-desktop.html), under
+ * the bar (docs/design/app-navigation): the destinations in one list, CONSOLE_NAVIGATION's. 256 px from 1024 px; a
  * 64 px rail from 640 to 1023 px, labels kept for assistive technology and
  * dots instead of numbers. Destinations: Fleet overview; Health, which counts
  * the stuck deliveries in the attention tone (#304); Needs crew, which counts
@@ -141,12 +134,12 @@ function AttentionCount({ count, testId, words }: { count: number | undefined; t
  * plugin on, Trierarchs, counting its silent machines in the attention tone
  * (#245), and Usage; Operator inbox, which counts its open questions and open
  * messages in --primary; Network, the networking plugin's rules, for argo
- * while it is connected; and Settings, which holds the plugins. A count simply
- * hides until it is known. The foot holds the avatar menu: who is signed in,
- * and the fleet in view.
+ * while it is connected; and Settings, for every sign-in. A count simply
+ * hides until it is known. The bar above holds the app, the fleet and the
+ * account button.
  */
-export function Sidebar({ active, inboxCount, stuckCount, needsCrewCount, hasSquadrons = false, hasTrierarchs = false, trierarchsCount, hasNetwork = false, hasSettings = false, account, fleetName }: SidebarProps) {
-  const shown: Partial<Record<SidebarDestination, boolean>> = { squadrons: hasSquadrons, trierarchs: hasTrierarchs, usage: hasTrierarchs, network: hasNetwork, settings: hasSettings };
+export function Sidebar({ active, inboxCount, stuckCount, needsCrewCount, hasSquadrons = false, hasTrierarchs = false, trierarchsCount, hasNetwork = false }: SidebarProps) {
+  const shown: Partial<Record<SidebarDestination, boolean>> = { squadrons: hasSquadrons, trierarchs: hasTrierarchs, usage: hasTrierarchs, network: hasNetwork };
   const counts: Partial<Record<SidebarDestination, ReactNode>> = {
     health: <AttentionCount count={stuckCount} testId="nav-health-count" words="stuck" />,
     'needs-crew': <NeedsCrewCount count={needsCrewCount} />,
@@ -156,16 +149,8 @@ export function Sidebar({ active, inboxCount, stuckCount, needsCrewCount, hasSqu
   return (
     <aside
       data-slot="sidebar"
-      className="sticky top-0 hidden h-dvh w-(--size-rail) shrink-0 flex-col border-r border-border bg-sidebar p-3 text-sidebar-foreground sm:flex lg:w-(--size-sidebar)"
+      className="sticky top-(--size-header) mt-(--size-header) hidden h-[calc(100dvh-var(--size-header))] w-(--size-rail) shrink-0 flex-col border-r border-border bg-sidebar p-3 text-sidebar-foreground sm:flex lg:w-(--size-sidebar)"
     >
-      <div className="mb-2.5 flex h-10 items-center px-2 max-lg:justify-center max-lg:px-0">
-        <span className="max-lg:hidden">
-          <BrandLogo kind="wordmark" className="h-6" />
-        </span>
-        <span className="lg:hidden">
-          <BrandLogo kind="mark" className="size-7" />
-        </span>
-      </div>
       <nav aria-label="Console" className="flex grow flex-col gap-0.5">
         {CONSOLE_NAVIGATION.filter((page) => shown[page.destination] ?? true).map((page) => (
           <NavItem
@@ -179,11 +164,6 @@ export function Sidebar({ active, inboxCount, stuckCount, needsCrewCount, hasSqu
           />
         ))}
       </nav>
-      {account === undefined ? null : (
-        <div className="border-t border-border pt-2">
-          <AvatarMenu {...account} layout="row" {...(fleetName === undefined ? {} : { caption: fleetName })} className="max-lg:justify-center max-lg:[&_[data-slot=avatar-menu-words]]:sr-only" />
-        </div>
-      )}
     </aside>
   );
 }

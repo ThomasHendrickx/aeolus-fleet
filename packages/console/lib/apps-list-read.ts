@@ -1,7 +1,7 @@
 import type { AppsList } from '@aeolus-fleet/common';
 import { cookies } from 'next/headers';
 
-import { appsListFor, sharedSignInOf } from './apps-list';
+import { appsListFor, listOf, sharedSignInOf, type AppsListAnswer } from './apps-list';
 import type { PluginAnswer } from './plugin-answer';
 
 /**
@@ -25,12 +25,19 @@ function keep({ signIn, list, now }: { signIn: string | undefined; list: AppsLis
   }
 }
 
-/** The console read of the apps and fleets the signed-in account may open (lib/apps-list.ts), with the cookies the browser sent: none while the account app gives none. Always asked anew. */
-export async function readAppsList(): Promise<PluginAnswer<AppsList | null>> {
+/** What the browser reads of the apps list: the list, none, or that the shared sign-in ended. */
+export type AppsListRead = Exclude<AppsListAnswer, { kind: 'unreachable' }>;
+
+/**
+ * The console read of the apps and fleets the signed-in account may open
+ * (lib/apps-list.ts), with the cookies the browser sent; refused with its
+ * words when the account app could not be read. Always asked anew.
+ */
+export async function readAppsList(): Promise<PluginAnswer<AppsListRead>> {
   const cookieHeader = (await cookies()).toString();
-  const list = await appsListFor({ environment: process.env, cookieHeader });
-  keep({ signIn: sharedSignInOf(cookieHeader), list, now: Date.now() });
-  return { kind: 'answered', data: list };
+  const answer = await appsListFor({ environment: process.env, cookieHeader });
+  keep({ signIn: sharedSignInOf(cookieHeader), list: listOf(answer), now: Date.now() });
+  return answer.kind === 'unreachable' ? { kind: 'refused', message: 'Couldn’t load apps and fleets: the account app did not answer.' } : { kind: 'answered', data: answer };
 }
 
 /**
@@ -46,7 +53,7 @@ export async function appsListOfThisPageLoad(): Promise<AppsList | null> {
   if (held !== undefined && now - held.readAt < HANDED_ON_MS) {
     return held.list;
   }
-  const list = await appsListFor({ environment: process.env, cookieHeader });
+  const list = listOf(await appsListFor({ environment: process.env, cookieHeader }));
   keep({ signIn, list, now });
   return list;
 }

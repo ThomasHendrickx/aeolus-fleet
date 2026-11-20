@@ -3,7 +3,6 @@ import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { expect, within } from 'storybook/test';
 
 import { Sidebar } from './sidebar';
-import { AVATAR_MENU } from '../../lib/fixtures/header.fixtures';
 
 const meta = {
   title: 'Organisms/Sidebar',
@@ -49,7 +48,7 @@ export const NoCounts: Story = { args: { inboxCount: undefined, stuckCount: unde
 
 /** With the trierarch plugin on: Trierarchs after Squadrons, counting its silent machines. */
 export const WithTrierarchs: Story = {
-  args: { hasSquadrons: true, hasTrierarchs: true, trierarchsCount: 1, hasSettings: true, active: 'trierarchs' },
+  args: { hasSquadrons: true, hasTrierarchs: true, trierarchsCount: 1, active: 'trierarchs' },
   play: async ({ canvasElement }) => {
     const navigation = within(canvasElement).getByRole('navigation', { name: 'Console' });
     const labels = within(navigation).getAllByRole('link').map((link) => link.textContent);
@@ -73,7 +72,7 @@ export const WithoutTrierarchsNoUsage: Story = {
 };
 /** Argo with the networking plugin connected: Network, then Settings, under the other destinations in the one list (decision 0036). */
 export const WithNetwork: Story = {
-  args: { hasNetwork: true, hasSettings: true, active: 'network' },
+  args: { hasNetwork: true, active: 'network' },
   play: async ({ canvasElement }) => {
     const navigation = within(canvasElement).getByRole('navigation', { name: 'Console' });
     const destinations = within(navigation).getAllByRole('link').map((link) => link.dataset.testid);
@@ -81,12 +80,11 @@ export const WithNetwork: Story = {
   },
 };
 
-/** The avatar menu in the foot: who is signed in and the fleet in view (docs/design/fleet-overview). */
-export const WithAccount: Story = {
-  args: { account: AVATAR_MENU, fleetName: 'Acme fleet' },
+/** Settings for every sign-in, last (docs/design/app-navigation, where the account menu's items go). */
+export const SettingsForEverySignIn: Story = {
   play: async ({ canvasElement }) => {
-    const foot = within(canvasElement).getByTestId('avatar-menu');
-    await expect(foot).toHaveTextContent('argo');
-    await expect(foot).toHaveTextContent('Acme fleet');
+    const navigation = within(canvasElement).getByRole('navigation', { name: 'Console' });
+    const destinations = within(navigation).getAllByRole('link').map((link) => link.dataset.testid);
+    await expect(destinations).toEqual(['nav-overview', 'nav-health', 'nav-needs-crew', 'nav-inbox', 'nav-settings']);
   },
 };
