@@ -41,8 +41,25 @@ export interface AppsAndFleetsState {
   isSigningIn?: boolean;
 }
 
+/**
+ * No account is signed in to the app open, so it is in no fleet (the
+ * gateway's Bridge for argo's or the viewer's sign-in, or a single-app
+ * installation): the bar reads "No fleet" and the panel shows the
+ * installation's apps with no link.
+ */
+export interface FleetlessSwitcher {
+  fleet: undefined;
+  /** The app open, as the bar names it. */
+  app: HeaderApp;
+  appLabel: string;
+  /** The apps this installation offers; none opens from here. */
+  apps: readonly { app: HeaderApp; label: string }[];
+  /** Where the person's sign-in holds, as the panel's notice names it: Console in Aeolus. */
+  heldIn: { appLabel: string; fleetName: string };
+}
+
 interface AppSwitcherProps {
-  switcher: AppSwitcherModel;
+  switcher: AppSwitcherModel | FleetlessSwitcher;
   /** menu: the panel under the launcher (desktop). sheet: a bottom Sheet with 44 px targets and Cancel (phone). */
   layout: 'menu' | 'sheet';
   state?: AppsAndFleetsState;
@@ -51,7 +68,10 @@ interface AppSwitcherProps {
 
 const APP_ICONS: Record<HeaderApp, LucideIcon> = { console: Ship, gateway: DoorOpen, account: Box, admin: Box };
 
-const ACCESS_LABELS: Record<AppAccess, string> = { unavailable: 'Unavailable', 'sign-in-required': 'Sign-in required' };
+/** What a tile with no link says: why it does not open, or that it is configured where no one is signed in. */
+type TileAccess = AppAccess | 'configured';
+
+const ACCESS_LABELS: Record<TileAccess, string> = { unavailable: 'Unavailable', 'sign-in-required': 'Sign-in required', configured: 'Configured app' };
 
 /** How far a tile row reaches: three tiles to a row. */
 const TILES_PER_ROW = 3;
@@ -153,7 +173,7 @@ interface PanelProps {
   onChooseCurrent: (name: string) => void;
 }
 
-function AppTile({ app, access, isOpening, isWaiting, isPhone, onOpen, onChooseCurrent }: { app: SwitcherApp; access: AppAccess | undefined; isOpening: boolean; isWaiting: boolean; isPhone: boolean; onOpen: () => void; onChooseCurrent: () => void }) {
+function AppTile({ app, access, isOpening, isWaiting, isPhone, onOpen, onChooseCurrent }: { app: SwitcherApp; access: TileAccess | undefined; isOpening: boolean; isWaiting: boolean; isPhone: boolean; onOpen: () => void; onChooseCurrent: () => void }) {
   const Icon = APP_ICONS[app.app];
   const tileClass = classNames(
     'flex flex-col items-center gap-1.5 rounded-md border border-transparent px-1 pt-3 pb-2 text-center outline-none focus-visible:outline-2 focus-visible:outline-ring',
@@ -259,7 +279,7 @@ function FleetRow({ fleet, isOpening, isWaiting, isPhone, onOpen, onChooseCurren
   );
 }
 
-function LimitNotice({ limit, appLabel, fleetName }: { limit: AppsAndFleetsLimit; appLabel: string; fleetName: string }) {
+function LimitNotice({ limit, appLabel, fleetName, isFleetless = false }: { limit: AppsAndFleetsLimit; appLabel: string; fleetName: string; isFleetless?: boolean }) {
   const words: Record<AppsAndFleetsLimit, { title: string; text: string }> = {
     'single-app': { title: 'No other apps', text: `Only ${appLabel} is configured in this installation. There are no other apps to open.` },
     argo: { title: 'Signed in as argo', text: `This sign-in is for ${appLabel} in ${fleetName}. Other apps require an account sign-in. Bridge does not accept an argo sign-in.` },
@@ -268,7 +288,7 @@ function LimitNotice({ limit, appLabel, fleetName }: { limit: AppsAndFleetsLimit
   return (
     <Notice title={words[limit].title}>
       <NoticeText>{words[limit].text}</NoticeText>
-      <NoticeText>{`You can keep using this ${appLabel} session.`}</NoticeText>
+      <NoticeText>{isFleetless ? 'No account apps are available here. No identity has changed.' : `You can keep using this ${appLabel} session.`}</NoticeText>
     </Notice>
   );
 }
@@ -431,14 +451,36 @@ function Panel({ switcher, state, fleetSwitch, openingApp, isPhone, onOpenApp, o
   );
 }
 
+/** The panel with no fleet: the installation's apps, each a configured app with no link, why, and no fleet rows. */
+function FleetlessPanel({ switcher, limit, isPhone }: { switcher: FleetlessSwitcher; limit: AppsAndFleetsLimit | undefined; isPhone: boolean }) {
+  return (
+    <>
+      <section aria-labelledby="app-switcher-apps-heading">
+        <SectionHead id="app-switcher-apps-heading" Icon={LayoutGrid} label="Apps" context="Apps this installation offers" />
+        <div role="group" aria-labelledby="app-switcher-apps-heading" className={classNames('grid grid-cols-3 px-1 pb-2', isPhone ? 'gap-2' : 'gap-1')}>
+          {switcher.apps.map((app) => (
+            <AppTile key={app.app} app={{ ...app, url: '', isCurrent: false }} access="configured" isOpening={false} isWaiting={false} isPhone={isPhone} onOpen={() => undefined} onChooseCurrent={() => undefined} />
+          ))}
+        </div>
+        {limit === undefined ? null : <LimitNotice limit={limit} appLabel={switcher.heldIn.appLabel} fleetName={switcher.heldIn.fleetName} isFleetless />}
+      </section>
+      <hr className="my-2 border-border" />
+      <section aria-labelledby="app-switcher-fleets-heading">
+        <SectionHead id="app-switcher-fleets-heading" Icon={Layers} label="Fleets" context="No fleet: no account is signed in here." />
+      </section>
+    </>
+  );
+}
+
 function appLabelOf(apps: readonly SwitcherApp[], app: HeaderApp): string {
   return apps.find((choice) => choice.app === app)?.label ?? app;
 }
 
 /** The app open and the fleet in view, after the launcher: the fleet in a quiet pill, busy while another fleet opens. */
-function WhereYouAre({ switcher, isSwitching, isPhone }: { switcher: AppSwitcherModel; isSwitching: boolean; isPhone: boolean }) {
-  const app = switcher.apps.find((choice) => choice.isCurrent)?.app;
+function WhereYouAre({ switcher, isSwitching, isPhone }: { switcher: AppSwitcherModel | FleetlessSwitcher; isSwitching: boolean; isPhone: boolean }) {
+  const app = switcher.fleet === undefined ? switcher.app : switcher.apps.find((choice) => choice.isCurrent)?.app;
   const Icon = app === undefined ? Box : APP_ICONS[app];
+  const fleetName = switcher.fleet?.name ?? 'No fleet';
   return (
     <>
       <span data-testid="app-switcher-app-name" className={classNames('inline-flex min-w-0 shrink-0 items-center gap-2 font-semibold text-foreground [&_svg]:size-(--size-icon) [&_svg]:text-primary', isPhone ? 'text-body-touch' : 'text-body')}>
@@ -447,13 +489,13 @@ function WhereYouAre({ switcher, isSwitching, isPhone }: { switcher: AppSwitcher
       </span>
       <span
         data-testid="app-switcher-fleet-pill"
-        title={`Fleet: ${switcher.fleet.name}`}
+        title={`Fleet: ${fleetName}`}
         aria-busy={isSwitching || undefined}
         className="inline-flex min-w-0 items-center gap-1.5 rounded-full bg-secondary px-2 py-0.5 text-meta font-medium text-foreground [&_svg]:size-(--size-icon-sm) [&_svg]:shrink-0"
       >
         {isSwitching ? <LoaderCircle aria-hidden data-testid="app-switcher-busy" className={spin} /> : <Layers aria-hidden />}
         <span className="sr-only">Fleet: </span>
-        <span className={classNames('truncate', isPhone ? 'max-w-24' : 'max-w-55')}>{switcher.fleet.name}</span>
+        <span className={classNames('truncate', isPhone ? 'max-w-24' : 'max-w-55')}>{fleetName}</span>
       </span>
     </>
   );
@@ -472,20 +514,24 @@ function WhereYouAre({ switcher, isSwitching, isPhone }: { switcher: AppSwitcher
  */
 export function AppSwitcher({ switcher, layout, state = {}, className }: AppSwitcherProps) {
   // The fleet the panel was opened in: open while it is still the fleet in view, so arriving in another fleet closes it.
-  const [openedIn, setOpenedIn] = useState<FleetId | undefined>(undefined);
+  const [openedIn, setOpenedIn] = useState<FleetId | 'no fleet' | undefined>(undefined);
   const [openingApp, setOpeningApp] = useState<HeaderApp | undefined>(undefined);
   const [openingFleet, setOpeningFleet] = useState<FleetId | undefined>(undefined);
   const [announcement, setAnnouncement] = useState('');
-  const isOpen = openedIn === switcher.fleet.id;
+  const inView = switcher.fleet?.id ?? 'no fleet';
+  const isOpen = openedIn === inView;
   const isPhone = layout === 'sheet';
   const fleetSwitch = state.fleetSwitch ?? (openingFleet === undefined ? undefined : { fleetId: openingFleet, state: 'opening' as const });
   const isSwitching = fleetSwitch !== undefined && fleetSwitch.state !== 'failed';
 
   const onOpenChange = (isOpening: boolean) => {
-    setOpenedIn(isOpening ? switcher.fleet.id : undefined);
+    setOpenedIn(isOpening ? inView : undefined);
     setAnnouncement(isOpening ? 'Apps and fleets opened' : '');
   };
-  const panel = (
+  const panel =
+    switcher.fleet === undefined ? (
+      <FleetlessPanel switcher={switcher} limit={state.limit} isPhone={isPhone} />
+    ) : (
     <Panel
       switcher={switcher}
       state={state}
@@ -510,7 +556,7 @@ export function AppSwitcher({ switcher, layout, state = {}, className }: AppSwit
         setAnnouncement(`${name} is already open`);
       }}
     />
-  );
+    );
   const launcherClass = classNames(
     'grid shrink-0 place-items-center rounded-md text-foreground outline-none transition-colors duration-(--duration-fast) hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring aria-expanded:bg-accent [&_svg]:size-(--size-icon)',
     isPhone ? 'size-(--size-control-touch)' : 'size-(--size-control)',

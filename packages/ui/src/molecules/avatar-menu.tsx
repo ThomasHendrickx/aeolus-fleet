@@ -33,6 +33,8 @@ export interface AvatarMenuProps {
   signedInFor?: string;
   /** The account's sign-in expired for an app: the account button says so. */
   isSignInExpired?: boolean;
+  /** No one is signed in to the app open (the gateway for argo's or the viewer's sign-in): the account button says so and opens nothing. */
+  isNotSignedIn?: boolean;
   /*
    * The app's extras, after who is signed in: unset, the panel holds who is
    * signed in and Sign out only, as docs/design/app-navigation draws it.
@@ -171,7 +173,11 @@ function ShortcutsDialog({ isOpen, onOpenChange, shortcuts }: { isOpen: boolean;
 }
 
 /** The account button's words and the avatar, at the end of the bar: "Account: Your account" to a screen reader. */
-function barLabelOf(signedInAs: SignedInAs | undefined, isSignInExpired: boolean): string {
+function barLabelOf(signedInAs: SignedInAs | undefined, sign: { isSignInExpired: boolean; isNotSignedIn: boolean }): string {
+  const { isSignInExpired, isNotSignedIn } = sign;
+  if (isNotSignedIn) {
+    return 'Account: not signed in';
+  }
   return signedInAs === undefined ? 'Account' : `Account: ${accountButtonWordsOf(signedInAs, isSignInExpired)}`;
 }
 
@@ -185,10 +191,10 @@ function barLabelOf(signedInAs: SignedInAs | undefined, isSignInExpired: boolean
  * its entries, the theme, keyboard shortcuts and help.
  */
 export function AvatarMenu(props: AvatarMenuProps & AvatarMenuLayout) {
-  const { name, signedInAs, accountUrl, theme, themes = [], hasTheme = false, onThemeChange, shortcuts, helpUrl, onSignOut, isSigningOut, isSignInExpired = false, entries = [], layout = 'avatar', caption, className } = props;
+  const { name, signedInAs, accountUrl, theme, themes = [], hasTheme = false, onThemeChange, shortcuts, helpUrl, onSignOut, isSigningOut, isSignInExpired = false, isNotSignedIn = false, entries = [], layout = 'avatar', caption, className } = props;
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
-  const shown = displayNameOf(name, signedInAs);
-  const label = layout === 'bar' ? barLabelOf(signedInAs, isSignInExpired) : `Account menu, ${shown}${signedInAs === undefined ? '' : `, ${signedInAsOf(signedInAs)}`}`;
+  const shown = isNotSignedIn ? '?' : displayNameOf(name, signedInAs);
+  const label = layout === 'bar' ? barLabelOf(signedInAs, { isSignInExpired, isNotSignedIn }) : `Account menu, ${shown}${signedInAs === undefined ? '' : `, ${signedInAsOf(signedInAs)}`}`;
   const hasLinks = shortcuts !== undefined || helpUrl !== undefined;
   const avatar = <Avatar kind={signedInAs === 'argo' ? 'argo' : 'account'} size={28} name={shown} />;
   const triggers = {
@@ -212,13 +218,14 @@ export function AvatarMenu(props: AvatarMenuProps & AvatarMenuLayout) {
       <DropdownMenuTrigger
         data-testid="avatar-menu"
         aria-label={label}
+        disabled={isNotSignedIn}
         className={classNames(
           'inline-flex h-(--size-control) min-w-0 shrink-0 items-center gap-2.5 rounded-full py-0.5 pr-0.5 pl-2.5 outline-none transition-colors duration-(--duration-fast) hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring aria-expanded:bg-accent',
           className,
         )}
       >
         <span data-testid="avatar-menu-words" className="truncate text-caption text-muted-foreground">
-          {signedInAs === undefined ? '' : accountButtonWordsOf(signedInAs, isSignInExpired)}
+          {isNotSignedIn ? 'Not signed in' : signedInAs === undefined ? '' : accountButtonWordsOf(signedInAs, isSignInExpired)}
         </span>
         {avatar}
       </DropdownMenuTrigger>
@@ -358,14 +365,15 @@ const rowClass =
  * phone.
  */
 export function AvatarMenuSheet(props: AvatarMenuProps) {
-  const { name, signedInAs, accountUrl, theme, themes = [], hasTheme = false, onThemeChange, helpUrl, onSignOut, isSigningOut, isSignInExpired = false, entries = [] } = props;
+  const { name, signedInAs, accountUrl, theme, themes = [], hasTheme = false, onThemeChange, helpUrl, onSignOut, isSigningOut, isSignInExpired = false, isNotSignedIn = false, entries = [] } = props;
   const [isOpen, setIsOpen] = useState(false);
-  const shown = displayNameOf(name, signedInAs);
+  const shown = isNotSignedIn ? '?' : displayNameOf(name, signedInAs);
   return (
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
       <SheetTrigger
         data-testid="avatar-menu"
-        aria-label={barLabelOf(signedInAs, isSignInExpired)}
+        aria-label={barLabelOf(signedInAs, { isSignInExpired, isNotSignedIn })}
+        disabled={isNotSignedIn}
         className="inline-flex size-(--size-control-touch) shrink-0 items-center justify-center rounded-full outline-none focus-visible:outline-2 focus-visible:outline-ring"
       >
         <Avatar kind={signedInAs === 'argo' ? 'argo' : 'account'} size={36} name={shown} />

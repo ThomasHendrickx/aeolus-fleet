@@ -4,13 +4,13 @@ import type { ReactNode } from 'react';
 import type { AppSwitcherModel } from '@aeolus-fleet/common/rules';
 import { Button } from '../atoms/button.js';
 import { Kbd } from '../atoms/kbd.js';
-import { AppSwitcher, type AppsAndFleetsState } from '../molecules/app-switcher.js';
+import { AppSwitcher, type AppsAndFleetsState, type FleetlessSwitcher } from '../molecules/app-switcher.js';
 import { AvatarMenu, AvatarMenuSheet, type AvatarMenuProps } from '../molecules/avatar-menu.js';
 import { classNames } from '../class-names.js';
 
 interface AppHeaderProps {
   /** Undefined while the app open and the fleet in view are not known yet: their shape stands in. */
-  switcher: AppSwitcherModel | undefined;
+  switcher: AppSwitcherModel | FleetlessSwitcher | undefined;
   /** What the app knows about the apps and fleets beyond the list, and its handlers. */
   switcherState?: AppsAndFleetsState;
   /** desktop: 56 px, the panels under their buttons. phone: 64 px, 44 px targets, the panels as bottom Sheets. */
