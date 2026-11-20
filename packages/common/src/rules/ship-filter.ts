@@ -34,7 +34,7 @@ export interface ShipFilter {
   shipIds?: readonly ShipId[];
   /** Any of these Harbour states (harbourStateOf): the overview's State filter (docs/design/fleet-overview). */
   state?: readonly HarbourState[];
-  /** Any of these ship kinds: operator, person, agent and app for eligible owners; console commissions still pick a person (decision 0045). */
+  /** Any of these ship kinds: operator, person, agent and app for eligible owners; console commissions pick a person (decision 0045). */
   shipKind?: readonly ShipKind[];
   /** Any of these agent kinds (agentKindOf). */
   kind?: readonly AgentKind[];

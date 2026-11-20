@@ -98,7 +98,7 @@ export interface InstallationRequestRepository {
 
 /** Outbound port: ships, always within one fleet. */
 export interface ShipRepository {
-  /** Serializes owner writers for this fleet, before any subordinate locks, until commit. */
+  /** Serializes owner writers for this fleet until commit; taken before meeting, schedule, ship and other subordinate locks. */
   lockOwnership(fleetId: FleetId): Promise<void>;
   create(ship: Ship): Promise<void>;
   findOperatorShip(fleetId: FleetId): Promise<Ship | undefined>;

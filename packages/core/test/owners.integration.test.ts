@@ -182,7 +182,7 @@ describe('a retired owner on Postgres', () => {
       { status: 'fulfilled', value: { isOk: true } },
       { status: 'fulfilled', value: { isOk: true } },
     ]);
-    await expect(core.prisma.ship.findUniqueOrThrow({ where: { id: thomasId } })).resolves.toMatchObject({ status: 'retired' });
+    await expect(core.prisma.ship.findUniqueOrThrow({ where: { id: thomasId } })).resolves.toMatchObject({ retiredAt: core.clock.now() });
     await expect(ownerOf(scoutId)).resolves.toBe(argoId);
     expect(await ownerEventsAbout(scoutId)).toContainEqual(['OwnerChanged', { fromShipId: thomasId, toShipId: argoId, why: 'ownerRetired' }]);
     await expect(core.prisma.meetingParticipant.findMany({ where: { meetingId, shipId: thomasId } })).resolves.toMatchObject([{ leftAt: core.clock.now() }]);
