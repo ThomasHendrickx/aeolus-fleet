@@ -28,6 +28,19 @@ A payload or a statement over 64 KB, up to 256 KB (decision 0006), needs the cor
 
 Every package also builds against `@aeolus-fleet/common`: its schemas are the shapes of these calls, of plugin details per ship type (decision 0028) and of crew settings (decision 0027).
 
+## Squadrons one-ship start (unreleased)
+
+These are requirements of the [detailed design for #1982](design/squadrons-core/README.md), not contracts available in a released core. After approval and build, replace the release requirement with the actual core/common version; squadrons raises its minimum to that release before using them. The existing startup check runs before migration, listening or registration. No new scope is introduced.
+
+| Package | Calls and required contract | Release requirement |
+| --- | --- | --- |
+| squadrons | `fleet/commission` with `ownerOf` and `ownership: requester` makes the requesting person ship, agent or app the owner; absent or `requester-owner` keeps inherited ownership. Recorded `approval` remains separate scope authority. Retries preserve the effective ownership choice and original result. | Core/common release carrying #1982 commission slice; unreleased, no version assigned. |
+| squadrons | `receive`, `pushReceive`, `receiveReply`, `delivery` and full-message reads expose immutable nullable `senderLeaseId`; `fleet/ship` exposes `currentLease` only with `fleet:read` within target read reach, including on-behalf filtering. Compare the intended sender and instructions and both non-null lease ids. Null, absent, mismatch or read failure is no confirmation. | Core/common release carrying #1982 sending and reading evidence slices; unreleased, no version assigned. |
+| squadrons | Existing `fleet/defineLabel`, `assignLabel`, `commission.valueIds` and `declareNetworkRules` support a separate owned formed-ship selection beside `squadron`. Squadrons labels only itself and ships it commissioned; its declared manage allowance selects those ships, including direct starts. Release/retire still check effective manage reach. | Existing label/rule APIs; squadrons adoption and its decision 0017 update accompany its use of #1982. No new core label API or hidden reach exception. |
+| squadrons | Owner facts may name an agent/app. Built-in owner reach stays direct, questions address the immediate owner, retiring an agent/app reparents active direct children to its owner, and loop-forming commissions/owner changes refuse `OWNERSHIP_CYCLE`. Child-to-owner send reach remains subject to the design's unanswered Q9; no reverse built-in allowance is claimed. | Core/common release carrying #1982 ownership slices; unreleased, no version assigned. |
+
+The squadrons release adopting the complete one-ship start takes the actual core/common version containing all required slices as its minimum. Historical messages retain null sending evidence; no upgrade infers it from a later crew. The current lease is an observation at read time, not an atomic promise covering later work. Squadrons owns instruction correlation, confirmation and recovery; core stores only its generic message/lease facts.
+
 ## Authenticated plugin calls
 
 `fleet.callPlugin`, REST `POST /api/v1/fleet/callPlugin` and MCP `fleet_callPlugin`, together with the context/answer schemas and `@aeolus-fleet/common/plugin-server`, need core/common 0.42.0. A plugin raises its minimum to 0.42.0 before using this call. Deployment and the durable reservation port are in [Serving authenticated plugin calls](plugin-calls.md); authority and refusal semantics are in the [approved contract](design/plugin-actor-contract.md). Repository operations remain the trierarch plugin's API, not core's.
