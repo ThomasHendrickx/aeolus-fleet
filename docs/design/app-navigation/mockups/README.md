@@ -64,14 +64,52 @@ Captured after pressing the fixture controls, in light. They reach no real app. 
 | Sign-in return explanation  [Screenshot](screenshots/console-sign-in-return-after-1440-light.png) | [Screenshot](screenshots/console-sign-in-return-after-375-light.png) | [Screenshot](screenshots/bridge-sign-in-return-after-1440-light.png) | [Screenshot](screenshots/bridge-sign-in-return-after-375-light.png) |
 | Sign out loading  [Screenshot](screenshots/console-signing-out-after-1440-light.png) | [Screenshot](screenshots/console-signing-out-after-375-light.png) | [Screenshot](screenshots/bridge-signing-out-after-1440-light.png) | [Screenshot](screenshots/bridge-signing-out-after-375-light.png) |
 
+## Where the account menu's items go
+
+Status: approved by Thomas on 20 Nov 2026. [The decision text](../README.md#where-the-account-menus-items-go). Captured from a second fixture, [items.html](items.html) with [items.js](items.js) and [items.css](items.css), on the same tokens and fonts. Before reconstructs today's account menu from `packages/console/lib/account.tsx` and the `AvatarMenu` it fills, open from the sidebar foot on desktop and as a bottom sheet on phone. After is the Settings page that holds those items, with the round 4 bar and the approved account panel. A person named Tess Hale stands in for an account.
+
+Each cell links **light / dark**. Every state: an account (allowed as argo, Account in its apps list), argo (with the networking plugin connected), the viewer, and a single-app self-hosted installation signed in as argo.
+
+| State | Before: account menu, desktop | Before: account menu, phone | After: Settings, desktop | After: Settings, phone |
+| --- | --- | --- | --- | --- |
+| Account | [light](screenshots/items-account-menu-before-1440-light.png) / [dark](screenshots/items-account-menu-before-1440-dark.png) | [light](screenshots/items-account-menu-before-375-light.png) / [dark](screenshots/items-account-menu-before-375-dark.png) | [light](screenshots/items-account-settings-after-1440-light.png) / [dark](screenshots/items-account-settings-after-1440-dark.png) | [light](screenshots/items-account-settings-after-375-light.png) / [dark](screenshots/items-account-settings-after-375-dark.png) |
+| argo | [light](screenshots/items-argo-menu-before-1440-light.png) / [dark](screenshots/items-argo-menu-before-1440-dark.png) | [light](screenshots/items-argo-menu-before-375-light.png) / [dark](screenshots/items-argo-menu-before-375-dark.png) | [light](screenshots/items-argo-settings-after-1440-light.png) / [dark](screenshots/items-argo-settings-after-1440-dark.png) | [light](screenshots/items-argo-settings-after-375-light.png) / [dark](screenshots/items-argo-settings-after-375-dark.png) |
+| Viewer | [light](screenshots/items-viewer-menu-before-1440-light.png) / [dark](screenshots/items-viewer-menu-before-1440-dark.png) | [light](screenshots/items-viewer-menu-before-375-light.png) / [dark](screenshots/items-viewer-menu-before-375-dark.png) | [light](screenshots/items-viewer-settings-after-1440-light.png) / [dark](screenshots/items-viewer-settings-after-1440-dark.png) | [light](screenshots/items-viewer-settings-after-375-light.png) / [dark](screenshots/items-viewer-settings-after-375-dark.png) |
+| Single-app self-hosted (argo) | [light](screenshots/items-single-menu-before-1440-light.png) / [dark](screenshots/items-single-menu-before-1440-dark.png) | [light](screenshots/items-single-menu-before-375-light.png) / [dark](screenshots/items-single-menu-before-375-dark.png) | [light](screenshots/items-single-settings-after-1440-light.png) / [dark](screenshots/items-single-settings-after-1440-dark.png) | [light](screenshots/items-single-settings-after-375-light.png) / [dark](screenshots/items-single-settings-after-375-dark.png) |
+
+| State | Keyboard shortcuts dialog, desktop | Account panel, desktop | Account panel, phone |
+| --- | --- | --- | --- |
+| Account | [light](screenshots/items-account-shortcuts-after-1440-light.png) / [dark](screenshots/items-account-shortcuts-after-1440-dark.png) | [light](screenshots/items-account-account-panel-after-1440-light.png) / [dark](screenshots/items-account-account-panel-after-1440-dark.png) | [light](screenshots/items-account-account-panel-after-375-light.png) / [dark](screenshots/items-account-account-panel-after-375-dark.png) |
+| argo | [light](screenshots/items-argo-shortcuts-after-1440-light.png) / [dark](screenshots/items-argo-shortcuts-after-1440-dark.png) | [light](screenshots/items-argo-account-panel-after-1440-light.png) / [dark](screenshots/items-argo-account-panel-after-1440-dark.png) | [light](screenshots/items-argo-account-panel-after-375-light.png) / [dark](screenshots/items-argo-account-panel-after-375-dark.png) |
+| Viewer | [light](screenshots/items-viewer-shortcuts-after-1440-light.png) / [dark](screenshots/items-viewer-shortcuts-after-1440-dark.png) | [light](screenshots/items-viewer-account-panel-after-1440-light.png) / [dark](screenshots/items-viewer-account-panel-after-1440-dark.png) | [light](screenshots/items-viewer-account-panel-after-375-light.png) / [dark](screenshots/items-viewer-account-panel-after-375-dark.png) |
+| Single-app self-hosted (argo) | [light](screenshots/items-single-shortcuts-after-1440-light.png) / [dark](screenshots/items-single-shortcuts-after-1440-dark.png) | [light](screenshots/items-single-account-panel-after-1440-light.png) / [dark](screenshots/items-single-account-panel-after-1440-dark.png) | [light](screenshots/items-single-account-panel-after-375-light.png) / [dark](screenshots/items-single-account-panel-after-375-dark.png) |
+
+The phone tab bar at its most tabs, squadrons and the trierarch plugin on, Settings last: [light](screenshots/items-argo-most-tabs-after-375-light.png) / [dark](screenshots/items-argo-most-tabs-after-375-dark.png). Phone has no Keyboard shortcuts, as today (H6).
+
+### Feedback
+
+Captured after pressing the fixture's controls, in light. Help opens the documentation in a new tab, as today, and has no frame of its own.
+
+| Screen | Desktop | Phone |
+| --- | --- | --- |
+| Theme Dark chosen, account: shown at once | [Screenshot](screenshots/items-account-theme-chosen-after-1440-light.png) | [Screenshot](screenshots/items-account-theme-chosen-after-375-light.png) |
+| Theme Dark chosen, argo: shown at once | [Screenshot](screenshots/items-argo-theme-chosen-after-1440-light.png) | [Screenshot](screenshots/items-argo-theme-chosen-after-375-light.png) |
+| Theme Dark chosen, single-app: shown at once | [Screenshot](screenshots/items-single-theme-chosen-after-1440-light.png) | [Screenshot](screenshots/items-single-theme-chosen-after-375-light.png) |
+| Sign in as argo working | [Screenshot](screenshots/items-account-signing-in-as-argo-after-1440-light.png) | [Screenshot](screenshots/items-account-signing-in-as-argo-after-375-light.png) |
+| Take the tour, account: the first step | [Screenshot](screenshots/items-account-tour-after-1440-light.png) | [Screenshot](screenshots/items-account-tour-after-375-light.png) |
+| Take the tour, argo: the first step | [Screenshot](screenshots/items-argo-tour-after-1440-light.png) | [Screenshot](screenshots/items-argo-tour-after-375-light.png) |
+| Take the tour, viewer: the first step | [Screenshot](screenshots/items-viewer-tour-after-1440-light.png) | [Screenshot](screenshots/items-viewer-tour-after-375-light.png) |
+| Take the tour, single-app: the first step | [Screenshot](screenshots/items-single-tour-after-1440-light.png) | [Screenshot](screenshots/items-single-tour-after-375-light.png) |
+
 ## Capture
 
 From the repository root, with Playwright available:
 
 ```sh
 node docs/design/app-navigation/mockups/capture.js
+node docs/design/app-navigation/mockups/capture-items.js
 ```
 
-An isolated Playwright installation can be supplied through `PLAYWRIGHT_MODULE` (its module path); an existing Chromium executable through `CHROMIUM_PATH`. The script starts its own browser, uses only local files, captures reduced motion at 1×, and closes the browser. It checks horizontal overflow, clipped panels, 44 px phone targets, fonts, resource failures, page errors, Shift+Tab from the account button reaching the launcher, the panel opening on the current app, Tab moving from the tiles to the current fleet, Arrow Down moving to the next fleet, Escape and arrival returning focus to the launcher, and a failed switch focusing Try again. [Capture results](capture-results.json) records the output. This is documentation capture evidence, not production test coverage.
+An isolated Playwright installation can be supplied through `PLAYWRIGHT_MODULE` (its module path); an existing Chromium executable through `CHROMIUM_PATH`. The script starts its own browser, uses only local files, captures reduced motion at 1×, and closes the browser. It checks horizontal overflow, clipped panels, 44 px phone targets, fonts, resource failures, page errors, Shift+Tab from the account button reaching the launcher, the panel opening on the current app, Tab moving from the tiles to the current fleet, Arrow Down moving to the next fleet, Escape and arrival returning focus to the launcher, and a failed switch focusing Try again. [Capture results](capture-results.json) records the output. `capture-items.js` runs the same checks on the items fixture, with every phone row, theme button and tab at 44 px and no tab label cut off, and presses its controls: Keyboard shortcuts opens its dialog by keyboard and Escape returns focus to the row, Dark shows at once with focus kept on it, Sign in as argo shows it is working, Take the tour focuses Next on its first step. [Its results](capture-items-results.json) record the output. This is documentation capture evidence, not production test coverage.
 
 The prototype simulates loading locally. The eventual shared parts use Base UI’s menu and Sheet behaviour and the app’s actual state and callbacks. No production code or tests are changed.
