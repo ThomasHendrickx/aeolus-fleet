@@ -4,7 +4,8 @@ import { expect, screen, userEvent, waitFor, within } from 'storybook/test';
 
 import { accountIdSchema, createIdGenerator, type AppsList, type FleetId, type HeaderApp } from '@aeolus-fleet/common';
 import { appSwitcherOf } from '@aeolus-fleet/common/rules';
-import type { AppAccess, AppsAndFleetsLimit, AppsAndFleetsRead, FleetSwitch } from '../molecules/app-switcher.js';
+import type { AppSwitcherModel } from '@aeolus-fleet/common/rules';
+import type { AppAccess, AppsAndFleetsLimit, AppsAndFleetsRead, FleetlessSwitcher, FleetSwitch } from '../molecules/app-switcher.js';
 import { ArrivalLine } from '../molecules/arrival-line.js';
 import type { SignedInAs } from '../molecules/signed-in-as.js';
 import { AppHeader } from './app-header.js';
@@ -86,13 +87,15 @@ interface BarProps {
   isSigningIn?: boolean;
   isSigningOut?: boolean;
   isDetail?: boolean;
+  /** Bridge with no account signed in to the gateway: no fleet, Console as a configured app with no link. */
+  isFleetless?: boolean;
 }
 
 const SIGNED_IN_AS: Record<AppsAndFleetsLimit, SignedInAs> = { argo: 'argo', viewer: 'viewer', 'single-app': 'argo' };
 
 /** The story's app: the bar, then the top of the page under it. */
 function Bar(props: BarProps) {
-  const { layout, surface, fleets, limit, appAccess, shouldFailFirstSwitch = false, isDetail = false } = props;
+  const { layout, surface, fleets, limit, appAccess, shouldFailFirstSwitch = false, isDetail = false, isFleetless = false } = props;
   const app: HeaderApp = surface === 'bridge' ? 'gateway' : 'console';
   const [fleet, setFleet] = useState(props.fleet ?? FLEET_NAMES[fleets][0] ?? 'Aeolus');
   const [switching, setSwitching] = useState(props.switching);
@@ -102,7 +105,10 @@ function Bar(props: BarProps) {
   const [access, setAccess] = useState(appAccess);
   const [isSigningIn, setIsSigningIn] = useState(props.isSigningIn ?? false);
   const [isSigningOut, setIsSigningOut] = useState(props.isSigningOut ?? false);
-  const switcher = appSwitcherOf({ list: limit === undefined ? listOf(fleets) : undefined, fleet: { id: fleetIdOf(fleet), name: fleet }, app });
+  const model = appSwitcherOf({ list: limit === undefined ? listOf(fleets) : undefined, fleet: { id: fleetIdOf(fleet), name: fleet }, app });
+  const switcher: AppSwitcherModel | FleetlessSwitcher = isFleetless
+    ? { fleet: undefined, app, appLabel: model.appLabel, apps: [{ app: 'console', label: 'Console' }], heldIn: { appLabel: 'Console', fleetName: fleet } }
+    : model;
   const signedInAs = limit === undefined ? 'account' : SIGNED_IN_AS[limit];
   const isExpired = access !== undefined && Object.values(access).includes('sign-in-required');
   return (
@@ -146,9 +152,10 @@ function Bar(props: BarProps) {
           isSigningIn,
         }}
         account={{
+          ...(isFleetless ? { isNotSignedIn: true } : {}),
           name: limit === undefined ? 'Charlotte Ames' : undefined,
           signedInAs,
-          ...(limit === undefined ? {} : { signedInFor: `${switcher.appLabel} in ${fleet}` }),
+          ...(limit === undefined ? {} : { signedInFor: `${model.appLabel} in ${fleet}` }),
           isSignInExpired: isExpired,
           onSignOut: () => {
             setIsSigningOut(true);
@@ -166,7 +173,7 @@ function Bar(props: BarProps) {
         ) : null}
       </AppHeader>
       <main className="flex flex-col gap-3 p-4">
-        {hasArrived ? <ArrivalLine appLabel={switcher.appLabel} fleetName={fleet} /> : null}
+        {hasArrived ? <ArrivalLine appLabel={model.appLabel} fleetName={fleet} /> : null}
         <h1 className="text-title font-semibold text-foreground">{isDetail ? 'builder-console' : surface === 'bridge' ? 'Waiting on you' : 'Fleet'}</h1>
       </main>
     </div>
@@ -691,3 +698,56 @@ export const Detail: Story = {
 export const DetailDark = inDark(Detail);
 export const DetailPhone = onPhone(Detail);
 export const DetailPhoneDark = inDark(onPhone(Detail));
+
+/**
+ * Bridge with argo's sign-in: the gateway has no account signed in. The bar
+ * reads "No fleet", Console is a configured app with no link, and the account
+ * button says no one is signed in here.
+ */
+export const BridgeArgo: Story = {
+  args: { surface: 'bridge', limit: 'argo', isFleetless: true },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByTestId('app-switcher-fleet-pill')).toHaveTextContent('Fleet: No fleet');
+    await expect(canvas.getByTestId('avatar-menu')).toHaveAccessibleName('Account: not signed in');
+    await expect(canvas.getByTestId('avatar-menu')).toBeDisabled();
+    const panel = await openPanel(canvasElement);
+    await expect(within(panel).getByText('Apps this installation offers')).toBeInTheDocument();
+    await expect(appTile(panel, 'Console')).toHaveAccessibleName('Console, Configured app');
+    await expect(appTile(panel, 'Console')).not.toHaveAttribute('href');
+    await expect(within(panel).getByText('This sign-in is for Console in Aeolus. Other apps require an account sign-in. Bridge does not accept an argo sign-in.')).toBeInTheDocument();
+    await expect(within(panel).getByText('No account apps are available here. No identity has changed.')).toBeInTheDocument();
+    await expect(within(panel).getByText('No fleet: no account is signed in here.')).toBeInTheDocument();
+    await expect(within(panel).queryByTestId('app-switcher-fleet')).toBeNull();
+  },
+};
+export const BridgeArgoDark = inDark(BridgeArgo);
+export const BridgeArgoPhone = onPhone(BridgeArgo);
+export const BridgeArgoPhoneDark = inDark(onPhone(BridgeArgo));
+
+/** Bridge with the viewer's sign-in: the same, with why other apps are not supplied. */
+export const BridgeViewer: Story = {
+  args: { surface: 'bridge', limit: 'viewer', isFleetless: true },
+  play: async ({ canvasElement }) => {
+    const panel = await openPanel(canvasElement);
+    await expect(within(panel).getByText('This viewer sign-in is for Console in Aeolus. Other apps are not supplied for this session. Bridge requires an account.')).toBeInTheDocument();
+    await expect(within(panel).getByText('No fleet: no account is signed in here.')).toBeInTheDocument();
+  },
+};
+export const BridgeViewerDark = inDark(BridgeViewer);
+export const BridgeViewerPhone = onPhone(BridgeViewer);
+export const BridgeViewerPhoneDark = inDark(onPhone(BridgeViewer));
+
+/** Bridge in a single-app installation: Console alone is configured. */
+export const BridgeSingleApp: Story = {
+  args: { surface: 'bridge', limit: 'single-app', isFleetless: true },
+  play: async ({ canvasElement }) => {
+    const panel = await openPanel(canvasElement);
+    await expect(within(panel).getByText('No other apps')).toBeInTheDocument();
+    await expect(within(panel).getByText('Only Console is configured in this installation. There are no other apps to open.')).toBeInTheDocument();
+    await expect(within(panel).getByText('No account apps are available here. No identity has changed.')).toBeInTheDocument();
+  },
+};
+export const BridgeSingleAppDark = inDark(BridgeSingleApp);
+export const BridgeSingleAppPhone = onPhone(BridgeSingleApp);
+export const BridgeSingleAppPhoneDark = inDark(onPhone(BridgeSingleApp));
