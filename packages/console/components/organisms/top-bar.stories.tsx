@@ -46,12 +46,12 @@ export const WithAccount: Story = {
   },
 };
 
-/** Titled by the page, as the fleet overview draws it ("Fleet"): the title opens the switcher. */
+/** Titled by the page, as the fleet overview draws it: the bar shows the Apps and fleets launcher, the app and the fleet (docs/design/app-navigation). */
 export const Titled: Story = {
   args: { isTitled: true, account: AVATAR_MENU },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByTestId('app-switcher')).toHaveTextContent(/^Fleet$/);
+    await expect(canvas.getByTestId('app-switcher-launcher')).toHaveAccessibleName('Apps and fleets');
     // Live sits at the end, beside the avatar, as the mockup draws it.
     const bar = canvas.getByTestId('app-switcher').closest('header')?.getBoundingClientRect();
     await expect(canvas.getByText('Live').getBoundingClientRect().left).toBeGreaterThan((bar?.width ?? 0) / 2);

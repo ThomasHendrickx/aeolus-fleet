@@ -104,7 +104,7 @@ export const PhoneTitledPhone: Story = {
   globals: { viewport: { value: 'mobile1' } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getAllByTestId('app-switcher').find((switcher) => switcher.closest('[data-slot="top-bar"]') !== null)).toHaveTextContent(/^Fleet$/);
+    await expect(canvas.getAllByTestId('app-switcher').find((switcher) => switcher.closest('[data-slot="top-bar"]') !== null)).toHaveTextContent(/Console/);
     await expect(canvas.queryByTestId('top-bar-search')).toBeNull();
     await expect(canvas.queryByTestId('top-bar-compose')).toBeNull();
     // Kept for assistive technology, out of sight: clipped to a pixel by the title row (sr-only).

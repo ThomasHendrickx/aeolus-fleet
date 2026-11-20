@@ -82,7 +82,7 @@ describe('an account signing in to the console', () => {
     // Live shows once the page is hydrated: a menu click before that does nothing.
     await page.getByRole('banner').getByText('Live', { exact: true }).waitFor({ timeout: 20_000 });
     await page.locator('[data-testid="avatar-menu"]:visible').click();
-    await page.getByTestId('avatar-menu-signed-in-as').getByText('Signed in as your account').waitFor();
+    await page.getByTestId('avatar-menu-signed-in-as').getByText('Signed in with your account').waitFor();
     await page.getByRole('menu').getByText('mathilde@acme.example').first().waitFor();
     await page.keyboard.press('Escape');
     await expect(page.getByTestId('header-compose').count()).resolves.toBe(0);

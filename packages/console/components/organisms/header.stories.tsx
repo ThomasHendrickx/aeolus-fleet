@@ -14,13 +14,13 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 /**
- * As the fleet overview mockups draw it (docs/design/fleet-overview): "Acme / Fleet overview", Live, a Search
+ * As the fleet overview mockups draw it (docs/design/fleet-overview), with the Apps and fleets launcher (docs/design/app-navigation): "Console, Acme / Fleet overview", Live, a Search
  * field and Compose; the avatar menu sits in the Sidebar foot.
  */
 export const Live: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByTestId('app-switcher')).toHaveTextContent(/^Acme$/);
+    await expect(canvas.getByTestId('app-switcher-fleet-pill')).toHaveTextContent('Acme');
     await expect(canvas.getByTestId('header-breadcrumb')).toHaveTextContent(/^\/\s*Fleet overview$/);
     await expect(canvas.getByTestId('header-search')).toHaveTextContent(/^Search$/);
     await expect(canvas.queryByTestId('avatar-menu')).toBeNull();
