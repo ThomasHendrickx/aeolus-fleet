@@ -11,6 +11,7 @@ import { AccountSettings } from './account-settings';
 import { HelpSettings } from './help-settings';
 import { NetworkSettingsRow } from './network-settings-row';
 import { OwnSignIn } from './own-sign-in';
+import { SettingsLoading } from './settings-loading';
 import { ThemeSettings } from './theme-settings';
 import { TrierarchPluginConnection } from './trierarch-plugin-connection';
 
@@ -26,6 +27,8 @@ type SignIn = 'account' | 'argo' | 'viewer' | 'single';
 interface SettingsPageProps {
   signIn: SignIn;
   isSigningInAsArgo?: boolean;
+  /** Before what Settings shows is read: its loading shape, under the title alone. */
+  isLoading?: boolean;
 }
 
 const SWITCHERS: Record<SignIn, { switcher: AppSwitcherModel; state: AppsAndFleetsState; account: AvatarMenuProps }> = {
@@ -46,9 +49,18 @@ const NAV: Record<SignIn, ConsoleNav> = {
  * The Settings page as the console composes it for each sign-in: the bar, the navigation with Settings current, then
  * Theme, Help, Your account where it applies, and how the installation runs for a session that manages the fleet.
  */
-function SettingsPage({ signIn, isSigningInAsArgo = false }: SettingsPageProps) {
+function SettingsPage({ signIn, isSigningInAsArgo = false, isLoading = false }: SettingsPageProps) {
   const { switcher, state, account } = SWITCHERS[signIn];
   const canManageInstallation = signIn !== 'viewer';
+  if (isLoading) {
+    return (
+      <ConsoleFrame nav={NAV[signIn]}>
+        <ListPage title="Settings" live="live" switcher={switcher} switcherState={state} account={account} onSearch={fn()}>
+          <SettingsLoading />
+        </ListPage>
+      </ConsoleFrame>
+    );
+  }
   return (
     <ConsoleFrame nav={NAV[signIn]}>
       <ListPage
@@ -193,3 +205,17 @@ export const SingleAppPanel: Story = {
   },
 };
 export const SingleAppPanelPhone: Story = { ...SingleAppPanel, globals: PHONE };
+
+/** Before what Settings shows is read: the title and the sections' shape, no description and no theme switch, so nothing flips in as each read answers. */
+export const Loading: Story = {
+  args: { signIn: 'viewer', isLoading: true },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByRole('heading', { level: 1, name: 'Settings' })).toBeVisible();
+    await expect(canvas.getByRole('status')).toHaveTextContent('Loading Settings');
+    await expect(canvas.queryByRole('button', { name: 'Light' })).toBeNull();
+    await expect(canvas.queryByText('A viewer sign-in shows this browser’s theme and has no theme switch.')).toBeNull();
+    await expect(sectionsOf(canvasElement)).toEqual([]);
+  },
+};
+export const LoadingPhone: Story = { ...Loading, globals: PHONE };
