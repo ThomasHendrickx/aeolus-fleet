@@ -252,4 +252,43 @@ describe('an account signing in to the console', () => {
     const cookies = await page.context().cookies();
     expect(cookies.map(({ name }) => name)).not.toContain('aeolus_account_token');
   });
+
+  it('shows Sign out busy and says "Signing out…" while the account signs out of every app (docs/design/app-navigation, feedback)', async () => {
+    // Given an account signed in, whose way out the browser holds before it leaves the page
+    accountApp.signInAs(mathilde());
+    const page = await newPage();
+    await page.goto('/');
+    await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
+    await page.getByText('Live', { exact: true }).filter({ visible: true }).first().waitFor({ timeout: 20_000 });
+    // A page that has started leaving cannot be read, so the form's post waits here until the test lets it go.
+    await page.evaluate(() => {
+      const submit = HTMLFormElement.prototype.submit;
+      const held: HTMLFormElement[] = [];
+      HTMLFormElement.prototype.submit = function hold(this: HTMLFormElement) {
+        held.push(this);
+      };
+      Object.assign(window, {
+        heldForms: held,
+        letFormsGo: () => {
+          HTMLFormElement.prototype.submit = submit;
+          for (const form of held) {
+            form.submit();
+          }
+        },
+      });
+    });
+
+    // When the account presses Sign out
+    await page.locator('[data-testid="avatar-menu"]:visible').click();
+    await page.getByRole('menuitem', { name: 'Sign out' }).click();
+    await page.waitForFunction(() => (window as unknown as { heldForms: HTMLFormElement[] }).heldForms.some((form) => new URL(form.action).pathname === '/sign-in/out'));
+
+    // Then the row waits with its busy icon and the panel says it is signing out, until the way out answers
+    await page.getByRole('status').getByText('Signing out…').waitFor();
+    await expect(page.getByRole('menuitem', { name: 'Sign out' }).getAttribute('aria-disabled')).resolves.toBe('true');
+    await page.evaluate(() => {
+      (window as unknown as { letFormsGo: () => void }).letFormsGo();
+    });
+    await page.waitForURL(`${web.url}/sign-in?signed=out`);
+  });
 });
