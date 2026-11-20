@@ -124,7 +124,7 @@ The HTML, CSS and JS fixtures and the capture script live only in this documenta
 
 ### Where the account menu's items go
 
-Status: awaiting Thomas’s approval. Thomas chose on 20 Nov 2026 that a mockup round places each item before the console slice builds anything. [Before and after screenshots](mockups/README.md#where-the-account-menus-items-go).
+Status: approved by Thomas on 20 Nov 2026, with the three picks below. Thomas chose on 20 Nov 2026 that a mockup round places each item before the console slice builds anything. [Before and after screenshots](mockups/README.md#where-the-account-menus-items-go).
 
 The approved account panel holds who is signed in and Sign out only, and stays as it is. Today's console account menu ([`useAccountMenu`](../../../packages/console/lib/account.tsx) filling [`AvatarMenu`](../../../packages/ui/src/molecules/avatar-menu.tsx)) holds more. Each item moves to a place the console already has: the Settings page, the sidebar and the phone tab bar. No new atom, colour or product term.
 
@@ -181,10 +181,10 @@ The phone tab bar holds six tabs at most (squadrons and the trierarch plugin on)
 | Sign in as argo | The row reads "Signing in as argo" with a busy icon and is disabled | The existing argo sign-in |
 | Take the tour | The guide's first step opens on its page, focus on Next | The guide, as today |
 
-Questions this round puts to Thomas, each with the pick shown:
+Questions this round put to Thomas, each with the pick he approved:
 
 1. Settings for every sign-in, the viewer included, so the theme and Help have one home. Rejected: Settings for those who manage the fleet only, which leaves the viewer and an account that manages nothing without Help, Take the tour and Keyboard shortcuts.
 2. Settings as the phone tab bar's last tab. Rejected: a row in the account panel, which the approved panel does not hold.
 3. Network on phone as the first row of Settings. Rejected: a sixth or seventh tab.
 
-No production code changes until Thomas approves this round.
+Thomas approved these three picks on 20 Nov 2026; the console slice builds them.

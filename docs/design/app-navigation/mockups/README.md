@@ -66,7 +66,7 @@ Captured after pressing the fixture controls, in light. They reach no real app. 
 
 ## Where the account menu's items go
 
-Status: awaiting Thomas’s approval. [The decision text](../README.md#where-the-account-menus-items-go). Captured from a second fixture, [items.html](items.html) with [items.js](items.js) and [items.css](items.css), on the same tokens and fonts. Before reconstructs today's account menu from `packages/console/lib/account.tsx` and the `AvatarMenu` it fills, open from the sidebar foot on desktop and as a bottom sheet on phone. After is the Settings page that holds those items, with the round 4 bar and the approved account panel. A person named Tess Hale stands in for an account.
+Status: approved by Thomas on 20 Nov 2026. [The decision text](../README.md#where-the-account-menus-items-go). Captured from a second fixture, [items.html](items.html) with [items.js](items.js) and [items.css](items.css), on the same tokens and fonts. Before reconstructs today's account menu from `packages/console/lib/account.tsx` and the `AvatarMenu` it fills, open from the sidebar foot on desktop and as a bottom sheet on phone. After is the Settings page that holds those items, with the round 4 bar and the approved account panel. A person named Tess Hale stands in for an account.
 
 Each cell links **light / dark**. Every state: an account (allowed as argo, Account in its apps list), argo (with the networking plugin connected), the viewer, and a single-app self-hosted installation signed in as argo.
 
