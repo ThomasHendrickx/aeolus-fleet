@@ -39,10 +39,10 @@ export interface MeetingRepository {
   /** The meeting with its participants, read without a lock. */
   find(fleetId: FleetId, meetingId: MeetingId): Promise<Meeting | undefined>;
   /**
-   * The meeting with its participants, held shared until the unit of work
-   * ends: a contribution holds it, so a change of who takes part waits for it.
+   * The meeting with its participants, held for no key update until the unit of work
+   * ends: contributions take turns, and changes wait for them.
    */
-  findForShare(fleetId: FleetId, meetingId: MeetingId): Promise<Meeting | undefined>;
+  findForNoKeyUpdate(fleetId: FleetId, meetingId: MeetingId): Promise<Meeting | undefined>;
   /**
    * The meeting with its participants, held for update until the unit of work
    * ends: mic changes take turns, and wait for the contributions in flight.
@@ -55,6 +55,8 @@ export interface MeetingRepository {
   save(meeting: Meeting): Promise<void>;
   /** The open meetings the ship is present in, each held for update until the unit of work ends, as a retire changes them. */
   listPresentInForUpdate(fleetId: FleetId, shipId: ShipId): Promise<Meeting[]>;
+  /** Keeps the newest contribution time in its send transaction. */
+  contributed(fleetId: FleetId, contribution: { meetingId: MeetingId; at: Date }): Promise<void>;
   /** A page of the meeting's contributions, newest first by id, read without a lock: the messages sent to it, never its notices. */
   contributions(fleetId: FleetId, query: { meetingId: MeetingId } & PageQuery<MessageId>): Promise<Page<Message, MessageId>>;
 }

@@ -1,6 +1,9 @@
 import { createIdGenerator, MEETING_ADDED_CONTENT_TYPE, MEETING_ENDED_CONTENT_TYPE, MEETING_MIC_CONTENT_TYPE, type FleetId, type MeetingId, type MessageId, type ShipId } from '@aeolus-fleet/common';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { createPrismaClientTellingStatements } from '../src/adapters/prisma/client.js';
+import { createPrismaMeetingRepository } from '../src/adapters/prisma/meetings.js';
+import { assertIndexedPlan } from './support/assert-indexed-plan.js';
 import { sha256Hasher } from '../src/adapters/crypto/secrets.js';
 import { listenForPendingDeliveries, type DeliveryListener } from '../src/adapters/prisma/delivery-notices.js';
 import { createPrismaUnitOfWork, type PrismaTx } from '../src/adapters/prisma/unit-of-work.js';
@@ -55,6 +58,25 @@ function openMeetingWith(uow: UnitOfWork<PrismaTx>) {
 function unitOfWorkWith(wrap: (tx: PrismaTx) => PrismaTx): UnitOfWork<PrismaTx> {
   const uow = createPrismaUnitOfWork(core.prisma);
   return { run: (work) => uow.run((tx) => work(wrap(tx))) };
+}
+
+/** Check the adapter's actual lock and timestamp update plans alongside the committed contribution. */
+async function contributionPlans(meetingId: MeetingId): Promise<void> {
+  const statements: { query: string; params: string }[] = [];
+  const client = createPrismaClientTellingStatements(core.databaseUrl, (query, params) => {
+    if (query.includes('FOR NO KEY UPDATE') || query.includes('GREATEST(last_contribution_at')) statements.push({ query, params });
+  });
+  try {
+    await client.$transaction(async (db) => {
+      const meetings = createPrismaMeetingRepository(db);
+      await meetings.findForNoKeyUpdate(fleetId, meetingId);
+      await meetings.contributed(fleetId, { meetingId, at: core.clock.now() });
+    });
+    expect(statements).toHaveLength(2);
+    for (const statement of statements) await assertIndexedPlan(core.prisma, statement);
+  } finally {
+    await client.$disconnect();
+  }
 }
 
 async function storedCounts() {
@@ -263,6 +285,7 @@ describe('contributing to a meeting on Postgres', () => {
 
     const [stored] = await core.prisma.message.findMany({ where: { id: messageId }, include: { deliveries: { orderBy: { recipientShipId: 'asc' } } } });
     await expect(core.prisma.meeting.findFirstOrThrow({ where: { id: meetingId } })).resolves.toMatchObject({ lastContributionAt: core.clock.now() });
+    await contributionPlans(meetingId);
     expect(stored).toMatchObject({ senderShipId: marketingId, selectorKind: 'meeting', selectorShipId: null, selectorType: null, meetingId });
     expect(stored?.deliveries.map(({ recipientShipId, state }) => ({ recipientShipId, state }))).toEqual(
       [chief.shipId, productId].sort().map((recipientShipId) => ({ recipientShipId, state: 'pending' })),
@@ -324,16 +347,16 @@ describe('contributing to a meeting on Postgres', () => {
   it('stores every contribution of the moderator and the holder of the mic contributing at once, each with all its deliveries', async () => {
     const senders = [chief, agentCaller({ fleetId, shipId: marketingId })];
     const uow = racingUnitOfWork({ prisma: core.prisma, transactions: senders.length }, (tx, allArrived) => ({
-        ...tx,
-        meetings: {
-          ...tx.meetings,
-          findForShare: async (fleet, meeting) => {
-            const found = await tx.meetings.findForShare(fleet, meeting);
-            await allArrived();
-            return found;
-          },
+      ...tx,
+      meetings: {
+        ...tx.meetings,
+        findForNoKeyUpdate: async (fleet, meeting) => {
+          const found = await tx.meetings.findForNoKeyUpdate(fleet, meeting);
+          await allArrived();
+          return found;
         },
-      }));
+      },
+    }));
 
     const latest = core.clock.now();
     const older = new Date(latest.getTime() - 1000);
@@ -498,8 +521,8 @@ describe('the mic on Postgres', () => {
       ...tx,
       meetings: {
         ...tx.meetings,
-        findForShare: async (fleet, meeting) => {
-          const found = await tx.meetings.findForShare(fleet, meeting);
+        findForNoKeyUpdate: async (fleet, meeting) => {
+          const found = await tx.meetings.findForNoKeyUpdate(fleet, meeting);
           isContributionHeld = true;
           await allArrived();
           return found;
@@ -600,7 +623,7 @@ describe("a meeting's life on Postgres", () => {
     });
     const participants = await core.prisma.meetingParticipant.findMany({ where: { meetingId } });
     expect(participants).toHaveLength(3);
-    expect(participants.every((participant) => Reflect.get(participant, 'isMeetingEnded') === true)).toBe(true);
+    expect(participants.every((participant) => participant.isMeetingEnded)).toBe(true);
     await expect(core.prisma.message.findMany({ where: { contentType: MEETING_ENDED_CONTENT_TYPE }, select: { senderShipId: true, selectorShipId: true, model: true }, orderBy: { selectorShipId: 'asc' } })).resolves.toEqual(
       [chief.shipId, marketingId].sort().map((selectorShipId) => ({ senderShipId: productId, selectorShipId, model: null })),
     );
@@ -629,7 +652,7 @@ describe("a meeting's life on Postgres", () => {
     await expect(core.prisma.meeting.findFirstOrThrow({ where: { id: meetingId }, select: { endedAt: true } })).resolves.toEqual({ endedAt: null });
     const participants = await core.prisma.meetingParticipant.findMany({ where: { meetingId } });
     expect(participants).toHaveLength(3);
-    expect(participants.every((participant) => Reflect.get(participant, 'isMeetingEnded') === false)).toBe(true);
+    expect(participants.every((participant) => !participant.isMeetingEnded)).toBe(true);
     await expect(core.prisma.message.count({ where: { contentType: MEETING_ENDED_CONTENT_TYPE } })).resolves.toBe(0);
     await expect(core.prisma.event.count({ where: { type: 'MeetingEnded' } })).resolves.toBe(0);
     const { messageId } = unwrap(await core.useCases.sendMessage(chief, { selector: { kind: 'ship', name: 'argo' }, payload: 'probe', idempotencyKey: newKey(), model: MODEL }));
@@ -652,8 +675,8 @@ describe("a meeting's life on Postgres", () => {
       ...tx,
       meetings: {
         ...tx.meetings,
-        findForShare: async (fleet, meeting) => {
-          const found = await tx.meetings.findForShare(fleet, meeting);
+        findForNoKeyUpdate: async (fleet, meeting) => {
+          const found = await tx.meetings.findForNoKeyUpdate(fleet, meeting);
           await allArrived();
           return found;
         },
@@ -674,7 +697,7 @@ describe("a meeting's life on Postgres", () => {
     await expect(core.prisma.meeting.findFirstOrThrow({ where: { id: meetingId }, select: { endedAt: true } })).resolves.toEqual({ endedAt: core.clock.now() });
     const endedParticipants = await core.prisma.meetingParticipant.findMany({ where: { meetingId } });
     expect(endedParticipants).toHaveLength(3);
-    expect(endedParticipants.every((participant) => Reflect.get(participant, 'isMeetingEnded') === true)).toBe(true);
+    expect(endedParticipants.every((participant) => participant.isMeetingEnded)).toBe(true);
     await expect(core.prisma.message.count({ where: { contentType: MEETING_ENDED_CONTENT_TYPE, senderShipId: chief.shipId } })).resolves.toBe(2);
   });
 });

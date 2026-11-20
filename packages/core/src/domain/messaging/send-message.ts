@@ -36,7 +36,7 @@ export interface SendMessageTx extends Omit<ResolveSelectorTx, 'ships'>, Omit<Ch
   ships: ResolveSelectorTx['ships'] & CheckReachTx['ships'] & ResolveLabelSelectionTx['ships'];
   messages: MessageRepository;
   deliveries: DeliveryRepository;
-  meetings: Pick<MeetingRepository, 'findForShare'>;
+  meetings: Pick<MeetingRepository, 'findForNoKeyUpdate' | 'contributed'>;
   sealings: Pick<FleetSealingRepository, 'currentDataKeyId'>;
   events: EventLog;
   notifier: Notifier;
@@ -323,7 +323,7 @@ async function contributeWithin(
   const { tx, clock, ids } = deps;
   const { fleetId, shipId: senderShipId } = send.caller;
   const { meetingId } = send.meeting;
-  const meeting = await tx.meetings.findForShare(fleetId, meetingId);
+  const meeting = await tx.meetings.findForNoKeyUpdate(fleetId, meetingId);
   const participants = checkContribution(meeting, { meetingId, senderShipId, inReplyTo: send.request.inReplyTo, isForced: send.request.isForced });
   if (!participants.isOk) {
     return participants;
@@ -370,6 +370,7 @@ async function contributeWithin(
   for (const delivery of deliveries) {
     await tx.deliveries.create(delivery, message.value);
   }
+  await tx.meetings.contributed(fleetId, { meetingId, at });
   for (const event of events) {
     await recordEvent({ events: tx.events, ids }, event);
   }

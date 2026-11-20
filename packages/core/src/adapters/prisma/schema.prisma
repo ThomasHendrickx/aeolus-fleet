@@ -942,6 +942,7 @@ model Meeting {
   idempotencyKey  String     @map("idempotency_key")
   requestHash     String     @map("request_hash")
   openedAt        DateTime   @map("opened_at") @db.Timestamptz(3)
+  lastContributionAt DateTime? @map("last_contribution_at") @db.Timestamptz(3)
   endedAt         DateTime?  @map("ended_at") @db.Timestamptz(3)
   /// The participant that holds the mic; none while it is free.
   micHolderShipId String?    @map("mic_holder_ship_id")
@@ -1110,6 +1111,8 @@ model MeetingParticipant {
   fleetId   String    @map("fleet_id")
   meetingId String    @map("meeting_id")
   shipId    String    @map("ship_id")
+  meetingOpenedAt DateTime @map("meeting_opened_at") @db.Timestamptz(3)
+  isMeetingEnded Boolean @default(false) @map("is_meeting_ended")
   joinedAt  DateTime  @map("joined_at") @db.Timestamptz(3)
   /// Its place in the order the meeting's ships joined, the opener's 0.
   place     Int
@@ -1125,7 +1128,7 @@ model MeetingParticipant {
 
   @@id([fleetId, meetingId, shipId])
   /// A ship's meetings, and a retire checking them.
-  @@index([fleetId, shipId])
+  @@index([fleetId, shipId, isMeetingEnded, meetingOpenedAt(sort: Desc), meetingId(sort: Desc)], map: "meeting_participants_ship_list_idx")
   @@map("meeting_participants")
 }
 

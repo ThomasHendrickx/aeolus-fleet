@@ -1484,7 +1484,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         const found = state.meetings.find((held) => held.fleetId === fleetId && held.id === meetingId);
         return Promise.resolve(found && structuredClone(found));
       },
-      findForShare: (fleetId, meetingId) => {
+      findForNoKeyUpdate: (fleetId, meetingId) => {
         const found = state.meetings.find((held) => held.fleetId === fleetId && held.id === meetingId);
         return Promise.resolve(found && structuredClone(found));
       },
@@ -1505,6 +1505,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
             .filter((held) => held.fleetId === fleetId && held.endedAt === null && held.participants.some((participant) => participant.shipId === shipId && participant.leftAt === null))
             .map((held) => structuredClone(held)),
         ),
+      contributed: () => Promise.resolve(),
       contributions: (fleetId, { meetingId, cursor, limit }) => {
         const rows = state.messages
           .filter((message) => message.fleetId === fleetId && message.selector.kind === 'meeting' && message.selector.meetingId === meetingId && (cursor === undefined || message.id < cursor))
