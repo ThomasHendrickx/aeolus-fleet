@@ -3,6 +3,7 @@
 import { OwnSignInSection } from '../../../features/settings/state/own-sign-in-section';
 import { useIsSettingsRead } from '../../../features/settings/hooks/use-settings-read';
 import { SettingsItems } from '../../../features/settings/state/settings-items';
+import { SettingsColumn } from '../../../features/settings/ui/molecules/settings-column';
 import { SettingsLoading } from '../../../features/settings/ui/organisms/settings-loading';
 import { GatewayConnection } from '../../../features/settings/ui/organisms/gateway-connection';
 import { SquadronsConnection } from '../../../features/settings/ui/organisms/squadrons-connection';
@@ -46,7 +47,9 @@ export default function SettingsPage() {
   if (!isRead) {
     return (
       <ListPage {...frame} title="Settings" live={liveFleet.live}>
-        <SettingsLoading />
+        <SettingsColumn>
+          <SettingsLoading />
+        </SettingsColumn>
       </ListPage>
     );
   }
@@ -57,8 +60,10 @@ export default function SettingsPage() {
       description={pluginNav.hasInstallationSettings ? 'How this console looks for you, and how this installation runs.' : 'How this console looks for you.'}
       live={liveFleet.live}
     >
-      <SettingsItems />
-      {pluginNav.hasInstallationSettings ? <InstallationSettings /> : null}
+      <SettingsColumn>
+        <SettingsItems />
+        {pluginNav.hasInstallationSettings ? <InstallationSettings /> : null}
+      </SettingsColumn>
     </ListPage>
   );
 }

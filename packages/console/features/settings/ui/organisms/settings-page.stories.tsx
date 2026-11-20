@@ -7,6 +7,7 @@ import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
 import { ConsoleFrame, type ConsoleNav } from '../../../../components/organisms/console-frame';
 import { ListPage } from '../../../../components/organisms/list-page';
 import { ACCOUNT_MENU, ACCOUNT_SWITCHER, AEOLUS_SWITCHER, ARGO_MENU, VIEWER_MENU } from '../../../../lib/fixtures/header.fixtures';
+import { SettingsColumn } from '../molecules/settings-column';
 import { AccountSettings } from './account-settings';
 import { HelpSettings } from './help-settings';
 import { NetworkSettingsRow } from './network-settings-row';
@@ -56,7 +57,9 @@ function SettingsPage({ signIn, isSigningInAsArgo = false, isLoading = false }: 
     return (
       <ConsoleFrame nav={NAV[signIn]}>
         <ListPage title="Settings" live="live" switcher={switcher} switcherState={state} account={account} onSearch={fn()}>
-          <SettingsLoading />
+          <SettingsColumn>
+            <SettingsLoading />
+          </SettingsColumn>
         </ListPage>
       </ConsoleFrame>
     );
@@ -72,20 +75,22 @@ function SettingsPage({ signIn, isSigningInAsArgo = false, isLoading = false }: 
         account={account}
         onSearch={fn()}
       >
-        {signIn === 'argo' ? <NetworkSettingsRow /> : null}
-        <ThemeSettings theme="light" themes={THEMES} hasThemeSwitch={signIn !== 'viewer'} onThemeChange={fn()} />
-        <HelpSettings shortcuts={SHORTCUTS} helpUrl="https://github.com/ThomasHendrickx/aeolus-fleet" onTakeTour={fn()} />
-        {signIn === 'account' ? <AccountSettings accountUrl="https://account.acme.example/account" onSignInAsArgo={fn()} isSigningInAsArgo={isSigningInAsArgo} /> : null}
-        {signIn === 'single' ? <OwnSignIn email="argo@acme.example" hasPassword isSaving={false} isSaved={false} onSave={fn()} /> : null}
-        {canManageInstallation && signIn !== 'single' ? (
-          <TrierarchPluginConnection
-            settings={{ state: 'connected', ship: { shipId: SHIP_ID, name: 'trierarch-plugin' }, lastShipId: SHIP_ID, scopes: { kind: 'read', missingScopes: [] } }}
-            onRetry={() => Promise.resolve()}
-            onConnect={fn()}
-            isConnecting={false}
-            hasConnected={false}
-          />
-        ) : null}
+        <SettingsColumn>
+          {signIn === 'argo' ? <NetworkSettingsRow /> : null}
+          <ThemeSettings theme="light" themes={THEMES} hasThemeSwitch={signIn !== 'viewer'} onThemeChange={fn()} />
+          <HelpSettings shortcuts={SHORTCUTS} helpUrl="https://github.com/ThomasHendrickx/aeolus-fleet" onTakeTour={fn()} />
+          {signIn === 'account' ? <AccountSettings accountUrl="https://account.acme.example/account" onSignInAsArgo={fn()} isSigningInAsArgo={isSigningInAsArgo} /> : null}
+          {signIn === 'single' ? <OwnSignIn email="argo@acme.example" hasPassword isSaving={false} isSaved={false} onSave={fn()} /> : null}
+          {canManageInstallation && signIn !== 'single' ? (
+            <TrierarchPluginConnection
+              settings={{ state: 'connected', ship: { shipId: SHIP_ID, name: 'trierarch-plugin' }, lastShipId: SHIP_ID, scopes: { kind: 'read', missingScopes: [] } }}
+              onRetry={() => Promise.resolve()}
+              onConnect={fn()}
+              isConnecting={false}
+              hasConnected={false}
+            />
+          ) : null}
+        </SettingsColumn>
       </ListPage>
     </ConsoleFrame>
   );
