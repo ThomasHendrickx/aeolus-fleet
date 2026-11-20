@@ -1,40 +1,35 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { expect, screen, userEvent, within } from 'storybook/test';
+import type { MouseEvent } from 'react';
+import { expect, fireEvent, screen, userEvent, waitFor, within } from 'storybook/test';
 
 import { accountIdSchema, createIdGenerator, type AppsList } from '@aeolus-fleet/common';
 import { appSwitcherOf } from '@aeolus-fleet/common/rules';
 import { AppSwitcher } from './app-switcher.js';
 
 const newId = createIdGenerator();
-const ACME = newId('fleet');
-const LABS = newId('fleet');
+const AEOLUS = newId('fleet');
+const HARBOUR = newId('fleet');
 
-/** Charlotte's list; the addresses are fragments, so a story that opens one stays on its page. */
+/** The addresses are fragments, so a story that opens one stays on its page. */
 const LIST: AppsList = {
   account: { id: accountIdSchema.parse('acc-charlotte'), email: 'charlotte@acme.example' },
-  apps: [{ app: 'account', url: 'https://account.example/account#account' }],
+  apps: [{ app: 'account', url: 'https://account.example/#account' }],
   fleets: [
-    { id: ACME, name: 'Acme', argo: true, apps: [{ app: 'console', url: 'https://fleet.example/#console' }, { app: 'gateway', url: 'https://gateway.example/#gateway' }] },
-    { id: LABS, name: 'Labs', argo: false, apps: [{ app: 'console', url: 'https://fleet.example/#labs' }] },
+    { id: AEOLUS, name: 'Aeolus', argo: true, apps: [{ app: 'console', url: 'https://fleet.example/#console' }, { app: 'gateway', url: 'https://gateway.example/#gateway' }] },
+    { id: HARBOUR, name: 'Harbour', argo: false, apps: [{ app: 'console', url: 'https://fleet.example/#harbour' }] },
   ],
 };
 
-const SWITCHER = appSwitcherOf({ list: LIST, fleet: { id: ACME, name: 'Acme' }, app: 'console' });
-
-/** Opening a choice in a story would leave the page: the click is kept from going anywhere, and the choice still says it is on its way. */
-function stayOnPage(event: MouseEvent) {
-  if (event.target instanceof Element && event.target.closest('a[href^="https://"]')) {
-    event.preventDefault();
-  }
-}
+/** Console in Aeolus, as the person's list gives it. */
+const IN_AEOLUS = appSwitcherOf({ list: LIST, fleet: { id: AEOLUS, name: 'Aeolus' }, app: 'console' });
 
 const meta = {
   title: 'Header/AppSwitcher',
   component: AppSwitcher,
-  args: { switcher: SWITCHER, layout: 'full' },
+  args: { switcher: IN_AEOLUS, layout: 'menu' },
   decorators: [
     (Story) => (
-      <div className="min-h-96 p-4" onClickCapture={(event) => { stayOnPage(event.nativeEvent); }}>
+      <div className="min-h-120 p-2">
         <Story />
       </div>
     ),
@@ -44,117 +39,168 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** "Acme / Console ▾": the fleet part and the app part, each a menu. */
-export const Default: Story = {};
-
-/** The fleet part lists the account's fleets, the one in view checked. */
-export const Fleets: Story = {
+/** The start of the bar: the launcher, the app open and the fleet in view, read as "Fleet: Aeolus". */
+export const WhereYouAre: Story = {
   play: async ({ canvasElement }) => {
-    await userEvent.click(within(canvasElement).getByTestId('app-switcher-fleets'));
-    const fleets = await screen.findAllByTestId('app-switcher-fleet');
-    await expect(fleets.map((fleet) => fleet.textContent)).toEqual(['Acme', 'Labs']);
+    const canvas = within(canvasElement);
+    await expect(canvas.getByRole('button', { name: 'Apps and fleets' })).toBeInTheDocument();
+    await expect(canvas.getByTestId('app-switcher-app-name')).toHaveTextContent('Console');
+    await expect(canvas.getByTestId('app-switcher-fleet-pill')).toHaveTextContent('Fleet: Aeolus');
   },
 };
 
-/** The app part lists the apps of the fleet in view, then Account. */
-export const Apps: Story = {
+/** Desktop: the launcher opens one menu panel, the apps as tiles and the fleets as rows. */
+export const Menu: Story = {
   play: async ({ canvasElement }) => {
-    await userEvent.click(within(canvasElement).getByTestId('app-switcher-apps'));
-    const apps = await screen.findAllByTestId('app-switcher-app');
-    await expect(apps.map((app) => app.textContent)).toEqual(['Console', 'Gateway', 'Account']);
+    await userEvent.click(within(canvasElement).getByTestId('app-switcher-launcher'));
+    const panel = await screen.findByTestId('app-switcher-panel');
+    await expect(within(panel).getAllByTestId('app-switcher-app').map((tile) => tile.dataset.name)).toEqual(['Console', 'Gateway', 'Account']);
+    await expect(within(panel).getAllByTestId('app-switcher-fleet').map((row) => row.dataset.name)).toEqual(['Aeolus', 'Harbour']);
   },
 };
 
-/** Choosing an app says it is opening at once, before the browser leaves. */
-export const Opening: Story = {
-  play: async ({ canvasElement }) => {
-    await userEvent.click(within(canvasElement).getByTestId('app-switcher-apps'));
-    const gateway = (await screen.findAllByTestId('app-switcher-app')).find((app) => app.textContent === 'Gateway');
-    if (gateway === undefined) {
-      throw new Error('the switcher offers no Gateway');
-    }
-    await userEvent.click(gateway);
-    await expect(gateway).toHaveTextContent('Opening Gateway');
-  },
-};
-
-/** Without a list (argo's sign-in, the viewer, self-hosted): the fleet and the app, with no ▾ (H8). */
-export const NothingToSwitch: Story = {
-  args: { switcher: appSwitcherOf({ list: undefined, fleet: { id: ACME, name: 'Acme' }, app: 'console' }) },
-  play: async ({ canvasElement }) => {
-    await expect(within(canvasElement).getByTestId('app-switcher')).toHaveTextContent('Acme/Console');
-    await expect(within(canvasElement).queryByRole('button')).toBeNull();
-  },
-};
-
-/** Phone: the app name with ▾ opens one bottom Sheet, the fleets then the apps (H6). */
-export const Phone: Story = {
-  args: { layout: 'compact' },
+/** Phone: the same panel as a bottom sheet, titled, with Cancel last. */
+export const Sheet: Story = {
+  args: { layout: 'sheet' },
   globals: { viewport: { value: 'mobile1' } },
   play: async ({ canvasElement }) => {
-    await userEvent.click(within(canvasElement).getByTestId('app-switcher'));
-    const sheet = await screen.findByTestId('app-switcher-sheet');
-    await expect(within(sheet).getAllByTestId('app-switcher-fleet')).toHaveLength(2);
-    await expect(within(sheet).getAllByTestId('app-switcher-app')).toHaveLength(3);
+    await userEvent.click(within(canvasElement).getByTestId('app-switcher-launcher'));
+    const panel = await screen.findByTestId('app-switcher-panel');
+    await expect(within(panel).getByRole('heading', { name: 'Apps and fleets' })).toBeInTheDocument();
+    const buttons = within(panel).getAllByRole('button');
+    await expect(buttons.at(-1)).toHaveTextContent('Cancel');
   },
 };
 
-/** Phone, choosing a fleet: it says it is opening at once. */
-export const PhoneOpening: Story = {
-  args: { layout: 'compact' },
-  globals: { viewport: { value: 'mobile1' } },
+/** The stories' links lead off the page: a press is kept from leaving, so the panel can be read after it. */
+function stayOnPage(event: MouseEvent) {
+  if (event.target instanceof Element && event.target.closest('a[href^="https://"]')) {
+    event.preventDefault();
+  }
+}
+
+const staysOnPage: Story['decorators'] = [
+  (Story) => (
+    <div onClickCapture={stayOnPage}>
+      <Story />
+    </div>
+  ),
+];
+
+function choiceIn(panel: HTMLElement, choice: { testId: 'app-switcher-app' | 'app-switcher-fleet'; name: string }): HTMLElement {
+  const { testId, name } = choice;
+  const found = within(panel).getAllByTestId(testId).find((item) => item.dataset.name === name);
+  if (found === undefined) {
+    throw new Error(`the panel offers no ${name}`);
+  }
+  return found;
+}
+
+async function reopen(canvasElement: HTMLElement): Promise<HTMLElement> {
+  await userEvent.keyboard('{Escape}');
+  await waitFor(() => expect(screen.queryByTestId('app-switcher-panel')).toBeNull());
+  await userEvent.click(within(canvasElement).getByTestId('app-switcher-launcher'));
+  return screen.findByTestId('app-switcher-panel');
+}
+
+/** Ctrl or Cmd on an app opens it in a new tab and this page stays: no tile says Opening, nothing waits. */
+export const ModifierOpensAppElsewhere: Story = {
+  decorators: staysOnPage,
   play: async ({ canvasElement }) => {
-    await userEvent.click(within(canvasElement).getByTestId('app-switcher'));
-    const labs = within(await screen.findByTestId('app-switcher-sheet')).getAllByTestId('app-switcher-fleet')[1];
-    if (labs === undefined) {
-      throw new Error('the switcher offers no second fleet');
-    }
-    await userEvent.click(labs);
-    await expect(labs).toHaveTextContent('Opening Labs');
+    await userEvent.click(within(canvasElement).getByTestId('app-switcher-launcher'));
+    const panel = await screen.findByTestId('app-switcher-panel');
+    await fireEvent.click(choiceIn(panel, { testId: 'app-switcher-app', name: 'Gateway' }), { ctrlKey: true });
+    await expect(choiceIn(panel, { testId: 'app-switcher-app', name: 'Gateway' })).toHaveAccessibleName('Gateway');
+    await expect(choiceIn(panel, { testId: 'app-switcher-app', name: 'Account' })).not.toHaveAttribute('aria-disabled');
+    await expect(choiceIn(panel, { testId: 'app-switcher-fleet', name: 'Harbour' })).not.toHaveAttribute('aria-disabled');
+    await expect(within(panel).queryByTestId('app-switcher-busy')).toBeNull();
   },
 };
 
-/** The fleet alone, as the console's breadcrumb starts (docs/design/fleet-overview): "Acme" opens one menu, the fleets then the apps. */
-export const FleetOnly: Story = {
-  args: { layout: 'fleet' },
+/** An app that opened in this tab but whose page stayed: closing the panel ends Opening, so it reopens with every choice free. */
+export const OpeningAppEndsWhenClosed: Story = {
+  decorators: staysOnPage,
   play: async ({ canvasElement }) => {
-    const switcher = within(canvasElement).getByTestId('app-switcher');
-    await expect(switcher).toHaveTextContent(/^Acme$/);
-    await userEvent.click(within(switcher).getByRole('button'));
-    await expect((await screen.findAllByTestId('app-switcher-fleet')).map((fleet) => fleet.textContent)).toEqual(['Acme', 'Labs']);
-    await expect(screen.getAllByTestId('app-switcher-app').map((app) => app.textContent)).toEqual(['Console', 'Gateway', 'Account']);
+    await userEvent.click(within(canvasElement).getByTestId('app-switcher-launcher'));
+    const panel = await screen.findByTestId('app-switcher-panel');
+    await userEvent.click(choiceIn(panel, { testId: 'app-switcher-app', name: 'Gateway' }));
+    await expect(choiceIn(panel, { testId: 'app-switcher-app', name: 'Gateway' })).toHaveAccessibleName('Opening Gateway');
+    const reopened = await reopen(canvasElement);
+    await expect(choiceIn(reopened, { testId: 'app-switcher-app', name: 'Gateway' })).toHaveAccessibleName('Gateway');
+    await expect(choiceIn(reopened, { testId: 'app-switcher-app', name: 'Account' })).not.toHaveAttribute('aria-disabled');
+    await expect(within(reopened).queryByText('Opening Gateway…')).toBeNull();
   },
 };
 
-/** The fleet alone without anywhere else to go: plain text. */
-export const FleetOnlyNothingToSwitch: Story = {
-  args: { layout: 'fleet', switcher: appSwitcherOf({ list: undefined, fleet: { id: ACME, name: 'Acme' }, app: 'console' }) },
+/** Back to this page from the browser's history: Opening ends, every choice is free again. */
+export const OpeningAppEndsOnReturn: Story = {
+  decorators: staysOnPage,
   play: async ({ canvasElement }) => {
-    await expect(within(canvasElement).getByTestId('app-switcher')).toHaveTextContent(/^Acme$/);
-    await expect(within(canvasElement).queryByRole('button')).toBeNull();
+    await userEvent.click(within(canvasElement).getByTestId('app-switcher-launcher'));
+    const panel = await screen.findByTestId('app-switcher-panel');
+    await userEvent.click(choiceIn(panel, { testId: 'app-switcher-app', name: 'Gateway' }));
+    await expect(choiceIn(panel, { testId: 'app-switcher-app', name: 'Gateway' })).toHaveAccessibleName('Opening Gateway');
+    window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true }));
+    await waitFor(() => expect(choiceIn(panel, { testId: 'app-switcher-app', name: 'Gateway' })).toHaveAccessibleName('Gateway'));
+    await expect(choiceIn(panel, { testId: 'app-switcher-fleet', name: 'Harbour' })).not.toHaveAttribute('aria-disabled');
   },
 };
 
-/** Phone, titled by the page ("Fleet" on the fleet overview): the title opens the same Sheet. */
-export const PhoneTitled: Story = {
-  args: { layout: 'compact', title: 'Fleet' },
-  globals: { viewport: { value: 'mobile1' } },
+/** A fleet row the app does not handle is a plain link: Ctrl or Cmd opens it elsewhere, and nothing says Opening. */
+export const ModifierOpensFleetElsewhere: Story = {
+  decorators: staysOnPage,
   play: async ({ canvasElement }) => {
-    const switcher = within(canvasElement).getByTestId('app-switcher');
-    await expect(switcher).toHaveTextContent(/^Fleet$/);
-    await userEvent.click(switcher);
-    const sheet = await screen.findByTestId('app-switcher-sheet');
-    await expect(within(sheet).getAllByTestId('app-switcher-app')).toHaveLength(3);
+    await userEvent.click(within(canvasElement).getByTestId('app-switcher-launcher'));
+    const panel = await screen.findByTestId('app-switcher-panel');
+    await fireEvent.click(choiceIn(panel, { testId: 'app-switcher-fleet', name: 'Harbour' }), { ctrlKey: true });
+    await expect(choiceIn(panel, { testId: 'app-switcher-fleet', name: 'Harbour' })).toHaveTextContent(/^Harbour$/);
+    await expect(choiceIn(panel, { testId: 'app-switcher-app', name: 'Gateway' })).not.toHaveAttribute('aria-disabled');
+    await expect(within(canvasElement).getByTestId('app-switcher-fleet-pill')).not.toHaveAttribute('aria-busy');
   },
 };
 
-/** Phone, titled, without anywhere else to go: the title as plain text. */
-export const PhoneTitledNothingToSwitch: Story = {
-  args: { layout: 'compact', title: 'Fleet', switcher: appSwitcherOf({ list: undefined, fleet: { id: ACME, name: 'Acme' }, app: 'console' }) },
+/** A plain fleet link whose page stayed: closing the panel ends Opening. */
+export const OpeningFleetEndsWhenClosed: Story = {
+  decorators: staysOnPage,
   play: async ({ canvasElement }) => {
-    const switcher = within(canvasElement).getByTestId('app-switcher');
-    await expect(switcher).toHaveTextContent(/^Fleet$/);
-    // A title, as large as the one that opens the Sheet (text-title-touch), not body text.
-    await expect(Number.parseFloat(getComputedStyle(switcher).fontSize)).toBeGreaterThanOrEqual(20);
+    await userEvent.click(within(canvasElement).getByTestId('app-switcher-launcher'));
+    const panel = await screen.findByTestId('app-switcher-panel');
+    await userEvent.click(choiceIn(panel, { testId: 'app-switcher-fleet', name: 'Harbour' }));
+    await expect(choiceIn(panel, { testId: 'app-switcher-fleet', name: 'Harbour' })).toHaveTextContent('Opening Harbour');
+    const reopened = await reopen(canvasElement);
+    await expect(choiceIn(reopened, { testId: 'app-switcher-fleet', name: 'Harbour' })).toHaveTextContent(/^Harbour$/);
+    await expect(choiceIn(reopened, { testId: 'app-switcher-app', name: 'Gateway' })).not.toHaveAttribute('aria-disabled');
+    await expect(within(canvasElement).getByTestId('app-switcher-fleet-pill')).not.toHaveAttribute('aria-busy');
+  },
+};
+
+/** A failed fleet the app cannot open again from here: no Try again that does nothing. */
+export const SwitchFailedWithoutOpen: Story = {
+  args: { state: { fleetSwitch: { fleetId: HARBOUR, state: 'failed' } } },
+  play: async ({ canvasElement }) => {
+    await userEvent.click(within(canvasElement).getByTestId('app-switcher-launcher'));
+    const panel = await screen.findByTestId('app-switcher-panel');
+    await expect(within(panel).getByRole('alert')).toHaveTextContent('Couldn’t open Harbour');
+    await expect(within(panel).queryByTestId('app-switcher-fleet-retry')).toBeNull();
+  },
+};
+
+/** The fleet pill on the muted token, as the mockups draw it. */
+export const FleetPillMuted: Story = {
+  play: async ({ canvasElement }) => {
+    const pill = within(canvasElement).getByTestId('app-switcher-fleet-pill');
+    await expect(pill).toHaveClass('bg-muted');
+    await expect(pill).not.toHaveClass('bg-secondary');
+  },
+};
+
+/** An app open that the list does not hold: the tiles keep one tab stop, the first tile. */
+export const CurrentAppNotListed: Story = {
+  args: { switcher: { ...IN_AEOLUS, apps: IN_AEOLUS.apps.filter((app) => !app.isCurrent) } },
+  play: async ({ canvasElement }) => {
+    await userEvent.click(within(canvasElement).getByTestId('app-switcher-launcher'));
+    const panel = await screen.findByTestId('app-switcher-panel');
+    const stops = within(panel).getAllByTestId('app-switcher-app').filter((tile) => tile.tabIndex === 0);
+    await expect(stops.map((tile) => tile.dataset.name)).toEqual(['Gateway']);
   },
 };

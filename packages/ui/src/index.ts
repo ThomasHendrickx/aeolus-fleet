@@ -26,6 +26,7 @@ export * from './atoms/tooltip.js';
 export * from './class-names.js';
 export * from './first-paint-theme.js';
 export * from './molecules/app-switcher.js';
+export * from './molecules/arrival-line.js';
 export * from './molecules/avatar-entry.js';
 export * from './molecules/avatar-menu.js';
 export * from './molecules/empty-state.js';

@@ -1,211 +1,643 @@
 'use client';
 
-import { Check, ChevronDown, LoaderCircle } from 'lucide-react';
-import { useState, type ReactNode } from 'react';
+import { Box, CircleCheck, DoorOpen, Layers, LayoutGrid, LoaderCircle, Ship, TriangleAlert, type LucideIcon } from 'lucide-react';
+import { useEffect, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react';
 
-import type { AppSwitcherModel } from '@aeolus-fleet/common/rules';
+import type { FleetId, HeaderApp } from '@aeolus-fleet/common';
+import type { AppSwitcherModel, SwitcherApp, SwitcherFleet } from '@aeolus-fleet/common/rules';
 import { Button } from '../atoms/button.js';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '../atoms/dropdown-menu.js';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '../atoms/dropdown-menu.js';
 import { Sheet, SheetClose, SheetContent, SheetTitle, SheetTrigger } from '../atoms/sheet.js';
+import { Skeleton } from '../atoms/skeleton.js';
 import { classNames } from '../class-names.js';
 
+/** Why an app of the list cannot be opened from here: its tile stays, greyed, with no link. */
+export type AppAccess = 'unavailable' | 'sign-in-required';
+
+/** A session that reaches the app open alone: the panel explains why there is nowhere else to go. */
+export type AppsAndFleetsLimit = 'single-app' | 'argo' | 'viewer';
+
+/** Where the app's read of the apps and fleets stands. */
+export type AppsAndFleetsRead = 'loaded' | 'loading' | 'retrying' | 'failed' | 'refreshed';
+
+/** A fleet the person chose: on its way, failed, or on its way again after Try again. */
+export interface FleetSwitch {
+  fleetId: FleetId;
+  state: 'opening' | 'failed' | 'retrying';
+}
+
+/** What the app knows about the apps and fleets beyond the list itself, and what it does when one is chosen. */
+export interface AppsAndFleetsState {
+  read?: AppsAndFleetsRead;
+  limit?: AppsAndFleetsLimit;
+  appAccess?: Partial<Record<HeaderApp, AppAccess>>;
+  fleetSwitch?: FleetSwitch;
+  /** Opens a fleet the app's own way; unset, a fleet row is a plain link and says it is opening until the browser leaves. */
+  onOpenFleet?: (fleet: SwitcherFleet) => void;
+  /** Reads the apps and fleets again, after a read failure or an unavailable app. */
+  onRetry?: () => void;
+  /** The existing shared sign-in, for an app whose sign-in expired. */
+  onSignIn?: () => void;
+  isSigningIn?: boolean;
+}
+
+/**
+ * No account is signed in to the app open, so it is in no fleet (the
+ * gateway's Bridge for argo's or the viewer's sign-in, or a single-app
+ * installation): the bar reads "No fleet" and the panel shows the
+ * installation's apps with no link.
+ */
+export interface FleetlessSwitcher {
+  fleet: undefined;
+  /** The app open, as the bar names it. */
+  app: HeaderApp;
+  appLabel: string;
+  /** The apps this installation offers; none opens from here. */
+  apps: readonly { app: HeaderApp; label: string }[];
+  /** Where the person's sign-in holds, as the panel's notice names it: Console in Aeolus. */
+  heldIn: { appLabel: string; fleetName: string };
+}
+
 interface AppSwitcherProps {
-  switcher: AppSwitcherModel;
-  /**
-   * full: "Acme / Console ▾", the fleet part switching fleet and the app part
-   * switching app, each a menu. fleet: "Acme", one menu with the fleets, then
-   * the apps, for an app whose breadcrumb follows the fleet. compact (phone,
-   * H6): "Console ▾", one bottom Sheet with the fleets, then the apps.
-   */
-  layout: 'full' | 'fleet' | 'compact';
-  /** compact: what the title reads in place of the app's name, such as the page's ("Fleet"). */
-  title?: string;
+  switcher: AppSwitcherModel | FleetlessSwitcher;
+  /** menu: the panel under the launcher (desktop). sheet: a bottom Sheet with 44 px targets and Cancel (phone). */
+  layout: 'menu' | 'sheet';
+  state?: AppsAndFleetsState;
   className?: string;
 }
 
-/** What is opening, once a fleet or an app is chosen: its address and name, so the choice shows it is on its way. */
-interface Opening {
-  url: string;
-  name: string;
+const APP_ICONS: Record<HeaderApp, LucideIcon> = { console: Ship, gateway: DoorOpen, account: Box, admin: Box };
+
+/** What a tile with no link says: why it does not open, or that it is configured where no one is signed in. */
+type TileAccess = AppAccess | 'configured';
+
+const ACCESS_LABELS: Record<TileAccess, string> = { unavailable: 'Unavailable', 'sign-in-required': 'Sign-in required', configured: 'Configured app' };
+
+/** How far a tile row reaches: three tiles to a row. */
+const TILES_PER_ROW = 3;
+
+const TILE_STEPS: Partial<Record<string, number>> = { ArrowRight: 1, ArrowLeft: -1, ArrowDown: TILES_PER_ROW, ArrowUp: -TILES_PER_ROW };
+
+const spin = 'animate-spin motion-reduce:animate-none';
+
+/**
+ * One tab stop for a group: the arrow keys move between its items, the
+ * focused one keeping the tab stop. Tiles move by one and by a row; fleet
+ * rows move up and down; in both, Home and End jump to the ends.
+ */
+interface Step {
+  key: string;
+  at: number;
+  count: number;
 }
 
-const triggerClass =
-  'inline-flex min-w-0 items-center gap-1 rounded-md px-1.5 py-1 text-body font-semibold text-foreground outline-none transition-colors duration-(--duration-fast) hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring aria-expanded:bg-accent disabled:opacity-60';
-
-/** A choice's mark: a spinner while it opens, a check on the one in view. */
-function Mark({ isCurrent, isOpening }: { isCurrent: boolean; isOpening: boolean }) {
-  if (isOpening) {
-    return <LoaderCircle aria-hidden className="ml-auto animate-spin motion-reduce:animate-none" />;
+function moveWithin(event: KeyboardEvent<HTMLElement>, group: { selector: string; stepOf: (step: Step) => number | undefined }) {
+  const { selector, stepOf } = group;
+  const items = [...(event.currentTarget.parentElement?.querySelectorAll<HTMLElement>(selector) ?? [])].filter((item) => item.getAttribute('aria-disabled') !== 'true');
+  const at = items.findIndex((item) => item === document.activeElement);
+  const to = at < 0 ? undefined : stepOf({ key: event.key, at, count: items.length });
+  if (to === undefined) {
+    return;
   }
-  return isCurrent ? <Check aria-hidden className="ml-auto" /> : null;
+  // The panel's own list navigation never sees the key: these items are no menu items.
+  event.preventDefault();
+  event.stopPropagation();
+  const target = items[Math.min(items.length - 1, Math.max(0, to))];
+  for (const item of items) {
+    item.tabIndex = item === target ? 0 : -1;
+  }
+  target?.focus();
 }
 
-/** One choice in a desktop menu: a link, with "Opening" while the browser goes there. */
-function MenuChoice({ url, name, isCurrent, opening, onOpen, testId }: { url: string; name: string; isCurrent: boolean; opening: Opening | undefined; onOpen: (opening: Opening) => void; testId: string }) {
-  const isOpening = opening?.url === url && opening.name === name;
-  return (
-    <DropdownMenuItem
-      data-testid={testId}
-      data-current={isCurrent || undefined}
-      disabled={opening !== undefined && !isOpening}
-      closeOnClick={false}
-      render={(props) => (
-        <a
-          {...props}
-          href={url}
-          aria-current={isCurrent ? 'page' : undefined}
-          onClick={(event) => {
-            props.onClick?.(event);
-            onOpen({ url, name });
-          }}
-        >
-          {props.children}
-        </a>
-      )}
-    >
-      <span className="min-w-0 truncate">{isOpening ? `Opening ${name}` : name}</span>
-      <Mark isCurrent={isCurrent} isOpening={isOpening} />
-    </DropdownMenuItem>
-  );
+function tileStepOf({ key, at, count }: Step): number | undefined {
+  const ends: Partial<Record<string, number>> = { Home: 0, End: count - 1 };
+  const step = TILE_STEPS[key];
+  return step === undefined ? ends[key] : at + step;
 }
 
-/** One choice in the phone's Sheet: a 44 px link, with "Opening" while the browser goes there. */
-function SheetChoice({ url, name, isCurrent, opening, onOpen, testId }: { url: string; name: string; isCurrent: boolean; opening: Opening | undefined; onOpen: (opening: Opening) => void; testId: string }) {
-  const isOpening = opening?.url === url && opening.name === name;
-  return (
-    <a
-      href={url}
-      data-testid={testId}
-      aria-current={isCurrent ? 'page' : undefined}
-      aria-disabled={opening !== undefined && !isOpening ? true : undefined}
-      onClick={(event) => {
-        if (opening !== undefined) {
-          event.preventDefault();
-          return;
-        }
-        onOpen({ url, name });
-      }}
-      className="flex h-(--size-control-touch) items-center gap-2.5 rounded-md px-2 text-body-touch text-foreground outline-none focus-visible:outline-2 focus-visible:outline-ring aria-disabled:opacity-60 [&_svg]:size-(--size-icon) [&_svg]:text-muted-foreground"
-    >
-      <span className="min-w-0 truncate">{isOpening ? `Opening ${name}` : name}</span>
-      <Mark isCurrent={isCurrent} isOpening={isOpening} />
-    </a>
-  );
+function rowStepOf({ key, at, count }: Step): number | undefined {
+  const steps: Partial<Record<string, number>> = { ArrowDown: at + 1, ArrowUp: at - 1, Home: 0, End: count - 1 };
+  return steps[key];
 }
 
-function SheetGroup({ label, children }: { label: string; children: ReactNode }) {
+/** A plain press, which the app handles; a press with a modifier opens the link the browser's way. */
+function isPlainPress(event: MouseEvent): boolean {
+  return event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey;
+}
+
+/** A notice in the panel; a failure has the warning icon, and is announced at once unless its retry already runs. */
+function Notice({ title, isError = false, isAnnounced = isError, children }: { title: string; isError?: boolean; isAnnounced?: boolean; children: ReactNode }) {
   return (
-    <div role="group" aria-label={label} className="flex flex-col gap-0.5">
-      <p className="px-2 text-caption font-medium text-muted-foreground">{label}</p>
+    <div role={isAnnounced ? 'alert' : undefined} className="m-2 flex flex-col gap-2 rounded-md bg-muted p-3 text-body text-foreground">
+      <p className="flex items-center gap-2 font-medium">
+        {isError ? <TriangleAlert aria-hidden className="size-(--size-icon) shrink-0 text-destructive-text" /> : null}
+        {title}
+      </p>
       {children}
     </div>
   );
 }
 
+function NoticeText({ children }: { children: ReactNode }) {
+  return <p className="text-meta text-muted-foreground">{children}</p>;
+}
+
+function SectionHead({ id, Icon, label, context }: { id: string; Icon: LucideIcon; label: string; context?: string }) {
+  return (
+    <>
+      <div className="flex items-center gap-2 px-2 pt-1 text-caption font-semibold tracking-wide text-muted-foreground uppercase [&_svg]:size-(--size-icon-sm)">
+        <Icon aria-hidden />
+        <h3 id={id}>{label}</h3>
+      </div>
+      {context === undefined ? null : <p className="px-2 pb-3 text-caption text-muted-foreground">{context}</p>}
+    </>
+  );
+}
+
+/** The status line under a section: what is on its way, announced. */
+function StatusLine({ children }: { children: ReactNode }) {
+  return (
+    <p role="status" data-testid="app-switcher-status" className="px-2 pt-1 pb-2 text-caption text-muted-foreground">
+      {children}
+    </p>
+  );
+}
+
+interface PanelProps {
+  switcher: AppSwitcherModel;
+  state: AppsAndFleetsState;
+  fleetSwitch: FleetSwitch | undefined;
+  openingApp: HeaderApp | undefined;
+  isPhone: boolean;
+  onOpenApp: (app: SwitcherApp, event: MouseEvent) => void;
+  onOpenFleet: (fleet: SwitcherFleet, event: MouseEvent) => void;
+  onChooseCurrent: (name: string) => void;
+}
+
+interface AppTileProps {
+  app: SwitcherApp;
+  access: TileAccess | undefined;
+  /** The tiles' one tab stop: the current app's tile, or the first that opens when the app open is not among them. */
+  isTabStop: boolean;
+  isOpening: boolean;
+  isWaiting: boolean;
+  isPhone: boolean;
+  onOpen: (event: MouseEvent) => void;
+  onChooseCurrent: () => void;
+}
+
+function AppTile({ app, access, isTabStop, isOpening, isWaiting, isPhone, onOpen, onChooseCurrent }: AppTileProps) {
+  const Icon = APP_ICONS[app.app];
+  const tileClass = classNames(
+    'flex flex-col items-center gap-1.5 rounded-md border border-transparent px-1 pt-3 pb-2 text-center outline-none focus-visible:outline-2 focus-visible:outline-ring',
+    isPhone ? 'min-h-26' : 'min-h-23',
+  );
+  const iconClass = classNames('grid place-items-center rounded-lg [&_svg]:size-(--size-icon-lg)', isPhone ? 'size-12' : 'size-10');
+  const nameClass = classNames('font-medium [overflow-wrap:anywhere]', isPhone ? 'text-body-touch' : 'text-body');
+  if (access !== undefined) {
+    return (
+      <div data-testid="app-switcher-app" data-name={app.label} data-access={access} aria-label={`${app.label}, ${ACCESS_LABELS[access]}`} role="img" className={classNames(tileClass, 'text-muted-foreground')}>
+        <span aria-hidden className={classNames(iconClass, 'bg-muted text-muted-foreground')}>
+          <Icon />
+        </span>
+        <span aria-hidden className={nameClass}>{app.label}</span>
+        <span aria-hidden className="min-h-4 text-caption">{ACCESS_LABELS[access]}</span>
+      </div>
+    );
+  }
+  const caption = isOpening ? 'Opening' : app.isCurrent ? 'Current' : '';
+  return (
+    <a
+      href={app.url}
+      data-testid="app-switcher-app"
+      data-name={app.label}
+      data-current={app.isCurrent || undefined}
+      aria-current={app.isCurrent ? 'page' : undefined}
+      aria-disabled={isWaiting || undefined}
+      aria-label={isOpening ? `Opening ${app.label}` : app.isCurrent ? `${app.label}, current app` : app.label}
+      tabIndex={isTabStop ? 0 : -1}
+      onKeyDown={(event) => {
+        moveWithin(event, { selector: '[data-testid="app-switcher-app"][href]', stepOf: tileStepOf });
+      }}
+      onClick={(event) => {
+        if (isWaiting) {
+          event.preventDefault();
+          return;
+        }
+        if (app.isCurrent) {
+          event.preventDefault();
+          onChooseCurrent();
+          return;
+        }
+        onOpen(event);
+      }}
+      className={classNames(tileClass, app.isCurrent ? 'border-border bg-highlight' : 'hover:bg-accent', 'aria-disabled:opacity-60')}
+    >
+      <span aria-hidden className={classNames(iconClass, app.isCurrent ? 'bg-primary text-primary-foreground' : 'bg-secondary text-primary')}>
+        <Icon />
+      </span>
+      <span className={classNames(nameClass, 'text-foreground')}>{app.label}</span>
+      <span className={classNames('inline-flex min-h-4 items-center gap-1 text-caption', app.isCurrent ? 'font-medium text-primary' : 'text-muted-foreground')}>
+        {isOpening ? <LoaderCircle aria-hidden data-testid="app-switcher-busy" className={classNames('size-(--size-icon-sm)', spin)} /> : null}
+        {caption}
+      </span>
+    </a>
+  );
+}
+
+function FleetRow({ fleet, isOpening, isWaiting, isPhone, onOpen, onChooseCurrent }: { fleet: SwitcherFleet; isOpening: boolean; isWaiting: boolean; isPhone: boolean; onOpen: (event: MouseEvent) => void; onChooseCurrent: () => void }) {
+  return (
+    <a
+      href={fleet.url}
+      data-testid="app-switcher-fleet"
+      data-name={fleet.name}
+      data-current={fleet.isCurrent || undefined}
+      aria-current={fleet.isCurrent ? 'page' : undefined}
+      aria-disabled={isWaiting || undefined}
+      aria-busy={isOpening || undefined}
+      tabIndex={fleet.isCurrent ? 0 : -1}
+      onKeyDown={(event) => {
+        moveWithin(event, { selector: '[data-testid="app-switcher-fleet"]', stepOf: rowStepOf });
+      }}
+      onClick={(event) => {
+        if (isWaiting || isOpening) {
+          event.preventDefault();
+          return;
+        }
+        if (fleet.isCurrent) {
+          event.preventDefault();
+          onChooseCurrent();
+          return;
+        }
+        onOpen(event);
+      }}
+      className={classNames(
+        'flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-foreground outline-none focus-visible:outline-2 focus-visible:outline-ring aria-disabled:opacity-60 [&_svg]:size-(--size-icon) [&_svg]:shrink-0',
+        isPhone ? 'min-h-(--size-control-touch) text-body-touch' : 'min-h-(--size-control) text-body',
+        fleet.isCurrent || isOpening ? 'bg-accent' : 'hover:bg-accent',
+      )}
+    >
+      <Layers aria-hidden />
+      <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">{isOpening ? `Opening ${fleet.name}` : fleet.name}</span>
+      {isOpening ? (
+        <LoaderCircle aria-hidden data-testid="app-switcher-busy" className={classNames('text-muted-foreground', spin)} />
+      ) : fleet.isCurrent ? (
+        <span className="ml-auto inline-flex shrink-0 items-center gap-1 text-caption text-primary [&_svg]:size-(--size-icon-sm)">
+          <CircleCheck aria-hidden />
+          <span aria-hidden>Current</span>
+          <span className="sr-only">Current fleet</span>
+        </span>
+      ) : null}
+    </a>
+  );
+}
+
+function LimitNotice({ limit, appLabel, fleetName, isFleetless = false }: { limit: AppsAndFleetsLimit; appLabel: string; fleetName: string; isFleetless?: boolean }) {
+  const words: Record<AppsAndFleetsLimit, { title: string; text: string }> = {
+    'single-app': { title: 'No other apps', text: `Only ${appLabel} is configured in this installation. There are no other apps to open.` },
+    argo: { title: 'Signed in as argo', text: `This sign-in is for ${appLabel} in ${fleetName}. Other apps require an account sign-in. Bridge does not accept an argo sign-in.` },
+    viewer: { title: 'Viewer', text: `This viewer sign-in is for ${appLabel} in ${fleetName}. Other apps are not supplied for this session. Bridge requires an account.` },
+  };
+  return (
+    <Notice title={words[limit].title}>
+      <NoticeText>{words[limit].text}</NoticeText>
+      <NoticeText>{isFleetless ? 'No account apps are available here. No identity has changed.' : `You can keep using this ${appLabel} session.`}</NoticeText>
+    </Notice>
+  );
+}
+
+function RetryButton({ isRetrying, onRetry, testId, shouldFocusOnMount = false }: { isRetrying: boolean; onRetry: (() => void) | undefined; testId: string; shouldFocusOnMount?: boolean }) {
+  if (onRetry === undefined) {
+    return null;
+  }
+  return (
+    <Button
+      size="sm"
+      variant="secondary"
+      data-testid={testId}
+      isLoading={isRetrying}
+      onClick={onRetry}
+      className="self-start"
+      // A failed choice puts focus on its next step, as the design's walk says.
+      ref={shouldFocusOnMount ? (node: HTMLButtonElement | null) => node?.focus() : undefined}
+    >
+      Try again
+    </Button>
+  );
+}
+
+function LoadingPanel({ isPhone, isRetrying, onRetry }: { isPhone: boolean; isRetrying: boolean; onRetry: (() => void) | undefined }) {
+  return (
+    <div data-testid="app-switcher-loading" className="flex flex-col">
+      <SectionHead id="app-switcher-apps-heading" Icon={LayoutGrid} label="Apps" />
+      <div className={classNames('grid grid-cols-3 px-1 pt-2 pb-2', isPhone ? 'gap-2' : 'gap-1')}>
+        {['first', 'second', 'third', 'fourth'].map((key) => (
+          <span key={key} className="flex min-h-23 flex-col items-center gap-2 pt-3">
+            <Skeleton className={classNames('rounded-lg', isPhone ? 'size-12' : 'size-10')} />
+            <Skeleton className="h-3 w-3/5" />
+          </span>
+        ))}
+      </div>
+      <hr className="my-2 border-border" />
+      <SectionHead id="app-switcher-fleets-heading" Icon={Layers} label="Fleets" />
+      <Skeleton className={classNames('mx-2 mt-3', isPhone ? 'h-(--size-control-touch)' : 'h-4')} />
+      <Skeleton className={classNames('mx-2 mt-3 w-3/5', isPhone ? 'h-(--size-control-touch)' : 'h-4')} />
+      <StatusLine>Loading apps and fleets…</StatusLine>
+      {isRetrying ? (
+        <div className="px-2 pb-2">
+          <RetryButton isRetrying onRetry={onRetry} testId="app-switcher-retry" />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/** The panel's two sections, or the shape of what is coming, or the read failure. */
+function Panel({ switcher, state, fleetSwitch, openingApp, isPhone, onOpenApp, onOpenFleet, onChooseCurrent }: PanelProps) {
+  const { read = 'loaded', limit, appAccess = {}, onRetry, onSignIn, isSigningIn = false } = state;
+  const { fleet, appLabel, apps, fleets } = switcher;
+  if (read === 'loading' || read === 'retrying') {
+    return <LoadingPanel isPhone={isPhone} isRetrying={read === 'retrying'} onRetry={onRetry} />;
+  }
+  if (read === 'failed') {
+    return (
+      <Notice title="Couldn’t load apps and fleets" isError>
+        <NoticeText>Your current page is still open. Try again to load them.</NoticeText>
+        <RetryButton isRetrying={false} onRetry={onRetry} testId="app-switcher-retry" />
+      </Notice>
+    );
+  }
+  const switchTarget = fleetSwitch === undefined ? undefined : fleets.find((choice) => choice.id === fleetSwitch.fleetId);
+  const isSwitching = fleetSwitch !== undefined && fleetSwitch.state !== 'failed';
+  const unavailable = apps.find((app) => appAccess[app.app] === 'unavailable');
+  const expired = apps.find((app) => appAccess[app.app] === 'sign-in-required');
+  const isOnlyFleet = fleets.length === 1;
+  const opens = apps.filter((app) => appAccess[app.app] === undefined);
+  const tabStop = (opens.find((app) => app.isCurrent) ?? opens[0])?.app;
+  // Try again shows only where the app can open the fleet again.
+  const { onOpenFleet: openFleet } = state;
+  const openFleetAgain =
+    openFleet === undefined || switchTarget === undefined
+      ? undefined
+      : () => {
+          openFleet(switchTarget);
+        };
+  return (
+    <>
+      <section aria-labelledby="app-switcher-apps-heading">
+        <SectionHead id="app-switcher-apps-heading" Icon={LayoutGrid} label="Apps" context={`Apps you can open in ${fleet.name}`} />
+        {expired !== undefined && isSigningIn ? (
+          <p role="status" data-testid="app-switcher-sign-in-return" className="m-2 rounded-md bg-muted p-3 text-body text-foreground">
+            {`Sign-in opens with a return to ${expired.label}.`}
+          </p>
+        ) : null}
+        <div
+          role="group"
+          aria-labelledby="app-switcher-apps-heading"
+          className={classNames('grid grid-cols-3 px-1 pb-2', isPhone ? 'gap-2' : 'gap-1')}
+        >
+          {apps.map((app) => (
+            <AppTile
+              key={app.app}
+              app={app}
+              access={appAccess[app.app]}
+              isTabStop={app.app === tabStop}
+              isOpening={openingApp === app.app}
+              isWaiting={(openingApp !== undefined && openingApp !== app.app) || isSwitching}
+              isPhone={isPhone}
+              onOpen={(event) => {
+                onOpenApp(app, event);
+              }}
+              onChooseCurrent={() => {
+                onChooseCurrent(app.label);
+              }}
+            />
+          ))}
+        </div>
+        {openingApp === undefined ? null : <StatusLine>{`Opening ${appLabelOf(apps, openingApp)}…`}</StatusLine>}
+        {limit === undefined ? null : <LimitNotice limit={limit} appLabel={appLabel} fleetName={fleet.name} />}
+        {unavailable === undefined ? null : (
+          <Notice title={`Couldn’t open ${unavailable.label}`} isError>
+            <NoticeText>{`This app is no longer available. You are still in ${appLabel}. Try again to refresh the apps.`}</NoticeText>
+            <RetryButton isRetrying={false} onRetry={onRetry} testId="app-switcher-retry" />
+          </Notice>
+        )}
+        {expired === undefined ? null : (
+          <Notice title="Your sign-in has expired" isError>
+            <NoticeText>{`Sign in again to open ${expired.label}. The current page remains visible, but does not prove you still have access.`}</NoticeText>
+            {onSignIn === undefined ? null : (
+              <Button size="sm" data-testid="app-switcher-sign-in" isLoading={isSigningIn} onClick={onSignIn} className="self-start">
+                Sign in
+              </Button>
+            )}
+          </Notice>
+        )}
+      </section>
+      <hr className="my-2 border-border" />
+      <section aria-labelledby="app-switcher-fleets-heading">
+        <SectionHead id="app-switcher-fleets-heading" Icon={Layers} label="Fleets" context={isOnlyFleet ? 'This is the only fleet you can open.' : `Choose a fleet. You stay in ${appLabel} where that fleet has it.`} />
+        <div
+          role="group"
+          aria-labelledby="app-switcher-fleets-heading"
+          className="flex flex-col gap-0.5"
+        >
+          {fleets.map((choice) => {
+            const isOpening = isSwitching && choice.id === fleetSwitch.fleetId;
+            return (
+              <FleetRow
+                key={choice.id}
+                fleet={choice}
+                isOpening={isOpening}
+                isWaiting={(isSwitching && !isOpening) || openingApp !== undefined}
+                isPhone={isPhone}
+                onOpen={(event) => {
+                  onOpenFleet(choice, event);
+                }}
+                onChooseCurrent={() => {
+                  onChooseCurrent(choice.name);
+                }}
+              />
+            );
+          })}
+        </div>
+        {switchTarget !== undefined && fleetSwitch !== undefined && fleetSwitch.state !== 'opening' ? (
+          <Notice title={`Couldn’t open ${switchTarget.name}`} isError isAnnounced={fleetSwitch.state === 'failed'}>
+            <NoticeText>{`You are still in ${fleet.name}. Try again to open ${switchTarget.name}.`}</NoticeText>
+            <RetryButton
+              isRetrying={fleetSwitch.state === 'retrying'}
+              onRetry={openFleetAgain}
+              testId="app-switcher-fleet-retry"
+              shouldFocusOnMount={fleetSwitch.state === 'failed'}
+            />
+          </Notice>
+        ) : null}
+        {isSwitching && switchTarget !== undefined ? <StatusLine>{`Opening ${switchTarget.name}…`}</StatusLine> : null}
+        {read === 'refreshed' ? <StatusLine>Apps and fleets refreshed.</StatusLine> : null}
+      </section>
+    </>
+  );
+}
+
+/** The panel with no fleet: the installation's apps, each a configured app with no link, why, and no fleet rows. */
+function FleetlessPanel({ switcher, limit, isPhone }: { switcher: FleetlessSwitcher; limit: AppsAndFleetsLimit | undefined; isPhone: boolean }) {
+  return (
+    <>
+      <section aria-labelledby="app-switcher-apps-heading">
+        <SectionHead id="app-switcher-apps-heading" Icon={LayoutGrid} label="Apps" context="Apps this installation offers" />
+        <div role="group" aria-labelledby="app-switcher-apps-heading" className={classNames('grid grid-cols-3 px-1 pb-2', isPhone ? 'gap-2' : 'gap-1')}>
+          {switcher.apps.map((app) => (
+            <AppTile key={app.app} app={{ ...app, url: '', isCurrent: false }} access="configured" isTabStop={false} isOpening={false} isWaiting={false} isPhone={isPhone} onOpen={() => undefined} onChooseCurrent={() => undefined} />
+          ))}
+        </div>
+        {limit === undefined ? null : <LimitNotice limit={limit} appLabel={switcher.heldIn.appLabel} fleetName={switcher.heldIn.fleetName} isFleetless />}
+      </section>
+      <hr className="my-2 border-border" />
+      <section aria-labelledby="app-switcher-fleets-heading">
+        <SectionHead id="app-switcher-fleets-heading" Icon={Layers} label="Fleets" context="No fleet: no account is signed in here." />
+      </section>
+    </>
+  );
+}
+
+function appLabelOf(apps: readonly SwitcherApp[], app: HeaderApp): string {
+  return apps.find((choice) => choice.app === app)?.label ?? app;
+}
+
+/** The app open and the fleet in view, after the launcher: the fleet in a quiet pill, busy while another fleet opens. */
+function WhereYouAre({ switcher, isSwitching, isPhone }: { switcher: AppSwitcherModel | FleetlessSwitcher; isSwitching: boolean; isPhone: boolean }) {
+  const app = switcher.fleet === undefined ? switcher.app : switcher.apps.find((choice) => choice.isCurrent)?.app;
+  const Icon = app === undefined ? Box : APP_ICONS[app];
+  const fleetName = switcher.fleet?.name ?? 'No fleet';
+  return (
+    <>
+      <span data-testid="app-switcher-app-name" className={classNames('inline-flex min-w-0 shrink-0 items-center gap-2 font-semibold text-foreground [&_svg]:size-(--size-icon) [&_svg]:text-primary', isPhone ? 'text-body-touch' : 'text-body')}>
+        {isPhone ? null : <Icon aria-hidden />}
+        <span>{switcher.appLabel}</span>
+      </span>
+      <span
+        data-testid="app-switcher-fleet-pill"
+        title={`Fleet: ${fleetName}`}
+        aria-busy={isSwitching || undefined}
+        className="inline-flex min-w-0 items-center gap-1.5 rounded-full bg-muted px-2 py-0.5 text-meta font-medium text-foreground [&_svg]:size-(--size-icon-sm) [&_svg]:shrink-0"
+      >
+        {isSwitching ? <LoaderCircle aria-hidden data-testid="app-switcher-busy" className={spin} /> : <Layers aria-hidden />}
+        <span className="sr-only">Fleet: </span>
+        <span className={classNames('truncate', isPhone ? 'max-w-24' : 'max-w-55')}>{fleetName}</span>
+      </span>
+    </>
+  );
+}
+
 /**
- * The switcher in the title (header design H1, H6, H8, H9): the fleet in view
- * and the app open. Choosing another fleet or app follows its link; the
- * choice says "Opening ..." with a spinner at once, and the others wait,
- * until the browser leaves. Without anywhere else to go it is plain text,
- * with no ▾.
+ * The start of every Aeolus bar (docs/design/app-navigation, section 4): the
+ * launcher, which opens the one Apps and fleets panel, then the app open and
+ * the fleet in view. The panel holds the apps as tiles, the current one
+ * marked, and the fleets as rows, the current one checked. Choosing an app
+ * follows its link and says "Opening" until the browser leaves; choosing a
+ * fleet hands it to the app, which says through `state` whether it opens,
+ * failed, or opens again after Try again. When the fleet in view changes the
+ * panel closes. Desktop opens the panel under the launcher, phone as a
+ * bottom Sheet.
  */
-export function AppSwitcher({ switcher, layout, title, className }: AppSwitcherProps) {
-  const [opening, setOpening] = useState<Opening | undefined>(undefined);
-  const { fleet, appLabel, fleets, apps, canSwitch } = switcher;
+export function AppSwitcher({ switcher, layout, state = {}, className }: AppSwitcherProps) {
+  // The fleet the panel was opened in: open while it is still the fleet in view, so arriving in another fleet closes it.
+  const [openedIn, setOpenedIn] = useState<FleetId | 'no fleet' | undefined>(undefined);
+  const [openingApp, setOpeningApp] = useState<HeaderApp | undefined>(undefined);
+  const [openingFleet, setOpeningFleet] = useState<FleetId | undefined>(undefined);
+  const [announcement, setAnnouncement] = useState('');
+  const inView = switcher.fleet?.id ?? 'no fleet';
+  const isOpen = openedIn === inView;
+  const isPhone = layout === 'sheet';
+  const fleetSwitch = state.fleetSwitch ?? (openingFleet === undefined ? undefined : { fleetId: openingFleet, state: 'opening' as const });
+  const isSwitching = fleetSwitch !== undefined && fleetSwitch.state !== 'failed';
 
-  if (!canSwitch) {
-    return (
-      <p data-testid="app-switcher" className={classNames('flex min-w-0 items-center gap-1 px-1.5 text-body font-semibold text-foreground', layout === 'fleet' && 'px-0 font-normal text-muted-foreground', layout === 'compact' && title !== undefined && 'text-title-touch', className)}>
-        {layout === 'compact' ? null : <span className="truncate">{fleet.name}</span>}
-        {layout === 'full' ? <span aria-hidden className="text-muted-foreground">/</span> : null}
-        {layout === 'fleet' ? null : <span className="truncate">{title ?? appLabel}</span>}
-      </p>
+  // Opening ends when the browser leaves: a page that stays (the panel closed, or the page back from the history) has nothing on its way.
+  useEffect(() => {
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) {
+        setOpeningApp(undefined);
+        setOpeningFleet(undefined);
+      }
+    };
+    window.addEventListener('pageshow', onPageShow);
+    return () => {
+      window.removeEventListener('pageshow', onPageShow);
+    };
+  }, []);
+  const onOpenChange = (isOpening: boolean) => {
+    setOpeningApp(undefined);
+    setOpeningFleet(undefined);
+    setOpenedIn(isOpening ? inView : undefined);
+    setAnnouncement(isOpening ? 'Apps and fleets opened' : '');
+  };
+  const panel =
+    switcher.fleet === undefined ? (
+      <FleetlessPanel switcher={switcher} limit={state.limit} isPhone={isPhone} />
+    ) : (
+    <Panel
+      switcher={switcher}
+      state={state}
+      fleetSwitch={fleetSwitch}
+      openingApp={openingApp}
+      isPhone={isPhone}
+      onOpenApp={(app, event) => {
+        // A press with a modifier opens the app elsewhere and this page stays: nothing is on its way here.
+        if (isPlainPress(event)) {
+          setOpeningApp(app.app);
+        }
+      }}
+      onOpenFleet={(fleet, event) => {
+        if (!isPlainPress(event)) {
+          return;
+        }
+        if (state.onOpenFleet === undefined) {
+          setOpeningFleet(fleet.id);
+          return;
+        }
+        event.preventDefault();
+        state.onOpenFleet(fleet);
+      }}
+      onChooseCurrent={(name) => {
+        setOpenedIn(undefined);
+        setAnnouncement(`${name} is already open`);
+      }}
+    />
     );
-  }
-
-  if (layout === 'compact') {
-    return (
-      <Sheet>
-        <SheetTrigger data-testid="app-switcher" aria-label={`Switch fleet or app: ${fleet.name}, ${appLabel}`} className={classNames(triggerClass, 'text-title-touch', className)}>
-          <span className="truncate">{title ?? appLabel}</span>
-          {opening === undefined ? <ChevronDown aria-hidden className="size-(--size-icon) shrink-0 text-muted-foreground" /> : <LoaderCircle aria-hidden className="size-(--size-icon) shrink-0 animate-spin motion-reduce:animate-none" />}
-        </SheetTrigger>
-        <SheetContent side="bottom" data-testid="app-switcher-sheet" className="gap-3">
-          <SheetTitle className="sr-only">Switch fleet or app</SheetTitle>
-          <SheetGroup label="Fleets">
-            {fleets.map((choice) => (
-              <SheetChoice key={choice.id} url={choice.url} name={choice.name} isCurrent={choice.isCurrent} opening={opening} onOpen={setOpening} testId="app-switcher-fleet" />
-            ))}
-          </SheetGroup>
-          <SheetGroup label="Apps">
-            {apps.map((choice) => (
-              <SheetChoice key={choice.app} url={choice.url} name={choice.label} isCurrent={choice.isCurrent} opening={opening} onOpen={setOpening} testId="app-switcher-app" />
-            ))}
-          </SheetGroup>
-          <SheetClose render={<Button size="touch" className="w-full" />}>Cancel</SheetClose>
-        </SheetContent>
-      </Sheet>
-    );
-  }
-
-  if (layout === 'fleet') {
-    return (
-      <nav aria-label="Fleet and app" data-testid="app-switcher" className={classNames('flex min-w-0 items-center', className)}>
-        <DropdownMenu>
-          <DropdownMenuTrigger data-testid="app-switcher-fleets" aria-label={`Fleet: ${fleet.name}, ${appLabel}. Switch fleet or app`} className={classNames(triggerClass, '-mx-1.5 font-normal text-muted-foreground hover:text-foreground')}>
-            <span className="truncate">{fleet.name}</span>
-            {opening === undefined ? null : <LoaderCircle aria-hidden className="size-(--size-icon-sm) shrink-0 animate-spin motion-reduce:animate-none" />}
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-56">
-            <DropdownMenuGroup>
-              <DropdownMenuLabel>Fleets</DropdownMenuLabel>
-              {fleets.map((choice) => (
-                <MenuChoice key={choice.id} url={choice.url} name={choice.name} isCurrent={choice.isCurrent} opening={opening} onOpen={setOpening} testId="app-switcher-fleet" />
-              ))}
-            </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-              <DropdownMenuLabel>Apps</DropdownMenuLabel>
-              {apps.map((choice) => (
-                <MenuChoice key={choice.app} url={choice.url} name={choice.label} isCurrent={choice.isCurrent} opening={opening} onOpen={setOpening} testId="app-switcher-app" />
-              ))}
-            </DropdownMenuGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </nav>
-    );
-  }
+  const launcherClass = classNames(
+    'grid shrink-0 place-items-center rounded-md text-foreground outline-none transition-colors duration-(--duration-fast) hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring aria-expanded:bg-accent [&_svg]:size-(--size-icon)',
+    isPhone ? 'size-(--size-control-touch)' : 'size-(--size-control)',
+  );
 
   return (
-    <nav aria-label="Fleet and app" data-testid="app-switcher" className={classNames('flex min-w-0 items-center gap-0.5', className)}>
-      <DropdownMenu>
-        <DropdownMenuTrigger data-testid="app-switcher-fleets" aria-label={`Fleet: ${fleet.name}. Switch fleet`} className={triggerClass}>
-          <span className="truncate">{fleet.name}</span>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-56">
-          <DropdownMenuGroup>
-            <DropdownMenuLabel>Fleets</DropdownMenuLabel>
-            {fleets.map((choice) => (
-              <MenuChoice key={choice.id} url={choice.url} name={choice.name} isCurrent={choice.isCurrent} opening={opening} onOpen={setOpening} testId="app-switcher-fleet" />
-            ))}
-          </DropdownMenuGroup>
-        </DropdownMenuContent>
-      </DropdownMenu>
-      <span aria-hidden className="text-muted-foreground">/</span>
-      <DropdownMenu>
-        <DropdownMenuTrigger data-testid="app-switcher-apps" aria-label={`App: ${appLabel}. Switch app`} className={triggerClass}>
-          <span className="truncate">{appLabel}</span>
-          {opening === undefined ? <ChevronDown aria-hidden className="size-(--size-icon-sm) shrink-0 text-muted-foreground" /> : <LoaderCircle aria-hidden className="size-(--size-icon-sm) shrink-0 animate-spin motion-reduce:animate-none" />}
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-56">
-          <DropdownMenuGroup>
-            <DropdownMenuLabel>Apps</DropdownMenuLabel>
-            {apps.map((choice) => (
-              <MenuChoice key={choice.app} url={choice.url} name={choice.label} isCurrent={choice.isCurrent} opening={opening} onOpen={setOpening} testId="app-switcher-app" />
-            ))}
-          </DropdownMenuGroup>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </nav>
+    <div data-testid="app-switcher" className={classNames('flex min-w-0 items-center', isPhone ? 'gap-1' : 'gap-3', className)}>
+      {isPhone ? (
+        <Sheet open={isOpen} onOpenChange={onOpenChange}>
+          <SheetTrigger data-testid="app-switcher-launcher" aria-label="Apps and fleets" title="Apps and fleets" className={launcherClass}>
+            <LayoutGrid aria-hidden />
+          </SheetTrigger>
+          <SheetContent side="bottom" data-testid="app-switcher-panel" className="gap-1 overflow-y-auto">
+            <SheetTitle className="in-data-[side=bottom]:text-heading-touch">Apps and fleets</SheetTitle>
+            {panel}
+            <SheetClose render={<Button size="touch" variant="secondary" className="mt-2 w-full shrink-0" />}>Cancel</SheetClose>
+          </SheetContent>
+        </Sheet>
+      ) : (
+        <DropdownMenu open={isOpen} onOpenChange={onOpenChange}>
+          <DropdownMenuTrigger data-testid="app-switcher-launcher" aria-label="Apps and fleets" title="Apps and fleets" className={launcherClass}>
+            <LayoutGrid aria-hidden />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" sideOffset={8} role="dialog" aria-labelledby="app-switcher-title" data-testid="app-switcher-panel" className="w-86 p-2">
+            <h2 id="app-switcher-title" className="p-2 text-body font-semibold text-foreground">
+              Apps and fleets
+            </h2>
+            {panel}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
+      <WhereYouAre switcher={switcher} isSwitching={isSwitching} isPhone={isPhone} />
+      <span role="status" className="sr-only">
+        {announcement}
+      </span>
+    </div>
   );
 }

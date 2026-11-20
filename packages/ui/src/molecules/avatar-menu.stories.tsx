@@ -43,7 +43,9 @@ export const Closed: Story = {};
 export const SignedInAsYourAccount: Story = {
   play: async ({ canvasElement }) => {
     await userEvent.click(within(canvasElement).getByTestId('avatar-menu'));
-    await expect(await screen.findByTestId('avatar-menu-signed-in-as')).toHaveTextContent('Signed in as your account');
+    await expect(await screen.findByTestId('avatar-menu-signed-in-as')).toHaveTextContent('Signed in with your account');
+    await expect(screen.getByTestId('avatar-menu-who')).toHaveTextContent(/^Your account$/);
+    await expect(within(canvasElement).getByText('Account opened')).toBeInTheDocument();
     await expect(screen.getByTestId('avatar-menu-rights')).toHaveAttribute('href', 'https://account.example/account/rights');
     await expect(screen.getByTestId('avatar-menu-updates')).toHaveAttribute('href', 'https://account.example/account/updates');
   },
@@ -79,6 +81,7 @@ export const Viewer: Story = {
   play: async ({ canvasElement }) => {
     await userEvent.click(within(canvasElement).getByTestId('avatar-menu'));
     await expect(await screen.findByTestId('avatar-menu-signed-in-as')).toHaveTextContent('Viewer');
+    await expect(screen.getByTestId('avatar-menu-who')).toHaveTextContent(/^Viewer$/);
     await expect(screen.queryByTestId('avatar-menu-theme-dark')).toBeNull();
   },
 };
@@ -101,13 +104,13 @@ export const Shortcuts: Story = {
   },
 };
 
-/** Signing out: "Signing out" with a spinner, and it cannot run twice. */
+/** Signing out: Sign out keeps its label with a busy icon, "Signing out…" is announced, and it cannot run twice. */
 export const SigningOut: Story = {
   args: { isSigningOut: true },
   play: async ({ canvasElement }) => {
     await userEvent.click(within(canvasElement).getByTestId('avatar-menu'));
     const signOut = await screen.findByTestId('avatar-menu-sign-out');
-    await expect(signOut).toHaveTextContent('Signing out');
+    await expect(screen.getByTestId('avatar-menu-signing-out')).toHaveTextContent('Signing out…');
     await expect(signOut).toHaveAttribute('data-disabled');
   },
 };
@@ -154,7 +157,7 @@ export const Phone: Story = {
   },
 };
 
-/** Phone, signing out: "Signing out", disabled. */
+/** Phone, signing out: "Signing out…" announced, Sign out disabled. */
 export const PhoneSigningOut: Story = {
   args: { isSigningOut: true },
   globals: { viewport: { value: 'mobile1' } },
@@ -162,7 +165,7 @@ export const PhoneSigningOut: Story = {
   play: async ({ canvasElement }) => {
     await userEvent.click(within(canvasElement).getByTestId('avatar-menu'));
     const signOut = within(await screen.findByTestId('avatar-menu-sheet')).getByTestId('avatar-menu-sign-out');
-    await expect(signOut).toHaveTextContent('Signing out');
+    await expect(screen.getByTestId('avatar-menu-signing-out')).toHaveTextContent('Signing out…');
     await expect(signOut).toBeDisabled();
   },
 };
@@ -201,6 +204,6 @@ export const Row: Story = {
     await expect(trigger).toHaveTextContent('charlotte@acme.example');
     await expect(trigger).toHaveTextContent('Acme fleet');
     await userEvent.click(trigger);
-    await expect(await screen.findByTestId('avatar-menu-signed-in-as')).toHaveTextContent('Signed in as your account');
+    await expect(await screen.findByTestId('avatar-menu-signed-in-as')).toHaveTextContent('Signed in with your account');
   },
 };

@@ -87,7 +87,7 @@ async function openAccountMenu(page: Page): Promise<void> {
 /** The avatar menu says the page is signed in as the account itself, not as argo. */
 async function isSignedInAsAccount(page: Page): Promise<void> {
   await openAccountMenu(page);
-  await page.getByTestId('avatar-menu-signed-in-as').getByText('Signed in as your account').waitFor();
+  await page.getByTestId('avatar-menu-signed-in-as').getByText('Signed in with your account').waitFor();
   await page.keyboard.press('Escape');
 }
 

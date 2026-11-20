@@ -96,16 +96,16 @@ async function tokenFleetOf(page: Page): Promise<string | undefined> {
   return typeof claims === 'object' && claims !== null && 'aud' in claims && typeof claims.aud === 'string' ? claims.aud : undefined;
 }
 
-/** The header's fleet menu, opened. */
+/** The bar's Apps and fleets panel, opened. */
 async function openFleets(page: Page): Promise<void> {
-  await page.locator('[data-testid="app-switcher-fleets"]:visible').click();
+  await page.locator('[data-testid="app-switcher-launcher"]:visible').click();
 }
 
 /** The avatar menu says the page is signed in as the account itself, not as argo. */
 async function isSignedInAsAccount(page: Page): Promise<void> {
   const trigger = page.locator('[data-testid="avatar-menu"][aria-label*="Signed in as"]:visible');
   await trigger.click();
-  await page.getByTestId('avatar-menu-signed-in-as').getByText('Signed in as your account').waitFor();
+  await page.getByTestId('avatar-menu-signed-in-as').getByText('Signed in with your account').waitFor();
   await page.keyboard.press('Escape');
 }
 
@@ -123,7 +123,7 @@ describe('switching the console between two fleets of one organisation', () => {
 
     await page.waitForURL(`${web.url}/?fleet=${fleetB}`);
     await isHydrated(page);
-    await expect(page.locator('[data-testid="app-switcher-fleets"]:visible').getAttribute('aria-label')).resolves.toContain('second fleet');
+    await expect(page.locator('[data-testid="app-switcher-fleet-pill"]:visible').getAttribute('title')).resolves.toContain('second fleet');
     expect(accountApp.signInsAsked()).toBe(signInsBefore);
     expect(await tokenFleetOf(page)).toBe(fleetB);
     const renewal = await page.request.post('/sign-in/renew', { headers: { origin: web.url } });
@@ -159,7 +159,7 @@ describe('switching the console between two fleets of one organisation', () => {
 
     await isHydrated(page);
     await page.getByTestId('argo-banner').waitFor({ state: 'detached' });
-    await expect(page.locator('[data-testid="app-switcher-fleets"]:visible').getAttribute('aria-label')).resolves.toContain('second fleet');
+    await expect(page.locator('[data-testid="app-switcher-fleet-pill"]:visible').getAttribute('title')).resolves.toContain('second fleet');
     await isSignedInAsAccount(page);
     expect(await tokenFleetOf(page)).toBe(fleetB);
     await expect(database.consoleSession.findMany({ where: { fleetId: fleetA, accountId: 'acc-mathilde' }, select: { endReason: true } })).resolves.toEqual([{ endReason: 'signedOut' }]);
@@ -173,7 +173,7 @@ describe('switching the console between two fleets of one organisation', () => {
 
     await page.waitForURL(`${web.url}/?fleet=${fleetB}`);
     await isHydrated(page);
-    await expect(page.locator('[data-testid="app-switcher-fleets"]:visible').getAttribute('aria-label')).resolves.toContain('second fleet');
+    await expect(page.locator('[data-testid="app-switcher-fleet-pill"]:visible').getAttribute('title')).resolves.toContain('second fleet');
     expect(await tokenFleetOf(page)).toBe(fleetB);
   });
 });
