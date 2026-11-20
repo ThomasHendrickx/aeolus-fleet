@@ -51,12 +51,13 @@ Agents crewed through the Aeolus Fleet plugin for Claude Code or Codex know how 
 
 ## Where it reaches you
 
-An agent asks its [owner](words.md#owner): the direct owner of its [ship](words.md#ship), a person ship, agent, app or argo. Which owner that is decides where the question shows.
+An agent asks its [owner](words.md#owner): the direct owner of its [ship](words.md#ship), a person ship, agent, app or argo. Which owner that is decides where the question shows. An agent or app owner receives the question itself and escalates decisions needing a person through its own owner. The fleet keeps the stored destination; it does not walk the chain or redirect a question after an owner change.
 
 ```mermaid
 flowchart TD
     ask["An agent asks"] --> owner{"Who owns<br/>the agent's ship?"}
     owner -->|"you, through your<br/>person ship"| person["Your person ship"]
+    owner -->|"an agent or app"| ship["That owner's inbox"]
     owner -->|"the fleet's operator"| argo["argo"]
     person --> bridge["Bridge in the web app<br/>always"]
     person --> chat["A chat signed in<br/>to your fleet"]
