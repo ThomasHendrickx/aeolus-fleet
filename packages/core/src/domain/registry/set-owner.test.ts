@@ -85,14 +85,88 @@ describe("setting a ship's owner (decisions 0045, 0053)", () => {
     expect(core.state.events.map(({ actor }) => actor)).toEqual([{ kind: 'account', accountId: mathilde, throughShipId: null }]);
   });
 
-  it('refuses an owner that is an agent ship: an owner is a person or argo', async () => {
-    const { shipId: lookoutId } = unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name: 'lookout', type: 'reviewer' }));
+  it.each(['agent', 'app'] as const)('accepts an active %s as the direct owner', async (kind) => {
+    // Given an eligible owner rooted at argo.
+    const { shipId } = unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name: 'lookout', type: 'reviewer', kind }));
+    core.state.events.length = 0;
 
-    await expect(registry.setOwner(argo, { shipId: scoutId, ownerShipId: lookoutId })).resolves.toMatchObject({
-      isOk: false,
-      error: { kind: 'INVALID_OWNER' },
-    });
+    // When the owner changes.
+    unwrap(await registry.setOwner(argo, { shipId: scoutId, ownerShipId: shipId }));
+
+    // Then state and its event agree.
+    expect(ownerOf(scoutId)).toBe(shipId);
+    expect(core.state.events).toEqual([expect.objectContaining({ type: 'OwnerChanged', details: { fromShipId: argoId, toShipId: shipId, why: 'set' } })]);
+  });
+
+  it.each([1, 3])('refuses a loop of %i edges without state or event writes', async (edges) => {
+    // Given a chain rooted at scout.
+    let ownerShipId = scoutId;
+    for (let index = 1; index < edges; index += 1) {
+      const { shipId } = unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name: `child-${String(index)}`, type: 'worker' }));
+      unwrap(await registry.setOwner(argo, { shipId, ownerShipId }));
+      ownerShipId = shipId;
+    }
+    core.state.events.length = 0;
+    const before = structuredClone(core.state.ships);
+
+    // When scout would become its descendant's child.
+    const result = await registry.setOwner(argo, { shipId: scoutId, ownerShipId });
+
+    // Then no part of the assignment commits.
+    expect(result).toMatchObject({ isOk: false, error: { kind: 'OWNERSHIP_CYCLE' } });
+    expect(core.state.ships).toEqual(before);
+    expect(core.state.events).toEqual([]);
+  });
+
+  it('refuses an owner in another fleet without writing an event', async () => {
+    // Given a ship belonging to another fleet.
+    const other = await initialiseFleet(createInMemoryCore('2027-01-01T00:00:00.000Z'));
+    const foreign = core.ids('ship');
+    const source = core.state.ships.find((ship) => ship.id === scoutId);
+    if (!source) throw new Error('missing scout');
+    core.state.ships.push({ ...source, id: foreign, fleetId: other.fleetId });
+
+    // When it is named as owner.
+    const result = await registry.setOwner(argo, { shipId: scoutId, ownerShipId: foreign });
+
+    // Then it is absent from this fleet.
+    expect(result).toMatchObject({ isOk: false, error: { kind: 'INVALID_OWNER' } });
+    expect(core.state.events).toEqual([]);
+  });
+
+  it('refuses an already cyclic ancestor chain without state or event writes', async () => {
+    // Given corrupt persisted ancestors, which are not person roots.
+    const ship = core.state.ships.find((held) => held.id === scoutId);
+    if (!ship) throw new Error('missing scout');
+    const first = core.ids('ship');
+    const second = core.ids('ship');
+    core.state.ships.push({ ...ship, id: first, name: 'first', owner: second }, { ...ship, id: second, name: 'second', owner: first });
+
+    // When that chain is chosen for another ship.
+    const result = await registry.setOwner(argo, { shipId: scoutId, ownerShipId: first });
+
+    // Then repeated ancestors refuse and no assignment commits.
+    expect(result).toMatchObject({ isOk: false, error: { kind: 'OWNERSHIP_CYCLE' } });
     expect(ownerOf(scoutId)).toBe(argoId);
+    expect(core.state.events).toEqual([]);
+  });
+
+  it('refuses a fresh commission inheriting a cyclic owner chain', async () => {
+    // Given an agent whose stored owner chain loops.
+    const scout = core.state.ships.find((ship) => ship.id === scoutId);
+    if (!scout) throw new Error('missing scout');
+    scout.owner = scoutId;
+    const caller: ShipCaller = { kind: 'agent', fleetId: argo.fleetId, shipId: scoutId, scopes: ['fleet:commission'] };
+    scout.scopes = ['messages:send', 'messages:receive', 'fleet:commission'];
+    const before = structuredClone(core.state.ships);
+
+    // When it commissions a ship with inherited ownership.
+    const result = await registry.commissionShip(caller, { idempotencyKey: newKey(), name: 'helper', type: 'worker' });
+
+    // Then neither a ship nor an event is stored.
+    expect(result).toMatchObject({ isOk: false, error: { kind: 'OWNERSHIP_CYCLE' } });
+    expect(core.state.ships).toEqual(before);
+    expect(core.state.events).toEqual([]);
   });
 
   it('refuses a retired owner', async () => {

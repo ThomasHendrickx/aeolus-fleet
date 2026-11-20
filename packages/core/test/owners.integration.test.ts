@@ -8,7 +8,7 @@ import { createRetireShip } from '../src/domain/registry/retire-ship.js';
 import { createSetOwner } from '../src/domain/registry/set-owner.js';
 import type { ShipCaller } from '../src/domain/shared/caller.js';
 import { operatorCaller } from './support/core-fixtures.js';
-import { createPostgresCore, everyRow, type PostgresCore } from './support/postgres-core.js';
+import { createPostgresCore, everyRow, heldUnitOfWork, type PostgresCore } from './support/postgres-core.js';
 import { unwrap } from '../src/testing/result.js';
 import { newKey } from '../src/testing/keys.js';
 import { withOperatorLogin } from './support/operator-login.js';
@@ -95,6 +95,23 @@ describe('setting an owner on Postgres', () => {
     ]);
   });
 
+  it('serializes opposite owner edges so only one commits', async () => {
+    // Given two active agents rooted at argo.
+    const { shipId: peerId } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'peer', type: 'worker' }));
+
+    // When opposite assignments run concurrently.
+    const results = await Promise.all([
+      core.useCases.setOwner(argo, { shipId: scoutId, ownerShipId: peerId }),
+      core.useCases.setOwner(argo, { shipId: peerId, ownerShipId: scoutId }),
+    ]);
+
+    // Then one edge and exactly one event commit, and the other refuses a cycle.
+    expect(results.filter((result) => result.isOk)).toHaveLength(1);
+    expect(results.find((result) => !result.isOk)).toMatchObject({ error: { kind: 'OWNERSHIP_CYCLE' } });
+    expect(await core.prisma.event.count({ where: { fleetId, type: 'OwnerChanged' } })).toBe(1);
+    expect([await ownerOf(scoutId), await ownerOf(peerId)]).toContain(argoId);
+  });
+
   it('stores nothing when its OwnerChanged cannot be written', async () => {
     const before = await everyRow(core.prisma);
     const failingSetOwner = createSetOwner({
@@ -167,53 +184,29 @@ describe('a commission racing the retire of the owner it inherits on Postgres', 
     scout = { shipId: scoutId, fleetId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'fleet:commission', 'fleet:on-behalf'] };
   });
 
-  /** A commission that lets argo retire thomas, committed, right after it first reads the given ship. */
-  function commissionRetiringThomasAfterReading(readShipId: ShipId) {
-    let hasRetired = false;
-    return createCommissionShip({
-      uow: {
-        run: (work) =>
-          createPrismaUnitOfWork(core.prisma).run((tx) =>
-            work({
-              ...tx,
-              ships: {
-                ...tx.ships,
-                find: async (shipFleetId, shipId) => {
-                  const ship = await tx.ships.find(shipFleetId, shipId);
-                  if (shipId === readShipId && !hasRetired) {
-                    hasRetired = true;
-                    unwrap(await core.useCases.retireShip(argo, { shipId: thomasId }));
-                  }
-                  return ship;
-                },
-              },
-            }),
-          ),
-      },
-      clock: core.clock,
-      ids: newId,
-      secrets: { hasher: sha256Hasher, random: cryptoRandomTokens },
-    });
-  }
-
-  it("gives the new ship argo, never the retired owner, when the commissioner's owner retires mid-commission", async () => {
+  it.each(['commissioner', 'requester'] as const)('serializes retirement behind the %s owner read and transfers the new child', async (mode) => {
+    // Given a commission held after reading a ship whose owner is thomas.
     unwrap(await core.useCases.setOwner(argo, { shipId: scoutId, ownerShipId: thomasId }));
-    const commission = commissionRetiringThomasAfterReading(scoutId);
+    const held = heldUnitOfWork(core.prisma, (tx, hold) => ({ ...tx, ships: { ...tx.ships, find: async (id, shipId) => {
+      const ship = await tx.ships.find(id, shipId);
+      if (shipId === scoutId) await hold();
+      return ship;
+    } } }));
+    const commission = createCommissionShip({ uow: held.uow, clock: core.clock, ids: newId, secrets: { hasher: sha256Hasher, random: cryptoRandomTokens } });
 
-    const { shipId } = unwrap(await commission(scout, { idempotencyKey: newKey(), name: 'helper', type: 'reviewer' }));
+    // When retirement races the commission, it must wait for ownership.
+    const pending = commission(scout, { idempotencyKey: newKey(), name: 'helper', type: 'reviewer', ...(mode === 'requester' ? { ownerOf: scoutId } : {}) });
+    await held.reached;
+    const retirement = core.useCases.retireShip(argo, { shipId: thomasId });
+    const [commissioned, retired] = await Promise.all([pending, retirement]);
 
+    // Then retirement finds the committed child and transfers it with its event.
+    const { shipId } = unwrap(commissioned);
+    unwrap(retired);
     await expect(ownerOf(shipId)).resolves.toBe(argoId);
+    expect(await ownerEventsAbout(shipId)).toContainEqual(['OwnerChanged', { fromShipId: thomasId, toShipId: argoId, why: 'ownerRetired' }]);
   });
 
-  it("gives the new ship argo, never the retired owner, when the asking ship's owner retires mid-commission", async () => {
-    const { shipId: askerId } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'asker', type: 'reviewer' }));
-    unwrap(await core.useCases.setOwner(argo, { shipId: askerId, ownerShipId: thomasId }));
-    const commission = commissionRetiringThomasAfterReading(askerId);
-
-    const { shipId } = unwrap(await commission(scout, { idempotencyKey: newKey(), name: 'helper', type: 'reviewer', ownerOf: askerId }));
-
-    await expect(ownerOf(shipId)).resolves.toBe(argoId);
-  });
 });
 
 describe('the owner argo picked for an app ship the gateway commissions, on Postgres', () => {
@@ -233,38 +226,25 @@ describe('the owner argo picked for an app ship the gateway commissions, on Post
     await expect(ownerEventsAbout(shipId)).resolves.toEqual([['OwnerSet', { ownerShipId: thomasId, how: 'named' }]]);
   });
 
-  it('refuses it, storing no ship, when argo retired it just before the commission read it', async () => {
-    let hasRetired = false;
-    const commission = createCommissionShip({
-      uow: {
-        run: (work) =>
-          createPrismaUnitOfWork(core.prisma).run((tx) =>
-            work({
-              ...tx,
-              ships: {
-                ...tx.ships,
-                find: async (shipFleetId, shipId) => {
-                  const ship = await tx.ships.find(shipFleetId, shipId);
-                  if (shipId === gateway.shipId && !hasRetired) {
-                    hasRetired = true;
-                    unwrap(await core.useCases.retireShip(argo, { shipId: thomasId }));
-                  }
-                  return ship;
-                },
-              },
-            }),
-          ),
-      },
-      clock: core.clock,
-      ids: newId,
-      secrets: { hasher: sha256Hasher, random: cryptoRandomTokens },
-    });
+  it('serializes a named owner commission before its retirement', async () => {
+    // Given a commission held after reading the gateway.
+    const held = heldUnitOfWork(core.prisma, (tx, hold) => ({ ...tx, ships: { ...tx.ships, find: async (id, shipId) => {
+      const ship = await tx.ships.find(id, shipId);
+      if (shipId === gateway.shipId) await hold();
+      return ship;
+    } } }));
+    const commission = createCommissionShip({ uow: held.uow, clock: core.clock, ids: newId, secrets: { hasher: sha256Hasher, random: cryptoRandomTokens } });
 
-    const refused = await commission(gateway, { idempotencyKey: newKey(), name: 'crm', type: 'crm', kind: 'app', owner: thomasId });
+    // When the named owner retires concurrently.
+    const pending = commission(gateway, { idempotencyKey: newKey(), name: 'crm', type: 'crm', kind: 'app', owner: thomasId });
+    await held.reached;
+    const [commissioned, retired] = await Promise.all([pending, core.useCases.retireShip(argo, { shipId: thomasId })]);
 
-    expect(refused).toMatchObject({ isOk: false, error: { kind: 'INVALID_OWNER' } });
-    await expect(core.prisma.ship.count({ where: { fleetId, name: 'crm' } })).resolves.toBe(0);
+    // Then both commit in order and the child never keeps a retired owner.
+    unwrap(retired);
+    await expect(ownerOf(unwrap(commissioned).shipId)).resolves.toBe(argoId);
   });
+
 });
 
 describe('the owner read on Postgres', () => {
