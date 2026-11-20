@@ -120,12 +120,12 @@ function skeletonTiles(count) {
 function panelTop(title) {
   return `<div class="panel-title"><h2 id="panel-title">${title}</h2></div>`;
 }
-function sectionHead(id, label, iconName, context) {
+function sectionHead({ id, label, iconName, context }) {
   return `<div class="section-head">${icon(iconName)}<h3 id="${id}">${label}</h3></div>${context ? `<p class="context">${context}</p>` : ''}`;
 }
 /* The apps section: tiles, three to a row, and the app states inline. */
 function appsSection() {
-  const top = sectionHead('apps-heading', 'Apps', 'grid', bridgeGate() ? 'Apps this installation offers' : `Apps you can open in ${currentFleet}`);
+  const top = sectionHead({ id: 'apps-heading', label: 'Apps', iconName: 'grid', context: bridgeGate() ? 'Apps this installation offers' : `Apps you can open in ${currentFleet}` });
   if (isRestricted()) {
     let title, text;
     if (state === 'single') { title = 'No other apps'; text = 'Only Console is configured in this installation. There are no other apps to open.'; }
@@ -150,19 +150,19 @@ function fleetRow(name) {
 }
 /* The fleets section: one row per fleet, the current one checked; switching shows inline. */
 function fleetsSection() {
-  if (bridgeGate()) return `${sectionHead('fleets-heading', 'Fleets', 'layers', 'No fleet: no account is signed in here.')}`;
+  if (bridgeGate()) return `${sectionHead({ id: 'fleets-heading', label: 'Fleets', iconName: 'layers', context: 'No fleet: no account is signed in here.' })}`;
   const one = fleets().length === 1;
   const context = one ? 'This is the only fleet you can open.' : `Choose a fleet. You stay in ${currentApp} where that fleet has it.`;
   const retryBusy = switching === 'busy' && retryingSwitch;
   const failed = switching === 'failed' || retryBusy ? `<div class="notice error" ${retryBusy ? '' : 'role="alert"'}><strong>${icon('alert')} Couldn’t open ${switchTarget}</strong><p>You are still in ${currentFleet}. Try again to open ${switchTarget}.</p><button class="btn" id="switch-retry" ${retryBusy ? 'disabled' : ''}>${retryBusy ? icon('spinner', 'busy-icon') : ''}Try again</button></div>` : '';
   const status = switching === 'busy' ? `<p class="context foot" role="status">Opening ${switchTarget}…</p>` : '';
-  return `${sectionHead('fleets-heading', 'Fleets', 'layers', context)}<div class="fleet-rows" role="group" aria-labelledby="fleets-heading">${fleets().map(fleetRow).join('')}</div>${failed}${status}`;
+  return `${sectionHead({ id: 'fleets-heading', label: 'Fleets', iconName: 'layers', context })}<div class="fleet-rows" role="group" aria-labelledby="fleets-heading">${fleets().map(fleetRow).join('')}</div>${failed}${status}`;
 }
 function combinedPanel() {
   const top = panelTop('Apps and fleets');
   if (['loading', 'retrying'].includes(state)) {
     const rows = '<span class="skeleton row"></span><span class="skeleton row short"></span>';
-    return `${top}${sectionHead('apps-heading', 'Apps', 'grid', '')}<div class="tiles">${skeletonTiles(4)}</div><hr class="separator">${sectionHead('fleets-heading', 'Fleets', 'layers', '')}${rows}<p class="context" role="status">Loading apps and fleets…</p>${state === 'retrying' ? `<button class="btn" disabled>${icon('spinner', 'busy-icon')} Try again</button>` : ''}`;
+    return `${top}${sectionHead({ id: 'apps-heading', label: 'Apps', iconName: 'grid', context: '' })}<div class="tiles">${skeletonTiles(4)}</div><hr class="separator">${sectionHead({ id: 'fleets-heading', label: 'Fleets', iconName: 'layers', context: '' })}${rows}<p class="context" role="status">Loading apps and fleets…</p>${state === 'retrying' ? `<button class="btn" disabled>${icon('spinner', 'busy-icon')} Try again</button>` : ''}`;
   }
   if (state === 'error') return `${top}<div class="notice error" role="alert"><strong>${icon('alert')} Couldn’t load apps and fleets</strong><p>Your current page is still open. Try again to load them.</p><button class="btn" id="retry">Try again</button></div>`;
   const done = refreshed ? '<p class="context foot" role="status">Apps and fleets refreshed.</p>' : '';
@@ -191,7 +191,7 @@ function rove() {
     items.forEach((node) => node.setAttribute('tabindex', node === keep ? '0' : '-1'));
   }
 }
-function moveFocus(items, from, to) {
+function moveFocus(items, { from, to }) {
   const target = items[Math.min(items.length - 1, Math.max(0, to))];
   items[from].setAttribute('tabindex', '-1'); target.setAttribute('tabindex', '0'); target.focus();
 }
@@ -261,11 +261,11 @@ document.addEventListener('keydown', (event) => {
   const tiles = [...document.querySelectorAll('.panel .tile[data-name]:not([aria-disabled="true"])')];
   const at = tiles.indexOf(document.activeElement);
   const step = { ArrowRight: 1, ArrowLeft: -1, ArrowDown: 3, ArrowUp: -3 }[event.key];
-  if (at >= 0 && step) { event.preventDefault(); moveFocus(tiles, at, at + step); return; }
+  if (at >= 0 && step) { event.preventDefault(); moveFocus(tiles, { from: at, to: at + step }); return; }
   const rows = [...document.querySelectorAll('.panel .choice[data-kind="fleet"]:not([aria-disabled="true"])')];
   const row = rows.indexOf(document.activeElement);
   const move = { ArrowDown: row + 1, ArrowUp: row - 1, Home: 0, End: rows.length - 1 }[event.key];
-  if (row >= 0 && move !== undefined) { event.preventDefault(); moveFocus(rows, row, move); return; }
+  if (row >= 0 && move !== undefined) { event.preventDefault(); moveFocus(rows, { from: row, to: move }); return; }
   if (event.key === 'Tab' && isPhone()) {
     const items = [...document.querySelectorAll('.panel a:not([aria-disabled="true"]):not([tabindex="-1"]), .panel button:not(:disabled)')];
     if (event.shiftKey && document.activeElement === items[0]) { event.preventDefault(); items.at(-1)?.focus(); }
