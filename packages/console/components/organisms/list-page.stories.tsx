@@ -124,3 +124,18 @@ export const BarAboveTheSidebar: Story = {
     await expect(sidebar?.querySelector('[data-testid="avatar-menu"]')).toBeNull();
   },
 };
+
+/**
+ * Another fleet opened from the Apps and fleets panel (docs/design/app-navigation, section 4): the page says
+ * "Console is open in Harbour." at its top, announced, the bar naming Harbour.
+ */
+export const Arrived: Story = {
+  args: { switcher: { ...SWITCHER, fleet: { ...SWITCHER.fleet, name: 'Harbour' } }, arrival: { appLabel: 'Console', fleetName: 'Harbour' } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText('Console is open in Harbour.')).toBeVisible();
+    await expect(canvas.getByText('Console is open in Harbour.').closest('[role="status"]')).not.toBeNull();
+    await expect(canvas.getByText('Console is open in Harbour.').getBoundingClientRect().top).toBeLessThan(canvas.getByRole('heading', { level: 1 }).getBoundingClientRect().top);
+  },
+};
+export const ArrivedPhone: Story = { ...Arrived, globals: { viewport: { value: 'mobile1' } } };

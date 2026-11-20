@@ -10,7 +10,7 @@ import { newKey } from '../packages/core/src/testing/keys.js';
 import { unwrap } from '../packages/core/src/testing/result.js';
 import { createUseCases } from '../packages/core/src/wiring.js';
 import { FLEET_URL } from '../packages/core/test/support/core-fixtures.js';
-import { FAKE_CONSOLE_URL, startFakeAccountApp, type FakeAccount, type FakeAccountApp } from './support/fake-account-app.js';
+import { startFakeAccountApp, type FakeAccount, type FakeAccountApp } from './support/fake-account-app.js';
 import { accountButton, openSettings } from './support/console.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 
@@ -52,6 +52,8 @@ beforeAll(async () => {
   const webUrl = await reserveWebUrl();
   accountApp = await startFakeAccountApp({
     accountUrl: ACCOUNT_URL,
+    // The apps list names this console for every fleet, as a hosted installation runs one console for an organisation's fleets.
+    consoleUrl: webUrl,
     argoTickets: async (forFleet, accountId) => unwrap(await useCases.issueSignInTicket({ fleetId: idSchema('fleet').parse(forFleet), account: { id: accountIdSchema.parse(accountId) } })).ticket,
   });
   server = createApp({ databaseUrl, publicUrl: FLEET_URL, consoleOrigin: webUrl, logger: false, accountTokenIssuer: accountApp.url });
@@ -110,24 +112,44 @@ async function isSignedInAsAccount(page: Page): Promise<void> {
 }
 
 describe('switching the console between two fleets of one organisation', () => {
-  it("lands in the console in fleet B from the header's switcher, with the same sign-in, and renews for fleet B", async () => {
+  it('opens fleet B from the Apps and fleets panel: Opening, then Console is open in fleet B, with the same sign-in, and renews for fleet B (H9)', async () => {
+    // Given the account in the console in fleet A, the panel open
     const page = await signedInToA(mathilde());
     const signInsBefore = accountApp.signInsAsked();
-
     await openFleets(page);
-    const link = new URL((await page.getByTestId('app-switcher-fleet').filter({ hasText: 'second fleet' }).getAttribute('href')) ?? '');
-    expect(link.origin).toBe(FAKE_CONSOLE_URL);
-    expect(link.searchParams.get('fleet')).toBe(fleetB);
-    // The apps list names the hosted console's address: the same path and query on this console.
-    await page.goto(`${link.pathname}${link.search}`);
 
-    await page.waitForURL(`${web.url}/?fleet=${fleetB}`);
+    // When it chooses fleet B
+    await page.getByRole('link', { name: 'second fleet' }).click();
+
+    // Then the row says it is opening, and the console arrives in fleet B and says so, focus on the launcher
+    await page.getByText('Opening second fleet').first().waitFor();
+    await page.getByText('Console is open in second fleet.').waitFor({ timeout: 20_000 });
     await isHydrated(page);
     await expect(page.locator('[data-testid="app-switcher-fleet-pill"]:visible').getAttribute('title')).resolves.toContain('second fleet');
+    await expect.poll(() => page.getByRole('button', { name: 'Apps and fleets' }).and(page.locator(':focus')).count()).toBe(1);
     expect(accountApp.signInsAsked()).toBe(signInsBefore);
     expect(await tokenFleetOf(page)).toBe(fleetB);
     const renewal = await page.request.post('/sign-in/renew', { headers: { origin: web.url } });
     expect(renewal.status()).toBe(200);
+    expect(await tokenFleetOf(page)).toBe(fleetB);
+  });
+
+  it("says it couldn't open fleet B while the account app does not answer, keeps the console in fleet A, and Try again opens it", async () => {
+    // Given the account in the console in fleet A, the panel open, the account app down
+    const page = await signedInToA(mathilde());
+    await openFleets(page);
+    accountApp.setDown(true);
+
+    // When it chooses fleet B
+    await page.getByRole('link', { name: 'second fleet' }).click();
+
+    // Then the panel says so, focus on Try again, the console still in fleet A; Try again opens fleet B once the account app answers
+    await page.getByText('Couldn’t open second fleet').waitFor();
+    await page.getByText('You are still in home fleet. Try again to open second fleet.').waitFor();
+    expect(await tokenFleetOf(page)).toBe(fleetA);
+    accountApp.setDown(false);
+    await page.getByRole('button', { name: 'Try again' }).click();
+    await page.getByText('Console is open in second fleet.').waitFor({ timeout: 20_000 });
     expect(await tokenFleetOf(page)).toBe(fleetB);
   });
 

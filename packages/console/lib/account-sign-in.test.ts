@@ -1,7 +1,7 @@
 import { createServer } from 'node:http';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { enterFleet, signOutAccount, startSignIn } from './account-sign-in';
+import { enterFleet, openFleet, signOutAccount, startSignIn } from './account-sign-in';
 import { signOutOfArgo } from './argo-sign-in';
 
 /** Where the web app's server listens behind the proxy: what request.url holds there. */
@@ -133,6 +133,52 @@ describe('switching to another fleet while signed in as argo', () => {
     const answer = await aSwitchAsArgo(await aAccountAppAndCore(500));
 
     expect(answer.headers.get('location')).toBe('/sign-in/switch-failed');
+    expect(answer.headers.getSetCookie()).toEqual([]);
+  });
+});
+
+/** The Apps and fleets panel opening fleet_b from fleet_a in place, from a page on the console's address, with the cookies given. */
+function anOpenFleet(stub: { url: string }, input: { cookie?: string; origin?: string } = {}): Promise<Response> {
+  const { cookie = 'aeolus_account_session=shared; aeolus_console_fleet=fleet_a', origin = CONSOLE_URL } = input;
+  return openFleet(new Request(`${BIND_ADDRESS}/sign-in/fleet?fleet=fleet_b`, { method: 'POST', headers: { cookie, origin } }), {
+    accountApp: { ...ACCOUNT_APP, url: stub.url },
+    environment: { AEOLUS_CONSOLE_URL: CONSOLE_URL, AEOLUS_SERVER_INTERNAL_URL: stub.url },
+  });
+}
+
+describe('opening another fleet from the Apps and fleets panel, in place (docs/design/app-navigation, section 4; H9)', () => {
+  it("answers that it opened, with the fleet's cookies, and changes no identity", async () => {
+    const answer = await anOpenFleet(await aAccountAppAndCore(200));
+
+    await expect(answer.json()).resolves.toEqual({ outcome: 'opened' });
+    const cookies = answer.headers.getSetCookie();
+    expect(cookies).toContain('aeolus_account_token=account-token; Path=/');
+    expect(cookies.some((cookie) => cookie.startsWith('aeolus_console_fleet=fleet_b;'))).toBe(true);
+  });
+
+  it('answers that it failed, setting nothing, when argo\'s sign-in could not end: the console stays in fleet_a', async () => {
+    const answer = await anOpenFleet(await aAccountAppAndCore(500), { cookie: 'aeolus_account_session=shared; aeolus_console_fleet=fleet_a; aeolus_session=ses_x' });
+
+    await expect(answer.json()).resolves.toEqual({ outcome: 'failed' });
+    expect(answer.headers.getSetCookie()).toEqual([]);
+  });
+
+  it('answers that it failed when the account app does not answer', async () => {
+    const answer = await anOpenFleet({ url: 'http://127.0.0.1:1' });
+
+    await expect(answer.json()).resolves.toEqual({ outcome: 'failed' });
+  });
+
+  it('answers sign in, back to fleet_b, when the shared sign-in is gone', async () => {
+    const answer = await anOpenFleet(await aAccountAppAndCore(200), { cookie: 'aeolus_console_fleet=fleet_a' });
+
+    await expect(answer.json()).resolves.toEqual({ outcome: 'sign-in', location: '/sign-in/start?returnTo=%2F%3Ffleet%3Dfleet_b' });
+  });
+
+  it('refuses a press from another origin, setting nothing', async () => {
+    const answer = await anOpenFleet(await aAccountAppAndCore(200), { origin: 'https://evil.example' });
+
+    expect(answer.status).toBe(403);
     expect(answer.headers.getSetCookie()).toEqual([]);
   });
 });
