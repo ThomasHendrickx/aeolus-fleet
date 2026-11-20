@@ -44,6 +44,8 @@ export const SignedInAsYourAccount: Story = {
   play: async ({ canvasElement }) => {
     await userEvent.click(within(canvasElement).getByTestId('avatar-menu'));
     await expect(await screen.findByTestId('avatar-menu-signed-in-as')).toHaveTextContent('Signed in with your account');
+    await expect(screen.getByTestId('avatar-menu-who')).toHaveTextContent(/^Your account$/);
+    await expect(within(canvasElement).getByText('Account opened')).toBeInTheDocument();
     await expect(screen.getByTestId('avatar-menu-rights')).toHaveAttribute('href', 'https://account.example/account/rights');
     await expect(screen.getByTestId('avatar-menu-updates')).toHaveAttribute('href', 'https://account.example/account/updates');
   },
@@ -79,6 +81,7 @@ export const Viewer: Story = {
   play: async ({ canvasElement }) => {
     await userEvent.click(within(canvasElement).getByTestId('avatar-menu'));
     await expect(await screen.findByTestId('avatar-menu-signed-in-as')).toHaveTextContent('Viewer');
+    await expect(screen.getByTestId('avatar-menu-who')).toHaveTextContent(/^Viewer$/);
     await expect(screen.queryByTestId('avatar-menu-theme-dark')).toBeNull();
   },
 };

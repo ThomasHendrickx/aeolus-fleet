@@ -503,6 +503,8 @@ export const Account: Story = {
     await userEvent.click(within(canvasElement).getByTestId('avatar-menu'));
     const signOut = await screen.findByTestId('avatar-menu-sign-out');
     await expect(screen.getByTestId('avatar-menu-signed-in-as')).toHaveTextContent('Signed in with your account');
+    await expect(screen.getByTestId('avatar-menu-who')).toHaveTextContent(/^Your account$/);
+    await expect(within(canvasElement).getByText('Account opened')).toBeInTheDocument();
     await expect(signOut).toHaveTextContent('Sign out');
     await expect(screen.queryByTestId('avatar-menu-theme-light')).toBeNull();
     await expect(screen.queryByTestId('avatar-menu-help')).toBeNull();
@@ -751,3 +753,67 @@ export const BridgeSingleApp: Story = {
 export const BridgeSingleAppDark = inDark(BridgeSingleApp);
 export const BridgeSingleAppPhone = onPhone(BridgeSingleApp);
 export const BridgeSingleAppPhoneDark = inDark(onPhone(BridgeSingleApp));
+
+/** Sign in, pressed: the panel says where the sign-in returns to, announced. */
+export const SignInReturn: Story = {
+  args: { appAccess: { gateway: 'sign-in-required' } },
+  play: async ({ canvasElement }) => {
+    const panel = await openPanel(canvasElement);
+    await userEvent.click(within(panel).getByTestId('app-switcher-sign-in'));
+    await expect(within(panel).getByTestId('app-switcher-sign-in-return')).toHaveTextContent('Sign-in opens with a return to Gateway.');
+    await expect(within(panel).getByTestId('app-switcher-sign-in-return')).toHaveAttribute('role', 'status');
+  },
+};
+export const SignInReturnPhone = onPhone(SignInReturn);
+
+/** An app opened: the new app's bar names it after the launcher, the page says "Gateway is open in Aeolus.". */
+export const ArrivedApp: Story = {
+  args: { surface: 'bridge', hasArrived: true },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByTestId('app-switcher-app-name')).toHaveTextContent('Gateway');
+    await expect(canvas.getByTestId('app-switcher-fleet-pill')).toHaveTextContent('Aeolus');
+    await expect(canvas.getByTestId('arrival-line')).toHaveTextContent('Gateway is open in Aeolus.');
+  },
+};
+export const ArrivedAppPhone = onPhone(ArrivedApp);
+
+/** By keyboard on the tiles: End jumps to the last tile, Home to the first. */
+export const TilesHomeEnd: Story = {
+  play: async ({ canvasElement }) => {
+    within(canvasElement).getByTestId('app-switcher-launcher').focus();
+    await userEvent.keyboard('{Enter}');
+    const panel = await screen.findByTestId('app-switcher-panel');
+    await waitFor(() => expect(appTile(panel, 'Console')).toHaveFocus());
+    await userEvent.keyboard('{End}');
+    await expect(appTile(panel, 'Admin')).toHaveFocus();
+    await userEvent.keyboard('{Home}');
+    await expect(appTile(panel, 'Console')).toHaveFocus();
+  },
+};
+export const TilesHomeEndPhone = onPhone(TilesHomeEnd);
+
+function focused(): HTMLElement | null {
+  return document.activeElement instanceof HTMLElement ? document.activeElement : null;
+}
+
+/** Phone: the sheet keeps focus inside it; Tab goes from the tiles to the fleets to Cancel, then back into the sheet. */
+export const PhoneFocusTrap: Story = onPhone({
+  play: async ({ canvasElement }) => {
+    within(canvasElement).getByTestId('app-switcher-launcher').focus();
+    await userEvent.keyboard('{Enter}');
+    const panel = await screen.findByTestId('app-switcher-panel');
+    await waitFor(() => expect(appTile(panel, 'Console')).toHaveFocus());
+    await userEvent.tab();
+    await expect(fleetRow(panel, 'Aeolus')).toHaveFocus();
+    await userEvent.tab();
+    await expect(within(panel).getByRole('button', { name: 'Cancel' })).toHaveFocus();
+    await userEvent.tab();
+    await expect(panel).toContainElement(focused());
+    await userEvent.tab();
+    await expect(panel).toContainElement(focused());
+    await userEvent.tab({ shift: true });
+    await userEvent.tab({ shift: true });
+    await expect(within(panel).getByRole('button', { name: 'Cancel' })).toHaveFocus();
+  },
+});
