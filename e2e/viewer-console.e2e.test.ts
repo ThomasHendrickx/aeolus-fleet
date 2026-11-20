@@ -111,7 +111,7 @@ describe('the console of a viewer session', () => {
 
   it('explains in the Apps and fleets panel that a viewer sign-in is for Console alone (docs/design/app-navigation, viewer)', async () => {
     const page = await signedIn('viewer');
-    await page.locator('[data-slot="live-status"][data-state="live"]:visible').waitFor({ timeout: 20_000 });
+    await page.getByText('Live', { exact: true }).filter({ visible: true }).first().waitFor({ timeout: 20_000 });
 
     await page.getByRole('button', { name: 'Apps and fleets' }).filter({ visible: true }).click();
 

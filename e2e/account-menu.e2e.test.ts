@@ -136,8 +136,8 @@ describe.each([
     await accountButton(page, 'Account: Signed in as argo').click();
 
     // Then it names argo and this session, and offers Sign out alone
-    await visible(page, 'avatar-menu-session').getByText(/Device · .*Chrome, since/).waitFor();
-    const panel = page.locator('[data-testid="avatar-menu-panel"], [data-testid="avatar-menu-sheet"]').filter({ visible: true });
+    await page.getByText(/^This session: Device · .*Chrome, since/).filter({ visible: true }).waitFor();
+    const panel = (isPhone ? page.getByRole('dialog', { name: 'Account' }) : page.getByRole('menu')).filter({ visible: true });
     await panel.getByText('Signed in as argo, for Console in home fleet').waitFor();
     await expect(panel.getByRole(isPhone ? 'button' : 'menuitem').allTextContents()).resolves.toEqual(isPhone ? ['Sign out', 'Cancel'] : ['Sign out']);
   });
@@ -238,7 +238,7 @@ describe.each([
     const warnings = controlledWarnings(page);
 
     await visible(page, 'avatar-menu').click();
-    await visible(page, 'avatar-menu-session').getByText(/Device · .*Chrome, since/).waitFor();
+    await page.getByText(/^This session: Device · .*Chrome, since/).filter({ visible: true }).waitFor();
     await visible(page, 'avatar-menu-sign-out').click();
     await page.waitForURL(`${web.url}/sign-in`);
 
@@ -370,5 +370,5 @@ async function themeCookieOf(page: Page): Promise<string | undefined> {
 
 /** The page shows live once hydrated: a menu click before that does nothing. */
 async function hydrated(page: Page): Promise<void> {
-  await page.locator('[data-slot="live-status"][data-state="live"]:visible').waitFor({ timeout: 20_000 });
+  await page.getByText('Live', { exact: true }).filter({ visible: true }).first().waitFor({ timeout: 20_000 });
 }

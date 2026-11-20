@@ -132,7 +132,7 @@ export function holdSignOutSlow(page: Page): { callsSent: string[]; started: Pro
  * the account menu's items go), once the page is hydrated.
  */
 export async function openSettings(page: Page): Promise<void> {
-  await page.locator('[data-slot="live-status"][data-state="live"]:visible').waitFor({ timeout: 20_000 });
+  await page.getByText('Live', { exact: true }).filter({ visible: true }).first().waitFor({ timeout: 20_000 });
   await page.getByRole('navigation', { name: 'Console' }).filter({ visible: true }).getByRole('link', { name: 'Settings' }).click();
   await page.getByRole('heading', { name: 'Settings', exact: true }).waitFor();
 }

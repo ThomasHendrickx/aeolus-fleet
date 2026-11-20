@@ -75,7 +75,7 @@ async function signedInAs(who: FakeAccount): Promise<Page> {
 /** The overview shows live once the page is hydrated: a menu click before that does nothing. */
 async function isHydrated(page: Page): Promise<void> {
   await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
-  await page.locator('[data-slot="live-status"][data-state="live"]:visible').waitFor({ timeout: 20_000 });
+  await page.getByText('Live', { exact: true }).filter({ visible: true }).first().waitFor({ timeout: 20_000 });
 }
 
 /** The account button says how the page is signed in only once the console has read its account: a panel opened before that shows a blank line. */
@@ -86,7 +86,7 @@ async function openAccountPanel(page: Page): Promise<void> {
 /** The account panel says the page is signed in as the account itself, not as argo. */
 async function isSignedInAsAccount(page: Page): Promise<void> {
   await openAccountPanel(page);
-  await page.getByTestId('avatar-menu-signed-in-as').getByText('Signed in with your account').waitFor();
+  await page.getByText('Signed in with your account').filter({ visible: true }).waitFor();
   await page.keyboard.press('Escape');
 }
 
