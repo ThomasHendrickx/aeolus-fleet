@@ -96,7 +96,7 @@ The parts stay props only, in `packages/ui`: `AppHeader` holds the bar; the laun
 | Single-app self-hosted installation | Console tile alone, current; "No other apps" and the installation explanation | Aeolus alone | Keep using Console or close |
 | argo | Console tile alone; "Signed in as argo" and why other apps need an account | Aeolus alone; "Signed in as argo" | Keep using the session or close |
 | Viewer | Console tile alone; "Viewer" and why other apps are not supplied | Aeolus alone; "Viewer" | Keep using the session or close |
-| Missing app | That tile greyed with "Unavailable", no link; what failed, where you still are, Try again; other tiles stay | Unchanged | Try again, then updated tiles or the same inline error |
+| Missing app (not built) | Not built: nothing tells Console an app is missing, as the apps list names only apps that are there. An app that goes away is simply not listed. | Unchanged | None |
 | Expired sign-in for an app | That tile greyed with "Sign-in required"; "Your sign-in has expired" and Sign in | "Sign-in expired" on the account button | Existing shared sign-in, returning to the requested app |
 | Loading | Tile and row shapes as skeletons in both sections, "Loading apps and fleets…" | The bar keeps the current app and fleet | Wait or close; no empty claim |
 | Read failure | One notice: "Couldn’t load apps and fleets", current page still open, Try again | The bar keeps the current app and fleet | Retry with busy icon, then both sections and "Apps and fleets refreshed.", or the inline error |
@@ -113,7 +113,7 @@ Argo and viewer do not acquire Bridge sessions. The Bridge frames for these case
 | Open an app | The tile says "Opening" with a busy icon, other tiles and the fleet rows wait, "Opening Gateway…" under the tiles; announced | The new app's bar names it after the launcher, focus on the launcher; a reported refusal stays inline with its next action |
 | Open a fleet | The row reads "Opening Harbour" with a busy icon, other rows and the tiles wait, the fleet pill in the bar shows a busy icon, "Opening Harbour…" under the list; announced | The panel closes, the bar names Harbour, the page says "Console is open in Harbour.", focus returns to the launcher |
 | A fleet fails to open | The rows return; "Couldn’t open Harbour", "You are still in Aeolus. Try again to open Harbour.", focus on Try again; announced | Try again keeps its label and gains a busy icon while the row reads "Opening Harbour" again; then arrival, or the same inline error |
-| Try again after a read failure or a missing app | Button keeps its label and gains a busy icon; tile and row skeletons | "Apps and fleets refreshed." with both sections, or the inline error |
+| Try again after a read failure | Button keeps its label and gains a busy icon; tile and row skeletons | "Apps and fleets refreshed." with both sections, or the inline error |
 | Sign in | Button keeps its label and gains a busy icon | Existing sign-in returns to the requested app |
 | Sign out | Row gains a busy icon, "Signing out…"; announced | Existing sign-out |
 | Choose the current app or fleet | Panel closes; "already open" announced | The bar stays as it was |
