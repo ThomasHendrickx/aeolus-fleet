@@ -31,7 +31,7 @@ Not the purpose:
 - **Launch window** (`reconciler.ts:90`, 60 s): hook markers (`started`, `active`, `refused`), the screen for prompts that stop a session before its hooks run, and Codex's session log for a refused model.
 - **Restart**: budget 5 in 60 minutes, delays 5 s to 10 min (`restart-policy.ts`); Claude Code gets `--continue` when its folder has a conversation, Codex `codex resume --last`.
 - **Fleet socket**: `sockets/<shipId>/fleet.sock`, named in the folder's identity file; it answers only a caller under that ship's session root (`caller-check.ts`).
-- **Logins**: host sessions use the machine's own login; containers get the one long-lived Claude token from `~/.aeolus/trierarch/model-token` as `CLAUDE_CODE_OAUTH_TOKEN` through an env file. Codex is not offered in containers. No API-key path exists.
+- **Logins**: a session uses its harness's subscription or an API key, selected by harness default and per-ship exceptions. The trierarch keeps the key on the machine and routes key sessions through its model proxy. See the [trierarch's API keys](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/blob/main/docs/trierarch.md#api-keys).
 - **Watching**: `tmux -L aeolus-trierarch attach`, or Remote Control on host Claude Code sessions (refused with containers).
 - **Usage**: subscription windows read from a probe turn (Claude Code) or rollout logs (Codex); tokens from the harnesses' transcripts; `prices` in the configuration.
 
@@ -65,7 +65,7 @@ Thomas's answers (25 Oct):
 | H3 | **The operator talks to a ship by sending it a message; steering a busy turn is a forced delivery.** Remote Control is dropped |
 | H4 | **Headless replaces tmux on the host and in containers in one release;** tmux leaves the machine requirements and the session image |
 | H5 | **The plugin's hooks run inside the headless session and confirm, report the turn and handled, as today.** A harness whose hooks do not run headless is not offered until they do |
-| H6 | **An API key is kept on the machine, in the trierarch's files beside the model token (mode 600); a machine may hold a key and a subscription login together, and each session uses exactly one of them and never falls back to the other.** The person who runs the trierarch sets a default login per harness and the ships that run on the other (the trierarch's [API keys design](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/blob/main/docs/design/api-keys/api-keys.md)); the report details state each ship's login |
+| H6 | **An API key is kept on the machine, in the trierarch's files beside the model token (mode 600); a machine may hold a key and a subscription login together, and each session uses exactly one of them and never falls back to the other.** The person who runs the trierarch sets a default login per harness and the ships that run on the other (the trierarch's [API keys](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/blob/main/docs/trierarch.md#api-keys)); the report details state each ship's login |
 | H7 | **A model proxy on the machine holds the key; the session gets only the proxy's address** |
 
 The detail that follows from them (approved with the design):
@@ -162,8 +162,6 @@ All in `aeolus-fleet-trierarch` except S4's console part. S1 first; S2, S3, S4 a
 
 ### S5 API keys and the model proxy (H6, H7, H15 to H17)
 
-- `aeolus-trierarch login`, the key files, the proxy with its per-session tokens, Claude Code and Codex wired to it, the login in the report details, usage without windows.
-- Containers reach the proxy at Podman's host address (after S3); the model token stays for the subscription login.
-- Tests: a session with a key works and its environment holds no key; a token of a stopped session is refused; a request to any host but the vendor's is refused; a wrong key fails the start with the vendor's cause; removing a key moves no session to the subscription login; the details state the login and never the key.
+Shipped in the trierarch. Its [API keys documentation](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/blob/main/docs/trierarch.md#api-keys) describes the login selection, proxy and current container route.
 
 Docs each slice updates: `trierarch.md` (Crewing a ship, Unattended, Restart, Release, Session runtime, report details), `architecture.md` (adapters, files on the machine, the diagrams), decisions 0026 and 0039 and their lines in core's `docs/decisions/README.md`, `packages/trierarch/README.md` (requirements, attach), `timings-and-limits.md` (the 10 s interrupt wait, the 10 MB rotation).
