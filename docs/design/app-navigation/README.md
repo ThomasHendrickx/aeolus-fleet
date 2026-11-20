@@ -121,3 +121,70 @@ Argo and viewer do not acquire Bridge sessions. The Bridge frames for these case
 Keyboard: the bar's order is launcher, the page's own part, account button. Enter or Space opens a button. In the panel the tiles are one tab stop and the fleet rows another: the arrow keys move between tiles (left, right, up and down by a row), Tab moves from the tiles to the current fleet, Up and Down move between fleets and Home and End jump to the first and last; Enter chooses; Escape closes and returns focus to the launcher. The phone sheet traps focus and ends with Cancel. Visible focus follows `--ring`. Every phone target is at least 44 px; states have words, not only icons. Reduced motion and the light and dark tokens apply.
 
 The HTML, CSS and JS fixtures and the capture script live only in this documentation folder. They simulate choices, retries, sign-in and sign-out loading locally. No server, real app, credential or app behaviour is changed. No production implementation is authorized before Thomas approves these mockups.
+
+### Where the account menu's items go
+
+Status: awaiting Thomas’s approval. Thomas chose on 20 Nov 2026 that a mockup round places each item before the console slice builds anything. [Before and after screenshots](mockups/README.md#where-the-account-menus-items-go).
+
+The approved account panel holds who is signed in and Sign out only, and stays as it is. Today's console account menu ([`useAccountMenu`](../../../packages/console/lib/account.tsx) filling [`AvatarMenu`](../../../packages/ui/src/molecules/avatar-menu.tsx)) holds more. Each item moves to a place the console already has: the Settings page, the sidebar and the phone tab bar. No new atom, colour or product term.
+
+| Item today | Who has it today | Where it goes |
+| --- | --- | --- |
+| Theme (Light, Dark, System), the only place to change it | argo and an account; the viewer has none (0022) | Settings, first section "Theme", with the scope line it has today, "This browser, every Aeolus app", and the three buttons the phone sheet uses today. Applied at once, as today (T1 to T4 unchanged). The viewer sees the section with "A viewer sign-in shows this browser’s theme and has no theme switch." |
+| Keyboard shortcuts | Desktop, every sign-in | Settings, section "Help", desktop only (H6), opening the same dialog. |
+| Help | Every sign-in | Settings, section "Help", opening the documentation in a new tab, as today. |
+| Take the tour | Where a guide is set for the session (0024) | Settings, section "Help", under the same rule; it opens the guide's first step, as today. |
+| Your account, Your rights, Email updates | An account whose apps list names Account (H8) | Settings, section "Your account", "These pages open in Account.", under the same rule. ⌘K still finds them (A2). |
+| Sign in as argo | An account allowed as argo in this fleet | Settings, section "Your account", last row, under the same rule, with "Signing in as argo" while it works. |
+| Settings, phone only | A session that manages the fleet, with something to set | The phone tab bar's last tab, "Settings", for every sign-in. The sidebar's Settings item likewise shows for every sign-in. |
+| Network, phone only | A session holding `fleet:network` while the networking plugin is connected | On phone, the first row of Settings, under the same rule. Desktop keeps its sidebar item. |
+
+Settings then opens with the sections every sign-in has, then the installation's sections it holds today (argo's own sign-in, squadrons, the trierarch plugin, the gateway, the watch plugin), each under its own rule as today. Its description reads "How this console looks for you, and how this installation runs.", or "How this console looks for you." for a sign-in that manages nothing.
+
+```text
+Account menu today (sidebar foot on desktop, bottom sheet on phone)
+  Who is signed in, This session ..................... stays: the account panel (approved, unchanged)
+  Sign out ........................................... stays: the account panel (approved, unchanged)
+  Your account, Your rights, Email updates ........... Settings > Your account (account with Account in its apps list)
+  Sign in as argo .................................... Settings > Your account, last row (account allowed as argo)
+  Take the tour ...................................... Settings > Help (a guide for the session)
+  Theme: Light, Dark, System ......................... Settings > Theme (argo, account; viewer: a line, no switch)
+  Keyboard shortcuts ................................. Settings > Help (desktop only)
+  Help ............................................... Settings > Help (new tab)
+  Settings (phone only) .............................. phone tab bar, last tab; sidebar item for every sign-in
+  Network (phone only) ............................... phone: Settings, first row; desktop: sidebar item, unchanged
+
+Settings, top to bottom
+  [phone, fleet:network] Network >
+  Theme              Light | Dark | System    (viewer: no switch)
+  Help               [desktop] Keyboard shortcuts / Help / [guide] Take the tour
+  Your account       [Account in the apps list] Your account / Your rights / Email updates
+                     [allowed as argo] Sign in as argo
+  Today's sections   argo's own sign-in, squadrons, trierarch plugin, gateway, watch plugin (their rules unchanged)
+```
+
+Per state:
+
+| State | Settings shows | Phone tab bar |
+| --- | --- | --- |
+| Account | Theme; Help with Take the tour; Your account with its three pages and Sign in as argo; today's sections it manages | Fleet, Health, Trierarchs, Inbox, Settings |
+| argo | Network on phone; Theme; Help with Take the tour; today's sections | The same |
+| Viewer | Theme as a line without a switch; Help with Take the tour | The same |
+| Single-app self-hosted, argo | Theme; Help with Take the tour; argo's own sign-in. No Your account section: there is no Account app | Fleet, Health, Inbox, Settings without the trierarch plugin |
+
+The phone tab bar holds six tabs at most (squadrons and the trierarch plugin on); every label fits at 375 px and every tab stays 44 px.
+
+| Choice | Immediate feedback | End |
+| --- | --- | --- |
+| A theme | The page shows it at once; the button is pressed; focus stays; "Theme: Dark" announced | Kept for this browser, as today |
+| Keyboard shortcuts | The dialog opens with focus inside | Escape or Close returns focus to the row |
+| Sign in as argo | The row reads "Signing in as argo" with a busy icon and is disabled | The existing argo sign-in |
+| Take the tour | The guide's first step opens on its page, focus on Next | The guide, as today |
+
+Questions this round puts to Thomas, each with the pick shown:
+
+1. Settings for every sign-in, the viewer included, so the theme and Help have one home. Rejected: Settings for those who manage the fleet only, which leaves the viewer and an account that manages nothing without Help, Take the tour and Keyboard shortcuts.
+2. Settings as the phone tab bar's last tab. Rejected: a row in the account panel, which the approved panel does not hold.
+3. Network on phone as the first row of Settings. Rejected: a sixth or seventh tab.
+
+No production code changes until Thomas approves this round.
