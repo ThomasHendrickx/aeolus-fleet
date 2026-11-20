@@ -6,6 +6,7 @@ import { builtInRowsOf } from './built-in-rules';
 const ALL_ON: BuiltInRuleState[] = [
   { rule: 'argo', isOn: true },
   { rule: 'owner', isOn: true },
+  { rule: 'sendToOwner', isOn: true },
   { rule: 'answer', isOn: true },
   { rule: 'pluginRead', isOn: true },
   { rule: 'sendToPlugin', isOn: true },
@@ -21,6 +22,7 @@ describe('the built-in rules as Network shows them (decision 0034)', () => {
     expect(builtInRowsOf(ALL_ON).map((row) => [row.name, row.meaning])).toEqual([
       ['argo', 'argo sends to, reads and manages every ship, and every ship reaches argo.'],
       ['Owner', 'A ship’s owner sends to, reads and manages the ships it owns.'],
+      ['Send to owner', 'A ship sends to its direct owner, with no read or manage reach back or reach to further ancestors.'],
       ['Answer', 'A ship may always answer the sender of a message it received.'],
       ['Connected plugins read', 'A plugin argo connected reads every ship, whatever the rules.'],
       ['Ships send to plugins', 'Every ship may send to a plugin argo connected, whatever the rules.'],
@@ -33,16 +35,16 @@ describe('the built-in rules as Network shows them (decision 0034)', () => {
   });
 
   it('marks argo, the owner, the answer, a connected plugin’s reading and sending, a ship’s sending to a plugin, a meeting and the installation’s managing never off, the viewer reading argo’s to turn and open turned by the applied rules', () => {
-    expect(builtInRowsOf(ALL_ON).map((row) => row.turnedBy)).toEqual(['never', 'never', 'never', 'never', 'never', 'never', 'never', 'argo', 'never', 'rules']);
+    expect(builtInRowsOf(ALL_ON).map((row) => row.turnedBy)).toEqual(['never', 'never', 'never', 'never', 'never', 'never', 'never', 'never', 'argo', 'never', 'rules']);
   });
 
   it('says each rule that can be off as the fleet answers it', () => {
     const states: BuiltInRuleState[] = ALL_ON.map((state) => (state.rule === 'viewerRead' || state.rule === 'open' ? { ...state, isOn: false } : state));
 
-    expect(builtInRowsOf(states).map((row) => row.isOn)).toEqual([true, true, true, true, true, true, true, false, true, false]);
+    expect(builtInRowsOf(states).map((row) => row.isOn)).toEqual([true, true, true, true, true, true, true, true, false, true, false]);
   });
 
   it('keys each row by its rule, so a list keeps its rows', () => {
-    expect(builtInRowsOf(ALL_ON).map((row) => row.key)).toEqual(['argo', 'owner', 'answer', 'pluginRead', 'sendToPlugin', 'pluginSend', 'meeting', 'viewerRead', 'installation', 'open']);
+    expect(builtInRowsOf(ALL_ON).map((row) => row.key)).toEqual(['argo', 'owner', 'sendToOwner', 'answer', 'pluginRead', 'sendToPlugin', 'pluginSend', 'meeting', 'viewerRead', 'installation', 'open']);
   });
 });
