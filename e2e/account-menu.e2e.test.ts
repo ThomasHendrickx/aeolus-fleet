@@ -363,6 +363,36 @@ describe.each([
   });
 });
 
+describe('Settings as the mockups draw it (docs/design/app-navigation, where the account menu\'s items go)', () => {
+  it('holds its sections in one column about 712 px wide on desktop', async () => {
+    // Given argo signed in on desktop
+    const page = await signedInPage({ isPhone: false });
+
+    // When argo opens Settings
+    await openSettings(page);
+
+    // Then each section is as wide as the mockup's column, not the page
+    const theme = await page.getByRole('region', { name: 'Theme' }).boundingBox();
+    const help = await page.getByRole('region', { name: 'Help' }).boundingBox();
+    expect([theme?.width, help?.width]).toEqual([712, 712]);
+  });
+
+  it('puts Network first on phone, above Theme, where the tab bar has no room for it', async () => {
+    // Given argo, who may edit the network, signed in on a phone
+    const page = await signedInPage({ isPhone: true });
+
+    // When argo opens Settings
+    await openSettings(page);
+
+    // Then the Network row comes first, above the Theme section
+    const network = await page.getByRole('main').getByRole('link', { name: 'Network' }).boundingBox();
+    const theme = await page.getByRole('heading', { name: 'Theme', level: 2 }).boundingBox();
+    expect(network).not.toBeNull();
+    expect(theme).not.toBeNull();
+    expect(network?.y ?? Infinity).toBeLessThan(theme?.y ?? 0);
+  });
+});
+
 /** The theme this browser keeps in the cookie every Aeolus app reads; undefined without one. */
 async function themeCookieOf(page: Page): Promise<string | undefined> {
   return (await page.context().cookies()).find((cookie) => cookie.name === THEME_COOKIE)?.value;
