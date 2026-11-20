@@ -1,6 +1,6 @@
 # A ship lists the meetings it takes part in
 
-Design for [#1981](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1981). Docs only. Thomas approved the purpose (20 Nov) and answered Q1 to Q7, each option 1 (20 Nov). Sections 4 to 10 are the detailed stage built on those answers; section 11 holds the questions it raises, not yet answered.
+Design for [#1981](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1981). Docs only. Thomas approved the purpose (20 Nov) and answered Q1 to Q11, each option 1 (20 Nov). Sections 4 to 10 are the detailed stage built on those answers.
 
 ## 1. Purpose (agreed)
 
@@ -98,6 +98,38 @@ Pick 1. One call, one answer shape (L12); option 2 gives one call two answers an
 
 **Decision. Thomas: 1** (20 Nov). A new ship call `meetings` on tRPC, with REST and MCP over the same procedure, a ship protocol line and a compatibility row for the gateway.
 
+**Q8. Where the list's order key lives.**
+1. Copied onto each participant row (`meeting_opened_at`, `is_meeting_ended`) with one index in list order, written by the open, the add and the end, which already write those rows.
+2. Read from the meeting row through the existing `(fleet_id, ship_id)` index, joined and sorted at each list.
+
+Pick 1. A page then reads at most `2 x (limit + 1)` index entries whatever the ship's history (L6); option 2 sorts every meeting the ship was ever in on every page, so its cost grows with that history.
+
+**Decision. Thomas: 1** (20 Nov). The order key is copied onto each participant row (`meeting_opened_at`, `is_meeting_ended`) with one index in list order.
+
+**Q9. Existing meetings' last contribution time at migration.**
+1. Backfilled from the newest kept contribution of each meeting; a meeting whose contributions retention already took stays null.
+2. Null for every existing meeting; only new contributions set it.
+
+Pick 1. Open meetings then show a true time from the first release, and the backfill is one grouped statement over messages with a meeting, run once.
+
+**Decision. Thomas: 1** (20 Nov). The last contribution's time is backfilled from each meeting's newest kept contribution; null where retention took them.
+
+**Q10. How a contribution holds the meeting it now writes.**
+1. `FOR NO KEY UPDATE` in place of `FOR SHARE`, so two contributions to one meeting take turns.
+2. `FOR SHARE` kept, and a deadlock between two contributions retried.
+
+Pick 1. Two shared holders that both update deadlock; at most two ships contribute at once (the holder and the moderator), so taking turns costs little, and changes still wait for contributions in flight as decision 0061 says.
+
+**Decision. Thomas: 1** (20 Nov). A contribution holds the meeting `FOR NO KEY UPDATE` in place of `FOR SHARE`, so two contributions take turns.
+
+**Q11. A meeting that ends while a ship pages.**
+1. Accepted: it may show twice, open then ended; the client keeps the later row by id. None is skipped.
+2. The cursor holds the time of the first page, and later pages leave out what changed after it.
+
+Pick 1. It keeps the cursor a position and the query unchanged; a list read again from the top shows each once.
+
+**Decision. Thomas: 1** (20 Nov). A meeting that ends while a ship pages may show twice, open then ended; the client keeps the later row by id. None is skipped.
+
 ## 4. What is true today
 
 - **The meeting row** (`meetings`) holds title, owner, moderator, opener, `opened_at`, `ended_at`, the mic holder and the mic pattern. No last contribution time.
@@ -173,7 +205,7 @@ Forward only (0013), one migration, `<timestamp>_meeting_list`:
 -- Q5: the last contribution's time, kept on the meeting.
 ALTER TABLE meetings ADD COLUMN last_contribution_at timestamptz(3);
 
--- The list's order key, copied onto each participant row (question Q8).
+-- The list's order key, copied onto each participant row (Q8).
 ALTER TABLE meeting_participants
   ADD COLUMN meeting_opened_at timestamptz(3),
   ADD COLUMN is_meeting_ended boolean NOT NULL DEFAULT false;
@@ -182,7 +214,7 @@ UPDATE meeting_participants p
   FROM meetings m WHERE m.fleet_id = p.fleet_id AND m.id = p.meeting_id;
 ALTER TABLE meeting_participants ALTER COLUMN meeting_opened_at SET NOT NULL;
 
--- Existing meetings' last contribution (question Q9, as picked).
+-- Existing meetings' last contribution (Q9).
 UPDATE meetings m SET last_contribution_at = c.at
   FROM (SELECT fleet_id, meeting_id, max(created_at) AS at FROM messages
         WHERE meeting_id IS NOT NULL GROUP BY fleet_id, meeting_id) c
@@ -203,7 +235,7 @@ The copied columns are the adapter's, not the domain's: `Participant` in `meetin
 
 Every write rides in a transaction that already changes state and already writes its event; the call itself writes nothing and records no event.
 
-- **A contribution** (`contributeWithin` in `send-message.ts`, through a new port method `MeetingRepository.contributed`): `UPDATE meetings SET last_contribution_at = GREATEST(last_contribution_at, $at)` in the send's transaction, after the deliveries are made, beside the `MessageAccepted` per delivery it writes today. A rolled back send leaves the time as it was. `GREATEST` keeps the newest when two contributions commit out of clock order. The meeting is then held `FOR NO KEY UPDATE` instead of `FOR SHARE` (question Q10): an update needs that lock anyway, and taking it from the start keeps two contributions that both hold `FOR SHARE` from deadlocking on their updates. Changes still wait for contributions in flight, since `FOR UPDATE` conflicts with it; message inserts take only `FOR KEY SHARE` through the foreign key, which it allows.
+- **A contribution** (`contributeWithin` in `send-message.ts`, through a new port method `MeetingRepository.contributed`): `UPDATE meetings SET last_contribution_at = GREATEST(last_contribution_at, $at)` in the send's transaction, after the deliveries are made, beside the `MessageAccepted` per delivery it writes today. A rolled back send leaves the time as it was. `GREATEST` keeps the newest when two contributions commit out of clock order. The meeting is then held `FOR NO KEY UPDATE` instead of `FOR SHARE` (Q10): an update needs that lock anyway, and taking it from the start keeps two contributions that both hold `FOR SHARE` from deadlocking on their updates. Changes still wait for contributions in flight, since `FOR UPDATE` conflicts with it; message inserts take only `FOR KEY SHARE` through the foreign key, which it allows.
 - **An end** (`endMeeting`, and a retire ending the meetings its ship owns): `save` writes `ended_at` and `is_meeting_ended` on every participant row in the transaction that writes `MeetingEnded`.
 - **An open and an add**: `create` and `save` write the participant rows with `meeting_opened_at` and `is_meeting_ended = false`, in the transaction that writes `MeetingOpened` and `ParticipantAdded`.
 
@@ -311,7 +343,7 @@ flowchart TD
 - **The lease ends, or the token lacks `messages:receive`**: `LEASE_ENDED` or `FORBIDDEN` before any read.
 - **A cursor that does not parse, or a limit outside 1 to 100**: `BAD_REQUEST`.
 - **A ship in no meeting**: an empty page, `nextCursor` null.
-- **A meeting ends while a ship pages**: it moves from the open section to the ended one. Seen already while open, it may show again under ended; not seen yet, it shows under ended. None is skipped (question Q11).
+- **A meeting ends while a ship pages**: it moves from the open section to the ended one. Seen already while open, it may show again under ended, and the client keeps the later row by id; not seen yet, it shows under ended. None is skipped (Q11).
 - **The ship is added to a meeting while it pages**: a meeting opened after the first page is newer than the cursor in the open section, so it shows on the next first page, not this paging.
 - **The ship leaves, is revoked or rejoins**: the row stays; its `participantState` says which, read when the page is read.
 - **Two contributions at once** (the holder's and the moderator's): they take turns on the meeting row; `GREATEST` keeps the newest time.
@@ -339,31 +371,3 @@ Core first, each its own PR; then the gateway and the app in their own repositor
 3. **Core: the call.** `ship.meetings` on tRPC, REST `ship/meetings` and the MCP tool `meetings`; the ship protocol line (rule 18: "Call meetings to list the meetings you take part in, open first, each with where you stand."); the blueprint's ship contract row and decision 0061's read line; the architecture's meeting tables; the compatibility row for the gateway (`ship/meetings`, the core release carrying aeolus-fleet#1981, aeolus-fleet-gateway#428). Done when: the tRPC, REST and MCP door tests answer a page and refuse `LEASE_ENDED`, `FORBIDDEN` and `BAD_REQUEST`; `rest-api.test.ts` and `mcp-endpoint.test.ts` list the call; `ship-protocol.test.ts` has the line; a person ship's crew token reads its list end to end.
 4. **Gateway** (ThomasHendrickx/aeolus-fleet-gateway#428): reads `ship/meetings` for a person ship and forwards it as core answers it, raising its minimum core to the release of slice 3. Done when as its issue says.
 5. **App** (app #285): the person's list of their meetings through the gateway, each opening the meeting it names. Done when as its issue says.
-
-## 11. New questions
-
-Raised by the detailed stage; none decided until Thomas answers.
-
-**Q8. Where the list's order key lives.**
-1. Copied onto each participant row (`meeting_opened_at`, `is_meeting_ended`) with one index in list order, written by the open, the add and the end, which already write those rows.
-2. Read from the meeting row through the existing `(fleet_id, ship_id)` index, joined and sorted at each list.
-
-Pick 1. A page then reads at most `2 x (limit + 1)` index entries whatever the ship's history (L6); option 2 sorts every meeting the ship was ever in on every page, so its cost grows with that history.
-
-**Q9. Existing meetings' last contribution time at migration.**
-1. Backfilled from the newest kept contribution of each meeting; a meeting whose contributions retention already took stays null.
-2. Null for every existing meeting; only new contributions set it.
-
-Pick 1. Open meetings then show a true time from the first release, and the backfill is one grouped statement over messages with a meeting, run once.
-
-**Q10. How a contribution holds the meeting it now writes.**
-1. `FOR NO KEY UPDATE` in place of `FOR SHARE`, so two contributions to one meeting take turns.
-2. `FOR SHARE` kept, and a deadlock between two contributions retried.
-
-Pick 1. Two shared holders that both update deadlock; at most two ships contribute at once (the holder and the moderator), so taking turns costs little, and changes still wait for contributions in flight as decision 0061 says.
-
-**Q11. A meeting that ends while a ship pages.**
-1. Accepted: it may show twice, open then ended; the client keeps the later row by id. None is skipped.
-2. The cursor holds the time of the first page, and later pages leave out what changed after it.
-
-Pick 1. It keeps the cursor a position and the query unchanged; a list read again from the top shows each once.
