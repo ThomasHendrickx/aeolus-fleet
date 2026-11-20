@@ -104,9 +104,10 @@ function isPlainPress(event: MouseEvent): boolean {
   return event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey;
 }
 
-function Notice({ title, isError = false, children }: { title: string; isError?: boolean; children: ReactNode }) {
+/** A notice in the panel; a failure has the warning icon, and is announced at once unless its retry already runs. */
+function Notice({ title, isError = false, isAnnounced = isError, children }: { title: string; isError?: boolean; isAnnounced?: boolean; children: ReactNode }) {
   return (
-    <div role={isError ? 'alert' : undefined} className="m-2 flex flex-col gap-2 rounded-md bg-muted p-3 text-body text-foreground">
+    <div role={isAnnounced ? 'alert' : undefined} className="m-2 flex flex-col gap-2 rounded-md bg-muted p-3 text-body text-foreground">
       <p className="flex items-center gap-2 font-medium">
         {isError ? <TriangleAlert aria-hidden className="size-(--size-icon) shrink-0 text-destructive-text" /> : null}
         {title}
@@ -411,7 +412,7 @@ function Panel({ switcher, state, fleetSwitch, openingApp, isPhone, onOpenApp, o
           })}
         </div>
         {switchTarget !== undefined && fleetSwitch !== undefined && fleetSwitch.state !== 'opening' ? (
-          <Notice title={`Couldn’t open ${switchTarget.name}`} isError={fleetSwitch.state === 'failed'}>
+          <Notice title={`Couldn’t open ${switchTarget.name}`} isError isAnnounced={fleetSwitch.state === 'failed'}>
             <NoticeText>{`You are still in ${fleet.name}. Try again to open ${switchTarget.name}.`}</NoticeText>
             <RetryButton
               isRetrying={fleetSwitch.state === 'retrying'}
@@ -523,7 +524,7 @@ export function AppSwitcher({ switcher, layout, state = {}, className }: AppSwit
             <LayoutGrid aria-hidden />
           </SheetTrigger>
           <SheetContent side="bottom" data-testid="app-switcher-panel" className="gap-1 overflow-y-auto">
-            <SheetTitle>Apps and fleets</SheetTitle>
+            <SheetTitle className="in-data-[side=bottom]:text-heading-touch">Apps and fleets</SheetTitle>
             {panel}
             <SheetClose render={<Button size="touch" variant="secondary" className="mt-2 w-full shrink-0" />}>Cancel</SheetClose>
           </SheetContent>
