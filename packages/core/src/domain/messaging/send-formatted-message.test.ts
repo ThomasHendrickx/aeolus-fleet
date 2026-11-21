@@ -195,3 +195,16 @@ describe('the rules of send for ask, step and withdraw', () => {
     expect(core.state.messages).toEqual([]);
   });
 });
+
+
+it('records the authenticated crew lease for formatted questions, steps and withdrawals', async () => {
+  // Given an authenticated sender.
+  const crew = { ...scout, leaseId: core.ids('lease') };
+  // When each formatted path sends.
+  for (const message of [{ kind: 'question', question: aQuestion() }, { kind: 'step', step: aStep() }, { kind: 'withdrawal', target: { kind: 'question', questionId: QUESTION_ID } }] as const) {
+    const { messageId } = unwrap(await sendFormattedMessage(crew, toArgo(message)));
+    // Then formatting preserves the authenticated provenance.
+    expect(core.state.messages.find(({ id }) => id === messageId)).toMatchObject({ senderLeaseId: crew.leaseId });
+    expect(core.state.events.find((event) => event.messageId === messageId)?.details).toMatchObject({ senderLeaseId: crew.leaseId });
+  }
+});

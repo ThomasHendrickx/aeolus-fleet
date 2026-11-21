@@ -6,7 +6,7 @@ import { listenForPendingDeliveries, type DeliveryListener } from '../src/adapte
 import { createPrismaUnitOfWork, type PrismaTx } from '../src/adapters/prisma/unit-of-work.js';
 import type { DeliveryNotice } from '../src/domain/shared/notifier.js';
 import { createSendMessage, type MessageToSend } from '../src/domain/messaging/send-message.js';
-import type { ShipCaller } from '../src/domain/shared/caller.js';
+import type { Crew, ShipCaller } from '../src/domain/shared/caller.js';
 import type { UnitOfWork } from '../src/domain/shared/unit-of-work.js';
 import { agentCaller, operatorCaller } from './support/core-fixtures.js';
 import { createPostgresCore, racingUnitOfWork, type PostgresCore } from './support/postgres-core.js';
@@ -122,6 +122,7 @@ describe('sending a message on Postgres', () => {
         id: messageId,
         fleetId,
         senderShipId: argoId,
+        senderLeaseId: null,
         selectorKind: 'ship',
         selectorShipId: scoutId,
         selectorType: null,
@@ -178,7 +179,7 @@ describe('sending a message on Postgres', () => {
         shipId: scoutId,
         messageId,
         deliveryId: delivery?.id,
-        details: { selector: 'ship', recipientType: null, model: null },
+        details: { selector: 'ship', recipientType: null, model: null, senderLeaseId: null },
       }),
     ]);
     await expect.poll(() => notices).toEqual([{ fleetId, deliveryId: delivery?.id, recipient: { kind: 'ship', shipId: scoutId } }]);
@@ -310,7 +311,8 @@ describe('a send that fails', () => {
   ])('$label leaves no message, no delivery and no event, and wakes nobody', async ({ wrap }) => {
     const sendMessage = sendMessageWith(unitOfWorkWith(wrap));
 
-    await expect(sendMessage(argo, aReview())).rejects.toThrow('disk full');
+    const crew: Crew = { ...argo, leaseId: newId('lease') };
+    await expect(sendMessage(crew, aReview())).rejects.toThrow('disk full');
 
     await expect(storedCounts()).resolves.toEqual({ messages: 0, deliveries: 0, accepted: 0 });
     await probe();

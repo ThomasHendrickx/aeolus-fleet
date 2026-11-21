@@ -112,6 +112,7 @@ export function createPrismaMessageRepository(db: Db): BufferedMessageRepository
           id: message.id,
           fleetId: message.fleetId,
           senderShipId: message.senderShipId,
+          senderLeaseId: message.senderLeaseId,
           selectorKind: selector.kind,
           selectorShipId: selector.kind === 'ship' ? selector.shipId : null,
           selectorType: selector.kind === 'type' ? selector.type : null,

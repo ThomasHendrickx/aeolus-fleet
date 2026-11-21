@@ -236,7 +236,7 @@ describe('Needs attention on Postgres', () => {
       expect.objectContaining({
         type: 'MessageAccepted',
         actorShipId: argo.shipId,
-        details: { selector: 'ship', recipientType: null, model: 'claude-opus-5-5', resendOf: original.messageId },
+        details: { selector: 'ship', recipientType: null, model: 'claude-opus-5-5', senderLeaseId: null, resendOf: original.messageId },
       }),
       expect.objectContaining({ type: 'DeliveryDismissed', actorShipId: argo.shipId, deliveryId: original.deliveryId }),
     ]);

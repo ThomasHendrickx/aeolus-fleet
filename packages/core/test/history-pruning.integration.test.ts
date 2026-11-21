@@ -722,3 +722,14 @@ describe('a pruning pass that fails', () => {
     expect(await isKept(messageId)).toBe(false);
   });
 });
+
+it('keeps the immutable sending lease after retention prunes that lease and its history', async () => {
+  // Given an open message accepted by a crew whose lease then ends.
+  const messageId = await sendTo(planner.shipId);
+  unwrap(await core.useCases.releaseShip(argo, { shipId: scout.shipId }));
+  // When retention removes the ended lease and its session history.
+  await passAfter((RETENTION_DAYS + 1) * DAY_MS);
+  // Then the pending envelope retains its evidence without a lease foreign key.
+  expect(await core.prisma.lease.count({ where: { id: scout.leaseId } })).toBe(0);
+  await expect(core.prisma.message.findUnique({ where: { id: messageId } })).resolves.toMatchObject({ senderLeaseId: scout.leaseId });
+});

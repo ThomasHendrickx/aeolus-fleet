@@ -291,8 +291,8 @@ describe('contributing to a meeting on Postgres', () => {
       [chief.shipId, productId].sort().map((recipientShipId) => ({ recipientShipId, state: 'pending' })),
     );
     await expect(core.prisma.event.findMany({ where: { messageId, type: 'MessageAccepted' }, select: { shipId: true, details: true }, orderBy: { seq: 'asc' } })).resolves.toEqual([
-      { shipId: chief.shipId, details: { selector: 'meeting', recipientType: null, model: MODEL, meetingId } },
-      { shipId: productId, details: { selector: 'meeting', recipientType: null, model: MODEL, meetingId } },
+      { shipId: chief.shipId, details: { selector: 'meeting', recipientType: null, model: MODEL, senderLeaseId: null, meetingId } },
+      { shipId: productId, details: { selector: 'meeting', recipientType: null, model: MODEL, senderLeaseId: null, meetingId } },
     ]);
     await expect.poll(() => notices.map((notice) => notice.recipient)).toEqual([
       { kind: 'ship', shipId: chief.shipId },

@@ -129,7 +129,7 @@ describe('resending an undeliverable delivery', () => {
         shipId: scoutId,
         messageId,
         deliveryId: deliveryOf(messageId)?.id,
-        details: { selector: 'ship', recipientType: null, model: SESSION_MODEL, resendOf: original.messageId },
+        details: { selector: 'ship', recipientType: null, model: SESSION_MODEL, senderLeaseId: null, resendOf: original.messageId },
       }),
       expect.objectContaining({
         type: 'DeliveryDismissed',
@@ -344,4 +344,16 @@ describe('formatted resends', () => {
     expect(core.state.events).toEqual([]);
     expect(core.state.notices).toEqual([]);
   });
+});
+
+
+it('keeps original sending evidence and records null for a management resend', async () => {
+  // Given an undeliverable message sent by a real crew.
+  const original = await undeliverable();
+  // When management resends it.
+  const { messageId } = unwrap(await useCases.resendDelivery(argo, { deliveryId: original.deliveryId }));
+  // Then the management action borrows no lease from the original sender.
+  expect(message(original.messageId)).toMatchObject({ senderLeaseId: planner.leaseId });
+  expect(message(messageId)).toMatchObject({ senderLeaseId: null });
+  expect(core.state.events.find((event) => event.type === 'MessageAccepted')?.details).toMatchObject({ senderLeaseId: null });
 });

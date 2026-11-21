@@ -831,6 +831,8 @@ model PrunedExchange {
 model Message {
   id                 String       @id
   fleetId            String       @map("fleet_id")
+  /// Immutable provenance, intentionally no FK: leases may be pruned before messages.
+  senderLeaseId String? @map("sender_lease_id")
   senderShipId       String       @map("sender_ship_id")
   selectorKind       SelectorKind @map("selector_kind")
   selectorShipId     String?      @map("selector_ship_id")

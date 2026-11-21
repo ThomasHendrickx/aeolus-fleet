@@ -305,6 +305,8 @@ One meaning per term in code, database, API, UI and talk (decision 0050). Other 
 
 ### Messages
 
+A message stores immutable nullable `senderLeaseId` from the authenticated sending crew, including a console crew with a lease. Caller input cannot supply it. Ordinary, formatted, reply, meeting and label sends retain that lease; scheduled, management resend and core-generated sends without that authenticated sending crew store null. Historical messages stay null, without inference or backfill. Duplicate requests preserve the first message's evidence after re-crew; the lease is no part of the request hash. It is provenance, never authority or a secret, and survives lease/history pruning without a lease foreign key. It is retained with the message.
+
 | Term | Meaning | Held by |
 | --- | --- | --- |
 | Message | An immutable envelope with an opaque payload of at most 256 KB and a content type, from one ship to a selector; may reply to or resend another | core |
@@ -491,7 +493,7 @@ Each event records its type and time, who caused it (a ship, `argo` included, or
 | `ShipRenamed` | Registry | The ship goes by its new name; details hold the name it had and the name it has. Its id, history and session stay |
 | `ShipRetired` | Registry | Unprocessed direct deliveries marked abandoned, id blocked forever |
 | `DeliveryAbandoned` | Registry | One per direct delivery a retire abandoned, written with `ShipRetired`; it stays in the timelines and its sender can see it |
-| `MessageAccepted` | Messaging | Deliveries created, receivers woken; details hold the model the sender stated, and `forced` for a forced send (0040). One per delivery of a contribution, each with its meeting (0061). A scheduled send's names its schedule and send time (0062) |
+| `MessageAccepted` | Messaging | Deliveries created, receivers woken; details hold nullable `senderLeaseId` from the message and the model the sender stated, and `forced` for a forced send (0040). One per delivery of a contribution, each with its meeting (0061). A scheduled send's names its schedule and send time (0062) |
 | `MeetingOpened` | Messaging | A ship opened a meeting, owner and moderator itself (0061): details hold the meeting and how many participants |
 | `ParticipantAdded` | Messaging | The ship joined a meeting, one per participant, the opener included (0061): details hold the meeting |
 | `MicRequested` | Messaging | The ship requested the mic of its meeting (0061): details hold the meeting |

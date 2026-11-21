@@ -693,6 +693,7 @@ export function deliveryInFlight(
     id: messageId,
     fleetId,
     senderShipId: shipId,
+    senderLeaseId: null,
     selector: recipient,
     payload: 'Review https://github.com/ThomasHendrickx/aeolus-fleet/pull/28',
     contentType: 'text/plain',

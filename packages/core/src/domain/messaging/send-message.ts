@@ -10,7 +10,7 @@ import {
   type ResolveSelectorTx,
   type UnresolvableSelector,
 } from '../registry/public.js';
-import { hasScope, type ShipCaller } from '../shared/caller.js';
+import { hasScope, isCrew, type ShipCaller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { recordEvent, type Actor, type EventLog } from '../shared/events.js';
@@ -266,6 +266,7 @@ export async function sendWithin(
       contentType: send.request.contentType,
       model: send.request.model,
       senderKind: send.caller.kind,
+      senderLeaseId: send.request.scheduledFor === undefined && isCrew(send.caller) ? send.caller.leaseId : null,
       idempotencyKey: send.request.idempotencyKey,
       requestHash: send.request.requestHash,
       inReplyTo,
@@ -353,6 +354,7 @@ async function contributeWithin(
     contentType: send.request.contentType,
     model: send.request.model,
     senderKind: send.caller.kind,
+    senderLeaseId: send.request.scheduledFor === undefined && isCrew(send.caller) ? send.caller.leaseId : null,
     idempotencyKey: send.request.idempotencyKey,
     requestHash: send.request.requestHash,
     ...(send.caller.signedInAccountId === undefined ? {} : { signedInAccountId: send.caller.signedInAccountId }),
@@ -422,6 +424,7 @@ async function sendToLabelWithin(
     contentType: send.request.contentType,
     model: send.request.model,
     senderKind: send.caller.kind,
+    senderLeaseId: send.request.scheduledFor === undefined && isCrew(send.caller) ? send.caller.leaseId : null,
     idempotencyKey: send.request.idempotencyKey,
     requestHash: send.request.requestHash,
     inReplyTo,

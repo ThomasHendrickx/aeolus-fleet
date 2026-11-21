@@ -247,3 +247,13 @@ describe('an open the fleet refuses', () => {
     expect(refusalOf(refused).kind).toBe('UNRESOLVABLE_SELECTOR');
   });
 });
+
+
+it('records null sending evidence on generated meeting notices', async () => {
+  // Given a meeting opened by its owner.
+  // When its generated notices are stored.
+  await opened();
+  // Then notices do not claim an authenticated sending crew.
+  for (const message of core.state.messages) expect(message).toMatchObject({ senderLeaseId: null });
+  for (const event of core.state.events.filter(({ type }) => type === 'MessageAccepted')) expect(event.details).toMatchObject({ senderLeaseId: null });
+});
