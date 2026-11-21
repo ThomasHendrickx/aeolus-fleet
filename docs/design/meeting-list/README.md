@@ -241,6 +241,48 @@ No new event type: the time is a fact of the contribution `MessageAccepted` reco
 
 One statement, typed raw SQL in the Prisma adapter (`meetings.ts`, `listOf`). Two index range scans on `meeting_participants_ship_list_idx`, one per section, joined to the rest by primary key:
 
+The `:open_position` and `:ended_position` fragments are selected before constructing the statement:
+
+```sql
+-- No cursor: both fragments are empty.
+-- Open cursor: :open_position = AND (p.meeting_opened_at, p.meeting_id) < (:opened_at, :meeting_id)
+--              :ended_position is empty.
+-- Ended cursor: :open_position = AND false
+--               :ended_position = AND (p.meeting_opened_at, p.meeting_id) < (:opened_at, :meeting_id)
+WITH page AS (
+      (SELECT p.meeting_id, p.is_meeting_ended, p.meeting_opened_at, p.left_at, p.is_revoked
+       FROM meeting_participants p
+       WHERE p.fleet_id = :fleet_id AND p.ship_id = :ship_id AND p.is_meeting_ended = false :open_position
+       ORDER BY p.meeting_opened_at DESC, p.meeting_id DESC LIMIT :take)
+      UNION ALL
+      (SELECT p.meeting_id, p.is_meeting_ended, p.meeting_opened_at, p.left_at, p.is_revoked
+       FROM meeting_participants p
+       WHERE p.fleet_id = :fleet_id AND p.ship_id = :ship_id AND p.is_meeting_ended = true :ended_position
+       ORDER BY p.meeting_opened_at DESC, p.meeting_id DESC LIMIT :take)
+      ORDER BY is_meeting_ended, meeting_opened_at DESC, meeting_id DESC LIMIT :take
+    )
+    SELECT page.meeting_id AS "meetingId", m.title, m.opened_at AS "openedAt", m.ended_at AS "endedAt",
+      m.last_contribution_at AS "lastContributionAt",
+      json_build_object('id', o.id, 'name', o.name) AS owner,
+      json_build_object('id', d.id, 'name', d.name) AS moderator,
+      CASE WHEN h.id IS NULL THEN NULL ELSE json_build_object('id', h.id, 'name', h.name) END AS "micHolder",
+      (SELECT count(*)::int FROM meeting_participants q
+       WHERE q.fleet_id = m.fleet_id AND q.meeting_id = m.id AND q.left_at IS NULL) AS "presentParticipants",
+      (SELECT r.place + 1 FROM meeting_mic_requests r
+       WHERE r.fleet_id = m.fleet_id AND r.meeting_id = m.id AND r.ship_id = :ship_id) AS "placeInLine",
+      CASE WHEN page.is_revoked THEN 'revoked' WHEN page.left_at IS NULL THEN 'present' ELSE 'left' END AS "participantState"
+    FROM page
+    JOIN LATERAL (
+      SELECT id, fleet_id, title, opened_at, ended_at, last_contribution_at,
+        owner_ship_id, moderator_ship_id, mic_holder_ship_id
+      FROM meetings WHERE fleet_id = :fleet_id AND id = page.meeting_id OFFSET 0
+    ) m ON true
+    JOIN ships o ON o.fleet_id = m.fleet_id AND o.id = m.owner_ship_id
+    JOIN ships d ON d.fleet_id = m.fleet_id AND d.id = m.moderator_ship_id
+    LEFT JOIN ships h ON h.fleet_id = m.fleet_id AND h.id = m.mic_holder_ship_id
+    ORDER BY page.is_meeting_ended, page.meeting_opened_at DESC, page.meeting_id DESC
+```
+
 The executable SQL has one source: [`meetingListStatement`](../../../packages/core/src/adapters/prisma/meetings.ts). Its cursor predicates are constructed per section: an ended cursor adds `AND false` to the open half; an open cursor bounds only the open half; an ended cursor bounds the ended half. The meeting lookup uses `JOIN LATERAL ... OFFSET 0` to keep one primary-key probe per bounded page row instead of allowing a hash join over all meetings. The statement also projects the envelope fields and participant state into the shared answer shape.
 
 When the cursor is in the ended section, the open half's condition is false for every row and it reads none. The participant state comes from the caller's own row (`is_revoked`, then `left_at`), as `participantState` in `read-meeting.ts` does. A revoked participant has `left_at` set (M13), so `present_participants` never counts it. A mic holder has no request (M8), so `place_in_line` is null for it.

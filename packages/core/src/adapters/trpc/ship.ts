@@ -44,6 +44,8 @@ import {
   openMeetingInputSchema,
   openMeetingOutputSchema,
   setMicPatternInputSchema,
+  MEETINGS_PAGE_SIZE_DEFAULT,
+  MEETINGS_PAGE_SIZE_MAX,
   PAGE_SIZE_DEFAULT,
   RECORD_PAGE_SIZE_DEFAULT,
   RECORD_PAGE_SIZE_MAX,
@@ -310,7 +312,7 @@ export const shipRouter = router({
 
   /** The crew's readable meeting envelopes, bounded at the shared input schema. */
   meetings: scopedCrewProcedure('messages:receive')
-    .meta({ description: 'Needs messages:receive. Lists the meetings you take part in, including those you left or were revoked from, open first, newest opened first in each section. Each envelope says where you stand, without contributions. At most 100 per page, 20 unless you pass limit. Pass nextCursor back unchanged as cursor; null means the last page. A meeting ending while you page may appear again: keep the later row by id. Changes nothing.' })
+    .meta({ description: `Needs messages:receive. Lists the meetings you take part in, including those you left or were revoked from, open first, newest opened first in each section. Each envelope says where you stand, without contributions. At most ${MEETINGS_PAGE_SIZE_MAX} per page, ${MEETINGS_PAGE_SIZE_DEFAULT} unless you pass limit. Pass nextCursor back unchanged as cursor; null means the last page. A meeting ending while you page may appear again: keep the later row by id. Changes nothing.` })
     .input(meetingsInputSchema)
     .output(meetingsOutputSchema)
     .query(async ({ ctx, input }) => {
