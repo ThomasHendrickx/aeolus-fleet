@@ -99,18 +99,37 @@ describe('setting an owner on Postgres', () => {
   it('serializes opposite owner edges so only one commits', async () => {
     // Given two active agents rooted at argo.
     const { shipId: peerId } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'peer', type: 'worker' }));
+    const held = heldUnitOfWork(core.prisma, (tx, hold) => ({
+      ...tx,
+      ships: {
+        ...tx.ships,
+        findForUpdate: async (id, shipId) => {
+          const ship = await tx.ships.findForUpdate(id, shipId);
+          // Keep peer locked until the opposite change waits. Without the
+          // ownership lock, it locks scout first and the two changes deadlock.
+          if (shipId === peerId) await hold();
+          return ship;
+        },
+      },
+    }));
+    const setOwner = createSetOwner({ uow: held.uow, clock: core.clock, ids: newId });
 
-    // When opposite assignments run concurrently.
-    const results = await Promise.all([
-      core.useCases.setOwner(argo, { shipId: scoutId, ownerShipId: peerId }),
+    // When the opposite assignment starts while the first holds peer.
+    const first = setOwner(argo, { shipId: scoutId, ownerShipId: peerId });
+    await held.reached;
+    const results = await Promise.allSettled([
+      first,
       core.useCases.setOwner(argo, { shipId: peerId, ownerShipId: scoutId }),
     ]);
 
-    // Then one edge and exactly one event commit, and the other refuses a cycle.
-    expect(results.filter((result) => result.isOk)).toHaveLength(1);
-    expect(results.find((result) => !result.isOk)).toMatchObject({ error: { kind: 'OWNERSHIP_CYCLE' } });
+    // Then the second waits, refuses a cycle, and leaves exactly the first edge.
+    expect(results.filter((result) => result.status === 'rejected')).toEqual([]);
+    expect(results).toMatchObject([
+      { status: 'fulfilled', value: { isOk: true } },
+      { status: 'fulfilled', value: { isOk: false, error: { kind: 'OWNERSHIP_CYCLE' } } },
+    ]);
     expect(await core.prisma.event.count({ where: { fleetId, type: 'OwnerChanged' } })).toBe(1);
-    expect([await ownerOf(scoutId), await ownerOf(peerId)]).toContain(argoId);
+    expect([await ownerOf(scoutId), await ownerOf(peerId)]).toEqual([peerId, argoId]);
   });
 
   it('stores nothing when its OwnerChanged cannot be written', async () => {
