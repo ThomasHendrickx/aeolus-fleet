@@ -46,7 +46,8 @@ jobs:
           const tests = report.testResults.flatMap((file) => file.assertionResults);
           const named = tests.find((test) => test.title === 'serializes opposite owner edges so only one commits');
           if (named?.status !== 'failed') throw new Error('The named owners concurrency test must fail');
-          if (!/deadlock/i.test(named.failureMessages.join('\n'))) throw new Error('The failure must identify the deadlock');
+          const log = readFileSync('/tmp/owners-lock-mutation.log', 'utf8');
+          if (!/40P01/.test(log) || !/deadlock detected/.test(log)) throw new Error('The failure must identify the Postgres deadlock');
           console.log('Verified: the named owners concurrency test fails with a deadlock when the ownership lock is removed.');
           NODE
       - name: The ownership lock is restored
