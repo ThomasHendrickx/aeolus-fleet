@@ -1103,8 +1103,9 @@ describe('ship.receive and ship.ack at the API', () => {
   it('sends from one ship, receives and acknowledges on another, with crew tokens', async () => {
     const sender = await crewed('tender');
     const receiver = await crewed('skiff');
+    const senderDetail = await (await signedInArgo()).fleet.ship.query({ shipId: sender.shipId });
+    const senderLeaseId = idSchema('lease').parse('currentLease' in senderDetail ? senderDetail.currentLease?.id : undefined);
     const { messageId } = await sender.asShip.ship.send.mutate(toShipNamed('skiff'));
-    const senderLeaseId = idSchema('lease').parse((await (await signedInArgo()).fleet.ship.query({ shipId: sender.shipId })).currentLease?.id);
 
     const { deliveries } = await receiver.asShip.ship.receive.mutate({ max: 5 });
 
@@ -1744,7 +1745,8 @@ describe("argo's inbox at the API", () => {
     const { deliveryId, messageId, crewToken } = await toArgo('Promote 2.14?');
     await asArgo.fleet.markDone.mutate({ deliveryId });
 
-    const senderLeaseId = idSchema('lease').parse((await asArgo.fleet.ship.query({ shipId: argoId })).currentLease?.id);
+    const senderDetail = await asArgo.fleet.ship.query({ shipId: argoId });
+    const senderLeaseId = idSchema('lease').parse('currentLease' in senderDetail ? senderDetail.currentLease?.id : undefined);
     const reply = await asArgo.fleet.reply.mutate({
       deliveryId,
       payload: '{"go":true}',

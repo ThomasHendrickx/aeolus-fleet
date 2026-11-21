@@ -121,6 +121,7 @@ describe('Needs attention on Postgres', () => {
       message: {
         id: first.messageId,
         sender: { id: planner.shipId, name: 'planner' },
+        senderLeaseId: planner.leaseId,
         recipient: { kind: 'ship', ship: { id: scout.shipId, name: 'scout' } },
         inReplyTo: null,
         sentAt: new Date(since.getTime() - UNDELIVERABLE_AT_ATTEMPT * 1_000 - 1_000),

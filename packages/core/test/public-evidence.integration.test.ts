@@ -87,9 +87,12 @@ for (const door of ['REST', 'tRPC', 'MCP'] as const) {
       expect(deliveryId).toBeDefined();
       await call(door, { token: reader.token, path: 'ship.ack', input: { deliveryId }, isMutation: true });
       const reread = await call(door, { token: reader.token, path: 'ship.delivery', input: { deliveryId } });
-      const record = pageSchema.parse(await call(door, { token: reader.token, path: 'ship.record', input: {} }));
+      const record = pageSchema.parse(await call(door, { token: reader.token, path: 'ship.record', input: {}, isMutation: true }));
       const exchange = pageSchema.parse(await call(door, { token: reader.token, path: 'ship.exchange', input: { otherShipId: sender.crew.shipId } }));
-      const detail = await call(door, { token: reader.token, path: 'fleet.message', input: { ...sent } });
+      // fleet.message is a console tRPC read, not a REST or MCP ship call.
+      const detail = door === 'tRPC'
+        ? await call(door, { token: reader.token, path: 'fleet.message', input: { ...sent } })
+        : unwrap(await core.useCases.readMessage(reader.crew, sent));
       const current = await call(door, { token: reader.token, path: 'fleet.ship', input: { shipId: sender.crew.shipId } });
 
       // Then the stored sending evidence stays L1, the authorised observation names L2, and ended auth gives no evidence.
@@ -135,7 +138,9 @@ for (const door of ['REST', 'tRPC', 'MCP'] as const) {
       const retired = await read();
       await core.prisma.ship.update({ where: { id: target.shipId }, data: { removedAt: core.clock.now() } });
       const remnant = await read();
-      const message = readSchema.parse(await call(door, { token: reader.token, path: 'fleet.message', input: { ...sent } }));
+      const received = receivedSchema.parse(await call(door, { token: reader.token, path: 'ship.receive', input: {}, isMutation: true }));
+      const deliveryId = received.deliveries.find((delivery) => delivery.messageId === sent.messageId)?.deliveryId;
+      const message = readSchema.parse(await call(door, { token: reader.token, path: 'ship.delivery', input: { deliveryId } }));
 
       // Then null describes absent evidence, never a confirmed crew.
       for (const ship of [released, retired, remnant]) expect(ship).toHaveProperty('currentLease', null);

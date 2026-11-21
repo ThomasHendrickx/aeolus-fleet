@@ -31,7 +31,7 @@ it('reads one current lease and immutable sending evidence by indexed ship and m
   await core.prisma.$executeRaw`INSERT INTO messages (id, fleet_id, sender_ship_id, selector_kind, selector_ship_id, payload, content_type, idempotency_key, request_hash, created_at)
     SELECT 'msg_' || lpad(i::text, 26, '0'), ${fleet.fleetId}, ${argo.shipId}, 'ship', ${argo.shipId}, 'history', 'text/plain', 'seed-' || i, 'h', ${core.clock.now()} FROM generate_series(1, 30000) i`;
   await core.prisma.$executeRaw`INSERT INTO deliveries (id, fleet_id, message_id, sender_ship_id, recipient_ship_id, state, created_at)
-    SELECT 'dlv_' || lpad(i::text, 26, '0'), ${fleet.fleetId}, 'msg_' || lpad(i::text, 26, '0'), ${argo.shipId}, ${argo.shipId}, 'acknowledged', ${core.clock.now()} FROM generate_series(1, 30000) i`;
+    SELECT 'dlv_' || lpad(i::text, 26, '0'), ${fleet.fleetId}, 'msg_' || lpad(i::text, 26, '0'), ${argo.shipId}, ${argo.shipId}, 'pending', ${core.clock.now()} FROM generate_series(1, 30000) i`;
   await core.prisma.$executeRaw`INSERT INTO events (id, fleet_id, type, occurred_at, actor_kind, actor_ship_id, details, ship_id, message_id, delivery_id, seq)
     SELECT 'evt_' || lpad(i::text, 26, '0'), ${fleet.fleetId}, 'MessageAccepted', ${core.clock.now()}, 'ship', ${argo.shipId}, '{}', ${argo.shipId},
       'msg_' || lpad(i::text, 26, '0'), 'dlv_' || lpad(i::text, 26, '0'), 1000000 + i FROM generate_series(1, 30000) i`;
