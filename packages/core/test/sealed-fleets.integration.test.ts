@@ -761,6 +761,7 @@ describe('the sealing pass on Postgres and a LocalStack KMS (decision 0068, B5)'
           id: messageId,
           fleetId: fleet.fleetId,
           senderShipId: fleet.argo.shipId,
+          senderLeaseId: null,
           selector: { kind: 'ship', shipId: scout.shipId },
           payload: PAYLOAD,
           contentType: 'text/plain',

@@ -110,7 +110,7 @@ describe('a send to a label', () => {
         shipId: delivery.recipient.kind === 'ship' ? delivery.recipient.shipId : undefined,
         of: messageId,
         deliveryId: delivery.id,
-        details: { selector: 'label', recipientType: null, model: SESSION_MODEL },
+        details: { selector: 'label', recipientType: null, model: SESSION_MODEL, senderLeaseId: null },
       })),
     );
     expect(core.state.notices.map((notice) => notice.deliveryId)).toEqual(deliveries.map((delivery) => delivery.id));

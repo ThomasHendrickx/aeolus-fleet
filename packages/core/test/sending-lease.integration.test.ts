@@ -55,9 +55,16 @@ it('deploys the additive migration on existing messages and owners, leaves old e
   // Given the pre-migration table with messages, an open lease and an ended lease.
   unwrap(await core.useCases.sendMessage(sender, request()));
   unwrap(await core.useCases.releaseShip(argo, { shipId: sender.shipId }));
+  const person = unwrap(await core.useCases.commissionShip(argo, { name: 'person', type: 'person', idempotencyKey: 'person' }));
+  // A pre-existing person self-root and its child, alongside argo-owned ships.
+  await core.prisma.ship.update({ where: { id: person.shipId }, data: { kind: 'person', ownerShipId: person.shipId } });
+  unwrap(await core.useCases.setOwner(argo, { shipId: sender.shipId, ownerShipId: person.shipId }));
+  const prompt = unwrap(await core.useCases.getStartingPrompt(argo, { shipId: sender.shipId }));
+  unwrap(await core.useCases.claimShip({ shipId: sender.shipId, secret: secretOf(prompt.secret), location: { kind: 'SERVER' } }));
   const owners = await core.prisma.ship.findMany({ orderBy: { id: 'asc' } });
   const deliveries = await core.prisma.delivery.findMany({ orderBy: { id: 'asc' } });
   const leases = await core.prisma.lease.findMany({ orderBy: { id: 'asc' } });
+  const events = await core.prisma.event.findMany({ orderBy: { id: 'asc' } });
   await core.prisma.$executeRaw`ALTER TABLE messages DROP COLUMN sender_lease_id`;
   await core.prisma.$executeRaw`DELETE FROM _prisma_migrations WHERE migration_name = '20261121120000_message_sender_lease'`;
   const before = await core.prisma.$queryRaw`SELECT to_jsonb(m) AS message FROM messages m ORDER BY id`;
@@ -74,4 +81,5 @@ it('deploys the additive migration on existing messages and owners, leaves old e
   await expect(core.prisma.ship.findMany({ orderBy: { id: 'asc' } })).resolves.toEqual(owners);
   await expect(core.prisma.delivery.findMany({ orderBy: { id: 'asc' } })).resolves.toEqual(deliveries);
   await expect(core.prisma.lease.findMany({ orderBy: { id: 'asc' } })).resolves.toEqual(leases);
+  await expect(core.prisma.event.findMany({ orderBy: { id: 'asc' } })).resolves.toEqual(events);
 });

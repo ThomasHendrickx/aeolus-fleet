@@ -16,6 +16,8 @@ export interface Message {
   fleetId: FleetId;
   /** The calling ship: every sender is a ship, `argo` included. */
   senderShipId: ShipId;
+  /** Immutable authenticated sending crew; null for historical or non-crew sends. No lease relationship is retained. */
+  senderLeaseId: LeaseId | null;
   /** The selector as resolved at send time: a ship's id, never its name, a type, a meeting (decision 0061), or a label selection as sent (decision 0065). */
   selector: Addressee;
   /** Plain, or sealed in a sealed fleet (decision 0068). */
@@ -104,6 +106,8 @@ export interface MessageToAccept {
   deliveryId: DeliveryId;
   fleetId: FleetId;
   senderShipId: ShipId;
+  /** Trusted sending context only, never caller input; absent on generated sends. */
+  senderLeaseId?: LeaseId | null;
   payload: string;
   contentType: string;
   /** The model the sender states; a resend carries the original's. */
@@ -202,6 +206,7 @@ export function acceptMessage(
     id: messageId,
     fleetId,
     senderShipId,
+    senderLeaseId: send.senderLeaseId ?? null,
     selector: recipient,
     payload: send.payload,
     questionId: questionIdOf(send),
@@ -249,6 +254,7 @@ export function acceptMessage(
           selector: recipient.kind,
           recipientType: recipient.kind === 'type' ? recipient.type : null,
           model: send.model ?? null,
+          senderLeaseId: send.senderLeaseId ?? null,
           ...(resendOf && { resendOf: resendOf.messageId }),
           ...(send.isForced && { forced: true }),
           ...(send.meetingId && { meetingId: send.meetingId }),
@@ -300,6 +306,7 @@ export function acceptContribution(send: ContributionToAccept): Result<{ message
     id: messageId,
     fleetId,
     senderShipId,
+    senderLeaseId: send.senderLeaseId ?? null,
     selector: { kind: 'meeting', meetingId },
     payload: send.payload,
     questionId: questionIdOf(send),
@@ -344,7 +351,7 @@ export function acceptContribution(send: ContributionToAccept): Result<{ message
       shipId,
       messageId,
       deliveryId,
-      details: { selector: 'meeting', recipientType: null, model: send.model ?? null, meetingId },
+      details: { selector: 'meeting', recipientType: null, model: send.model ?? null, senderLeaseId: send.senderLeaseId ?? null, meetingId },
     })),
   });
 }
@@ -378,6 +385,7 @@ export function acceptLabelMessage(
     id: messageId,
     fleetId,
     senderShipId,
+    senderLeaseId: send.senderLeaseId ?? null,
     selector,
     payload: send.payload,
     questionId: questionIdOf(send),
@@ -426,6 +434,7 @@ export function acceptLabelMessage(
         selector: 'label',
         recipientType: null,
         model: send.model ?? null,
+        senderLeaseId: send.senderLeaseId ?? null,
         ...(send.isForced && { forced: true }),
         ...(send.scheduledFor && { scheduleId: send.scheduledFor.scheduleId, sendTime: send.scheduledFor.sendTime.toISOString() }),
       },

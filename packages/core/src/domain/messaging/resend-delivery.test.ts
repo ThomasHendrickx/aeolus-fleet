@@ -129,7 +129,7 @@ describe('resending an undeliverable delivery', () => {
         shipId: scoutId,
         messageId,
         deliveryId: deliveryOf(messageId)?.id,
-        details: { selector: 'ship', recipientType: null, model: SESSION_MODEL, resendOf: original.messageId },
+        details: { selector: 'ship', recipientType: null, model: SESSION_MODEL, senderLeaseId: null, resendOf: original.messageId },
       }),
       expect.objectContaining({
         type: 'DeliveryDismissed',

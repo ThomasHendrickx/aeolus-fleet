@@ -72,6 +72,7 @@ describe('sending a message to a ship', () => {
         id: messageId,
         fleetId,
         senderShipId: argoId,
+        senderLeaseId: null,
         selector: { kind: 'ship', shipId: scoutId },
         payload: input.payload,
         contentType: 'application/json',
@@ -190,7 +191,7 @@ describe('sending a message to a ship', () => {
         shipId: scoutId,
         messageId,
         deliveryId: core.state.deliveries[0]?.id,
-        details: { selector: 'ship', recipientType: null, model: null },
+        details: { selector: 'ship', recipientType: null, model: null, senderLeaseId: null },
       },
     ]);
   });
@@ -531,6 +532,7 @@ describe('a send refused', () => {
       id: inReplyTo,
       fleetId: otherFleetId,
       senderShipId: addAgentShip(core, { fleetId: otherFleetId }).shipId,
+      senderLeaseId: null,
       selector: { kind: 'type', type: 'reviewer' },
       payload: 'elsewhere',
       contentType: 'text/plain',
@@ -599,14 +601,14 @@ describe('a forced send (decision 0040)', () => {
   it('says in MessageAccepted that it was forced', async () => {
     await sent(argo, aReview({ isForced: true }));
 
-    expect(core.state.events.map((event) => event.details)).toEqual([{ selector: 'ship', recipientType: null, model: null, forced: true }]);
+    expect(core.state.events.map((event) => event.details)).toEqual([{ selector: 'ship', recipientType: null, model: null, senderLeaseId: null, forced: true }]);
   });
 
   it('is a plain send when isForced is false', async () => {
     await sent(argo, aReview({ isForced: false }));
 
     expect(core.state.deliveries).toEqual([expect.objectContaining({ isForced: false })]);
-    expect(core.state.events.map((event) => event.details)).toEqual([{ selector: 'ship', recipientType: null, model: null }]);
+    expect(core.state.events.map((event) => event.details)).toEqual([{ selector: 'ship', recipientType: null, model: null, senderLeaseId: null }]);
   });
 
   it('is the same request with isForced false and without it', async () => {

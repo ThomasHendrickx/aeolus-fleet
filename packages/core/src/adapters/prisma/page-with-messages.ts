@@ -14,6 +14,7 @@ export async function pageWithMessages(db: Db, page: { statement: Prisma.Sql; me
     SELECT page.*, m.id AS "storedMessageId",
       m.fleet_id AS "fleetId",
       m.sender_ship_id AS "senderShipId",
+      m.sender_lease_id AS "senderLeaseId",
       m.selector_kind AS "selectorKind",
       m.selector_ship_id AS "selectorShipId",
       m.selector_type AS "selectorType",
