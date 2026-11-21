@@ -39,7 +39,7 @@ In the console, choose **Commission a ship**.
 
 An active person ship, agent, app or argo can own a ship. Ownership has no loops; `fleet.setOwner` requires `fleet:owner` and manage reach, refuses a loop with `OWNERSHIP_CYCLE`, and writes nothing for the same owner.
 
-A person ship owns itself and ships it commissions; a ship commissioned by an account belongs to that account's person ship. Other ships inherit their commissioner's owner, argo by default. A plugin holding `fleet:on-behalf` can name the asking ship, whose owner the new ship gets; the gateway can name an app ship's owner.
+A person ship owns itself and ships it commissions; a ship commissioned by an account belongs to that account's person ship. Other ships inherit their commissioner's owner, argo by default. An authorised commissioner holding `fleet:on-behalf` can name the actual requester with `ownerOf` and choose `ownership: requester` so that person ship, agent or app owns the new ship. Omitted or explicit `requester-owner` inherits the requester's owner. Scope authority comes from the live requester or recorded approval, never its chosen owner. `ownership` requires `ownerOf` and cannot accompany `owner`; the gateway's explicit app-owner choice stays available. A retry with the same key and mode returns the existing ship without resetting an owner changed since, and changing mode under a used key is refused.
 
 Choose **Commission ship**. Your plan may limit how many ships your fleet holds; the dialog tells you when you reach it.
 

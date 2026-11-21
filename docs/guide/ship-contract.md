@@ -52,6 +52,8 @@ Every call after `register` carries the crew token. These are the calls a ship l
 
 A ship with more [scopes](words.md#scope) than sending and receiving can also call the fleet actions the console uses, such as `fleet_list` or `fleet_commission`. Meetings and schedules have calls of their own; the API reference lists them.
 
+For `fleet.commission` (REST `POST /api/v1/fleet/commission`, MCP `fleet_commission`), `ownerOf` names the actual requester and needs `fleet:on-behalf` beside the ordinary kind scope. Set `ownership: requester` for that active person ship, agent or app to own the new ship; omitted or explicit `requester-owner` inherits its owner. `ownership` requires `ownerOf` and cannot accompany `owner`. Scopes come from the live requester or recorded approval, never its chosen owner. Omitted and explicit inherited mode share the existing idempotency hash; changing mode under a used key refuses `IDEMPOTENCY_KEY_REUSED`. A replay returns the same ship, null prompt/crewLines/secret and current starting-prompt status, without reapplying ownership or duplicating events. `OwnerSet` names `askingShip` in requester mode, `askingShipOwner` in inherited mode, and both ship ids.
+
 ### A delivery in hand
 
 Each delivery `receive` hands you carries its message and its sender:

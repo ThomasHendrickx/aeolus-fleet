@@ -90,7 +90,7 @@ it('requester retirement before a concurrent commission refuses without consumin
 it('a failed askingShip OwnerSet rolls back ship, credentials, events and key', async () => {
   // Given the assignment event cannot be persisted.
   const before = await everyRow(core.prisma);
-  const held = heldUnitOfWork(core.prisma, (tx) => ({ ...tx, events: { append: (event) => event.type === 'OwnerSet' ? Promise.reject(new Error('event failed')) : tx.events.append(event) } }));
+  const held = heldUnitOfWork(core.prisma, (tx) => ({ ...tx, events: { ...tx.events, append: (event) => event.type === 'OwnerSet' ? Promise.reject(new Error('event failed')) : tx.events.append(event) } }));
   const commission = createCommissionShip({ uow: held.uow, clock: core.clock, ids: createIdGenerator(), secrets: { hasher: sha256Hasher, random: cryptoRandomTokens } });
   const input = { ...request, ownerOf: requester.shipId };
 
