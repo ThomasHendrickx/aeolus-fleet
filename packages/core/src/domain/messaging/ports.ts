@@ -5,6 +5,7 @@ import type { DataKeyAge, FleetSealing, KeyAvailability, StoredDataKey } from '.
 import type { CompanyKeyReference, WrappedDataKey } from './key-vault.js';
 import type { RecoveryKey } from './recovery-key.js';
 import type { Meeting } from './meeting.js';
+import type { ListedMeeting } from './meeting-list.js';
 import type { Delivery, Message } from './message.js';
 import type { Overdue, PushedCrew } from './overdue.js';
 import type { Schedule } from './schedule.js';
@@ -26,6 +27,8 @@ export interface OpenerKey {
 
 /** Outbound port: meetings and their participants, always within one fleet (decision 0061). */
 export interface MeetingRepository {
+  /** The ship's readable meetings, open first, newest opening then id descending, bounded by the indexed page. */
+  listOf(fleetId: FleetId, query: { shipId: ShipId } & PageQuery<string>): Promise<Page<ListedMeeting, string>>;
   /** Stores the meeting with its participants. */
   create(meeting: Meeting): Promise<void>;
   /**

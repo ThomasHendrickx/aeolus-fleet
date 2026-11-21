@@ -1,11 +1,14 @@
-import { idSchema, micPatternSchema, type FleetId, type MeetingId } from '@aeolus-fleet/common';
+import { idSchema, meetingListEntrySchema, micPatternSchema, readMeetingsCursor, type FleetId, type MeetingId, type ShipId } from '@aeolus-fleet/common';
 import { z } from 'zod';
 
+import { meetingListCursor } from '../../domain/messaging/meeting-list.js';
 import type { Meeting } from '../../domain/messaging/meeting.js';
 import type { MicRequest } from '../../domain/messaging/mic.js';
 import type { MeetingRepository } from '../../domain/messaging/ports.js';
+import type { PageQuery } from '../../domain/shared/page.js';
 import { pageOf } from '../../domain/shared/page.js';
 import type { Db } from './client.js';
+import { Prisma } from './generated/client.js';
 import { toMessage } from './rows.js';
 
 const meetingRow = z.object({
@@ -39,6 +42,10 @@ const PARTICIPANTS_AND_REQUESTS = {
 /** Meetings on Postgres (decision 0061): a row per meeting and one per participant. */
 export function createPrismaMeetingRepository(db: Db): MeetingRepository {
   return {
+    listOf: async (fleetId, query) => {
+      const rows = await db.$queryRaw<unknown[]>(meetingListStatement(fleetId, query));
+      return pageOf(z.array(listedMeetingRow).parse(rows), { limit: query.limit, cursorOf: meetingListCursor });
+    },
     create: async (meeting) => {
       const { participants, micRequests, ...rest } = meeting;
       await db.meeting.create({ data: rest });
@@ -112,4 +119,55 @@ export function createPrismaMeetingRepository(db: Db): MeetingRepository {
 /** The mic requests as rows, each with its place on the list. */
 async function saveRequests(db: Db, { fleetId, meetingId, requests }: { fleetId: FleetId; meetingId: MeetingId; requests: readonly MicRequest[] }): Promise<void> {
   await db.meetingMicRequest.createMany({ data: requests.map((request, place) => ({ fleetId, meetingId, ...request, place })) });
+}
+
+
+const listedMeetingRow = meetingListEntrySchema.extend({
+  openedAt: z.date(), endedAt: z.date().nullable(), lastContributionAt: z.date().nullable(),
+});
+
+/** Two limited index ranges before joins: at most 2 x (limit + 1) participant entries, whatever the ship's history. */
+export function meetingListStatement(fleetId: FleetId, query: { shipId: ShipId } & PageQuery<string>): Prisma.Sql {
+  const cursor = query.cursor === undefined ? undefined : readMeetingsCursor(query.cursor);
+  const openPosition = cursor === undefined ? Prisma.empty : cursor.section === 'e'
+    ? Prisma.sql`AND false`
+    : Prisma.sql`AND (p.meeting_opened_at, p.meeting_id) < (${cursor.openedAt}, ${cursor.meetingId})`;
+  const endedPosition = cursor?.section === 'e'
+    ? Prisma.sql`AND (p.meeting_opened_at, p.meeting_id) < (${cursor.openedAt}, ${cursor.meetingId})` : Prisma.empty;
+  const take = query.limit + 1;
+  // OFFSET 0 keeps the meeting lookup per page row: at limit 100 Postgres otherwise
+  // chooses a hash join scanning every meeting, despite the bounded participant ranges.
+  return Prisma.sql`
+    WITH page AS (
+      (SELECT p.meeting_id, p.is_meeting_ended, p.meeting_opened_at, p.left_at, p.is_revoked
+       FROM meeting_participants p
+       WHERE p.fleet_id = ${fleetId} AND p.ship_id = ${query.shipId} AND p.is_meeting_ended = false ${openPosition}
+       ORDER BY p.meeting_opened_at DESC, p.meeting_id DESC LIMIT ${take})
+      UNION ALL
+      (SELECT p.meeting_id, p.is_meeting_ended, p.meeting_opened_at, p.left_at, p.is_revoked
+       FROM meeting_participants p
+       WHERE p.fleet_id = ${fleetId} AND p.ship_id = ${query.shipId} AND p.is_meeting_ended = true ${endedPosition}
+       ORDER BY p.meeting_opened_at DESC, p.meeting_id DESC LIMIT ${take})
+      ORDER BY is_meeting_ended, meeting_opened_at DESC, meeting_id DESC LIMIT ${take}
+    )
+    SELECT page.meeting_id AS "meetingId", m.title, m.opened_at AS "openedAt", m.ended_at AS "endedAt",
+      m.last_contribution_at AS "lastContributionAt",
+      json_build_object('id', o.id, 'name', o.name) AS owner,
+      json_build_object('id', d.id, 'name', d.name) AS moderator,
+      CASE WHEN h.id IS NULL THEN NULL ELSE json_build_object('id', h.id, 'name', h.name) END AS "micHolder",
+      (SELECT count(*)::int FROM meeting_participants q
+       WHERE q.fleet_id = m.fleet_id AND q.meeting_id = m.id AND q.left_at IS NULL) AS "presentParticipants",
+      (SELECT r.place + 1 FROM meeting_mic_requests r
+       WHERE r.fleet_id = m.fleet_id AND r.meeting_id = m.id AND r.ship_id = ${query.shipId}) AS "placeInLine",
+      CASE WHEN page.is_revoked THEN 'revoked' WHEN page.left_at IS NULL THEN 'present' ELSE 'left' END AS "participantState"
+    FROM page
+    JOIN LATERAL (
+      SELECT id, fleet_id, title, opened_at, ended_at, last_contribution_at,
+        owner_ship_id, moderator_ship_id, mic_holder_ship_id
+      FROM meetings WHERE fleet_id = ${fleetId} AND id = page.meeting_id OFFSET 0
+    ) m ON true
+    JOIN ships o ON o.fleet_id = m.fleet_id AND o.id = m.owner_ship_id
+    JOIN ships d ON d.fleet_id = m.fleet_id AND d.id = m.moderator_ship_id
+    LEFT JOIN ships h ON h.fleet_id = m.fleet_id AND h.id = m.mic_holder_ship_id
+    ORDER BY page.is_meeting_ended, page.meeting_opened_at DESC, page.meeting_id DESC`;
 }
