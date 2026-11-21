@@ -657,17 +657,44 @@ describe('timelineSentence', () => {
     });
   });
 
-  it('says a ship changed owner, by argo or because its owner retired', () => {
+  it('says a ship changed owner by argo', () => {
     expect(onScoutsPage(anEntry('OwnerChanged', { actor: argo, details: { why: 'setByArgo' } }))).toEqual({
       sentence: 'Owner changed by argo',
       tone: 'ended',
       icon: 'renamed',
     });
-    expect(onScoutsPage(anEntry('OwnerChanged', { actor: argo, details: { why: 'ownerRetired' } }))).toEqual({
-      sentence: 'Owner retired: argo owns it now',
+  });
+
+  it.each([planner, argo])('names and links the new owner $name when the previous owner retired', (owner) => {
+    // Given a retirement transfer, caused by a different ship from the new owner.
+    const entry = anEntry('OwnerChanged', { actor: scout, details: { why: 'ownerRetired', toShipId: owner.id } });
+    const names = new Map([[owner.id, owner.name]]);
+
+    // When its timeline sentence is shown.
+    const sentence = timelineSentence(entry, scout.id, names);
+
+    // Then the actual new owner is named and links to its ship page.
+    expect({ sentence: plainText(sentence.parts), tone: sentence.tone, icon: sentence.icon }).toEqual({
+      sentence: `Owner retired: ${owner.name} owns it now`,
       tone: 'ended',
       icon: 'renamed',
     });
+    expect(sentence.parts).toEqual([
+      { kind: 'text', text: 'Owner retired: ' },
+      { kind: 'ship', party: owner, href: `/ships/${owner.id}` },
+      { kind: 'text', text: ' owns it now' },
+    ]);
+  });
+
+  it('keeps the new owner linked by id while its name is unavailable', () => {
+    // Given a retirement transfer whose owner name has not been read.
+    const entry = anEntry('OwnerChanged', { details: { why: 'ownerRetired', toShipId: planner.id } });
+
+    // When the timeline is shown before the name arrives or after a lookup failure.
+    const { parts } = timelineSentence(entry, scout.id);
+
+    // Then it identifies the recorded owner rather than inventing argo.
+    expect(parts).toContainEqual({ kind: 'ship', party: { id: planner.id, name: planner.id }, href: `/ships/${planner.id}` });
   });
 
   it('says which label and value a ship was given or lost, and by whom', () => {
