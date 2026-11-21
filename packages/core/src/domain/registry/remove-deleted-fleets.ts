@@ -43,8 +43,11 @@ export function createRemoveDeletedFleets(deps: {
     for (const step of ['removeHistoryBatch', 'removeRecordsBatch'] as const) {
       for (;;) {
         const result = await deps.uow.run(async (tx) => {
+          if (!(await tx.fleetRemoval.tryLock(fleetId))) {
+            return ok('locked' as const);
+          }
           await tx.ships.lockOwnership(fleetId);
-          return ok((await tx.fleetRemoval.tryLock(fleetId)) ? await tx.fleetRemoval[step](fleetId, batchSize) : 'locked');
+          return ok(await tx.fleetRemoval[step](fleetId, batchSize));
         });
         const batch = result.isOk ? result.value : 'locked';
         if (batch === 'locked') {
@@ -59,8 +62,8 @@ export function createRemoveDeletedFleets(deps: {
       }
     }
     await deps.uow.run(async (tx) => {
-      await tx.ships.lockOwnership(fleetId);
       if (await tx.fleetRemoval.tryLock(fleetId)) {
+        await tx.ships.lockOwnership(fleetId);
         await tx.fleetRemoval.removeRest(fleetId);
       }
       return ok(undefined);

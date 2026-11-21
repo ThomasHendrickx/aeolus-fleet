@@ -68,11 +68,12 @@ export function createPruneHistory(deps: {
 
   const pruneBatch = (fleetId: FleetId, input: { cutoff: Date; after: PruneCursor | null }) =>
     deps.uow.run(async (tx) => {
-      await tx.ships.lockOwnership(fleetId);
       const pruner = tx.historyPruner;
       if (!(await pruner.tryLock(fleetId))) {
         return ok<Batch>({ kind: 'skipped' });
       }
+      // The non-blocking pass claim precedes ownership; all row locks follow it.
+      await tx.ships.lockOwnership(fleetId);
       const [candidates, meetingEventIds, shipIds] = await Promise.all([
         pruner.candidates(fleetId, { cutoff: input.cutoff, after: input.after, limit: batchSize }),
         pruner.meetingEvents(fleetId, { cutoff: input.cutoff, limit: batchSize }),
