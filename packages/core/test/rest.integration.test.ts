@@ -1,5 +1,5 @@
 import type { FleetScope, ShipId } from '@aeolus-fleet/common';
-import { createIdGenerator, fleetLimitsOutputSchema, reportLogOutputSchema, requestMicOutputSchema, shipStatusSchema } from '@aeolus-fleet/common';
+import { createIdGenerator, meetingsOutputSchema, fleetLimitsOutputSchema, reportLogOutputSchema, requestMicOutputSchema, shipStatusSchema } from '@aeolus-fleet/common';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
@@ -871,5 +871,23 @@ describe('the API reference page', () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get('content-type')).toMatch(/^text\/html/);
+  });
+});
+
+
+describe('a person ship rediscovers its meetings', () => {
+  it('reads its own meeting list end to end with its crew token', async () => {
+    // Given a person ship invited to a meeting by argo.
+    const useCases = createUseCases({ prisma: database });
+    const person = unwrap(await useCases.commissionShip(argo, { name: 'meeting-list-person', type: 'person', kind: 'person', idempotencyKey: newKey() }));
+    const crewToken = await register({ shipId: person.shipId, secret: secretOf(person.secret) });
+    const meeting = unwrap(await useCases.openMeeting(argo, { ships: [{ shipId: person.shipId }], title: 'Planning', idempotencyKey: newKey() }));
+
+    // When the person reads its list through REST and the real composition.
+    const page = await ok(request('meetings', { crewToken, body: {} }), meetingsOutputSchema);
+
+    // Then the invitation is discoverable without retaining its notice or meeting id.
+    expect(page.items).toMatchObject([{ meetingId: meeting.meetingId, title: 'Planning', participantState: 'present', owner: { id: argo.shipId, name: 'argo' } }]);
+    expect(page.nextCursor).toBeNull();
   });
 });
