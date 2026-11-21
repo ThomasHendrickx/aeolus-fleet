@@ -1104,6 +1104,7 @@ describe('ship.receive and ship.ack at the API', () => {
     const sender = await crewed('tender');
     const receiver = await crewed('skiff');
     const { messageId } = await sender.asShip.ship.send.mutate(toShipNamed('skiff'));
+    const senderLeaseId = idSchema('lease').parse((await (await signedInArgo()).fleet.ship.query({ shipId: sender.shipId })).currentLease?.id);
 
     const { deliveries } = await receiver.asShip.ship.receive.mutate({ max: 5 });
 
@@ -1113,6 +1114,7 @@ describe('ship.receive and ship.ack at the API', () => {
         deliveryId,
         messageId,
         senderShipId: sender.shipId,
+        senderLeaseId,
         senderName: 'tender',
         senderType: 'lookout',
         senderStatus: 'crewed',
@@ -1742,6 +1744,7 @@ describe("argo's inbox at the API", () => {
     const { deliveryId, messageId, crewToken } = await toArgo('Promote 2.14?');
     await asArgo.fleet.markDone.mutate({ deliveryId });
 
+    const senderLeaseId = idSchema('lease').parse((await asArgo.fleet.ship.query({ shipId: argoId })).currentLease?.id);
     const reply = await asArgo.fleet.reply.mutate({
       deliveryId,
       payload: '{"go":true}',
@@ -1754,7 +1757,7 @@ describe("argo's inbox at the API", () => {
       expect.objectContaining({ messageId: reply.messageId, contentType: 'application/vnd.example.answer+json', inReplyTo: messageId }),
     ]);
     expect((await asArgo.fleet.inbox.query({ filter: 'all' }).then(({ items }) => items)).find((entry) => entry.deliveryId === deliveryId)?.replies).toEqual([
-      { id: reply.messageId, contentType: 'application/vnd.example.answer+json', payload: '{"go":true}', isPayloadUnreadable: false, sentAt: clock.now().toISOString() },
+      { id: reply.messageId, senderLeaseId, contentType: 'application/vnd.example.answer+json', payload: '{"go":true}', isPayloadUnreadable: false, sentAt: clock.now().toISOString() },
     ]);
   });
 

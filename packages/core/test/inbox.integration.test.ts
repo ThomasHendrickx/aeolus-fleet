@@ -264,8 +264,8 @@ describe("argo's inbox on Postgres", () => {
     const [entry] = await core.useCases.readInbox(argo, { filter: 'all' }).then(unwrap).then(({ items }) => items);
 
     expect(entry?.replies).toEqual([
-      { id: first, contentType: 'text/plain', payload: 'go', sentAt: firstAt },
-      { id: second, contentType: 'text/plain', payload: 'and thanks', sentAt: core.clock.now() },
+      { id: first, senderLeaseId: argo.leaseId, contentType: 'text/plain', payload: 'go', sentAt: firstAt },
+      { id: second, senderLeaseId: argo.leaseId, contentType: 'text/plain', payload: 'and thanks', sentAt: core.clock.now() },
     ]);
   });
 
