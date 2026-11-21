@@ -122,6 +122,7 @@ describe('sending a message on Postgres', () => {
         id: messageId,
         fleetId,
         senderShipId: argoId,
+        senderLeaseId: null,
         selectorKind: 'ship',
         selectorShipId: scoutId,
         selectorType: null,
@@ -178,7 +179,7 @@ describe('sending a message on Postgres', () => {
         shipId: scoutId,
         messageId,
         deliveryId: delivery?.id,
-        details: { selector: 'ship', recipientType: null, model: null },
+        details: { selector: 'ship', recipientType: null, model: null, senderLeaseId: null },
       }),
     ]);
     await expect.poll(() => notices).toEqual([{ fleetId, deliveryId: delivery?.id, recipient: { kind: 'ship', shipId: scoutId } }]);

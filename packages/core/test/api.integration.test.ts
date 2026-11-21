@@ -313,6 +313,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_trierarch_kind_backfill$/),
       expect.stringMatching(/^\d{14}_fleet_journeys$/),
       expect.stringMatching(/^\d{14}_meeting_list$/),
+      expect.stringMatching(/^\d{14}_message_sender_lease$/),
     ]);
   });
 });
