@@ -26,7 +26,7 @@ export function meetingId(serial: number) {
   return idSchema('meeting').parse(`mtg_${String(serial).padStart(26, '0')}`);
 }
 
-export function aMeetingForList(meetingHarness: MeetingListHarness, { serial, ...overrides }: { serial: number } & Partial<Meeting>): Meeting {
+export function aMeetingForList(meetingHarness: Pick<MeetingListHarness, 'fleetId' | 'shipId' | 'ownerId' | 'moderatorId' | 'otherId'>, { serial, ...overrides }: { serial: number } & Partial<Meeting>): Meeting {
   return {
     id: meetingId(serial), fleetId: meetingHarness.fleetId, title: 'Planning',
     ownerShipId: meetingHarness.ownerId, moderatorShipId: meetingHarness.moderatorId, openedByShipId: meetingHarness.ownerId,

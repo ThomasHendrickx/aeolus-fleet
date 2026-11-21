@@ -36,6 +36,7 @@ const SHIP_TOOLS = [
   'withdraw',
   'openMeeting',
   'meeting',
+  'meetings',
   'requestMic',
   'withdrawMicRequest',
   'releaseMic',
