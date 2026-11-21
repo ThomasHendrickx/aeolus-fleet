@@ -1475,7 +1475,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       listOf: (fleetId, { shipId, cursor, limit }) => {
         const position = cursor === undefined ? undefined : readMeetingsCursor(cursor);
         const rows = state.meetings.flatMap((meeting): ListedMeeting[] => {
-          const participant = meeting.participants.find((p) => p.shipId === shipId);
+          const participant = meeting.participants.find((participant) => participant.shipId === shipId);
           if (meeting.fleetId !== fleetId || participant === undefined) return [];
           const owner = state.ships.find((ship) => ship.fleetId === fleetId && ship.id === meeting.ownerShipId);
           const moderator = state.ships.find((ship) => ship.fleetId === fleetId && ship.id === meeting.moderatorShipId);
@@ -1485,7 +1485,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
           return [{
             meetingId: meeting.id, title: meeting.title, openedAt: meeting.openedAt, endedAt: meeting.endedAt,
             owner: { id: owner.id, name: owner.name }, moderator: { id: moderator.id, name: moderator.name },
-            presentParticipants: meeting.participants.filter((p) => p.leftAt === null).length,
+            presentParticipants: meeting.participants.filter((participant) => participant.leftAt === null).length,
             micHolder: holder === undefined ? null : { id: holder.id, name: holder.name }, placeInLine: place < 0 ? null : place + 1,
             lastContributionAt: meeting.lastContributionAt ?? null,
             participantState: participant.isRevoked ? 'revoked' : participant.leftAt === null ? 'present' : 'left',
