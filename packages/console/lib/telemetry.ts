@@ -1,5 +1,5 @@
 import type { MetricReader } from '@opentelemetry/sdk-metrics';
-import type { SpanExporter } from '@opentelemetry/sdk-trace-base';
+import type { SpanExporter } from '@opentelemetry/sdk-trace';
 
 /**
  * OpenTelemetry for the console: Next.js's own spans and a duration point for

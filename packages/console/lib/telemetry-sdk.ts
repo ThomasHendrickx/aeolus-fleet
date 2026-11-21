@@ -1,6 +1,6 @@
 import { metrics, type Attributes } from '@opentelemetry/api';
 import { NodeSDK } from '@opentelemetry/sdk-node';
-import { BatchSpanProcessor, SimpleSpanProcessor, type ReadableSpan, type SpanExporter, type SpanProcessor } from '@opentelemetry/sdk-trace-base';
+import { BatchSpanProcessor, SimpleSpanProcessor, type ReadableSpan, type SpanExporter, type SpanProcessor } from '@opentelemetry/sdk-trace';
 
 import { INSTRUMENTATION_SCOPE, SERVER_DURATION_BOUNDARIES_S } from './call-telemetry';
 import type { Telemetry, TelemetryExporters } from './telemetry';
@@ -108,7 +108,7 @@ async function otlpSpanExporter(env: Readonly<Record<string, string | undefined>
 }
 
 export async function startSdk(env: Readonly<Record<string, string | undefined>>, exporters?: TelemetryExporters): Promise<Telemetry> {
-  const spanProcessor = exporters === undefined ? new BatchSpanProcessor(await otlpSpanExporter(env)) : new SimpleSpanProcessor(exporters.spanExporter);
+  const spanProcessor = exporters === undefined ? new BatchSpanProcessor({ exporter: await otlpSpanExporter(env) }) : new SimpleSpanProcessor({ exporter: exporters.spanExporter });
   const sdk = new NodeSDK({
     // The settings' service name wins; without one, the console names itself.
     serviceName: env.OTEL_SERVICE_NAME === undefined ? DEFAULT_SERVICE_NAME : undefined,
