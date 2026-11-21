@@ -9,7 +9,7 @@
  *
  * Usage: node scripts/standalone.ts
  */
-import { cpSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -27,10 +27,12 @@ for (const unused of ['sharp', '@img']) {
 // Turbopack loads an external package, such as require-in-the-middle for
 // telemetry, by a hashed name it links to the package itself.
 const hashedExternals = join(standalone, 'packages', 'console', '.next', 'node_modules');
-for (const link of readdirSync(hashedExternals, { withFileTypes: true }).filter((entry) => entry.isSymbolicLink())) {
-  const path = join(hashedExternals, link.name);
-  const linkedPackage = realpathSync(path);
-  rmSync(path);
-  cpSync(linkedPackage, path, { recursive: true });
+if (existsSync(hashedExternals)) {
+  for (const link of readdirSync(hashedExternals, { withFileTypes: true }).filter((entry) => entry.isSymbolicLink())) {
+    const path = join(hashedExternals, link.name);
+    const linkedPackage = realpathSync(path);
+    rmSync(path);
+    cpSync(linkedPackage, path, { recursive: true });
+  }
 }
 writeFileSync(join(standalone, NOTICES_FILE), noticesText(noticedPackages({ consoleRoot, repositoryRoot, standalone })));

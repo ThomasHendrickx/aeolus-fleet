@@ -5,7 +5,7 @@
  * in the query duration histogram, by its name.
  */
 import { metrics, type Attributes } from '@opentelemetry/api';
-import type { ReadableSpan, SpanProcessor } from '@opentelemetry/sdk-trace-base';
+import type { ReadableSpan, SpanProcessor } from '@opentelemetry/sdk-trace';
 import { PrismaInstrumentation } from '@prisma/instrumentation';
 
 /** The span Prisma's instrumentation opens for one operation, such as `Ship.findMany` or `$queryRaw`. */

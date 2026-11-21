@@ -5,7 +5,7 @@
  * query under the call that made it, and measures it.
  */
 import { NodeSDK } from '@opentelemetry/sdk-node';
-import { BatchSpanProcessor, SimpleSpanProcessor, type SpanExporter } from '@opentelemetry/sdk-trace-base';
+import { BatchSpanProcessor, SimpleSpanProcessor, type SpanExporter } from '@opentelemetry/sdk-trace';
 
 import { prismaInstrumentation, queryDurations } from '../prisma/telemetry.js';
 import { INSTRUMENTATION_SCOPE } from './calls.js';
@@ -30,7 +30,7 @@ async function otlpSpanExporter(env: Readonly<Record<string, string | undefined>
 }
 
 export async function startSdk(env: Readonly<Record<string, string | undefined>>, exporters?: TelemetryExporters): Promise<Telemetry> {
-  const spanProcessor = exporters === undefined ? new BatchSpanProcessor(await otlpSpanExporter(env)) : new SimpleSpanProcessor(exporters.spanExporter);
+  const spanProcessor = exporters === undefined ? new BatchSpanProcessor({ exporter: await otlpSpanExporter(env) }) : new SimpleSpanProcessor({ exporter: exporters.spanExporter });
   const sdk = new NodeSDK({
     // The settings' service name wins; without one, core names itself.
     serviceName: env.OTEL_SERVICE_NAME === undefined ? DEFAULT_SERVICE_NAME : undefined,

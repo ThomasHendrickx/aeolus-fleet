@@ -2901,3 +2901,25 @@ describe('scheduled messages (decision 0062)', () => {
     await expect(codeOf(scout.ship.schedule.mutate({ ...toArgo, idempotencyKey: newKey(), timing: { kind: 'cron', cron: '0 9 * *' } }))).resolves.toBe('BAD_REQUEST');
   });
 });
+
+
+it('tRPC commission selects requester ownership and rejects ownership without a requester', async () => {
+  // Given an authenticated commissioner with on-behalf authority.
+  const manager = await agentShip(['messages:send', 'messages:receive', 'fleet:commission', 'fleet:on-behalf']);
+  const registered = await client().ship.register.mutate({ shipId: manager.shipId, secret: manager.secret, location: { kind: 'SERVER' } });
+  const commissioner = client({ authorization: `Bearer ${registered.crewToken}` });
+  const requester = await (await signedInArgo()).fleet.commission.mutate({ name: 'trpc-requester', type: 'reviewer', owner: ownerId, idempotencyKey: newKey() });
+  const input = { name: 'trpc-requester-helper', type: 'reviewer', idempotencyKey: newKey(), ownerOf: requester.shipId, ownership: 'requester' as const };
+
+  // When commission and retry pass through tRPC.
+  const first = await commissioner.fleet.commission.mutate(input);
+  const replay = await commissioner.fleet.commission.mutate(input);
+  const refused = await codeOf(commissioner.fleet.commission.mutate({ name: 'trpc-invalid-owner-mode', type: 'reviewer', idempotencyKey: newKey(), ownership: 'requester' }));
+
+  // Then owner choice, credentials and input refusal are identical across doors.
+  expect(replay).toMatchObject({ shipId: first.shipId, secret: null, prompt: null, crewLines: null });
+  expect(first.secret).toEqual(expect.any(String));
+  expect(refused).toBe('BAD_REQUEST');
+  await expect(database.ship.findUniqueOrThrow({ where: { id: first.shipId } })).resolves.toMatchObject({ ownerShipId: requester.shipId });
+  await expect(database.ship.count({ where: { fleetId, name: 'trpc-invalid-owner-mode' } })).resolves.toBe(0);
+});

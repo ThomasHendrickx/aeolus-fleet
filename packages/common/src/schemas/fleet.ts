@@ -42,8 +42,10 @@ export const commissionShipInputSchema = z.object({
   scopes: z.array(scopeNameSchema).optional(),
   /** The label values it carries from the start: each of a label the commissioner defined, or one it carries (decision 0053). */
   valueIds: z.array(idSchema('labelValue')).max(SHIP_LABELS_MAX).optional(),
-  /** The ship that asked a plugin's ship for this one, whose owner it gets; naming one needs fleet:on-behalf (decision 0045). */
+  /** The actual requesting ship; naming one needs fleet:on-behalf (decision 0045). */
   ownerOf: idSchema('ship').optional(),
+  /** Omitted or requester-owner inherits the requester's owner; requester selects the requesting ship itself. Requires ownerOf and cannot accompany owner. */
+  ownership: z.enum(['requester', 'requester-owner']).optional(),
   approval: commissionApprovalUseSchema.optional(),
   /**
    * The owner argo picked for an app ship the gateway commissions, an active person, agent, app or argo; naming one needs fleet:on-behalf.
@@ -56,6 +58,9 @@ export const commissionShipInputSchema = z.object({
     .max(SHIP_NOTE_MAX_LENGTH, `A note is at most ${SHIP_NOTE_MAX_LENGTH} characters`)
     .optional(),
   idempotencyKey: idempotencyKeySchema,
+}).refine((input) => input.ownership === undefined || (input.ownerOf !== undefined && input.owner === undefined), {
+  message: 'ownership requires ownerOf and cannot accompany owner',
+  path: ['ownership'],
 });
 
 export type CommissionShipInput = z.infer<typeof commissionShipInputSchema>;

@@ -5,7 +5,7 @@
  * SDK is never loaded, so a self-hosted fleet sends nothing anywhere.
  */
 import type { MetricReader } from '@opentelemetry/sdk-metrics';
-import type { SpanExporter } from '@opentelemetry/sdk-trace-base';
+import type { SpanExporter } from '@opentelemetry/sdk-trace';
 
 export interface Telemetry {
   /** Sends what is still buffered, then stops. */

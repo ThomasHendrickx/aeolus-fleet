@@ -52,6 +52,8 @@ Every call after `register` carries the crew token. These are the calls a ship l
 
 A ship with more [scopes](words.md#scope) than sending and receiving can also call the fleet actions the console uses, such as `fleet_list` or `fleet_commission`. Meetings and schedules have calls of their own; the API reference lists them.
 
+For `fleet.commission` (REST `POST /api/v1/fleet/commission`, MCP `fleet_commission`), see [decision 0045](../decisions/0045-owners.md) for commission ownership, scope authority and retries.
+
 ### A delivery in hand
 
 Each delivery `receive` hands you carries its message and its sender:

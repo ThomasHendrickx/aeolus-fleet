@@ -892,3 +892,21 @@ describe('a person ship rediscovers its meetings', () => {
     expect(page.nextCursor).toBeNull();
   });
 });
+
+it('REST commission selects requester ownership and rejects ownership without a requester', async () => {
+  // Given a crewed commissioner that may act on behalf of its requester.
+  const commissioner = await crewedWithFleetScopes(['fleet:commission', 'fleet:on-behalf']);
+  const requester = await commissioned();
+  const body = { name: 'rest-requester-helper', type: 'reviewer', idempotencyKey: freshKey(), ownerOf: requester.shipId, ownership: 'requester' };
+
+  // When commission and its retry pass through REST.
+  const first = await ok(request('fleet/commission', { crewToken: commissioner.crewToken, body }), z.object({ shipId: z.string(), secret: z.string() }));
+  const replay = await ok(request('fleet/commission', { crewToken: commissioner.crewToken, body }), z.object({ shipId: z.string(), secret: z.null(), prompt: z.null(), crewLines: z.null() }));
+  const refused = await request('fleet/commission', { crewToken: commissioner.crewToken, body: { name: 'invalid-owner-mode', type: 'reviewer', idempotencyKey: freshKey(), ownership: 'requester' } });
+
+  // Then the selected requester owns the single ship and invalid input writes nothing.
+  expect(replay.shipId).toBe(first.shipId);
+  expect(refused.status).toBe(400);
+  await expect(database.ship.findUniqueOrThrow({ where: { id: first.shipId } })).resolves.toMatchObject({ ownerShipId: requester.shipId });
+  await expect(database.ship.count({ where: { fleetId: argo.fleetId, name: 'invalid-owner-mode' } })).resolves.toBe(0);
+});

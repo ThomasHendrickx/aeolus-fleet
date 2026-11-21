@@ -61,6 +61,34 @@ describe('shipHandleSchema', () => {
 });
 
 describe('commissionShipInputSchema', () => {
+  it.each(['requester', 'requester-owner'])('accepts explicit %s ownership with ownerOf', (ownership) => {
+    // Given an explicit owner choice and the actual requester.
+    const input = { name: 'helper', type: 'reviewer', idempotencyKey: 'helper', ownerOf: newId('ship'), ownership };
+
+    // When parsed through the shared public commission schema.
+    const parsed = commissionShipInputSchema.parse(input);
+
+    // Then the choice survives for every transport.
+    expect(parsed).toEqual(input);
+  });
+
+  it.each([
+    ['no requester', { ownership: 'requester' }],
+    ['inherited without requester', { ownership: 'requester-owner' }],
+    ['named owner beside requester mode', { ownership: 'requester', ownerOf: newId('ship'), owner: newId('ship') }],
+    ['named owner beside inherited mode', { ownership: 'requester-owner', ownerOf: newId('ship'), owner: newId('ship') }],
+    ['unknown mode', { ownership: 'ancestor', ownerOf: newId('ship') }],
+  ])('refuses invalid ownership: %s', (_scenario, choice) => {
+    // Given an invalid owner-choice combination.
+    const input = { name: 'helper', type: 'reviewer', idempotencyKey: 'helper', ...choice };
+
+    // When parsed at the public edge.
+    const result = commissionShipInputSchema.safeParse(input);
+
+    // Then no commission input is accepted.
+    expect(result.success).toBe(false);
+  });
+
   it('accepts a name, a type and a note', () => {
     const input = { name: 'scout', type: 'reviewer', note: 'reviews pull requests', idempotencyKey: 'commission-scout' };
 

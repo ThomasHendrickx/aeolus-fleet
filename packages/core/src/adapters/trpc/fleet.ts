@@ -259,13 +259,13 @@ export const fleetRouter = router({
         'scopes adds scopes to the two every ship has, each one you may grant: a core scope you hold, or a declared scope of the namespace your ship declared. fleet_grantScopes changes them later.',
         "The new ship's owner is your owner, you when you are a person ship, or your person ship when you are an account; an account without a person ship in the fleet is refused.",
         'valueIds gives it label values from the start, each a value of a label you defined or a value you carry yourself (decision 0053).',
-        "ownerOf, which needs fleet:on-behalf, names the ship that asked it for this one: the new ship gets that ship's owner instead of yours.",
+        "ownerOf, which needs fleet:on-behalf, names the actual requester. ownership is requester-owner when omitted and inherits its owner; requester makes that requesting person, agent or app the owner. ownership requires ownerOf and cannot accompany owner. Scopes come from the live requester or recorded approval, never the chosen owner.",
         'approval names a kept approvalId and matching subjectDigest. Only its permitted commissioner may use it, for a subset of its scopes, with ownerOf still naming requester ownership. Withdrawal stops new commissions and leaves completed retries unchanged.',
         'kind is agent unless you state person, app, plugin or trierarch: a person ship needs fleet:person instead and owns itself, an app ship needs fleet:on-behalf as well, and a plugin ship needs fleet:connect instead, which connects it (decision 0050). A trierarch ship needs fleet:commission and crews its computer’s assigned ships.',
         "owner, which needs fleet:on-behalf and only for an app ship, names the owner argo picked for it: an active person, agent, app or argo, never beside ownerOf.",
         'Answers its shipId, its first starting prompt, one crew line per harness (claude-code, codex, copilot) and its secret, shown only this once.',
         'idempotencyKey is a new unique string for every commission. Reuse one only to retry the same commission after an error or a lost answer:',
-        'the retry answers the same shipId with prompt, crewLines and secret null and how its starting prompt stands (fleet_getStartingPrompt gives a new one), and a different commission with a used key is refused (CONFLICT).',
+        'Omitted and explicit requester-owner are the same request; changing ownership mode under a used key is refused. A retry never reapplies ownership. The retry answers the same shipId with prompt, crewLines and secret null and how its starting prompt stands (fleet_getStartingPrompt gives a new one), and a different commission with a used key is refused (CONFLICT).',
       ].join(' '),
     })
     .input(commissionShipInputSchema)

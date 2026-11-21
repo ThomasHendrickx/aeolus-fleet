@@ -34,8 +34,10 @@ export interface CommissionShipInput {
   scopes?: readonly string[];
   /** The label values it carries from the start: each of a label the caller defined, or one it carries (decision 0053). */
   valueIds?: readonly LabelValueId[];
-  /** The ship that asked the caller, a plugin's ship holding fleet:on-behalf, for this one: the new ship gets its owner (decision 0045). */
+  /** The actual requester named by a caller holding fleet:on-behalf (decision 0045). */
   ownerOf?: ShipId;
+  /** Select the requester itself, or inherit its owner by default. Only meaningful with ownerOf, never owner. */
+  ownership?: 'requester' | 'requester-owner';
   approval?: CommissionApprovalUse;
   /** The owner argo picked for an app ship that a ship holding fleet:on-behalf, the gateway, commissions (decision 0045). */
   owner?: ShipId;
@@ -75,6 +77,8 @@ function commissionRequestText(input: CommissionShipInput): string {
     valueIds,
     ownerOf: input.ownerOf ?? null,
     owner: input.owner ?? null,
+    // Keep the legacy hash for both spellings of inherited mode.
+    ...(input.ownership === 'requester' ? { ownership: 'requester' } : {}),
     ...(input.approval === undefined ? {} : { approval: { approvalId: input.approval.approvalId, subjectDigest: input.approval.subjectDigest } }),
   });
 }
@@ -236,8 +240,8 @@ async function commissioningActorOf(tx: CommissionShipTx, ref: { caller: Caller;
  * when it is a person ship, or an account's person ship, commissioned first
  * when the account has none (decisions 0052, 0057); argo signed in to the
  * console names an agent ship's owner, an active person ship; a caller
- * holding fleet:on-behalf may name the ship that asked it instead, whose owner
- * it gets, or for an app ship the owner argo picked (decision 0045). The
+ * holding fleet:on-behalf may name the ship that asked it and choose that ship
+ * itself or its owner, or for an app ship the owner argo picked (decision 0045). The
  * caller's idempotency key, its own apart from every other actor's, makes
  * a retry safe: the same key with the same request answers the ship it
  * commissioned, with no secret, and changes nothing; the same key with another
