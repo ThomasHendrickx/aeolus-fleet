@@ -404,3 +404,16 @@ describe('formatted scheduled occurrences', () => {
     }
   });
 });
+
+
+it('records null evidence for scheduled sends without borrowing a later crew', async () => {
+  // Given a scheduled message and a currently crewed sender.
+  await scheduled();
+  crewAboard(core, scout);
+  core.clock.set(SEND_TIME);
+  // When its scheduled time is sent.
+  await pass();
+  // Then neither the envelope nor its event claims the current crew sent it.
+  expect(core.state.messages).toEqual([expect.objectContaining({ senderLeaseId: null })]);
+  expect(core.state.events.find((event) => event.type === 'MessageAccepted')?.details).toMatchObject({ senderLeaseId: null });
+});

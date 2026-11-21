@@ -203,3 +203,14 @@ describe('formatted operator replies', () => {
     expect(core.state.notices).toEqual([]);
   });
 });
+
+
+it('records the console crew lease on an operator reply and its accepted event', async () => {
+  // Given a message in the authenticated console crew's inbox.
+  const asked = await toArgo();
+  // When argo replies.
+  const { messageId } = unwrap(await useCases.replyToMessage(argo, { deliveryId: asked.deliveryId, payload: 'go', idempotencyKey: newKey() }));
+  // Then provenance names the replying console lease.
+  expect(message(messageId)).toMatchObject({ senderLeaseId: argo.leaseId });
+  expect(core.state.events.find((event) => event.type === 'MessageAccepted')?.details).toMatchObject({ senderLeaseId: argo.leaseId });
+});

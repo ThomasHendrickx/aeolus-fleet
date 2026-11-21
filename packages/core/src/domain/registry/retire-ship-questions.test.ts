@@ -188,3 +188,14 @@ describe('retiring a ship whose question history spans data key rotations (decis
     ]).toEqual([4, OPEN.map((questionId) => ({ senderShipId: scout.shipId, selector: { kind: 'ship', shipId: lookout.shipId }, questionId }))]);
   });
 });
+
+it('records null evidence for generated retirement withdrawals', async () => {
+  // Given an unanswered question from a ship being retired.
+  await asked(scout, { to: argoId, question: aQuestion({ id: FIRST_QUESTION }) });
+  // When retirement generates its withdrawal.
+  await retired(scout);
+  // Then no authenticated sending crew is claimed.
+  const withdrawal = core.state.messages.find(({ contentType }) => contentType === WITHDRAWAL_CONTENT_TYPE);
+  expect(withdrawal).toMatchObject({ senderLeaseId: null });
+  expect(core.state.events.find(({ messageId }) => messageId === withdrawal?.id)?.details).toMatchObject({ senderLeaseId: null });
+});

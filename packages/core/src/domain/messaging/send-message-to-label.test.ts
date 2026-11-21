@@ -233,3 +233,16 @@ describe('a send to a label under network rules (D4)', () => {
     expect(answered.isOk).toBe(true);
   });
 });
+
+
+it('records the sending crew lease on label fan-out and every accepted event', async () => {
+  // Given an authenticated lead crew.
+  const crew = { ...lead, leaseId: core.ids('lease') };
+  // When it sends to the team label.
+  const { messageId } = unwrap(await messaging.sendMessage(crew, toTeamA()));
+  // Then the one message and all three events carry the same lease.
+  expect(core.state.messages.find(({ id }) => id === messageId)).toMatchObject({ senderLeaseId: crew.leaseId });
+  const events = core.state.events.filter((event) => event.type === 'MessageAccepted');
+  expect(events).toHaveLength(3);
+  for (const event of events) expect(event.details).toMatchObject({ senderLeaseId: crew.leaseId });
+});

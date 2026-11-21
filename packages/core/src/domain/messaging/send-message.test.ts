@@ -4,6 +4,7 @@ import { assert, beforeEach, describe, expect, it } from 'vitest';
 
 import {
   addAgentShip,
+  crewAboard,
   addViewerShip,
   agentCaller,
   initialiseFleet,
@@ -715,5 +716,37 @@ describe('formatted message preservation', () => {
     expect(core.state.deliveries).toHaveLength(1);
     expect(core.state.events).toEqual([]);
     expect(core.state.notices).toEqual([]);
+  });
+});
+
+
+describe('durable sending lease', () => {
+  it('records the authenticated sending lease and accepted event, preserving both on a replacement crew retry', async () => {
+    // Given a crew sending a request under its own lease.
+    const crew = crewAboard(core, { fleetId, shipId: scoutId });
+    const input = aReview({ selector: { kind: 'ship', shipId: argoId }, model: SCOUT_MODEL });
+
+    // When a replacement crew retries the same request and then sends a new one.
+    const messageId = await sent(crew, input);
+    const replacement = { ...crew, leaseId: core.ids('lease') };
+    expect(await sent(replacement, input)).toBe(messageId);
+    const freshId = await sent(replacement, { ...input, idempotencyKey: newKey() });
+
+    // Then the retry keeps the first evidence, and only the new message names the replacement.
+    expect(core.state.messages.find(({ id }) => id === messageId)).toMatchObject({ senderLeaseId: crew.leaseId });
+    expect(core.state.messages.find(({ id }) => id === freshId)).toMatchObject({ senderLeaseId: replacement.leaseId });
+    expect(core.state.events.filter(({ type }) => type === 'MessageAccepted').map(({ details }) => details.senderLeaseId)).toEqual([crew.leaseId, replacement.leaseId]);
+  });
+
+  it('records null without an authenticated sending crew and ignores provenance in caller input', async () => {
+    // Given input trying to supply provenance without a sending crew.
+    const input = { ...aReview(), senderLeaseId: core.ids('lease') };
+
+    // When the ordinary caller sends it.
+    const messageId = await sent(argo, input);
+
+    // Then input cannot manufacture a lease on the message or its event.
+    expect(core.state.messages.find(({ id }) => id === messageId)).toMatchObject({ senderLeaseId: null });
+    expect(core.state.events.find(({ messageId: id }) => id === messageId)?.details).toMatchObject({ senderLeaseId: null });
   });
 });

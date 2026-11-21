@@ -259,3 +259,16 @@ describe('an answer to a contribution', () => {
     expect(answered.isOk).toBe(true);
   });
 });
+
+
+it('records the contributing crew lease on the message and every fan-out accepted event', async () => {
+  // Given the moderator's authenticated crew.
+  const crew = crewAboard(core, chief);
+  // When it contributes to all other participants.
+  const messageId = await contributed(crew);
+  // Then each delivery shares the message's sending evidence.
+  expect(core.state.messages.find(({ id }) => id === messageId)).toMatchObject({ senderLeaseId: crew.leaseId });
+  const events = core.state.events.filter((event) => event.type === 'MessageAccepted');
+  expect(events).toHaveLength(2);
+  for (const event of events) expect(event.details).toMatchObject({ senderLeaseId: crew.leaseId });
+});

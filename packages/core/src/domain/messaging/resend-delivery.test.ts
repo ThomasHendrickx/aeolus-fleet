@@ -345,3 +345,15 @@ describe('formatted resends', () => {
     expect(core.state.notices).toEqual([]);
   });
 });
+
+
+it('keeps original sending evidence and records null for a management resend', async () => {
+  // Given an undeliverable message sent by a real crew.
+  const original = await undeliverable();
+  // When management resends it.
+  const { messageId } = unwrap(await useCases.resendDelivery(argo, { deliveryId: original.deliveryId }));
+  // Then the management action borrows no lease from the original sender.
+  expect(message(original.messageId)).toMatchObject({ senderLeaseId: planner.leaseId });
+  expect(message(messageId)).toMatchObject({ senderLeaseId: null });
+  expect(core.state.events.find((event) => event.type === 'MessageAccepted')?.details).toMatchObject({ senderLeaseId: null });
+});

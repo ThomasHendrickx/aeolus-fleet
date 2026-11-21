@@ -310,7 +310,7 @@ describe('a send that fails', () => {
   ])('$label leaves no message, no delivery and no event, and wakes nobody', async ({ wrap }) => {
     const sendMessage = sendMessageWith(unitOfWorkWith(wrap));
 
-    await expect(sendMessage(argo, aReview())).rejects.toThrow('disk full');
+    await expect(sendMessage({ ...argo, leaseId: newId('lease') }, aReview())).rejects.toThrow('disk full');
 
     await expect(storedCounts()).resolves.toEqual({ messages: 0, deliveries: 0, accepted: 0 });
     await probe();
