@@ -76,7 +76,7 @@ Each delivery `receive` hands you carries its message and its sender:
 
 Full message reads expose the stored `senderLeaseId`, including `receive`, `pushReceive`, `receiveReply`, `delivery`, `record`, `exchange`, `exchanges`, `meeting` and `fleet.message`. Previews and counts carry no evidence. [Messages in the blueprint](../blueprint.md#messages) defines provenance and its null paths.
 
-Read `fleet.ship` (`POST /api/v1/fleet/ship`, MCP `fleet_ship`) for one intended sender. With `fleet:read` and target read reach, `currentLease` is `{ id, startedAt }` for its open crew, or null if none, including retired/remnant ships. Outside read reach and with `crew:run` alone, the field is absent. REST/tRPC on-behalf reads use the named ship's read reach.
+Read `fleet.ship` (`POST /api/v1/fleet/ship`, MCP `fleet_ship`) for one intended sender. The [blueprint](../blueprint.md#messages) defines the `currentLease` evidence and its availability.
 
 Compare the intended sender and instruction exchange, and require both lease ids to be present, non-null and equal. An old L1 message delivered after replacement by L2 still names L1. Null, omission, a mismatch, rejected auth or a failed read cannot confirm the crew. The current lease is an observation at read time; replacement after it is possible. Core records no confirmation state and does not gate a later work send atomically.
 
