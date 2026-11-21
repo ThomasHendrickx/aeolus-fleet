@@ -91,6 +91,20 @@ describe('shipDetailOutputSchema', () => {
     statement: null,
   };
 
+  it('carries current-lease evidence as a nullable observation and permits omission when unavailable (#1993)', () => {
+    // Given
+    const currentLease = { id: newId('lease'), startedAt: AT };
+    // When
+    const open = shipDetailOutputSchema.parse({ ...ship, currentLease });
+    const absent = shipDetailOutputSchema.parse({ ...ship, currentLease: null });
+    // Then
+    expect(open).toHaveProperty('currentLease', currentLease);
+    expect(absent).toHaveProperty('currentLease', null);
+    expect(shipDetailOutputSchema.parse(ship)).not.toHaveProperty('currentLease');
+    expect(shipDetailOutputSchema.safeParse({ ...ship, currentLease: { id: scout.id, startedAt: AT } }).success).toBe(false);
+    expect(shipDetailOutputSchema.safeParse({ ...ship, currentLease: { ...currentLease, startedAt: 'yesterday' } }).success).toBe(false);
+  });
+
   it('accepts a ship with its commissioned date, when its crew came aboard and when it retired', () => {
     expect(shipDetailOutputSchema.parse(ship)).toEqual(ship);
   });
@@ -240,6 +254,7 @@ describe('messageOutputSchema', () => {
     sentAt: AT,
     contentType: 'application/json',
     model: null,
+    senderLeaseId: null,
     payload: '{"pr":48}',
     isPayloadUnreadable: false,
     isPayloadSealed: false,
@@ -272,6 +287,17 @@ describe('messageOutputSchema', () => {
 
   it('accepts the envelope, the payload, its replies and the delivery with its way and its history, newest first', () => {
     expect(messageOutputSchema.parse(message)).toEqual(message);
+  });
+
+  it('requires nullable sending evidence on a full message and preserves the lease id (#1993)', () => {
+    // Given
+    const senderLeaseId = newId('lease');
+    // When
+    const read = messageOutputSchema.parse({ ...message, senderLeaseId });
+    // Then
+    expect(read).toHaveProperty('senderLeaseId', senderLeaseId);
+    expect(messageOutputSchema.safeParse({ ...message, senderLeaseId: undefined }).success).toBe(false);
+    expect(messageOutputSchema.safeParse({ ...message, senderLeaseId: scout.id }).success).toBe(false);
   });
 
   it('refuses a delivery count below zero', () => {

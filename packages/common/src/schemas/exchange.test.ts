@@ -31,7 +31,7 @@ describe('exchangesEntrySchema unseen plain messages', () => {
     // Given an exchange summary with no unseen plain messages.
     const entry = {
       otherShipId: newId('ship'), otherShipName: 'lookout', otherShipType: 'agent', otherShipKind: 'agent', unacknowledged: 1,
-      newestMessage: { messageId: newId('message'), senderShipId: newId('ship'), payload: '{}', isPayloadUnreadable: false, contentType: 'text/plain', sentAt: '2026-11-15T12:00:00.000Z' },
+      newestMessage: { messageId: newId('message'), senderShipId: newId('ship'), senderLeaseId: null, payload: '{}', isPayloadUnreadable: false, contentType: 'text/plain', sentAt: '2026-11-15T12:00:00.000Z' },
     };
     // When the required count is supplied, missing, negative or fractional.
     // Then only a nonnegative integer count is accepted.

@@ -1,0 +1,56 @@
+/** Public evidence projects facts from the indexed ship/message reads, never lease or message history. */
+import { afterAll, beforeAll, expect, it } from 'vitest';
+
+import { createPrismaClientTellingStatements } from '../src/adapters/prisma/client.js';
+import { createPrismaFleetListing } from '../src/adapters/prisma/registry.js';
+import { createPrismaShipHistory } from '../src/adapters/prisma/history.js';
+import { toMessage } from '../src/adapters/prisma/rows.js';
+import { unwrap } from '../src/testing/result.js';
+import { createPostgresCore, type PostgresCore } from './support/postgres-core.js';
+import { operatorCaller, secretOf } from './support/core-fixtures.js';
+import { assertIndexedPlan } from './support/assert-indexed-plan.js';
+
+let core: PostgresCore;
+beforeAll(async () => { core = await createPostgresCore(); });
+afterAll(async () => { await core.close(); });
+
+it('reads one current lease and immutable sending evidence by indexed ship and message with a long history', async () => {
+  // Given 3,000 ships, 60,000 ended leases and unrelated message history.
+  const fleet = unwrap(await core.useCases.initialiseFleet({ name: 'evidence scale' }));
+  const argo = operatorCaller(fleet);
+  const ship = unwrap(await core.useCases.commissionShip(argo, { name: 'sender', type: 'reviewer', idempotencyKey: 'sender' }));
+  const claimed = unwrap(await core.useCases.claimShip({ shipId: ship.shipId, secret: secretOf(ship.secret), location: { kind: 'SERVER' } }));
+  const crew = unwrap(await core.useCases.authenticate.byCrewToken(claimed.crewToken));
+  const { messageId } = unwrap(await core.useCases.sendMessage(crew, { selector: { kind: 'ship', shipId: argo.shipId }, payload: 'Confirmed', model: 'gpt-6.1-sol', idempotencyKey: 'confirmed' }));
+  await core.prisma.$executeRaw`INSERT INTO ships (id, fleet_id, name, type, created_at, kind, scopes)
+    SELECT 'shp_seed' || i, ${fleet.fleetId}, 'ship-' || i, 'agent', ${core.clock.now()}, 'agent', '{}' FROM generate_series(1, 3000) i`;
+  await core.prisma.$executeRaw`INSERT INTO leases (id, fleet_id, ship_id, location, crew_token_hash, started_at, ended_at)
+    SELECT 'lse_seed' || i || '_' || n, ${fleet.fleetId}, 'shp_seed' || i, 'SERVER'::location_kind, 'hash-' || i || '-' || n,
+      ${core.clock.now()}::timestamptz - interval '1 day', ${core.clock.now()}
+    FROM generate_series(1, 3000) i, generate_series(1, 20) n`;
+  await core.prisma.$executeRaw`INSERT INTO messages (id, fleet_id, sender_ship_id, selector_kind, selector_ship_id, payload, content_type, idempotency_key, request_hash, created_at)
+    SELECT 'msg_seed' || i, ${fleet.fleetId}, ${argo.shipId}, 'ship', ${argo.shipId}, 'history', 'text/plain', 'seed-' || i, 'h', ${core.clock.now()} FROM generate_series(1, 30000) i`;
+  await core.prisma.$executeRaw`ANALYZE`;
+  const statements: { query: string; params: string }[] = [];
+  const client = createPrismaClientTellingStatements(core.databaseUrl, (query, params) => statements.push({ query, params }));
+  try {
+    // When the actual adapters fetch the referenced ship and message.
+    const facts = await createPrismaFleetListing(client).ship(fleet.fleetId, ship.shipId);
+    const message = await createPrismaShipHistory(client).message(fleet.fleetId, messageId);
+    const stored = toMessage(await client.message.findUniqueOrThrow({ where: { id: messageId } }));
+
+    // Then evidence survives projection and every history lookup uses its index.
+    expect(facts?.openLease).toMatchObject({ id: crew.leaseId });
+    expect(message).toMatchObject({ senderLeaseId: crew.leaseId });
+    expect(stored.senderLeaseId).toBe(crew.leaseId);
+    const reads = statements.filter(({ query }) => /^\s*SELECT/.test(query));
+    expect(reads.length).toBeGreaterThan(0);
+    for (const statement of reads) {
+      const plan = await assertIndexedPlan(core.prisma, statement);
+      if (statement.query.includes('LEFT JOIN leases')) {
+        expect(plan).toContain('leases_ship_id_open_key');
+        expect(plan).not.toMatch(/Seq Scan[^}]*leases/);
+      }
+    }
+  } finally { await client.$disconnect(); }
+});

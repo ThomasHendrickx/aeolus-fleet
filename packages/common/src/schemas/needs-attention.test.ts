@@ -44,6 +44,7 @@ describe('needsAttentionOutputSchema', () => {
     reason: null,
     ship: tester,
     message: {
+      senderLeaseId: null,
       id: newId('message'),
       sender: builder,
       recipient: { kind: 'ship', ship: tester },

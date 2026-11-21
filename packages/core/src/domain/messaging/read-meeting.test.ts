@@ -139,3 +139,16 @@ describe('reading a meeting', () => {
     ]);
   });
 });
+
+
+it('projects the immutable sending lease on full meeting contributions (#1993)', async () => {
+  // Given
+  const crew = crewAboard(core, chief);
+  const messageId = await contributed(crew, 'I accept these instructions');
+
+  // When
+  const read = unwrap(await messaging.readMeeting(product, { meetingId, limit: 20 }));
+
+  // Then
+  expect(read.contributions.items).toContainEqual(expect.objectContaining({ messageId, senderLeaseId: crew.leaseId }));
+});

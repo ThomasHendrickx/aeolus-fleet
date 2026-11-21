@@ -60,6 +60,7 @@ describe('getting one ship', () => {
       ...(await useCases.listFleet(argo)).ships.find((listed) => listed.id === scoutId),
       commissionedAt,
       crewedSince: null,
+      currentLease: null,
       retiredAt: null,
       removedAt: null,
       inFlightDeliveries: 0,
@@ -233,5 +234,76 @@ describe('getting a removed ship (decision 0070, D8)', () => {
     // Then
     expect(fleet.core.state.ships.find((held) => held.id === fleet.far.shipId)?.removedAt).not.toBeNull();
     expect(ship).toEqual({ id: fleet.far.shipId, name: 'far', type: 'keeper', status: 'retired', isInReadReach: false });
+  });
+});
+
+
+describe('current lease evidence (#1993, approved Q6/Q7)', () => {
+  it('reads null before crewing, L1 while open, null after release, and L2 after replacement', async () => {
+    // Given
+    const before = unwrap(await useCases.getShip(argo, { shipId: scoutId }));
+    const first = crewAboard(core, { fleetId, shipId: scoutId });
+    const startedAt = core.clock.now();
+    const open = unwrap(await useCases.getShip(argo, { shipId: scoutId }));
+
+    // When
+    unwrap(await useCases.releaseShip(argo, { shipId: scoutId }));
+    const released = unwrap(await useCases.getShip(argo, { shipId: scoutId }));
+    core.clock.advance(60_000);
+    const second = crewAboard(core, { fleetId, shipId: scoutId });
+    const replaced = unwrap(await useCases.getShip(argo, { shipId: scoutId }));
+
+    // Then
+    expect(before).toHaveProperty('currentLease', null);
+    expect(open).toHaveProperty('currentLease', { id: first.leaseId, startedAt });
+    expect(released).toHaveProperty('currentLease', null);
+    expect(replaced).toHaveProperty('currentLease', { id: second.leaseId, startedAt: core.clock.now() });
+  });
+
+  it('reads null on retired and remnant ships', async () => {
+    // Given
+    crewAboard(core, { fleetId, shipId: scoutId });
+
+    // When
+    unwrap(await useCases.retireShip(argo, { shipId: scoutId }));
+    const retired = unwrap(await useCases.getShip(argo, { shipId: scoutId }));
+    await removedByThePass(core, fleetId);
+    const remnant = unwrap(await useCases.getShip(argo, { shipId: scoutId }));
+
+    // Then
+    expect(retired).toHaveProperty('currentLease', null);
+    expect(remnant).toHaveProperty('currentLease', null);
+  });
+
+  it('omits evidence outside read reach, including an assigned ship read with fleet:read', async () => {
+    // Given
+    const fleet = await readReachScenario();
+    await fleet.readRulesApply();
+    unwrap(await fleet.registry.releaseShip(fleet.argo, { shipId: fleet.far.shipId }));
+    unwrap(await fleet.registry.requestCrew(fleet.argo, { shipId: fleet.far.shipId, settings: {} }));
+    unwrap(await fleet.registry.assignCrew(fleet.argo, { shipId: fleet.far.shipId, trierarchShipId: fleet.reader.shipId }));
+
+    // When
+    const assigned = unwrap(await fleet.registry.getShip(fleet.reader, { shipId: fleet.far.shipId }));
+    const near = unwrap(await fleet.registry.getShip(fleet.reader, { shipId: fleet.near.shipId }));
+
+    // Then
+    expect(assigned).not.toHaveProperty('currentLease');
+    expect(near).toHaveProperty('currentLease', { id: fleet.near.leaseId, startedAt: fleet.core.clock.now() });
+  });
+
+  it('omits current lease from the crew:run-only assigned-ship path', async () => {
+    // Given
+    const fleet = await readReachScenario();
+    unwrap(await fleet.registry.releaseShip(fleet.argo, { shipId: fleet.near.shipId }));
+    unwrap(await fleet.registry.requestCrew(fleet.argo, { shipId: fleet.near.shipId, settings: {} }));
+    unwrap(await fleet.registry.assignCrew(fleet.argo, { shipId: fleet.near.shipId, trierarchShipId: fleet.reader.shipId }));
+
+    // When
+    const read = unwrap(await fleet.registry.getShip({ ...fleet.reader, scopes: ['crew:run'] }, { shipId: fleet.near.shipId }));
+
+    // Then
+    expect(read).toHaveProperty('crewedSince');
+    expect(read).not.toHaveProperty('currentLease');
   });
 });
