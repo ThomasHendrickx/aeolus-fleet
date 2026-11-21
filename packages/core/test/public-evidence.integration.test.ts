@@ -140,6 +140,7 @@ for (const door of ['REST', 'tRPC', 'MCP'] as const) {
       const remnant = await read();
       const received = receivedSchema.parse(await call(door, { token: reader.token, path: 'ship.receive', input: {}, isMutation: true }));
       const deliveryId = received.deliveries.find((delivery) => delivery.messageId === sent.messageId)?.deliveryId;
+      await call(door, { token: reader.token, path: 'ship.ack', input: { deliveryId }, isMutation: true });
       const message = readSchema.parse(await call(door, { token: reader.token, path: 'ship.delivery', input: { deliveryId } }));
 
       // Then null describes absent evidence, never a confirmed crew.
