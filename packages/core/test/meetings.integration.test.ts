@@ -1,6 +1,9 @@
 import { createIdGenerator, MEETING_ADDED_CONTENT_TYPE, MEETING_ENDED_CONTENT_TYPE, MEETING_MIC_CONTENT_TYPE, type FleetId, type MeetingId, type MessageId, type ShipId } from '@aeolus-fleet/common';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { createPrismaClientTellingStatements } from '../src/adapters/prisma/client.js';
+import { createPrismaMeetingRepository } from '../src/adapters/prisma/meetings.js';
+import { assertIndexedPlan } from './support/assert-indexed-plan.js';
 import { sha256Hasher } from '../src/adapters/crypto/secrets.js';
 import { listenForPendingDeliveries, type DeliveryListener } from '../src/adapters/prisma/delivery-notices.js';
 import { createPrismaUnitOfWork, type PrismaTx } from '../src/adapters/prisma/unit-of-work.js';
@@ -12,6 +15,7 @@ import type { Crew, ShipCaller } from '../src/domain/shared/caller.js';
 import { createSendMessage, type MessageToSend } from '../src/domain/messaging/send-message.js';
 import type { DeliveryNotice } from '../src/domain/shared/notifier.js';
 import type { UnitOfWork } from '../src/domain/shared/unit-of-work.js';
+import { executeSqlFile } from '../src/testing/database.js';
 import { newKey } from '../src/testing/keys.js';
 import { unwrap } from '../src/testing/result.js';
 import { agentCaller, operatorCaller, secretOf } from './support/core-fixtures.js';
@@ -54,6 +58,25 @@ function openMeetingWith(uow: UnitOfWork<PrismaTx>) {
 function unitOfWorkWith(wrap: (tx: PrismaTx) => PrismaTx): UnitOfWork<PrismaTx> {
   const uow = createPrismaUnitOfWork(core.prisma);
   return { run: (work) => uow.run((tx) => work(wrap(tx))) };
+}
+
+/** Check the adapter's actual lock and timestamp update plans alongside the committed contribution. */
+async function contributionPlans(meetingId: MeetingId): Promise<void> {
+  const statements: { query: string; params: string }[] = [];
+  const client = createPrismaClientTellingStatements(core.databaseUrl, (query, params) => {
+    if (query.includes('FOR NO KEY UPDATE') || query.includes('GREATEST(last_contribution_at')) statements.push({ query, params });
+  });
+  try {
+    await client.$transaction(async (db) => {
+      const meetings = createPrismaMeetingRepository(db);
+      await meetings.findForNoKeyUpdate(fleetId, meetingId);
+      await meetings.contributed(fleetId, { meetingId, at: core.clock.now() });
+    });
+    expect(statements).toHaveLength(2);
+    for (const statement of statements) await assertIndexedPlan(core.prisma, statement);
+  } finally {
+    await client.$disconnect();
+  }
 }
 
 async function storedCounts() {
@@ -102,8 +125,9 @@ describe('opening a meeting on Postgres', () => {
         moderatorShipId: chief.shipId,
         openedByShipId: chief.shipId,
         openedAt: core.clock.now(),
+        lastContributionAt: null,
         endedAt: null,
-        participants: [{ shipId: chief.shipId, place: 0 }, { shipId: marketingId, place: 1 }, { shipId: productId, place: 2 }],
+        participants: [{ shipId: chief.shipId, place: 0, meetingOpenedAt: core.clock.now(), isMeetingEnded: false }, { shipId: marketingId, place: 1, meetingOpenedAt: core.clock.now(), isMeetingEnded: false }, { shipId: productId, place: 2, meetingOpenedAt: core.clock.now(), isMeetingEnded: false }],
       },
     ]);
     const messages = await core.prisma.message.findMany({ orderBy: { id: 'asc' }, include: { deliveries: true } });
@@ -134,6 +158,35 @@ describe('opening a meeting on Postgres', () => {
 
     await expect(core.prisma.meetingParticipant.findMany({ orderBy: { place: 'asc' }, select: { shipId: true } })).resolves.toEqual([{ shipId: chief.shipId }, { shipId: marketingId }]);
   });
+});
+
+it('backfills the copied order key and newest kept contribution, leaving meetings without kept contributions null', async () => {
+  // Given populated open and ended meetings, with notices newer than their contributions.
+  const first = unwrap(await core.useCases.openMeeting(chief, aMeeting())).meetingId;
+  const empty = unwrap(await core.useCases.openMeeting(chief, aMeeting())).meetingId;
+  unwrap(await core.useCases.sendMessage(chief, aMeetingContribution(first)));
+  core.clock.advance(1000);
+  unwrap(await core.useCases.sendMessage(chief, aMeetingContribution(first)));
+  const latest = core.clock.now();
+  core.clock.advance(1000);
+  unwrap(await core.useCases.changeMeeting(chief, { meetingId: first, change: { kind: 'end' } }));
+  const before = await core.prisma.meeting.findMany({ orderBy: { id: 'asc' } });
+  await core.prisma.$executeRawUnsafe('DROP INDEX meeting_participants_ship_list_idx');
+  await core.prisma.$executeRawUnsafe('CREATE INDEX meeting_participants_fleet_id_ship_id_idx ON meeting_participants (fleet_id, ship_id)');
+  await core.prisma.$executeRawUnsafe('ALTER TABLE meeting_participants DROP COLUMN meeting_opened_at, DROP COLUMN is_meeting_ended');
+  await core.prisma.$executeRawUnsafe('ALTER TABLE meetings DROP COLUMN last_contribution_at');
+
+  // When the forward migration runs against the old schema and kept history.
+  await executeSqlFile(core.databaseUrl, 'packages/core/src/adapters/prisma/migrations/20261121120000_meeting_list/migration.sql');
+
+  // Then only contributions set the time and every participant receives its meeting's key.
+  await expect(core.prisma.meeting.findFirstOrThrow({ where: { id: first } })).resolves.toMatchObject({ lastContributionAt: latest });
+  await expect(core.prisma.meeting.findFirstOrThrow({ where: { id: empty } })).resolves.toMatchObject({ lastContributionAt: null });
+  for (const meeting of before) {
+    const participants = await core.prisma.meetingParticipant.findMany({ where: { meetingId: meeting.id } });
+    expect(participants).toHaveLength(3);
+    expect(participants).toEqual(participants.map((participant) => ({ ...participant, meetingOpenedAt: meeting.openedAt, isMeetingEnded: meeting.endedAt !== null })));
+  }
 });
 
 describe('concurrent opens with one idempotency key', () => {
@@ -231,6 +284,8 @@ describe('contributing to a meeting on Postgres', () => {
     const { messageId } = unwrap(await core.useCases.sendMessage(marketing, aContribution()));
 
     const [stored] = await core.prisma.message.findMany({ where: { id: messageId }, include: { deliveries: { orderBy: { recipientShipId: 'asc' } } } });
+    await expect(core.prisma.meeting.findFirstOrThrow({ where: { id: meetingId } })).resolves.toMatchObject({ lastContributionAt: core.clock.now() });
+    await contributionPlans(meetingId);
     expect(stored).toMatchObject({ senderShipId: marketingId, selectorKind: 'meeting', selectorShipId: null, selectorType: null, meetingId });
     expect(stored?.deliveries.map(({ recipientShipId, state }) => ({ recipientShipId, state }))).toEqual(
       [chief.shipId, productId].sort().map((recipientShipId) => ({ recipientShipId, state: 'pending' })),
@@ -282,6 +337,7 @@ describe('contributing to a meeting on Postgres', () => {
 
     await expect(sendMessage(agentCaller({ fleetId, shipId: marketingId }), aContribution())).rejects.toThrow('disk full');
 
+    await expect(core.prisma.meeting.findFirstOrThrow({ where: { id: meetingId } })).resolves.toMatchObject({ lastContributionAt: null });
     await expect(contributionCounts()).resolves.toEqual({ messages: 0, deliveries: 0, accepted: 0 });
     const { messageId } = unwrap(await core.useCases.sendMessage(chief, { selector: { kind: 'ship', name: 'argo' }, payload: 'probe', idempotencyKey: newKey(), model: MODEL }));
     const probe = await core.prisma.delivery.findFirstOrThrow({ where: { messageId } });
@@ -290,23 +346,24 @@ describe('contributing to a meeting on Postgres', () => {
 
   it('stores every contribution of the moderator and the holder of the mic contributing at once, each with all its deliveries', async () => {
     const senders = [chief, agentCaller({ fleetId, shipId: marketingId })];
-    const sendMessage = sendMessageWith(
-      racingUnitOfWork({ prisma: core.prisma, transactions: senders.length }, (tx, allArrived) => ({
-        ...tx,
-        meetings: {
-          ...tx.meetings,
-          findForShare: async (fleet, meeting) => {
-            const found = await tx.meetings.findForShare(fleet, meeting);
-            await allArrived();
-            return found;
-          },
+    const uow = racingUnitOfWork({ prisma: core.prisma, transactions: senders.length }, (tx, allArrived) => ({
+      ...tx,
+      meetings: {
+        ...tx.meetings,
+        findForNoKeyUpdate: async (fleet, meeting) => {
+          const found = await tx.meetings.findForNoKeyUpdate(fleet, meeting);
+          await allArrived();
+          return found;
         },
-      })),
-    );
+      },
+    }));
 
-    const results = await Promise.all(senders.map((sender) => sendMessage(sender, aContribution())));
+    const latest = core.clock.now();
+    const older = new Date(latest.getTime() - 1000);
+    const results = await Promise.all(senders.map((sender, index) => createSendMessage({ sealing: unsealedFleetsOnly, uow, clock: { now: () => index === 0 ? latest : older }, ids: newId, hasher: sha256Hasher })(sender, aContribution())));
 
     expect(results.map((result) => result.isOk)).toEqual([true, true]);
+    await expect(core.prisma.meeting.findFirstOrThrow({ where: { id: meetingId } })).resolves.toMatchObject({ lastContributionAt: core.clock.now() });
     await expect(contributionCounts()).resolves.toEqual({ messages: 2, deliveries: 4, accepted: 4 });
   });
 
@@ -464,8 +521,8 @@ describe('the mic on Postgres', () => {
       ...tx,
       meetings: {
         ...tx.meetings,
-        findForShare: async (fleet, meeting) => {
-          const found = await tx.meetings.findForShare(fleet, meeting);
+        findForNoKeyUpdate: async (fleet, meeting) => {
+          const found = await tx.meetings.findForNoKeyUpdate(fleet, meeting);
           isContributionHeld = true;
           await allArrived();
           return found;
@@ -540,6 +597,19 @@ describe("a meeting's life on Postgres", () => {
     ]);
   });
 
+  it('copies the original meeting order key to a newly added participant', async () => {
+    // Given an open meeting and a ship that joined later.
+    const openedAt = core.clock.now();
+    const shipId = await commissioned('later', 'head');
+    core.clock.advance(1000);
+
+    // When the owner adds it.
+    unwrap(await core.useCases.addToMeeting(chief, { meetingId, ships: [{ shipId }], model: MODEL }));
+
+    // Then the list key comes from the meeting rather than the join time.
+    await expect(core.prisma.meetingParticipant.findFirstOrThrow({ where: { meetingId, shipId } })).resolves.toMatchObject({ meetingOpenedAt: openedAt, isMeetingEnded: false });
+  });
+
   it('stores the new owner and moderator, and the end, telling every other present participant after commit', async () => {
     unwrap(await core.useCases.changeMeeting(chief, { meetingId, change: { kind: 'nameModerator', shipId: productId } }));
     unwrap(await core.useCases.changeMeeting(chief, { meetingId, change: { kind: 'transfer', shipId: marketingId } }));
@@ -551,6 +621,9 @@ describe("a meeting's life on Postgres", () => {
       moderatorShipId: productId,
       endedAt: core.clock.now(),
     });
+    const participants = await core.prisma.meetingParticipant.findMany({ where: { meetingId } });
+    expect(participants).toHaveLength(3);
+    expect(participants.every((participant) => participant.isMeetingEnded)).toBe(true);
     await expect(core.prisma.message.findMany({ where: { contentType: MEETING_ENDED_CONTENT_TYPE }, select: { senderShipId: true, selectorShipId: true, model: true }, orderBy: { selectorShipId: 'asc' } })).resolves.toEqual(
       [chief.shipId, marketingId].sort().map((selectorShipId) => ({ senderShipId: productId, selectorShipId, model: null })),
     );
@@ -577,6 +650,9 @@ describe("a meeting's life on Postgres", () => {
     await expect(changeMeeting(chief, { meetingId, change: { kind: 'end' } })).rejects.toThrow('disk full');
 
     await expect(core.prisma.meeting.findFirstOrThrow({ where: { id: meetingId }, select: { endedAt: true } })).resolves.toEqual({ endedAt: null });
+    const participants = await core.prisma.meetingParticipant.findMany({ where: { meetingId } });
+    expect(participants).toHaveLength(3);
+    expect(participants.every((participant) => !participant.isMeetingEnded)).toBe(true);
     await expect(core.prisma.message.count({ where: { contentType: MEETING_ENDED_CONTENT_TYPE } })).resolves.toBe(0);
     await expect(core.prisma.event.count({ where: { type: 'MeetingEnded' } })).resolves.toBe(0);
     const { messageId } = unwrap(await core.useCases.sendMessage(chief, { selector: { kind: 'ship', name: 'argo' }, payload: 'probe', idempotencyKey: newKey(), model: MODEL }));
@@ -599,8 +675,8 @@ describe("a meeting's life on Postgres", () => {
       ...tx,
       meetings: {
         ...tx.meetings,
-        findForShare: async (fleet, meeting) => {
-          const found = await tx.meetings.findForShare(fleet, meeting);
+        findForNoKeyUpdate: async (fleet, meeting) => {
+          const found = await tx.meetings.findForNoKeyUpdate(fleet, meeting);
           await allArrived();
           return found;
         },
@@ -619,6 +695,9 @@ describe("a meeting's life on Postgres", () => {
     unwrap(await core.useCases.retireShip(argo, { shipId: chief.shipId }));
 
     await expect(core.prisma.meeting.findFirstOrThrow({ where: { id: meetingId }, select: { endedAt: true } })).resolves.toEqual({ endedAt: core.clock.now() });
+    const endedParticipants = await core.prisma.meetingParticipant.findMany({ where: { meetingId } });
+    expect(endedParticipants).toHaveLength(3);
+    expect(endedParticipants.every((participant) => participant.isMeetingEnded)).toBe(true);
     await expect(core.prisma.message.count({ where: { contentType: MEETING_ENDED_CONTENT_TYPE, senderShipId: chief.shipId } })).resolves.toBe(2);
   });
 });

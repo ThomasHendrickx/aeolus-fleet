@@ -42,30 +42,30 @@ export function createPrismaMeetingRepository(db: Db): MeetingRepository {
     create: async (meeting) => {
       const { participants, micRequests, ...rest } = meeting;
       await db.meeting.create({ data: rest });
-      await db.meetingParticipant.createMany({ data: participants.map((participant, place) => ({ fleetId: meeting.fleetId, meetingId: meeting.id, ...participant, place })) });
+      await db.meetingParticipant.createMany({ data: participants.map((participant, place) => ({ fleetId: meeting.fleetId, meetingId: meeting.id, ...participant, place, meetingOpenedAt: meeting.openedAt, isMeetingEnded: meeting.endedAt !== null })) });
       await saveRequests(db, { fleetId: meeting.fleetId, meetingId: meeting.id, requests: micRequests });
     },
     findForUpdate: async (fleetId, meetingId) => {
-      // Held for update until the unit of work ends: mic changes take turns, after the contributions holding it shared.
+      // Held for update until the unit of work ends: mic changes take turns, after the contributions in flight.
       await db.$queryRaw`SELECT 1 FROM meetings WHERE fleet_id = ${fleetId} AND id = ${meetingId} FOR UPDATE`;
       const row = await db.meeting.findFirst({ where: { fleetId, id: meetingId }, include: PARTICIPANTS_AND_REQUESTS });
       return row ? toMeeting(row) : undefined;
     },
-    save: async ({ fleetId, id, ownerShipId, moderatorShipId, endedAt, micHolderShipId, micPattern, participants, micRequests }) => {
+    save: async ({ fleetId, id, ownerShipId, moderatorShipId, openedAt, endedAt, micHolderShipId, micPattern, participants, micRequests }) => {
       await db.meeting.update({ where: { fleetId_id: { fleetId, id } }, data: { ownerShipId, moderatorShipId, endedAt, micHolderShipId, micPattern } });
       await db.meetingMicRequest.deleteMany({ where: { fleetId, meetingId: id } });
       for (const [place, { shipId, joinedAt, leftAt, isRevoked }] of participants.entries()) {
         await db.meetingParticipant.upsert({
           where: { fleetId_meetingId_shipId: { fleetId, meetingId: id, shipId } },
-          create: { fleetId, meetingId: id, shipId, joinedAt, leftAt, isRevoked, place },
-          update: { joinedAt, leftAt, isRevoked, place },
+          create: { fleetId, meetingId: id, shipId, joinedAt, leftAt, isRevoked, place, meetingOpenedAt: openedAt, isMeetingEnded: endedAt !== null },
+          update: { joinedAt, leftAt, isRevoked, place, isMeetingEnded: endedAt !== null },
         });
       }
       await saveRequests(db, { fleetId, meetingId: id, requests: micRequests });
     },
     listPresentInForUpdate: async (fleetId, shipId) => {
       // Held for update until the unit of work ends, in id order so two retires never lock in a cycle;
-      // found through meeting_participants_fleet_id_ship_id_idx.
+      // found through meeting_participants_ship_list_idx.
       const rows = await db.$queryRaw<unknown[]>`
         SELECT m.id FROM meetings m
         JOIN meeting_participants p ON p.fleet_id = m.fleet_id AND p.meeting_id = m.id
@@ -84,11 +84,14 @@ export function createPrismaMeetingRepository(db: Db): MeetingRepository {
       const row = await db.meeting.findFirst({ where: { fleetId, openedByShipId: openerShipId, idempotencyKey }, include: PARTICIPANTS_AND_REQUESTS });
       return row ? toMeeting(row) : undefined;
     },
-    findForShare: async (fleetId, meetingId) => {
-      // Held shared until the unit of work ends: contributions take turns with a change of who takes part.
-      await db.$queryRaw`SELECT 1 FROM meetings WHERE fleet_id = ${fleetId} AND id = ${meetingId} FOR SHARE`;
+    findForNoKeyUpdate: async (fleetId, meetingId) => {
+      // Held for no key update from the start: two contributions never upgrade shared locks into a deadlock.
+      await db.$queryRaw`SELECT 1 FROM meetings WHERE fleet_id = ${fleetId} AND id = ${meetingId} FOR NO KEY UPDATE`;
       const row = await db.meeting.findFirst({ where: { fleetId, id: meetingId }, include: PARTICIPANTS_AND_REQUESTS });
       return row ? toMeeting(row) : undefined;
+    },
+    contributed: async (fleetId, { meetingId, at }) => {
+      await db.$executeRaw`UPDATE meetings SET last_contribution_at = GREATEST(last_contribution_at, ${at}) WHERE fleet_id = ${fleetId} AND id = ${meetingId}`;
     },
     contributions: async (fleetId, { meetingId, cursor, limit }) => {
       // Read newest first through messages_fleet_id_meeting_id_id_idx; a notice names the meeting too, but is sent to a ship.
