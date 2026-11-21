@@ -359,7 +359,7 @@ export function commissionShip(
   });
 }
 
-/** Why a ship's owner changed: argo set it, or its owner's ship retired and it fell to argo. */
+/** Why a ship's owner changed: an actor set it, or its owner retired and it inherited the parent's owner. */
 export type OwnerChangedWhy = 'set' | 'ownerRetired';
 
 export type ChangeOwnerRefusal = DomainError<'SHIP_HAS_NO_OWNER' | 'SHIP_OWNS_ITSELF' | 'SHIP_ALREADY_RETIRED' | 'INVALID_OWNER' | 'OWNERSHIP_CYCLE'>;

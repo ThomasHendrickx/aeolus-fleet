@@ -68,9 +68,10 @@ export type RetireShip = (
  * assignment of it gone first (decision 0031). A retired trierarch clears
  * nothing: its pending clear requests go, one WorktreeClearRemoved each
  * (decision 0032). The network rules it declared go with its labels, the
- * settings at their next version (decision 0037). Each active ship it owned
- * falls to argo, one OwnerChanged each, locked after the ship as a set owner
- * locks the owner first (decision 0045). A plugin namespace it declared goes,
+ * settings at their next version (decision 0037). Each active direct child of
+ * an agent or app inherits its immediate owner; a person's children fall to
+ * argo, one OwnerChanged each (decision 0045). Retired children and further
+ * descendants keep their owners. A plugin namespace it declared goes,
  * and its scopes leave every ship, one ScopesChanged each (decision 0046).
  * A plugin ship's read ends, with PluginDisconnected (decision 0050).
  * Every writer's verified facts about it go, and its own about every ship,
@@ -160,13 +161,16 @@ export function createRetireShip(deps: {
       for (const { deliveryId, messageId } of abandoned) {
         await recordEvent(recorded, { fleetId, type: 'DeliveryAbandoned', occurredAt: at, actor, shipId, messageId, deliveryId });
       }
-      const argo = await tx.ships.findOperatorShip(fleetId);
+      // The ownership lock keeps this parent active and unchanged throughout retirement.
+      const inheritedOwner = (ship.kind === 'agent' || ship.kind === 'app') && ship.owner !== null
+        ? await tx.ships.find(fleetId, ship.owner)
+        : await tx.ships.findOperatorShip(fleetId);
       for (const ownedShip of await tx.ships.listActiveOwnedByForUpdate(fleetId, shipId)) {
         if (ownedShip.id === shipId) {
           continue;
         }
-        // Never refused: an owned ship is active and never argo's own, and argo is always active.
-        const changed = changeOwner(ownedShip, { owner: argo, why: 'ownerRetired', at, actor });
+        // Never refused: the active child and its parent's active owner are in the same ownership tree.
+        const changed = changeOwner(ownedShip, { owner: inheritedOwner, why: 'ownerRetired', at, actor });
         if (changed.isOk && changed.value.ship.owner !== null && changed.value.ship.owner !== ownedShip.owner) {
           await tx.ships.setOwner({ fleetId, shipId: ownedShip.id, ownerShipId: changed.value.ship.owner });
           for (const event of changed.value.events) {
