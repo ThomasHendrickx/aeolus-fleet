@@ -549,7 +549,7 @@ describe('a pruning pass racing', () => {
   });
 
   it("a second server's pass: it skips the fleet, and the history goes once", async () => {
-    await aFinishedMessage();
+    const messageId = await aFinishedMessage();
     core.clock.advance((RETENTION_DAYS + 1) * DAY_MS);
     await core.useCases.closeHealthSnapshots();
     const second = Promise.withResolvers<undefined>();
@@ -558,10 +558,15 @@ describe('a pruning pass racing', () => {
     const passing = passWith(held.uow)();
     await held.reached;
     await core.prisma.$executeRaw`UPDATE fleets SET pruned_at = NULL WHERE id = ${argo.fleetId}`;
-    await passWith(createPrismaUnitOfWork(core.prisma))();
+    const failures: unknown[] = [];
+    await passWith(createPrismaUnitOfWork(core.prisma))((_fleetId, error) => failures.push(error));
+    const isKeptWhileFirstPassHolds = await isKept(messageId);
     second.resolve(undefined);
     await passing;
 
+    expect(failures).toEqual([]);
+    expect(isKeptWhileFirstPassHolds).toBe(true);
+    expect(await isKept(messageId)).toBe(false);
     expect(await historyPruned()).toBe(1);
   });
 
