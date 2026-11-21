@@ -26,7 +26,7 @@ export function meetingId(serial: number) {
   return idSchema('meeting').parse(`mtg_${String(serial).padStart(26, '0')}`);
 }
 
-export function aMeetingForList(h: MeetingListHarness, serial: number, overrides: Partial<Meeting> = {}): Meeting {
+export function aMeetingForList(h: MeetingListHarness, { serial, ...overrides }: { serial: number } & Partial<Meeting>): Meeting {
   return {
     id: meetingId(serial), fleetId: h.fleetId, title: 'Planning',
     ownerShipId: h.ownerId, moderatorShipId: h.moderatorId, openedByShipId: h.ownerId,
@@ -43,7 +43,7 @@ export function meetingListScenarios(harness: () => MeetingListHarness): void {
     // Given two sections, different opening times, and ties in each section.
     const h = harness();
     for (const serial of [1, 4, 2, 5, 3, 6]) {
-      await h.add(aMeetingForList(h, serial, {
+      await h.add(aMeetingForList(h, { serial,
         openedAt: serial === 1 || serial === 4 ? new Date('2026-11-20T10:00:00.000Z') : OPENED,
         endedAt: serial >= 4 ? ENDED : null,
       }));
@@ -64,7 +64,7 @@ export function meetingListScenarios(harness: () => MeetingListHarness): void {
   it('returns every envelope field, present count and waiting place without reading contributions', async () => {
     // Given a titled meeting with distinct owner, moderator and holder, one former participant, and a kept contribution time.
     const h = harness();
-    const meeting = aMeetingForList(h, 1);
+    const meeting = aMeetingForList(h, { serial: 1 });
     meeting.participants = meeting.participants.map((p) => p.shipId === h.otherId ? { ...p, leftAt: ENDED, isRevoked: true } : p);
     await h.add(meeting);
     await h.contribute(meeting, CONTRIBUTED);
@@ -84,7 +84,7 @@ export function meetingListScenarios(harness: () => MeetingListHarness): void {
   it.each(['present', 'left', 'revoked'] as const)('includes a %s participant and its state, even after the meeting ends', async (state) => {
     // Given an ended meeting in which the caller has the named state.
     const h = harness();
-    const meeting = aMeetingForList(h, 1, { endedAt: ENDED, title: null, micHolderShipId: null, micRequests: [] });
+    const meeting = aMeetingForList(h, { serial: 1, endedAt: ENDED, title: null, micHolderShipId: null, micRequests: [] });
     meeting.participants = meeting.participants.map((p) => p.shipId === h.shipId ? { ...p, leftAt: state === 'present' ? null : ENDED, isRevoked: state === 'revoked' } : p);
     await h.add(meeting);
 
@@ -101,7 +101,7 @@ export function meetingListScenarios(harness: () => MeetingListHarness): void {
   it.each(['holding', 'not requested'] as const)('answers no place in line for a ship %s', async (state) => {
     // Given a caller holding the mic or absent from the request line.
     const h = harness();
-    await h.add(aMeetingForList(h, 1, { micHolderShipId: state === 'holding' ? h.shipId : null, micRequests: [] }));
+    await h.add(aMeetingForList(h, { serial: 1, micHolderShipId: state === 'holding' ? h.shipId : null, micRequests: [] }));
 
     // When it lists its meetings.
     const page = unwrap(await h.list());
@@ -114,7 +114,7 @@ export function meetingListScenarios(harness: () => MeetingListHarness): void {
   it('keeps a removed owner by its remnant name', async () => {
     // Given an ended meeting whose owner was removed.
     const h = harness();
-    await h.add(aMeetingForList(h, 1, { endedAt: ENDED }));
+    await h.add(aMeetingForList(h, { serial: 1, endedAt: ENDED }));
     await h.removeOwner();
 
     // When a participant lists it.
@@ -127,7 +127,7 @@ export function meetingListScenarios(harness: () => MeetingListHarness): void {
   it('defaults to 20, accepts 100, and continues after the last returned row', async () => {
     // Given 105 meetings at the same opening time.
     const h = harness();
-    for (let serial = 1; serial <= 105; serial += 1) await h.add(aMeetingForList(h, serial));
+    for (let serial = 1; serial <= 105; serial += 1) await h.add(aMeetingForList(h, { serial }));
 
     // When no limit is supplied, or the maximum validated limit is supplied.
     const usual = unwrap(await h.list());
@@ -146,7 +146,7 @@ export function meetingListScenarios(harness: () => MeetingListHarness): void {
   it('lists nothing when the ship takes no part, without exposing other meetings', async () => {
     // Given a meeting with only its owner as participant.
     const h = harness();
-    await h.add(aMeetingForList(h, 1, { participants: [{ shipId: h.ownerId, joinedAt: OPENED, leftAt: null, isRevoked: false }], micRequests: [] }));
+    await h.add(aMeetingForList(h, { serial: 1, participants: [{ shipId: h.ownerId, joinedAt: OPENED, leftAt: null, isRevoked: false }], micRequests: [] }));
 
     // When a ship outside the meeting lists its own meetings.
     const page = unwrap(await h.list());

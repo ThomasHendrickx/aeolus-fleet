@@ -32,7 +32,7 @@ beforeAll(async () => {
     SELECT ${fleetId}, id, ${shipId}, opened_at, 0, opened_at, ended_at IS NOT NULL FROM meetings WHERE fleet_id = ${fleetId}`;
   await core.prisma.$executeRaw`ANALYZE`;
 });
-afterAll(async () => { await core?.close(); });
+afterAll(async () => { await core.close(); });
 
 const nodeSchema = z.object({
   'Node Type': z.string(), 'Relation Name': z.string().optional(), 'Index Name': z.string().optional(),

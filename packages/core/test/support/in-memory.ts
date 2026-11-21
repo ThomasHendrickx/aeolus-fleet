@@ -1,5 +1,6 @@
+import { meetingListCursor, type ListedMeeting } from '../../src/domain/messaging/meeting-list.js';
 import type { CommissionApproval, CommissionApprovalRepository } from '../../src/domain/registry/commission-approval.js';
-import { createIdGenerator, isConventionContentType, idSchema, LEASE_END_REASONS, PING_CONTENT_TYPE, type DeliveryId, type FeatureFlag, type FleetId, type IdGenerator, type LabelValueId, type LeaseWaker, type MessageId, type ShipId } from '@aeolus-fleet/common';
+import { createIdGenerator, readMeetingsCursor, isConventionContentType, idSchema, LEASE_END_REASONS, PING_CONTENT_TYPE, type DeliveryId, type FeatureFlag, type FleetId, type IdGenerator, type LabelValueId, type LeaseWaker, type MessageId, type ShipId } from '@aeolus-fleet/common';
 
 import type { ConsoleSession } from '../../src/domain/identity/console-session.js';
 import type { Credential } from '../../src/domain/identity/credential.js';
@@ -159,7 +160,7 @@ export interface InMemoryState {
   messages: Message[];
   deliveries: Delivery[];
   /** The meetings with their participants (decision 0061). */
-  meetings: Meeting[];
+  meetings: (Meeting & { lastContributionAt?: Date })[];
   /** The ships' schedules (decision 0062). */
   schedules: Schedule[];
   /** The notices a unit of work sent for the servers' schedule timers: gone again when it rolls back, as a NOTIFY. */
@@ -1471,6 +1472,34 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       },
     },
     meetings: {
+      listOf: (fleetId, { shipId, cursor, limit }) => {
+        const position = cursor === undefined ? undefined : readMeetingsCursor(cursor);
+        const rows = state.meetings.flatMap((meeting): ListedMeeting[] => {
+          const participant = meeting.participants.find((p) => p.shipId === shipId);
+          if (meeting.fleetId !== fleetId || participant === undefined) return [];
+          const owner = state.ships.find((ship) => ship.fleetId === fleetId && ship.id === meeting.ownerShipId);
+          const moderator = state.ships.find((ship) => ship.fleetId === fleetId && ship.id === meeting.moderatorShipId);
+          const holder = state.ships.find((ship) => ship.fleetId === fleetId && ship.id === meeting.micHolderShipId);
+          if (owner === undefined || moderator === undefined) return [];
+          const place = meeting.micRequests.findIndex((request) => request.shipId === shipId);
+          return [{
+            meetingId: meeting.id, title: meeting.title, openedAt: meeting.openedAt, endedAt: meeting.endedAt,
+            owner: { id: owner.id, name: owner.name }, moderator: { id: moderator.id, name: moderator.name },
+            presentParticipants: meeting.participants.filter((p) => p.leftAt === null).length,
+            micHolder: holder === undefined ? null : { id: holder.id, name: holder.name }, placeInLine: place < 0 ? null : place + 1,
+            lastContributionAt: meeting.lastContributionAt ?? null,
+            participantState: participant.isRevoked ? 'revoked' : participant.leftAt === null ? 'present' : 'left',
+          }];
+        }).filter((meeting) => {
+          if (position === undefined) return true;
+          const isEnded = meeting.endedAt !== null;
+          const wasEnded = position.section === 'e';
+          if (isEnded !== wasEnded) return isEnded;
+          return meeting.openedAt < position.openedAt || (meeting.openedAt.getTime() === position.openedAt.getTime() && meeting.meetingId < position.meetingId);
+        }).sort((a, b) => Number(a.endedAt !== null) - Number(b.endedAt !== null) || b.openedAt.getTime() - a.openedAt.getTime() || b.meetingId.localeCompare(a.meetingId))
+          .slice(0, limit + 1);
+        return Promise.resolve(pageOf(structuredClone(rows), { limit, cursorOf: meetingListCursor }));
+      },
       create: (meeting) => {
         state.meetings.push(structuredClone(meeting));
         return Promise.resolve();
@@ -1495,7 +1524,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       save: (meeting) => {
         const at = state.meetings.findIndex((held) => held.fleetId === meeting.fleetId && held.id === meeting.id);
         if (at >= 0) {
-          state.meetings[at] = structuredClone(meeting);
+          state.meetings[at] = { ...state.meetings[at], ...structuredClone(meeting) };
         }
         return Promise.resolve();
       },
@@ -1505,7 +1534,11 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
             .filter((held) => held.fleetId === fleetId && held.endedAt === null && held.participants.some((participant) => participant.shipId === shipId && participant.leftAt === null))
             .map((held) => structuredClone(held)),
         ),
-      contributed: () => Promise.resolve(),
+      contributed: (fleetId, { meetingId, at }) => {
+        const held = state.meetings.find((meeting) => meeting.fleetId === fleetId && meeting.id === meetingId);
+        if (held !== undefined && (held.lastContributionAt === undefined || held.lastContributionAt < at)) held.lastContributionAt = at;
+        return Promise.resolve();
+      },
       contributions: (fleetId, { meetingId, cursor, limit }) => {
         const rows = state.messages
           .filter((message) => message.fleetId === fleetId && message.selector.kind === 'meeting' && message.selector.meetingId === meetingId && (cursor === undefined || message.id < cursor))

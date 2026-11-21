@@ -179,3 +179,51 @@ export const MEETING_ENDED_CONTENT_TYPE = 'application/vnd.aeolus.meeting.ended+
 export const meetingEndedSchema = z.object({ meetingId: idSchema('meeting') });
 
 export type MeetingEnded = z.infer<typeof meetingEndedSchema>;
+
+/** A ship's bounded page of its own meetings (docs/design/meeting-list, Q4). */
+export const MEETINGS_PAGE_SIZE_DEFAULT = 20;
+export const MEETINGS_PAGE_SIZE_MAX = 100;
+
+const meetingsCursorPartsSchema = z.tuple([
+  z.enum(['o', 'e']),
+  z.string().regex(/^\d+$/).transform(Number).pipe(z.int().min(0).max(8_640_000_000_000_000)),
+  idSchema('meeting'),
+]);
+
+/** A position, never a permission: callers pass nextCursor back unchanged. */
+export const meetingsCursorSchema = z.string().refine((cursor) => meetingsCursorPartsSchema.safeParse(cursor.split('.')).success, 'Invalid meetings cursor');
+
+/** Decode a validated cursor for the two indexed sections of the list. */
+export function readMeetingsCursor(cursor: string) {
+  const [section, milliseconds, meetingId] = meetingsCursorPartsSchema.parse(cursor.split('.'));
+  return { section, openedAt: new Date(milliseconds), meetingId };
+}
+
+export const meetingsInputSchema = z.object({
+  cursor: meetingsCursorSchema.optional(),
+  limit: z.int().min(1).max(MEETINGS_PAGE_SIZE_MAX).optional(),
+}).optional();
+
+export type MeetingsInput = z.infer<typeof meetingsInputSchema>;
+
+export const meetingPartySchema = z.object({ id: idSchema('ship'), name: z.string() });
+
+/** Content-blind envelope facts and the calling ship's own state and mic place. */
+export const meetingListEntrySchema = z.object({
+  meetingId: idSchema('meeting'),
+  title: z.string().nullable(),
+  openedAt: isoTime,
+  endedAt: isoTime.nullable(),
+  owner: meetingPartySchema,
+  moderator: meetingPartySchema,
+  presentParticipants: z.int().min(1),
+  micHolder: meetingPartySchema.nullable(),
+  placeInLine: z.int().min(1).nullable(),
+  lastContributionAt: isoTime.nullable(),
+  participantState: participantStateSchema,
+});
+
+export type MeetingListEntry = z.infer<typeof meetingListEntrySchema>;
+
+export const meetingsOutputSchema = pageOutputOf(meetingListEntrySchema, meetingsCursorSchema);
+export type MeetingsOutput = z.infer<typeof meetingsOutputSchema>;

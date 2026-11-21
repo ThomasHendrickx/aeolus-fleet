@@ -20,12 +20,13 @@ beforeEach(async () => {
     fleetId: fleet.fleetId, shipId, ownerId: await commission('owner'), moderatorId: await commission('moderator'), otherId: await commission('other'),
     add: async (meeting) => { unwrap(await core.uow.run(async (tx) => { await tx.meetings.create(meeting); return ok(undefined); })); },
     contribute: async (meeting, at) => { unwrap(await core.uow.run(async (tx) => { await tx.meetings.contributed(meeting.fleetId, { meetingId: meeting.id, at }); return ok(undefined); })); },
-    removeOwner: async () => {
+    removeOwner: () => {
       const owner = core.state.ships.find((ship) => ship.id === harness.ownerId);
       if (owner) { owner.retiredAt = new Date('2026-11-21T11:00:00.000Z'); owner.removedAt = new Date('2026-11-21T12:00:00.000Z'); }
+      return Promise.resolve();
     },
     list: (input) => list(crew, input),
   };
 });
 
-describe('a ship lists its meetings through in-memory ports', () => meetingListScenarios(() => harness));
+describe('a ship lists its meetings through in-memory ports', () => { meetingListScenarios(() => harness); });

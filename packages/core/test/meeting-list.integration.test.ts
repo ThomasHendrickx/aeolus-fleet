@@ -31,6 +31,6 @@ beforeEach(async () => {
     list: (input) => list(caller, input),
   };
 });
-afterEach(async () => { await core?.close(); });
+afterEach(async () => { await core.close(); });
 
-describe('a ship lists its meetings through Postgres', () => meetingListScenarios(() => harness));
+describe('a ship lists its meetings through Postgres', () => { meetingListScenarios(() => harness); });
