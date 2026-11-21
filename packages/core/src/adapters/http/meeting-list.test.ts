@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
 import { addAgentShip, crewShip, FLEET_URL, historyUseCases, identityUseCases, initialiseFleet, messagingUseCases, registryUseCases } from '../../../test/support/core-fixtures.js';
+import { aMeetingForList } from '../../../test/support/meeting-list-scenarios.js';
 import { createInMemoryCore } from '../../../test/support/in-memory.js';
 import { buildHttpServer } from './server.js';
 
@@ -26,9 +27,10 @@ beforeEach(async () => {
   token = crewShip(held.core, { fleetId, shipId });
   const openedAt = held.core.clock.now();
   for (let n = 0; n < 3; n += 1) {
-    held.core.state.meetings.push({ id: held.core.ids('meeting'), fleetId, title: 'Planning', ownerShipId: shipId, moderatorShipId: shipId, openedByShipId: shipId,
-      openedAt, endedAt: null, micHolderShipId: null, micPattern: 'moderator', idempotencyKey: `meeting-${String(n)}`, requestHash: 'hash', micRequests: [],
-      participants: [{ shipId, joinedAt: openedAt, leftAt: null, isRevoked: false }] });
+    held.core.state.meetings.push(aMeetingForList({ fleetId, shipId, ownerId: shipId, moderatorId: shipId, otherId: shipId }, {
+      serial: n, openedAt, micHolderShipId: null, micRequests: [],
+      participants: [{ shipId, joinedAt: openedAt, leftAt: null, isRevoked: false }],
+    }));
   }
   address = await held.server.listen({ host: '127.0.0.1', port: 0 });
   client = new Client({ name: 'meeting-reader', version: '1.0.0' });
@@ -36,7 +38,9 @@ beforeEach(async () => {
 });
 afterEach(async () => { await client.close(); await held.server.close(); });
 
-async function call(door: string, input: Record<string, unknown> = {}) {
+type Door = 'tRPC' | 'REST' | 'MCP';
+
+async function call(door: Door, input: Record<string, unknown> = {}) {
   if (door === 'MCP') {
     const result = z.object({ structuredContent: z.unknown().optional(), isError: z.boolean().optional(), content: z.array(z.object({ text: z.string() })) }).parse(await client.callTool({ name: 'meetings', arguments: { ...input, crewToken: token } }));
     return result.isError ? { refusal: result.content.map((part) => part.text).join(' ') } : { page: result.structuredContent };
@@ -48,7 +52,7 @@ async function call(door: string, input: Record<string, unknown> = {}) {
   return { page: door === 'REST' ? z.unknown().parse(response.json()) : z.object({ result: z.object({ data: z.unknown() }) }).parse(response.json()).result.data };
 }
 const pageSchema = z.object({ items: z.array(z.object({ meetingId: z.string(), title: z.string(), openedAt: z.iso.datetime(), participantState: z.literal('present') })), nextCursor: z.string().nullable() });
-describe.each(['tRPC', 'REST', 'MCP'])('%s meeting list', (door) => {
+describe.each<Door>(['tRPC', 'REST', 'MCP'])('%s meeting list', (door) => {
   it('answers a bounded page and continues using the opaque cursor', async () => {
     // Given three meetings readable by this crew.
     // When it asks for two and then passes the cursor back.
@@ -61,19 +65,30 @@ describe.each(['tRPC', 'REST', 'MCP'])('%s meeting list', (door) => {
     expect(second.nextCursor).toBeNull();
   });
   it.each([{ limit: 0 }, { limit: 101 }, { limit: 1.5 }, { cursor: 'forged' }])('refuses invalid paging as BAD_REQUEST: %j', async (input) => {
-    // Given a live crew, when paging is invalid, then the door refuses it.
-    expect((await call(door, input)).refusal).toContain('BAD_REQUEST');
+    // Given a live crew.
+
+    // When paging is invalid.
+    const result = await call(door, input);
+
+    // Then the door refuses it.
+    expect(result.refusal).toContain('BAD_REQUEST');
   });
   it('refuses LEASE_ENDED before reading', async () => {
     // Given this crew was released.
     for (const lease of held.core.state.leases) lease.endedAt = held.core.clock.now();
-    // When it reads, then its former token is refused.
-    expect((await call(door)).refusal).toContain('LEASE_ENDED');
+    // When it reads.
+    const result = await call(door);
+
+    // Then its former token is refused.
+    expect(result.refusal).toContain('LEASE_ENDED');
   });
   it('refuses FORBIDDEN using server scopes despite scopes supplied in input', async () => {
     // Given the stored ship no longer holds messages:receive.
     for (const ship of held.core.state.ships) if (ship.name === 'reader') ship.scopes = [];
-    // When it claims the scope in input, then server facts still refuse it.
-    expect((await call(door, { scopes: ['messages:receive'] })).refusal).toContain('FORBIDDEN');
+    // When it claims the scope in input.
+    const result = await call(door, { scopes: ['messages:receive'] });
+
+    // Then server facts still refuse it.
+    expect(result.refusal).toContain('FORBIDDEN');
   });
 });
