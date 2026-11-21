@@ -31,7 +31,7 @@ async function approved() {
   return unwrap(await core.useCases.approveCommission(argo, { commissionerId: commissioner.shipId, scopes: ['fleet:read'], subjectDigest: SUBJECT }));
 }
 function request(approvalId: CommissionApprovalId) {
-  return { name: 'baker', type: 'baker', scopes: ['fleet:read'], ownerOf, approval: { approvalId, subjectDigest: SUBJECT }, idempotencyKey: 'baker' };
+  return { name: 'baker', type: 'baker', scopes: ['fleet:read'], ownerOf, ownership: 'requester' as const, approval: { approvalId, subjectDigest: SUBJECT }, idempotencyKey: 'baker' };
 }
 
 it('keeps approval and its event across restart and commissions with requester ownership', async () => {

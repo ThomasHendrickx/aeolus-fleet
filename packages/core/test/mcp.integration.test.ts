@@ -562,3 +562,24 @@ function freshKey(): string {
   keyCount += 1;
   return `key-${keyCount}`;
 }
+
+
+it('MCP commission selects requester ownership and rejects ownership without a requester', async () => {
+  // Given an authenticated commissioner and an active requesting ship.
+  const commissioner = await commissionedWithFleetScopes(['fleet:commission', 'fleet:on-behalf']);
+  const requester = await commissioned();
+  const connection = await connect();
+  const { crewToken } = await call(connection, { tool: tools.register, arguments: { shipId: commissioner.shipId, secret: commissioner.secret, location: { kind: 'SERVER' } } });
+  const input = { crewToken, name: 'mcp-requester-helper', type: 'reviewer', idempotencyKey: newKey(), ownerOf: requester.shipId, ownership: 'requester' };
+
+  // When the mapped tool commissions and replays the same choice.
+  const first = await call(connection, { tool: { name: 'fleet_commission', answers: z.object({ shipId: z.string(), secret: z.string() }) }, arguments: input });
+  const replay = await call(connection, { tool: { name: 'fleet_commission', answers: z.object({ shipId: z.string(), secret: z.null(), prompt: z.null(), crewLines: z.null() }) }, arguments: input });
+  const refused = await refusalOf(connection, { name: 'fleet_commission', arguments: { crewToken, name: 'mcp-invalid-owner-mode', type: 'reviewer', idempotencyKey: newKey(), ownership: 'requester' } });
+
+  // Then every door keeps the explicit choice and rejects incomplete choices.
+  expect(replay.shipId).toBe(first.shipId);
+  expect(refused).toMatch(/ownerOf/);
+  await expect(database.ship.findUniqueOrThrow({ where: { id: first.shipId } })).resolves.toMatchObject({ ownerShipId: requester.shipId });
+  await expect(database.ship.count({ where: { fleetId: argo.fleetId, name: 'mcp-invalid-owner-mode' } })).resolves.toBe(0);
+});
