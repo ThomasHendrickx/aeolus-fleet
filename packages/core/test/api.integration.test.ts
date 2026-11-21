@@ -2908,7 +2908,7 @@ it('tRPC commission selects requester ownership and rejects ownership without a 
   const manager = await agentShip(['messages:send', 'messages:receive', 'fleet:commission', 'fleet:on-behalf']);
   const registered = await client().ship.register.mutate({ shipId: manager.shipId, secret: manager.secret, location: { kind: 'SERVER' } });
   const commissioner = client({ authorization: `Bearer ${registered.crewToken}` });
-  const requester = await agentShip();
+  const requester = await (await signedInArgo()).fleet.commission.mutate({ name: 'trpc-requester', type: 'reviewer', owner: ownerId, idempotencyKey: newKey() });
   const input = { name: 'trpc-requester-helper', type: 'reviewer', idempotencyKey: newKey(), ownerOf: requester.shipId, ownership: 'requester' as const };
 
   // When commission and retry pass through tRPC.
