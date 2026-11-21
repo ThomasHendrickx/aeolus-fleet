@@ -364,6 +364,11 @@ export type OwnerChangedWhy = 'set' | 'ownerRetired';
 
 export type ChangeOwnerRefusal = DomainError<'SHIP_HAS_NO_OWNER' | 'SHIP_OWNS_ITSELF' | 'SHIP_ALREADY_RETIRED' | 'INVALID_OWNER' | 'OWNERSHIP_CYCLE'>;
 
+/** The owner active direct children inherit on retirement (decision 0045); null means argo. */
+export function inheritedOwnerOf(ship: Ship): ShipId | null {
+  return ship.kind === 'agent' || ship.kind === 'app' ? ship.owner : null;
+}
+
 /**
  * The ship with its new owner and OwnerChanged (decision 0045). The owner is
  * an active person, agent, app or argo; argo and the viewer have none, a person's

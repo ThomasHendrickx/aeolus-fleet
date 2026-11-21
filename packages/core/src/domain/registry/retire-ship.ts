@@ -30,7 +30,7 @@ import { retireLabelsWith } from './label.js';
 import { endLease, type LeaseTx } from './leases.js';
 import { withdrawWithRetiredShip } from './declared-network-rules.js';
 import type { AlertRepository, ClearRequestRepository, ExpectationsRepository, CrewRequestRepository, DeclaredNetworkRulesRepository, LabelRepository, NetworkSettingsRepository, ScopeNamespaceRepository, ShipRepository, VerifiedFactsRepository } from './ports.js';
-import { changeOwner, checkCanRetire, type RetireRefusal } from './ship.js';
+import { changeOwner, checkCanRetire, inheritedOwnerOf, type RetireRefusal } from './ship.js';
 import { releaseWithDeclarer } from './scope-namespace.js';
 import { removeWithRetiredShip } from './verified-facts.js';
 
@@ -162,8 +162,9 @@ export function createRetireShip(deps: {
         await recordEvent(recorded, { fleetId, type: 'DeliveryAbandoned', occurredAt: at, actor, shipId, messageId, deliveryId });
       }
       // The ownership lock keeps this parent active and unchanged throughout retirement.
-      const inheritedOwner = (ship.kind === 'agent' || ship.kind === 'app') && ship.owner !== null
-        ? await tx.ships.find(fleetId, ship.owner)
+      const inheritedOwnerId = inheritedOwnerOf(ship);
+      const inheritedOwner = inheritedOwnerId !== null
+        ? await tx.ships.find(fleetId, inheritedOwnerId)
         : await tx.ships.findOperatorShip(fleetId);
       for (const ownedShip of await tx.ships.listActiveOwnedByForUpdate(fleetId, shipId)) {
         if (ownedShip.id === shipId) {

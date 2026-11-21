@@ -73,6 +73,8 @@ interface ShipTimelineProps {
   onOpenMessage: (messageId: MessageId) => void;
   /** The names the account app gives the accounts signed in as argo that rows name (decision 0054); a row whose account has none shows its id. */
   accountNames?: Readonly<Partial<Record<AccountId, string>>>;
+  /** Current names of the recorded new owners in retirement events; ids while unavailable. */
+  ownerNames?: ReadonlyMap<ShipId, string>;
 }
 
 function Row({
@@ -81,8 +83,9 @@ function Row({
   now,
   onOpenMessage,
   accountNames = {},
-}: Pick<ShipTimelineProps, 'shipId' | 'now' | 'onOpenMessage' | 'accountNames'> & { entry: TimelineEntry }) {
-  const { parts, tone, icon } = timelineSentence(entry, shipId);
+  ownerNames,
+}: Pick<ShipTimelineProps, 'shipId' | 'now' | 'onOpenMessage' | 'accountNames' | 'ownerNames'> & { entry: TimelineEntry }) {
+  const { parts, tone, icon } = timelineSentence(entry, { shipId, ownerNames });
   const Icon = ICONS[icon];
   const at = new Date(entry.occurredAt);
   const content = (
@@ -139,7 +142,7 @@ function Row({
  * the account signed in as argo when argo did it. A row about a message
  * opens it.
  */
-export function ShipTimeline({ shipId, entries, state, onRetry, more, now, onOpenMessage, accountNames }: ShipTimelineProps) {
+export function ShipTimeline({ shipId, entries, state, onRetry, more, now, onOpenMessage, accountNames, ownerNames }: ShipTimelineProps) {
   if (state === 'loading') {
     return <LoadingSkeleton variant="list" rows={4} label="Loading the timeline" />;
   }
@@ -159,7 +162,7 @@ export function ShipTimeline({ shipId, entries, state, onRetry, more, now, onOpe
     <div data-testid="ship-timeline" className="overflow-hidden rounded-lg border border-border bg-card">
       <ol aria-label="Timeline">
         {entries.map((entry) => (
-          <Row key={entry.id} entry={entry} shipId={shipId} now={now} onOpenMessage={onOpenMessage} accountNames={accountNames} />
+          <Row key={entry.id} entry={entry} shipId={shipId} now={now} onOpenMessage={onOpenMessage} accountNames={accountNames} ownerNames={ownerNames} />
         ))}
       </ol>
       {more}

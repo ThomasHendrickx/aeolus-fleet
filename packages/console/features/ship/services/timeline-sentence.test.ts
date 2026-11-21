@@ -26,7 +26,7 @@ function anEntry(type: EventType, overrides: Partial<TimelineEntry> = {}): Timel
 
 /** The sentence, tone and icon of an entry on scout's page. */
 function onScoutsPage(entry: TimelineEntry) {
-  const { parts, tone, icon } = timelineSentence(entry, scout.id);
+  const { parts, tone, icon } = timelineSentence(entry, { shipId: scout.id });
   return { sentence: plainText(parts), tone, icon };
 }
 
@@ -285,7 +285,7 @@ describe('timelineSentence', () => {
   });
 
   it("says argo pinged the ship, on argo's page", () => {
-    const { parts } = timelineSentence(anEntry('MessageAccepted', { actor: argo, ship: scout, message: pingFromArgo }), argo.id);
+    const { parts } = timelineSentence(anEntry('MessageAccepted', { actor: argo, ship: scout, message: pingFromArgo }), { shipId: argo.id });
 
     expect(plainText(parts)).toBe('Pinged scout');
   });
@@ -305,7 +305,7 @@ describe('timelineSentence', () => {
   it("says on argo's page that the ship answered its ping with pong", () => {
     const entry = anEntry('DeliveryAcknowledged', { actor: scout, message: pingFromArgo, details: { answer: 'pong' } });
 
-    expect(plainText(timelineSentence(entry, argo.id).parts)).toBe('scout answered a ping from argo with pong');
+    expect(plainText(timelineSentence(entry, { shipId: argo.id }).parts)).toBe('scout answered a ping from argo with pong');
   });
 
   it('says the ship acknowledged a ping without pong', () => {
@@ -671,7 +671,7 @@ describe('timelineSentence', () => {
     const names = new Map([[owner.id, owner.name]]);
 
     // When its timeline sentence is shown.
-    const sentence = timelineSentence(entry, scout.id, names);
+    const sentence = timelineSentence(entry, { shipId: scout.id, ownerNames: names });
 
     // Then the actual new owner is named and links to its ship page.
     expect({ sentence: plainText(sentence.parts), tone: sentence.tone, icon: sentence.icon }).toEqual({
@@ -691,7 +691,7 @@ describe('timelineSentence', () => {
     const entry = anEntry('OwnerChanged', { details: { why: 'ownerRetired', toShipId: planner.id } });
 
     // When the timeline is shown before the name arrives or after a lookup failure.
-    const { parts } = timelineSentence(entry, scout.id);
+    const { parts } = timelineSentence(entry, { shipId: scout.id });
 
     // Then it identifies the recorded owner rather than inventing argo.
     expect(parts).toContainEqual({ kind: 'ship', party: { id: planner.id, name: planner.id }, href: `/ships/${planner.id}` });
@@ -725,7 +725,7 @@ describe('timelineSentence', () => {
   });
 
   it('keeps each ship as its own part, so it renders as a ShipName', () => {
-    const { parts } = timelineSentence(anEntry('MessageAccepted', { actor: planner, message: fromPlanner }), scout.id);
+    const { parts } = timelineSentence(anEntry('MessageAccepted', { actor: planner, message: fromPlanner }), { shipId: scout.id });
 
     expect(parts).toEqual([
       { kind: 'text', text: 'Received a message from ' },

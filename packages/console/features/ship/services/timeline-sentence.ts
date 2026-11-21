@@ -1,10 +1,11 @@
-import type { Party, ReportState, TimelineEntry } from '@aeolus-fleet/common';
+import type { Party, ReportState, ShipId, TimelineEntry } from '@aeolus-fleet/common';
 
 import { signalWords } from '../../../lib/alert';
 import { locationKindWord } from '../../../lib/location';
 import { REPORT_TONES } from '../../../lib/report';
 import { capitalised, counted, ship, text, type SentencePart } from '../../../lib/sentence';
 import { recipientGroupWords } from '../../../lib/recipient';
+import { retirementOwnerId } from './retirement-owner-id';
 
 /** The tone family of a timeline row's tile (docs/design/conventions.md, "Colour"). */
 export type TimelineTone = 'waiting' | 'active' | 'ok' | 'attention' | 'ended';
@@ -189,7 +190,7 @@ function schedulePausedParts(entry: TimelineEntry): SentencePart[] {
  * (docs/design/png/ShipTimeline.png), from the point of view of the ship whose
  * page it is.
  */
-export function timelineSentence(entry: TimelineEntry, shipId: string): TimelineSentence {
+export function timelineSentence(entry: TimelineEntry, { shipId, ownerNames = new Map() }: { shipId: string; ownerNames?: ReadonlyMap<ShipId, string> }): TimelineSentence {
   switch (entry.type) {
     case 'FleetInitialised':
       return { parts: [text('Fleet initialised')], tone: 'ended', icon: 'fleet' };
@@ -203,12 +204,16 @@ export function timelineSentence(entry: TimelineEntry, shipId: string): Timeline
     }
     case 'OwnerSet':
       return { parts: ownerSetParts(entry), tone: 'ended', icon: 'commissioned' };
-    case 'OwnerChanged':
+    case 'OwnerChanged': {
+      const ownerId = retirementOwnerId(entry);
       return {
-        parts: stringDetail(entry, 'why') === 'ownerRetired' ? [text('Owner retired: argo owns it now')] : [text('Owner changed'), ...by(entry.actor)],
+        parts: ownerId === undefined
+          ? [text('Owner changed'), ...by(entry.actor)]
+          : [text('Owner retired: '), ship({ id: ownerId, name: ownerNames.get(ownerId) ?? ownerId }, `/ships/${ownerId}`), text(' owns it now')],
         tone: 'ended',
         icon: 'renamed',
       };
+    }
     case 'StartingPromptIssued':
       return { parts: [text('Starting prompt issued')], tone: 'ended', icon: 'prompt' };
     case 'ShipClaimed':
