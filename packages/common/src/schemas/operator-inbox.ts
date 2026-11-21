@@ -34,8 +34,9 @@ export const inboxMessageSchema = z.object({
   /** The reply that acknowledged it, when a reply did. */
   repliedWith: idSchema('message').nullable(),
   /** Every reply argo sent to it, oldest first: what a console reads an answer from (decision 0038). */
-  replies: z.array(z.object({ id: idSchema('message'), contentType: z.string(), payload: z.string(), isPayloadUnreadable: z.boolean(), sentAt: isoTime })),
+  replies: z.array(z.object({ senderLeaseId: idSchema('lease').nullable(), id: idSchema('message'), contentType: z.string(), payload: z.string(), isPayloadUnreadable: z.boolean(), sentAt: isoTime })),
   message: z.object({
+    senderLeaseId: idSchema('lease').nullable(),
     id: idSchema('message'),
     sender: partySchema,
     inReplyTo: idSchema('message').nullable(),

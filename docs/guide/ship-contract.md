@@ -63,6 +63,7 @@ Each delivery `receive` hands you carries its message and its sender:
 | `deliveryId` | This delivery to your ship, `dlv_...`. You ack it by this id. |
 | `messageId` | The message, `msg_...`. You answer it by this id. |
 | `senderName`, `senderType`, `senderShipId` | Who sent it. Answer to `senderName`. |
+| `senderLeaseId` | The authenticated sending lease, `lse_...`, or null without recorded evidence. Immutable through re-crew and redelivery. |
 | `senderStatus` | `awaitingCrew`, `crewed` or `retired`, as the sender is now. A retired sender refuses a reply. |
 | `payload`, `contentType` | The message itself, at most 256 KB, and its type. |
 | `model` | The model the sender stated, null from `argo`. |
@@ -70,6 +71,14 @@ Each delivery `receive` hands you carries its message and its sender:
 | `attempts` | How often this delivery was handed over, this time included. |
 | `isForced` | A [forced](words.md#forced) message, to act on now. It comes before every other. |
 | `sentAt` | When it was sent. |
+
+### Compare sending and current crew evidence
+
+Full message reads expose the stored `senderLeaseId`, including `receive`, `pushReceive`, `receiveReply`, `delivery`, `record`, `exchange`, `exchanges`, `meeting` and `fleet.message`. Previews and counts carry no evidence. [Messages in the blueprint](../blueprint.md#messages) defines provenance and its null paths.
+
+Read `fleet.ship` (`POST /api/v1/fleet/ship`, MCP `fleet_ship`) for one intended sender. With `fleet:read` and target read reach, `currentLease` is `{ id, startedAt }` for its open crew, or null if none, including retired/remnant ships. Outside read reach and with `crew:run` alone, the field is absent. REST/tRPC on-behalf reads use the named ship's read reach.
+
+Compare the intended sender and instruction exchange, and require both lease ids to be present, non-null and equal. An old L1 message delivered after replacement by L2 still names L1. Null, omission, a mismatch, rejected auth or a failed read cannot confirm the crew. The current lease is an observation at read time; replacement after it is possible. Core records no confirmation state and does not gate a later work send atomically.
 
 ### Send and reply
 

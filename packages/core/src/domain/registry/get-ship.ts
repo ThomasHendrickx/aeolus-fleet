@@ -1,6 +1,6 @@
-import type { DiscoveredStatement, ShipId } from '@aeolus-fleet/common';
+import type { DiscoveredStatement, LeaseId, ShipId } from '@aeolus-fleet/common';
 
-import { isShipCaller, type Caller } from '../shared/caller.js';
+import { hasScope, isShipCaller, type Caller } from '../shared/caller.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import type { ShownAlert } from './alert.js';
 import type { ShipExpectations } from './expectations.js';
@@ -21,6 +21,8 @@ export interface ShipDetail extends Omit<ListedShip, 'report' | 'crewRequest'> {
   commissionedAt: Date;
   /** Since when the session crewing it has held it; null while no session does. */
   crewedSince: Date | null;
+  /** Present only with fleet:read and target read reach. Null means no open lease at this observation. */
+  currentLease?: { id: LeaseId; startedAt: Date } | null;
   /** When the pruning pass removed it: its page is its remnant (decision 0070, D8). Null until then. */
   removedAt: Date | null;
   /** What its crew holds in flight: what a release or a re-crew returns to pending. */
@@ -66,7 +68,8 @@ export function createGetShip(deps: { listing: FleetListing; readReach: ReadReac
     }
     const listed = listedShipOf(facts);
     const isAssignedToCaller = isShipCaller(caller) && facts.crewRequest?.assignedTo === caller.shipId;
-    if (!isAssignedToCaller && !readsShip(await deps.readReach(caller), shipId)) {
+    const isInReadReach = hasScope(caller, 'fleet:read') && readsShip(await deps.readReach(caller), shipId);
+    if (!isAssignedToCaller && !isInReadReach) {
       return ok(outsideReadReach(listed));
     }
     const [counts, stated, openAlerts, expectations] = await Promise.all([
@@ -83,6 +86,7 @@ export function createGetShip(deps: { listing: FleetListing; readReach: ReadReac
       openDeliveries: counts.open,
       commissionedAt: facts.ship.createdAt,
       crewedSince: facts.openLease?.startedAt ?? null,
+      ...(isInReadReach ? { currentLease: facts.openLease && { id: facts.openLease.id, startedAt: facts.openLease.startedAt } } : {}),
       removedAt: facts.ship.removedAt,
       owner: facts.owner,
       commissionedByShipId: facts.ship.commission?.by.kind === 'ship' ? facts.ship.commission.by.shipId : null,

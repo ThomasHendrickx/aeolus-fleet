@@ -47,6 +47,7 @@ function aMessage({
     repliedWith: null,
     replies,
     message: {
+      senderLeaseId: null,
       id: newId('message'),
       sender,
       inReplyTo: null,
@@ -75,7 +76,7 @@ function aReplacement({ sentAt = LATER }: { sentAt?: string } = {}): InboxMessag
 }
 
 function anAnswerTo(question: { id: string }): InboxMessage['replies'][number] {
-  return { id: newId('message'), contentType: ANSWER_CONTENT_TYPE, payload: JSON.stringify({ questionId: question.id, option: 1 }), isPayloadUnreadable: false, sentAt: LATER };
+  return { senderLeaseId: null, id: newId('message'), contentType: ANSWER_CONTENT_TYPE, payload: JSON.stringify({ questionId: question.id, option: 1 }), isPayloadUnreadable: false, sentAt: LATER };
 }
 
 function questionAsked(questions: ReturnType<typeof questionsIn>, deliveryId: string) {
@@ -97,7 +98,7 @@ describe('questionsIn', () => {
   });
 
   it("reads the answer from argo's replies", () => {
-    const reply = { id: newId('message'), contentType: ANSWER_CONTENT_TYPE, payload: JSON.stringify({ questionId: QUESTION.id, option: 2 }), isPayloadUnreadable: false, sentAt: AT };
+    const reply = { senderLeaseId: null, id: newId('message'), contentType: ANSWER_CONTENT_TYPE, payload: JSON.stringify({ questionId: QUESTION.id, option: 2 }), isPayloadUnreadable: false, sentAt: AT };
     const answered = { ...asked, replies: [reply] };
 
     expect(questionsIn([answered])[0]?.question.answer).toEqual({ messageId: reply.id, sentAt: AT, option: 2, note: null });

@@ -143,6 +143,7 @@ describe('a push receive', () => {
           deliveryId,
           messageId: message?.id,
           senderShipId: argo.shipId,
+          senderLeaseId: null,
           senderName: 'argo',
           senderType: 'operator',
           senderStatus: 'crewed',

@@ -121,6 +121,7 @@ export const meetingParticipantSchema = partySchema.extend({ kind: shipKindSchem
 
 /** One contribution as the meeting read shows it. */
 export const contributionSchema = z.object({
+  senderLeaseId: idSchema('lease').nullable(),
   messageId: idSchema('message'),
   sender: partySchema,
   payload: z.string(),

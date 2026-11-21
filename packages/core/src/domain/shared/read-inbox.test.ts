@@ -65,6 +65,7 @@ describe("reading argo's inbox", () => {
       replies: [],
       message: {
         id: newer.messageId,
+        senderLeaseId: captain.leaseId,
         sender: { id: captain.shipId, name: 'release-captain' },
         inReplyTo: null,
         sentAt: core.clock.now(),
@@ -142,8 +143,8 @@ describe("reading argo's inbox", () => {
     const [entry] = await history.readInbox(argo, { filter: 'all' }).then(unwrap).then(({ items }) => items);
 
     expect(entry?.replies).toEqual([
-      { id: first, contentType: 'text/plain', payload: 'go', sentAt: firstAt },
-      { id: second, contentType: 'text/plain', payload: 'and thanks', sentAt: core.clock.now() },
+      { id: first, senderLeaseId: argo.leaseId, contentType: 'text/plain', payload: 'go', sentAt: firstAt },
+      { id: second, senderLeaseId: argo.leaseId, contentType: 'text/plain', payload: 'and thanks', sentAt: core.clock.now() },
     ]);
   });
 

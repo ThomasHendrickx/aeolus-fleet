@@ -482,7 +482,7 @@ export interface ShipFacts {
    * Where the session holding the ship's open lease runs, since when, and its
    * last call (its claim until it calls again); null while no session crews it.
    */
-  openLease: { location: Location; harness: string | null; startedAt: Date; lastSeenAt: Date; report: ShipReport | null; activity: LeaseActivity | null } | null;
+  openLease: { id: LeaseId; location: Location; harness: string | null; startedAt: Date; lastSeenAt: Date; report: ShipReport | null; activity: LeaseActivity | null } | null;
   /** When the ship's valid secret was issued and claimed; null when it holds none. */
   validSecret: { issuedAt: Date; claimedAt: Date | null } | null;
   /** The ship's crew request; null when it holds none. */

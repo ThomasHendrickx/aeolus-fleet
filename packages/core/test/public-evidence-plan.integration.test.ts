@@ -23,13 +23,18 @@ it('reads one current lease and immutable sending evidence by indexed ship and m
   const crew = unwrap(await core.useCases.authenticate.byCrewToken(claimed.crewToken));
   const { messageId } = unwrap(await core.useCases.sendMessage(crew, { selector: { kind: 'ship', shipId: argo.shipId }, payload: 'Confirmed', model: 'gpt-6.1-sol', idempotencyKey: 'confirmed' }));
   await core.prisma.$executeRaw`INSERT INTO ships (id, fleet_id, name, type, created_at, kind, scopes)
-    SELECT 'shp_seed' || i, ${fleet.fleetId}, 'ship-' || i, 'agent', ${core.clock.now()}, 'agent', '{}' FROM generate_series(1, 3000) i`;
+    SELECT 'shp_' || lpad(i::text, 26, '0'), ${fleet.fleetId}, 'ship-' || i, 'agent', ${core.clock.now()}, 'agent', '{}' FROM generate_series(1, 3000) i`;
   await core.prisma.$executeRaw`INSERT INTO leases (id, fleet_id, ship_id, location, crew_token_hash, started_at, ended_at)
-    SELECT 'lse_seed' || i || '_' || n, ${fleet.fleetId}, 'shp_seed' || i, 'SERVER'::location_kind, 'hash-' || i || '-' || n,
+    SELECT 'lse_' || lpad((i * 100 + n)::text, 26, '0'), ${fleet.fleetId}, 'shp_' || lpad(i::text, 26, '0'), 'SERVER'::location_kind, 'hash-' || i || '-' || n,
       ${core.clock.now()}::timestamptz - interval '1 day', ${core.clock.now()}
     FROM generate_series(1, 3000) i, generate_series(1, 20) n`;
   await core.prisma.$executeRaw`INSERT INTO messages (id, fleet_id, sender_ship_id, selector_kind, selector_ship_id, payload, content_type, idempotency_key, request_hash, created_at)
-    SELECT 'msg_seed' || i, ${fleet.fleetId}, ${argo.shipId}, 'ship', ${argo.shipId}, 'history', 'text/plain', 'seed-' || i, 'h', ${core.clock.now()} FROM generate_series(1, 30000) i`;
+    SELECT 'msg_' || lpad(i::text, 26, '0'), ${fleet.fleetId}, ${argo.shipId}, 'ship', ${argo.shipId}, 'history', 'text/plain', 'seed-' || i, 'h', ${core.clock.now()} FROM generate_series(1, 30000) i`;
+  await core.prisma.$executeRaw`INSERT INTO deliveries (id, fleet_id, message_id, sender_ship_id, recipient_ship_id, state, created_at)
+    SELECT 'dlv_' || lpad(i::text, 26, '0'), ${fleet.fleetId}, 'msg_' || lpad(i::text, 26, '0'), ${argo.shipId}, ${argo.shipId}, 'acknowledged', ${core.clock.now()} FROM generate_series(1, 30000) i`;
+  await core.prisma.$executeRaw`INSERT INTO events (id, fleet_id, type, occurred_at, actor_kind, actor_ship_id, details, ship_id, message_id, delivery_id, seq)
+    SELECT 'evt_' || lpad(i::text, 26, '0'), ${fleet.fleetId}, 'MessageAccepted', ${core.clock.now()}, 'ship', ${argo.shipId}, '{}', ${argo.shipId},
+      'msg_' || lpad(i::text, 26, '0'), 'dlv_' || lpad(i::text, 26, '0'), 1000000 + i FROM generate_series(1, 30000) i`;
   await core.prisma.$executeRaw`ANALYZE`;
   const statements: { query: string; params: string }[] = [];
   const client = createPrismaClientTellingStatements(core.databaseUrl, (query, params) => statements.push({ query, params }));

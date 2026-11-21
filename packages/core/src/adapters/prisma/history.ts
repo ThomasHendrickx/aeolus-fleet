@@ -115,6 +115,7 @@ function historyMessageOf(
   return {
     id: message.id,
     sender: party(message.senderShipId),
+    senderLeaseId: message.senderLeaseId,
     recipient: recipientOf(message.selector, names),
     inReplyTo: message.inReplyToMessageId,
     sentAt: message.createdAt,
@@ -219,10 +220,11 @@ async function inboxEntriesOf(
       repliedWith: typeof reply === 'string' ? idSchema('message').parse(reply) : null,
       replies: replies
         .filter((held) => held.inReplyToMessageId === message.id)
-        .map((held) => ({ id: held.id, contentType: held.contentType, payload: held.payload, sentAt: held.createdAt })),
+        .map((held) => ({ id: held.id, senderLeaseId: held.senderLeaseId, contentType: held.contentType, payload: held.payload, sentAt: held.createdAt })),
       message: {
         id: message.id,
         sender: party(message.senderShipId),
+        senderLeaseId: message.senderLeaseId,
         inReplyTo: message.inReplyToMessageId,
         sentAt: message.createdAt,
         contentType: message.contentType,
@@ -565,6 +567,7 @@ export function createPrismaShipHistory(db: Db): ShipHistory {
           message: {
             id: message.id,
             sender: party(message.senderShipId),
+            senderLeaseId: message.senderLeaseId,
             recipient: recipientOf(message.selector, { party, labelTexts }),
             inReplyTo: message.inReplyToMessageId,
             sentAt: message.createdAt,

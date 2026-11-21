@@ -109,8 +109,8 @@ describe('reading a meeting', () => {
 
     expect(read.contributions).toEqual({
       items: [
-        { messageId: second, sender: { id: product.shipId, name: 'product' }, payload: 'Friday works', contentType: 'text/plain', model: SESSION_MODEL, sentAt: new Date('2026-10-24T09:00:02.000Z') },
-        { messageId: first, sender: { id: chief.shipId, name: 'chief' }, payload: 'Agenda: the launch', contentType: 'text/plain', model: SESSION_MODEL, sentAt: new Date('2026-10-24T09:00:01.000Z') },
+        { messageId: second, senderLeaseId: null, sender: { id: product.shipId, name: 'product' }, payload: 'Friday works', contentType: 'text/plain', model: SESSION_MODEL, sentAt: new Date('2026-10-24T09:00:02.000Z') },
+        { messageId: first, senderLeaseId: null, sender: { id: chief.shipId, name: 'chief' }, payload: 'Agenda: the launch', contentType: 'text/plain', model: SESSION_MODEL, sentAt: new Date('2026-10-24T09:00:01.000Z') },
       ],
       nextCursor: null,
     });

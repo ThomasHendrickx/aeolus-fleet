@@ -339,6 +339,8 @@ describe('reading one message within read reach (decision 0034)', () => {
 
 it('keeps sending lease L1 across replacement and redelivery while the current ship evidence is L2 (#1993)', async () => {
   // Given
+  const person = unwrap(await scene.registry.commissionShip(scene.argo, { name: 'reader', type: 'person', kind: 'person', idempotencyKey: newKey() }));
+  scene.scout = { ...crewAboard(scene.core, { fleetId: scene.fleetId, shipId: person.shipId }), kind: 'person' };
   const messageId = await scene.send(scene.planner, { to: { kind: 'ship', shipId: scene.scout.shipId }, payload: 'Instructions accepted' });
   const first = scene.planner.leaseId;
   const received = unwrap(await scene.messaging.receiveDeliveries(scene.scout, {}));

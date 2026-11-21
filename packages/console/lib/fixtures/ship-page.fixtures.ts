@@ -294,6 +294,7 @@ export const UNDELIVERABLE_HISTORY: DeliveryHistoryEntry[] = [
 
 /** The task from builder-core to any reviewer, claimed by reviewer-01 after planner's crew left. */
 export const TYPE_MESSAGE: MessageDetail = {
+  senderLeaseId: null,
   id: messageId('0003'),
   sender: BUILDER,
   recipient: { kind: 'type', type: 'reviewer' },
@@ -311,6 +312,7 @@ export const TYPE_MESSAGE: MessageDetail = {
 
 /** planner's answer to reviewer-01, acknowledged. */
 export const DIRECT_MESSAGE: MessageDetail = {
+  senderLeaseId: null,
   id: messageId('0001'),
   sender: PLANNER,
   recipient: { kind: 'ship', ship: REVIEWER },
@@ -338,6 +340,7 @@ export const SECOND_REVIEWER: Party = { id: shipId('q7m1'), name: 'reviewer-02' 
 
 /** planner's "main is red" to every ship carrying team=a (decision 0065): one delivery per ship, each on its own. */
 export const LABEL_MESSAGE: MessageDetail = {
+  senderLeaseId: null,
   id: messageId('0005'),
   sender: PLANNER,
   recipient: { kind: 'label', values: [{ valueId: idSchema('labelValue').parse('lbv_01j8xk4tqzr3a9w6m2v5n7te4a'), key: 'team', value: 'a' }] },
@@ -400,6 +403,7 @@ export const PUSHED_HANDLED_HISTORY: DeliveryHistoryEntry[] = [
 /** A pushed message from planner to reviewer-01, its way through as the fleet saw it. */
 function pushed(suffix: string, delivery: Pick<MessageDetail['delivery'], 'state' | 'attempts' | 'way' | 'history'>): MessageDetail {
   return {
+    senderLeaseId: null,
     id: messageId(suffix),
     sender: PLANNER,
     recipient: { kind: 'ship', ship: REVIEWER },

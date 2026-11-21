@@ -303,6 +303,7 @@ export function toLastSeen(row: unknown): Date {
 }
 
 const shipFactsSqlRow = z.object({
+  lease_id: idSchema('lease').nullable(),
   lease_location: locationKindSchema.nullable(),
   lease_location_description: z.string().nullable(),
   lease_harness: z.string().nullable(),
@@ -342,6 +343,7 @@ const shipFactsSqlRow = z.object({
 /** A ship with its open lease's location and its valid secret's dates, as the fleet listing reads it. */
 export function toShipFacts(row: unknown): ShipFacts {
   const {
+    lease_id,
     lease_location,
     lease_location_description,
     lease_harness,
@@ -379,8 +381,9 @@ export function toShipFacts(row: unknown): ShipFacts {
   return {
     ship,
     openLease:
-      lease_location && lease_started_at
+      lease_id && lease_location && lease_started_at
         ? {
+            id: lease_id,
             location: { kind: lease_location, description: lease_location_description },
             harness: lease_harness,
             startedAt: lease_started_at,

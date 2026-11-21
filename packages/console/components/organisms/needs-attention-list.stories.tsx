@@ -24,6 +24,7 @@ const fromArgo: NeedsAttentionDelivery = {
   reason: null,
   ship: tester,
   message: {
+    senderLeaseId: null,
     id: idSchema('message').parse('msg_01m3tbfspe96yf1rnr4ank0002'),
     sender: argo,
     recipient: { kind: 'type', type: 'reviewer' },
@@ -45,6 +46,7 @@ const fromBuilder: NeedsAttentionDelivery = {
   reason: null,
   ship: tester,
   message: {
+    senderLeaseId: null,
     id: idSchema('message').parse('msg_01m3tbfspe96yf1rnr4ank0001'),
     sender: builder,
     recipient: { kind: 'ship', ship: tester },
@@ -67,6 +69,7 @@ const notHandled: NeedsAttentionDelivery = {
   reason: null,
   ship: tester,
   message: {
+    senderLeaseId: null,
     id: idSchema('message').parse('msg_01m3tbfspe96yf1rnr4ank0003'),
     sender: builder,
     recipient: { kind: 'ship', ship: tester },

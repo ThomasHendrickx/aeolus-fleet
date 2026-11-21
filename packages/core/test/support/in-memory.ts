@@ -2027,6 +2027,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       owner: ownerOf(held),
       openLease: lease
         ? {
+            id: lease.id,
             location: { ...lease.location },
             harness: lease.harness,
             startedAt: lease.startedAt,
@@ -2348,6 +2349,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     return {
       id: message.id,
       sender: partyOf(message.fleetId, message.senderShipId),
+      senderLeaseId: message.senderLeaseId,
       recipient: recipientOf(message.fleetId, message.selector),
       inReplyTo: message.inReplyToMessageId,
       sentAt: message.createdAt,
@@ -2375,7 +2377,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
   const inboxEntryOf = (fleetId: FleetId, { shipId, delivery, message }: { shipId: ShipId; delivery: Delivery; message: Message }): InboxEntry<StoredPayload> => {
     const acknowledged = numbered(fleetId).findLast((event) => event.deliveryId === delivery.id && event.type === 'DeliveryAcknowledged');
     const reply = acknowledged?.details.reply;
-    const { id, sender, inReplyTo, sentAt, contentType, model, payload } = historyMessageOf(message);
+    const { id, sender, inReplyTo, sentAt, contentType, model, senderLeaseId, payload } = historyMessageOf(message);
     return {
       deliveryId: delivery.id,
       state: delivery.state,
@@ -2385,8 +2387,8 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       replies: state.messages
         .filter((held) => held.fleetId === fleetId && held.senderShipId === shipId && held.inReplyToMessageId === message.id)
         .sort((first, second) => newestFirst(second, first))
-        .map((held) => ({ id: held.id, contentType: held.contentType, payload: held.payload, sentAt: held.createdAt })),
-      message: { id, sender, inReplyTo, sentAt, contentType, model, payload },
+        .map((held) => ({ id: held.id, senderLeaseId: held.senderLeaseId, contentType: held.contentType, payload: held.payload, sentAt: held.createdAt })),
+      message: { id, sender, inReplyTo, sentAt, contentType, model, senderLeaseId, payload },
     };
   };
   /** What the history reads of a lease: its trierarch by the starting prompt its crew claimed with, push, turn and end. */
@@ -2591,7 +2593,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
             if (!message || !since?.shipId) {
               throw new Error(`${attentionState} ${delivery.id} without its message or its event by a ship`);
             }
-            const { id, sender, recipient, inReplyTo, sentAt, contentType, model, payload } = historyMessageOf(message);
+            const { id, sender, recipient, inReplyTo, sentAt, contentType, model, senderLeaseId, payload } = historyMessageOf(message);
             return {
               seq: since.seq,
               entry: {
@@ -2602,7 +2604,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
                 since: since.occurredAt,
                 reason: typeof since.details.reason === 'string' ? since.details.reason : null,
                 ship: partyOf(fleetId, since.shipId),
-                message: { id, sender, recipient, inReplyTo, sentAt, contentType, model, payload },
+                message: { id, sender, recipient, inReplyTo, sentAt, contentType, model, senderLeaseId, payload },
               },
             };
           })

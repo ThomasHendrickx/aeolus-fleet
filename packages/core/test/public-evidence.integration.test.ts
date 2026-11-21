@@ -72,9 +72,10 @@ for (const door of ['REST', 'tRPC', 'MCP'] as const) {
       // Given a confirmation under L1 and its first delivery to a reader.
       const sender = await crewed();
       const reader = await crewed(['fleet:read']);
-      const input = { selector: { kind: 'ship', shipId: reader.crew.shipId }, payload: 'Instructions accepted', model: 'gpt-6.1-sol', idempotencyKey: newKey() };
+      const instruction = unwrap(await core.useCases.sendMessage(reader.crew, { selector: { kind: 'ship', shipId: sender.crew.shipId }, payload: 'Take these instructions', model: 'gpt-6.1-sol', idempotencyKey: newKey() }));
+      const input = { selector: { kind: 'ship', shipId: reader.crew.shipId }, inReplyTo: instruction.messageId, payload: 'Instructions accepted', model: 'gpt-6.1-sol', idempotencyKey: newKey() };
       const sent = z.object({ messageId: idSchema('message') }).parse(await call(door, { token: sender.token, path: 'ship.send', input, isMutation: true }));
-      const first = receivedSchema.parse(await call(door, { token: reader.token, path: 'ship.receive', input: {}, isMutation: true }));
+      const first = receivedSchema.parse(await call(door, { token: reader.token, path: 'ship.receiveReply', input: { ...instruction }, isMutation: true }));
       unwrap(await core.useCases.releaseShip(argo, { shipId: sender.crew.shipId }));
       const prompt = unwrap(await core.useCases.getStartingPrompt(argo, { shipId: sender.crew.shipId }));
       const replacement = await claim(sender.crew.shipId, secretOf(prompt.secret));
@@ -88,7 +89,7 @@ for (const door of ['REST', 'tRPC', 'MCP'] as const) {
       const reread = await call(door, { token: reader.token, path: 'ship.delivery', input: { deliveryId } });
       const record = pageSchema.parse(await call(door, { token: reader.token, path: 'ship.record', input: {} }));
       const exchange = pageSchema.parse(await call(door, { token: reader.token, path: 'ship.exchange', input: { otherShipId: sender.crew.shipId } }));
-      const detail = await call(door, { token: reader.token, path: 'fleet.message', input: sent });
+      const detail = await call(door, { token: reader.token, path: 'fleet.message', input: { ...sent } });
       const current = await call(door, { token: reader.token, path: 'fleet.ship', input: { shipId: sender.crew.shipId } });
 
       // Then the stored sending evidence stays L1, the authorised observation names L2, and ended auth gives no evidence.
@@ -97,6 +98,25 @@ for (const door of ['REST', 'tRPC', 'MCP'] as const) {
       expect(leaseSchema.parse(z.object({ currentLease: leaseSchema }).parse(current).currentLease).id).not.toBe(sender.crew.leaseId);
       await expect(call(door, { token: sender.token, path: 'fleet.ship', input: { shipId: sender.crew.shipId } })).rejects.toThrow();
       await expect(call(door, { token: sender.token, path: 'ship.send', input: { ...input, idempotencyKey: newKey() }, isMutation: true })).rejects.toThrow();
+    });
+
+    it('preserves L1 on a pushed delivery received after sender replacement', async () => {
+      // Given a message accepted from L1 before any delivery.
+      const sender = await crewed();
+      const reader = await crewed();
+      const message = unwrap(await core.useCases.sendMessage(sender.crew, { selector: { kind: 'ship', shipId: reader.crew.shipId }, payload: 'Confirmed', model: 'gpt-6.1-sol', idempotencyKey: newKey() }));
+      unwrap(await core.useCases.releaseShip(argo, { shipId: sender.crew.shipId }));
+      const prompt = unwrap(await core.useCases.getStartingPrompt(argo, { shipId: sender.crew.shipId }));
+      const replacement = await claim(sender.crew.shipId, secretOf(prompt.secret));
+
+      // When a computer side receives and receives again under a different lease.
+      const first = await call(door, { token: reader.token, path: 'ship.pushReceive', input: { waker: 'adapter' }, isMutation: true });
+      const again = await call(door, { token: reader.token, path: 'ship.pushReceive', input: {}, isMutation: true });
+
+      // Then the evidence is the sending L1, never L2 or the receiving lease.
+      for (const read of [first, again]) expect(receivedSchema.parse(read).deliveries).toEqual([expect.objectContaining({ messageId: message.messageId, senderLeaseId: sender.crew.leaseId })]);
+      expect(sender.crew.leaseId).not.toBe(replacement.crew.leaseId);
+      expect(sender.crew.leaseId).not.toBe(reader.crew.leaseId);
     });
 
     it('answers null for uncrewed, released, retired and remnant ships and for messages without sending evidence', async () => {
@@ -115,7 +135,7 @@ for (const door of ['REST', 'tRPC', 'MCP'] as const) {
       const retired = await read();
       await core.prisma.ship.update({ where: { id: target.shipId }, data: { removedAt: core.clock.now() } });
       const remnant = await read();
-      const message = readSchema.parse(await call(door, { token: reader.token, path: 'fleet.message', input: sent }));
+      const message = readSchema.parse(await call(door, { token: reader.token, path: 'fleet.message', input: { ...sent } }));
 
       // Then null describes absent evidence, never a confirmed crew.
       for (const ship of [released, retired, remnant]) expect(ship).toHaveProperty('currentLease', null);
@@ -130,15 +150,19 @@ for (const door of ['REST', 'tRPC', 'MCP'] as const) {
       const target = unwrap(await core.useCases.commissionShip(argo, { name: `assigned-${newKey()}`, type: 'reviewer', idempotencyKey: newKey() }));
       unwrap(await core.useCases.requestCrew(argo, { shipId: target.shipId, settings: {} }));
       unwrap(await core.useCases.assignCrew(argo, { shipId: target.shipId, trierarchShipId: runner.crew.shipId }));
-      // These rules cannot grant read to anybody; owner and plugin built-ins remain their own facts.
+      unwrap(await core.useCases.setOwner(argo, { shipId: target.shipId, ownerShipId: reader.crew.shipId }));
+      // The reader owns the target; the excluded ship has no read allowance.
       await applyNetworkRules(core.useCases, { by: argo, rules: [] });
 
       // When each actor reads one target, including a privileged actor on behalf of the excluded ship.
       const outside = await call(door, { token: excluded.token, path: 'fleet.ship', input: { shipId: target.shipId } });
-      const onBehalf = await call(door, { token: reader.token, onBehalfOf: excluded.crew.shipId, path: 'fleet.ship', input: { shipId: target.shipId } });
+      const own = await call(door, { token: reader.token, path: 'fleet.ship', input: { shipId: target.shipId } });
+      // MCP has no on-behalf credential contract; its connection headers carry no credentials.
+      const onBehalf = door === 'MCP' ? outside : await call(door, { token: reader.token, onBehalfOf: excluded.crew.shipId, path: 'fleet.ship', input: { shipId: target.shipId } });
       const assigned = await call(door, { token: runner.token, path: 'fleet.ship', input: { shipId: target.shipId } });
 
       // Then omission means unavailable; no-scope auth refuses rather than disclosing evidence.
+      expect(own).toHaveProperty('currentLease', null);
       expect(outside).not.toHaveProperty('currentLease');
       expect(onBehalf).not.toHaveProperty('currentLease');
       expect(assigned).toHaveProperty('crewRequest');

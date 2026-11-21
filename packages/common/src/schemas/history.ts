@@ -58,6 +58,8 @@ export const shipDetailOutputSchema = listedShipSchema.extend({
   crewRequest: crewRequestSchema.nullable(),
   commissionedAt: isoTime,
   crewedSince: isoTime.nullable(),
+  /** Snapshot with fleet:read and target read reach only; omitted means unavailable, null means no open lease. */
+  currentLease: z.object({ id: idSchema('lease'), startedAt: isoTime }).nullable().optional(),
   /** When the pruning pass removed the retired ship, past the fleet's retention: what it shows is its remnant (decision 0070). Null until then. */
   removedAt: isoTime.nullable(),
   /** What its crew holds in flight now: what a release or a re-crew returns to pending. */
@@ -293,6 +295,8 @@ export type MessageDelivery = z.infer<typeof messageDeliverySchema>;
  * id is that delivery. `fleet.messageDeliveries` lists them a page at a time.
  */
 export const messageOutputSchema = listedMessageSchema.omit({ preview: true, delivery: true }).extend({
+  /** Immutable sending provenance, retained even after the lease is pruned. */
+  senderLeaseId: idSchema('lease').nullable(),
   /** Empty when unreadable: the envelope and the delivery are answered still (decision 0068, B9). */
   payload: z.string(),
   replies: z.array(messageReplySchema),
