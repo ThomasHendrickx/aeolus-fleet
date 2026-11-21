@@ -23,6 +23,8 @@ import {
   recordOutputSchema,
   exchangeInputSchema,
   exchangeOutputSchema,
+  meetingsInputSchema,
+  meetingsOutputSchema,
   exchangesInputSchema,
   exchangesOutputSchema,
   ackUpToInputSchema,
@@ -304,6 +306,19 @@ export const shipRouter = router({
         mic: { ...read.mic, requests: read.mic.requests.map((request) => ({ ...request, requestedAt: request.requestedAt.toISOString() })) },
         contributions: { ...read.contributions, items: read.contributions.items.map((item) => ({ ...item, ...listedPayloadOutputOf(item.payload), sentAt: item.sentAt.toISOString() })) },
       };
+    }),
+
+  /** The crew's readable meeting envelopes, bounded at the shared input schema. */
+  meetings: scopedCrewProcedure('messages:receive')
+    .meta({ description: 'Needs messages:receive. Lists the meetings you take part in, including those you left or were revoked from, open first, newest opened first in each section. Each envelope says where you stand, without contributions. At most 100 per page, 20 unless you pass limit. Pass nextCursor back unchanged as cursor; null means the last page. A meeting ending while you page may appear again: keep the later row by id. Changes nothing.' })
+    .input(meetingsInputSchema)
+    .output(meetingsOutputSchema)
+    .query(async ({ ctx, input }) => {
+      const page = okOrThrow(await ctx.useCases.listMeetings(ctx.crew, input));
+      return { ...page, items: page.items.map((entry) => ({
+        ...entry, openedAt: entry.openedAt.toISOString(), endedAt: entry.endedAt?.toISOString() ?? null,
+        lastContributionAt: entry.lastContributionAt?.toISOString() ?? null,
+      })) };
     }),
 
   /** Puts the caller on its meeting's mic list (decision 0061, M8); first in line, a free mic goes to it at once. */

@@ -66,6 +66,7 @@ import { createSendMessage } from '../../src/domain/messaging/send-message.js';
 import { createSendFormattedMessage } from '../../src/domain/messaging/send-formatted-message.js';
 import { createOpenMeeting } from '../../src/domain/messaging/open-meeting.js';
 import { createReadMeeting } from '../../src/domain/messaging/read-meeting.js';
+import { createListMeetings } from '../../src/domain/messaging/list-meetings.js';
 import { createChangeMic } from '../../src/domain/messaging/change-mic.js';
 import { createChangeMeeting } from '../../src/domain/messaging/change-meeting.js';
 import { createAddToMeeting } from '../../src/domain/messaging/add-to-meeting.js';
@@ -422,6 +423,7 @@ export function messagingUseCases(core: InMemoryCore) {
     recoverKeys: createRecoverKeys({ ...deps, vault: core.keyVault.vault, sealer: sealing.sealer, sealings: core.sealings, featureFlags: core.featureFlagReads }),
     openMeeting: createOpenMeeting({ ...deps, hasher: core.hasher, sealing: core.sealing }),
     readMeeting: createReadMeeting({ uow: core.uow, sealing }),
+    listMeetings: createListMeetings({ uow: core.uow }),
     changeMic: createChangeMic({ ...deps, hasher: core.hasher, sealing: core.sealing }),
     changeMeeting: createChangeMeeting({ ...deps, hasher: core.hasher, sealing: core.sealing }),
     addToMeeting: createAddToMeeting({ ...deps, hasher: core.hasher, sealing: core.sealing }),

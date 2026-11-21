@@ -119,6 +119,7 @@ import { noKeyVault } from './adapters/kms/no-key-vault.js';
 import { createPrismaFleetSealingRepository } from './adapters/prisma/sealings.js';
 import { createOpenMeeting, type OpenMeeting } from './domain/messaging/open-meeting.js';
 import { createReadMeeting, type ReadMeeting } from './domain/messaging/read-meeting.js';
+import { createListMeetings, type ListMeetings } from './domain/messaging/list-meetings.js';
 import { createChangeMic, type ChangeMic } from './domain/messaging/change-mic.js';
 import { createChangeMeeting, type ChangeMeeting } from './domain/messaging/change-meeting.js';
 import { createAddToMeeting, type AddToMeeting } from './domain/messaging/add-to-meeting.js';
@@ -321,6 +322,7 @@ export interface UseCases {
   recoverKeys: RecoverKeys;
   openMeeting: OpenMeeting;
   readMeeting: ReadMeeting;
+  listMeetings: ListMeetings;
   changeMic: ChangeMic;
   changeMeeting: ChangeMeeting;
   addToMeeting: AddToMeeting;
@@ -595,6 +597,7 @@ export function createUseCases(options: {
     recoverKeys: createRecoverKeys({ uow, clock, ids, vault: keyVault, sealer: aesGcmPayloadSealer, sealings, featureFlags }),
     openMeeting: createOpenMeeting({ uow, clock, ids, hasher: sha256Hasher, sealing }),
     readMeeting: createReadMeeting({ uow, sealing }),
+    listMeetings: createListMeetings({ uow }),
     changeMic: createChangeMic({ uow, clock, ids, hasher: sha256Hasher, sealing }),
     changeMeeting: createChangeMeeting({ uow, clock, ids, hasher: sha256Hasher, sealing }),
     addToMeeting: createAddToMeeting({ uow, clock, ids, hasher: sha256Hasher, sealing }),

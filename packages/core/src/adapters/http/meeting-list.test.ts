@@ -45,7 +45,7 @@ async function call(door: string, input: Record<string, unknown> = {}) {
     method: 'POST', url: '/api/v1/ship/meetings', headers: { authorization: `Bearer ${token}` }, payload: input,
   } : { method: 'GET', url: `/trpc/ship.meetings?input=${encodeURIComponent(JSON.stringify(input))}`, headers: { authorization: `Bearer ${token}` } });
   if (response.statusCode !== 200) return { refusal: response.body };
-  return { page: door === 'REST' ? response.json() : z.object({ result: z.object({ data: z.unknown() }) }).parse(response.json()).result.data };
+  return { page: door === 'REST' ? z.unknown().parse(response.json()) : z.object({ result: z.object({ data: z.unknown() }) }).parse(response.json()).result.data };
 }
 const pageSchema = z.object({ items: z.array(z.object({ meetingId: z.string(), title: z.string(), openedAt: z.iso.datetime(), participantState: z.literal('present') })), nextCursor: z.string().nullable() });
 describe.each(['tRPC', 'REST', 'MCP'])('%s meeting list', (door) => {
