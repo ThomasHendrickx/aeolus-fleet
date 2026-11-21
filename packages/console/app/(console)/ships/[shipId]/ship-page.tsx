@@ -25,6 +25,7 @@ import { LoadMore } from '../../../../components/molecules/load-more';
 import { HistoryKeptFrom } from '../../../../components/molecules/history-kept-from';
 import { useFleetLimits } from '../../../../lib/fleet-limits';
 import { useSignedInAccountNames } from '../../../../features/ship/hooks/use-signed-in-account-names';
+import { useTimelineOwnerNames } from '../../../../features/ship/hooks/use-timeline-owner-names';
 import { DetailPage } from '../../../../components/organisms/detail-page';
 import { useConsoleFrame } from '../../../../lib/console-frame';
 import { lazyDialog } from '../../../../lib/lazy-dialog';
@@ -78,6 +79,7 @@ export function ShipPageFor({ shipId, tab, messageId }: { shipId: ShipId; tab: S
   const ship = useShip(shipId);
   const timeline = useShipTimeline(shipId);
   const accountNames = useSignedInAccountNames(timeline.items ?? []);
+  const ownerNames = useTimelineOwnerNames(timeline.items ?? []);
   const messages = useShipMessages(shipId);
   const message = useMessage(messageId);
   // Only a send to a label lists its deliveries; each other message has one, on its way.
@@ -231,6 +233,7 @@ export function ShipPageFor({ shipId, tab, messageId }: { shipId: ShipId; tab: S
               now={now}
               onOpenMessage={openMessageAt}
               accountNames={accountNames}
+              ownerNames={ownerNames}
             />
             <HistoryKeptFrom keptFrom={keptFrom} area="ship-timeline" />
             </div>

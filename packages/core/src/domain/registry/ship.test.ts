@@ -15,6 +15,7 @@ import {
   addressShip,
   isReservedShipName,
   operatorShip,
+  inheritedOwnerOf,
   shipStatus,
   viewerShip,
   type Ship,
@@ -41,6 +42,41 @@ const scout: Ship = {
 };
 
 const allowed = { isOk: true, value: undefined };
+
+describe('the owner inherited on retirement', () => {
+  it.each(['agent', 'app'] as const)('uses the immediate owner of a retiring %s', (kind) => {
+    // Given an agent or app owned by another ship.
+    const owner = { ...scout, kind, owner: argo.id };
+
+    // When its children inherit an owner on retirement.
+    const inherited = inheritedOwnerOf(owner);
+
+    // Then they inherit that immediate owner.
+    expect(inherited).toBe(argo.id);
+  });
+
+  it.each(['person', 'plugin', 'trierarch'] as const)('falls to argo when a %s retires', (kind) => {
+    // Given another kind of ship, including a person's self-reference.
+    const owner = { ...scout, kind, owner: scout.id };
+
+    // When its children inherit an owner on retirement.
+    const inherited = inheritedOwnerOf(owner);
+
+    // Then null selects the fleet's operator, never the retiring ship.
+    expect(inherited).toBeNull();
+  });
+
+  it.each(['agent', 'app'] as const)('falls to argo when a retiring %s has no owner', (kind) => {
+    // Given an agent or app with no recorded owner.
+    const owner = { ...scout, kind, owner: null };
+
+    // When its children inherit an owner on retirement.
+    const inherited = inheritedOwnerOf(owner);
+
+    // Then null selects the fleet's operator.
+    expect(inherited).toBeNull();
+  });
+});
 
 const claimedAt = new Date('2026-09-30T08:00:00.000Z');
 

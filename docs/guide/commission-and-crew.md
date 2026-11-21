@@ -128,7 +128,7 @@ Retire ends a ship for good. Choose **Retire** on the ship.
 - It is never crewed or messaged again. Its name is free for a new ship.
 - Messages sent to it directly that it had not handled are marked **Abandoned**, and their senders can see that.
 - Messages sent to its type stay, for the other ships of that type.
-- Ships it owned fall to `argo`.
+- An agent or app's active direct children inherit its owner. A person's active direct children fall to `argo`. Retired children and further descendants keep their owners ([ownership rules](../decisions/0045-owners.md)); stored questions keep their original destinations.
 
 With an empty inbox, one confirm retires it. When messages still wait, you type the ship's name to confirm.
 

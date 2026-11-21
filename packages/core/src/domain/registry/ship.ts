@@ -359,10 +359,15 @@ export function commissionShip(
   });
 }
 
-/** Why a ship's owner changed: argo set it, or its owner's ship retired and it fell to argo. */
+/** Why a ship's owner changed: an actor set it, or its owner retired and it inherited the parent's owner. */
 export type OwnerChangedWhy = 'set' | 'ownerRetired';
 
 export type ChangeOwnerRefusal = DomainError<'SHIP_HAS_NO_OWNER' | 'SHIP_OWNS_ITSELF' | 'SHIP_ALREADY_RETIRED' | 'INVALID_OWNER' | 'OWNERSHIP_CYCLE'>;
+
+/** The owner active direct children inherit on retirement (decision 0045); null means argo. */
+export function inheritedOwnerOf(ship: Ship): ShipId | null {
+  return ship.kind === 'agent' || ship.kind === 'app' ? ship.owner : null;
+}
 
 /**
  * The ship with its new owner and OwnerChanged (decision 0045). The owner is

@@ -28,6 +28,7 @@ export function Sentence({ parts, className }: { parts: readonly SentencePart[];
             key={key}
             name={part.party.name}
             shipId={part.party.id}
+            href={part.href}
             isSuffixShown={part.party.name !== OPERATOR_NAME}
             className="align-baseline"
           />
