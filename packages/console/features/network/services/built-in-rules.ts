@@ -3,7 +3,7 @@ import type { BuiltInRule, BuiltInRuleState } from '@aeolus-fleet/common';
 /**
  * The built-in rules as Network shows them, first and apart from argo's own
  * (decision 0034): each as the fleet answers it, with what it allows and who
- * turns it. argo, the owner, the answer, a connected plugin's reading and
+ * turns it. argo, the owner, send to the direct owner, the answer, a connected plugin's reading and
  * sending, every ship's sending to a plugin, a
  * meeting's participants (decision 0061) and the installation's managing are
  * never off; argo turns the viewer reading; open is off while rules are
@@ -23,6 +23,7 @@ export interface BuiltInRow {
 export const BUILT_IN_NAMES: Readonly<Record<BuiltInRule, string>> = {
   argo: 'argo',
   owner: 'Owner',
+  sendToOwner: 'Send to owner',
   answer: 'Answer',
   pluginRead: 'Connected plugins read',
   sendToPlugin: 'Ships send to plugins',
@@ -39,6 +40,8 @@ function rowOf(state: BuiltInRuleState): BuiltInRow {
       return { key: state.rule, name: BUILT_IN_NAMES[state.rule], meaning: 'argo sends to, reads and manages every ship, and every ship reaches argo.', isOn: state.isOn, turnedBy: 'never' };
     case 'owner':
       return { key: state.rule, name: BUILT_IN_NAMES[state.rule], meaning: 'A ship’s owner sends to, reads and manages the ships it owns.', isOn: state.isOn, turnedBy: 'never' };
+    case 'sendToOwner':
+      return { key: state.rule, name: BUILT_IN_NAMES[state.rule], meaning: 'A ship sends to its direct owner, with no read or manage reach back or reach to further ancestors.', isOn: state.isOn, turnedBy: 'never' };
     case 'answer':
       return { key: state.rule, name: BUILT_IN_NAMES[state.rule], meaning: 'A ship may always answer the sender of a message it received.', isOn: state.isOn, turnedBy: 'never' };
     case 'pluginRead':

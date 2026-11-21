@@ -64,7 +64,9 @@ export function createCreateFleet(deps: { uow: UnitOfWork<CreateFleetTx>; clock:
       installationRequestText([...(hasViewer ? ['createFleet', name, email.value, 'viewer'] : ['createFleet', name, email.value]), ...featureFlags.map((flag) => `featureFlag:${flag}`)]),
     );
 
+    const newFleetId = deps.ids('fleet');
     return deps.uow.run(async (tx): Promise<Result<FleetCreated, CreateFleetRefusal>> => {
+      await tx.ships.lockOwnership(newFleetId);
       await tx.installationRequests.lock(input.requestId);
       const earlier = await tx.installationRequests.find(input.requestId);
       if (earlier) {
@@ -88,7 +90,7 @@ export function createCreateFleet(deps: { uow: UnitOfWork<CreateFleetTx>; clock:
       }
 
       const at = deps.clock.now();
-      const { fleetId, operatorShipId } = await foundFleet({ tx, ids: deps.ids }, { name, email: email.value, passwordHash: null, at, hasViewer });
+      const { fleetId, operatorShipId } = await foundFleet({ tx, ids: deps.ids }, { fleetId: newFleetId, name, email: email.value, passwordHash: null, at, hasViewer });
       for (const flag of featureFlags) {
         await tx.featureFlags.turnOn(fleetId, flag);
         await recordEvent({ events: tx.events, ids: deps.ids }, { fleetId, type: 'FeatureFlagTurnedOn', occurredAt: at, actor: { kind: 'installation' }, details: { flag } });

@@ -46,7 +46,7 @@ export const commissionShipInputSchema = z.object({
   ownerOf: idSchema('ship').optional(),
   approval: commissionApprovalUseSchema.optional(),
   /**
-   * The owner argo picked for an app ship the gateway commissions, a person's ship or argo; naming one needs fleet:on-behalf.
+   * The owner argo picked for an app ship the gateway commissions, an active person, agent, app or argo; naming one needs fleet:on-behalf.
    * argo signed in to the console names it for every agent ship it commissions, an active person ship (decision 0045).
    */
   owner: idSchema('ship').optional(),
@@ -125,7 +125,7 @@ export const renameShipInputSchema = z.object({ shipId: idSchema('ship'), name: 
 export const renameShipOutputSchema = z.strictObject({});
 
 
-/** Input of `fleet.setOwner`: the ship and its new owner, an active person's ship or argo (decision 0045). argo's only. */
+/** Input of `fleet.setOwner`: the ship and its new direct owner, an active person, agent, app or argo (decision 0045). Needs fleet:owner and manage reach. */
 export const setOwnerInputSchema = z.object({ shipId: idSchema('ship'), ownerShipId: idSchema('ship') });
 
 /** Output of `fleet.setOwner`: nothing; the OK is the answer. */

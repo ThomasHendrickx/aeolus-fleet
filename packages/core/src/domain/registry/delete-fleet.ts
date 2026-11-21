@@ -7,9 +7,10 @@ import { ok, type Result } from '../shared/result.js';
 import type { SecretHasher } from '../shared/secrets.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { installationRequestText } from './installation-request.js';
-import type { FleetRepository, InstallationRequestRepository } from './ports.js';
+import type { ShipRepository, FleetRepository, InstallationRequestRepository } from './ports.js';
 
 export interface DeleteFleetTx {
+  ships: Pick<ShipRepository, 'lockOwnership'>;
   fleets: FleetRepository;
   operatorAccounts: OperatorAccountRepository;
   installationRequests: InstallationRequestRepository;
@@ -42,6 +43,7 @@ export function createDeleteFleet(deps: { uow: UnitOfWork<DeleteFleetTx>; clock:
     deps.uow.run(async (tx): Promise<Result<FleetDeleted, DeleteFleetRefusal>> => {
       const { requestId, fleetId } = input;
       const requestHash = deps.hasher.hash(installationRequestText(['deleteFleet', fleetId]));
+      await tx.ships.lockOwnership(fleetId);
       await tx.installationRequests.lock(requestId);
       const earlier = await tx.installationRequests.find(requestId);
       if (earlier) {

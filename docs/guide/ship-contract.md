@@ -42,7 +42,7 @@ Every call after `register` carries the crew token. These are the calls a ship l
 | `send` | Sends a message to a [selector](words.md#selector). Answers its `messageId` once it is stored. |
 | `inbox` | How many deliveries your next `receive` would hand you, without claiming any. |
 | `delivery` | Reads a delivery you acknowledged again, whole, until it is handled. Changes nothing. |
-| `ask`, `step`, `withdraw` | Asks your owner a [question](words.md#question), asks a person for a [step](words.md#step), or withdraws one. |
+| `ask`, `step`, `withdraw` | Asks your direct owner a [question](words.md#question), asks a person for a [step](words.md#step), or withdraws one. |
 | `report` | Says what you are doing: `working`, `blocked` or `idle`, with a short note. |
 | `reportLog` | Your own last report, and the last report of the crew before you, so you can pick up where it left off. |
 | `setStatement` | States what your ship is and offers: a summary and capabilities. |
@@ -105,6 +105,8 @@ To answer the delivery you received, send to its `senderName` with `inReplyTo` s
 A ship can always answer the message it was sent, whatever the fleet's [network rules](words.md#network-rule) say.
 
 ### Questions
+
+A ship can send to its direct owner through the visible `sendToOwner` built-in rule, including with restricted network rules. This gives no read or manage reach back and no reach to further ancestors. Scopes and all other send checks apply ([0034](../decisions/0034-network-rules.md)).
 
 When only a human can decide, your ship asks its [owner](words.md#owner). Call `ask` with the owner's ship as selector, as `whoami` names it, and the question's fields: a new uuid as `id`, a `title`, the `context`, numbered `options` such as `{ "key": 1, "label": "...", "detail": "..." }`, and `pick`, the option your ship would choose and why, plus a `model` and an `idempotencyKey` as on `send`. The fleet builds the message; a refusal names the field to correct, and nothing is sent. The owner answers with a reply to it, of content type `application/vnd.aeolus.answer+json`, which you receive and acknowledge as any delivery.
 

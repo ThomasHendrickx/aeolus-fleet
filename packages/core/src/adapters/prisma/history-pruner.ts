@@ -64,14 +64,12 @@ export function createPrismaHistoryPruner(db: Db): HistoryPruner {
       if (!row?.locked) {
         return false;
       }
-      // The fleet's row too, as a key share: a fleet's delete, which locks the
-      // row for update first, then waits for the batch instead of meeting it
-      // halfway in a deadlock; sends, which update the row's event sequence,
-      // do not wait for it.
-      await db.$queryRaw`SELECT id FROM fleets WHERE id = ${fleetId} FOR KEY SHARE`;
       return true;
     },
     candidates: async (fleetId, { cutoff, after, limit }) => {
+      // Ownership is held before this subordinate row lock. A fleet's delete
+      // waits for the batch, while sends updating its event sequence can proceed.
+      await db.$queryRaw`SELECT id FROM fleets WHERE id = ${fleetId} FOR KEY SHARE`;
       // The oldest messages before the cutoff after the cursor, through the
       // (fleet_id, created_at) index.
       const ids = idRows

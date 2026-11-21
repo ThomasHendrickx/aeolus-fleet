@@ -28,6 +28,7 @@ describe('reading the built-in rules (decisions 0034, 0061)', () => {
     expect(unwrap(await readBuiltInRules(argo))).toEqual([
       { rule: 'argo', isOn: true },
       { rule: 'owner', isOn: true },
+      { rule: 'sendToOwner', isOn: true },
       { rule: 'answer', isOn: true },
       { rule: 'pluginRead', isOn: true },
       { rule: 'sendToPlugin', isOn: true },
@@ -47,6 +48,7 @@ describe('reading the built-in rules (decisions 0034, 0061)', () => {
     expect(unwrap(await readBuiltInRules(argo))).toEqual([
       { rule: 'argo', isOn: true },
       { rule: 'owner', isOn: true },
+      { rule: 'sendToOwner', isOn: true },
       { rule: 'answer', isOn: true },
       { rule: 'pluginRead', isOn: true },
       { rule: 'sendToPlugin', isOn: true },

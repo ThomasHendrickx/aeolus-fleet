@@ -23,6 +23,7 @@ function failing(step: Step, at: number): UnitOfWork<RemoveDeletedFleetsTx> {
     run: (work) =>
       core.uow.run(async (tx: InMemoryTx) =>
         work({
+          ships: tx.ships,
           fleetRemoval: {
             ...tx.fleetRemoval,
             removeHistoryBatch: (...args) => {

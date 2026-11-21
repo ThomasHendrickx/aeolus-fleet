@@ -1,6 +1,6 @@
 import type { FleetId, IdGenerator } from '@aeolus-fleet/common';
 
-import { appliedLimits, type AppliedLimitsTx, type FleetRepository } from '../registry/public.js';
+import { appliedLimits, type AppliedLimitsTx, type FleetRepository, type ShipRepository } from '../registry/public.js';
 import type { Clock } from './clock.js';
 import { recordEvent, SYSTEM, type EventLog } from './events.js';
 import { isFinished, pruningCutoff, type HistoryPruner, type PruneCursor } from './history-pruning.js';
@@ -14,6 +14,7 @@ export const PRUNE_BATCH = 500;
 export const PRUNE_BUDGET_MS = 10_000;
 
 export interface PruneHistoryTx extends AppliedLimitsTx {
+  ships: Pick<ShipRepository, 'lockOwnership'>;
   historyPruner: HistoryPruner;
   events: EventLog;
 }
@@ -71,6 +72,8 @@ export function createPruneHistory(deps: {
       if (!(await pruner.tryLock(fleetId))) {
         return ok<Batch>({ kind: 'skipped' });
       }
+      // The non-blocking pass claim precedes ownership; all row locks follow it.
+      await tx.ships.lockOwnership(fleetId);
       const [candidates, meetingEventIds, shipIds] = await Promise.all([
         pruner.candidates(fleetId, { cutoff: input.cutoff, after: input.after, limit: batchSize }),
         pruner.meetingEvents(fleetId, { cutoff: input.cutoff, limit: batchSize }),

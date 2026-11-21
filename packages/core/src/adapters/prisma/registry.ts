@@ -264,6 +264,9 @@ export function createPrismaLabelRepository(db: Db): LabelRepository {
 
 export function createPrismaShipRepository(db: Db): ShipRepository {
   return {
+    lockOwnership: async (fleetId) => {
+      await db.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('aeolus:ownership'), hashtext(${fleetId}))`;
+    },
     create: async (ship) => {
       const { commission, owner, ...columns } = ship;
       await db.ship.create({

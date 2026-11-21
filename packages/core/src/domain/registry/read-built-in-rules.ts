@@ -13,7 +13,7 @@ export type ReadBuiltInRules = (caller: Caller) => Promise<Result<BuiltInRuleSta
 
 /**
  * Use case: every built-in rule of the caller's fleet as it is now (decision
- * 0034), in the order the rule list shows them, first: argo, the owner, the
+ * 0034), in the order the rule list shows them, first: argo, the owner, send to the direct owner, the
  * answer, a connected plugin's reading and a meeting's participants reaching
  * each other (decision 0061), always on; the viewer reading as it
  * was turned; the installation managing person ships and what they own, always
@@ -28,6 +28,7 @@ export function createReadBuiltInRules(deps: { uow: UnitOfWork<ReadBuiltInRulesT
       return ok([
         { rule: 'argo', isOn: true },
         { rule: 'owner', isOn: true },
+        { rule: 'sendToOwner', isOn: true },
         { rule: 'answer', isOn: true },
         { rule: 'pluginRead', isOn: true },
         { rule: 'sendToPlugin', isOn: true },

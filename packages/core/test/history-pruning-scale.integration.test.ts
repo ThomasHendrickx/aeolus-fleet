@@ -4,7 +4,7 @@ import type { FleetId } from '@aeolus-fleet/common';
 // eslint-disable-next-line no-restricted-imports
 import { PrismaPg } from '@prisma/adapter-pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { z } from 'zod';
+import { assertIndexedPlan } from './support/assert-indexed-plan.js';
 
 import { PrismaClient } from '../src/adapters/prisma/generated/client.js';
 import { createPrismaHistoryPruner } from '../src/adapters/prisma/history-pruner.js';
@@ -93,9 +93,7 @@ describe('retention on a fleet with a long history', () => {
     const reads = [...statements];
     const plans: string[] = [];
     for (const read of reads) {
-      const params = z.array(z.unknown()).parse(JSON.parse(read.params));
-      const rows = await core.prisma.$queryRawUnsafe<{ 'QUERY PLAN': string }[]>(`EXPLAIN ${read.query}`, ...params);
-      plans.push(rows.map((row) => row['QUERY PLAN']).join('\n'));
+      plans.push(await assertIndexedPlan(core.prisma, read));
     }
 
     // Then the batch stays bounded as history grows to 10 million messages.

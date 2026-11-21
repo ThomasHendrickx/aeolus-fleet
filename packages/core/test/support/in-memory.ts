@@ -739,6 +739,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       },
     },
     ships: {
+      lockOwnership: () => Promise.resolve(),
       create: (created) => {
         if (
           state.ships.some(

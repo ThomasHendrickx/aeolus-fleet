@@ -262,7 +262,7 @@ export const fleetRouter = router({
         "ownerOf, which needs fleet:on-behalf, names the ship that asked it for this one: the new ship gets that ship's owner instead of yours.",
         'approval names a kept approvalId and matching subjectDigest. Only its permitted commissioner may use it, for a subset of its scopes, with ownerOf still naming requester ownership. Withdrawal stops new commissions and leaves completed retries unchanged.',
         'kind is agent unless you state person, app, plugin or trierarch: a person ship needs fleet:person instead and owns itself, an app ship needs fleet:on-behalf as well, and a plugin ship needs fleet:connect instead, which connects it (decision 0050). A trierarch ship needs fleet:commission and crews its computer’s assigned ships.',
-        "owner, which needs fleet:on-behalf and only for an app ship, names the owner argo picked for it: a person's ship or argo, never beside ownerOf.",
+        "owner, which needs fleet:on-behalf and only for an app ship, names the owner argo picked for it: an active person, agent, app or argo, never beside ownerOf.",
         'Answers its shipId, its first starting prompt, one crew line per harness (claude-code, codex, copilot) and its secret, shown only this once.',
         'idempotencyKey is a new unique string for every commission. Reuse one only to retry the same commission after an error or a lost answer:',
         'the retry answers the same shipId with prompt, crewLines and secret null and how its starting prompt stands (fleet_getStartingPrompt gives a new one), and a different commission with a used key is refused (CONFLICT).',
@@ -574,8 +574,9 @@ export const fleetRouter = router({
       return {};
     }),
 
-  /** Gives a ship within the caller's manage reach a new owner, an active person's ship or argo (decisions 0045, 0053). */
+  /** Gives a ship within the caller's manage reach a new direct owner, an active person, agent, app or argo (decisions 0045, 0053). */
   setOwner: actorScopedProcedure('fleet:owner')
+    .meta({ description: 'Needs fleet:owner and manage reach on the ship. Sets its direct owner to an active person, agent, app or argo in this fleet. Argo and the viewer have no owner; person ships own themselves. An ownership loop refuses OWNERSHIP_CYCLE without state or event writes. The same owner changes nothing; an effective change records OwnerChanged in the same transaction.' })
     .input(setOwnerInputSchema)
     .output(setOwnerOutputSchema)
     .mutation(async ({ ctx, input }) => {
@@ -756,8 +757,8 @@ export const fleetRouter = router({
         'Ordered argo first, then by name; or by sort: a column (ship, status, report, runsOn, seen, requested: when crew was requested, the oldest first) A to Z or Z to A, ships with nothing in it last, ties by name.',
         'A ship outside your read reach shows its id, name, type and status only, with isInReadReach false (decision 0034).',
         'With valueIds (label value ids, from fleet_labels or fleet_findLabelValue), only the ships in your read reach that carry every one of them: exact matches, combined with AND.',
-        'To list possible owners, page with shipKind: [operator, person]: every owner is argo or a person ship. This includes person ships that own only themselves.',
-        'Filters, each combined with AND: query (text the name or type holds, in any case); nameQuery (text the name holds, in any case); name (the exact name of a ship); shipKind (operator, person, agent, ...: page with [operator, person] to list the possible owners, argo and the person ships, those that own only themselves too); status, type, shipIds, assignedTo (the trierarch ships a crew request is assigned to), needsCrew (withTrierarchs or withoutTrierarchs: the ships on Needs crew as the trierarch plugin being connected decides), crewRequest (none, needsCrew, crewedByHand, or the status the trierarch wrote), kind (console, claudeCode, codex, trierarch, plugin as pluginShipIds names them, other) and state (alert, waiting, working, idle: the active ships in your read reach in that Harbour state) take any of the values given.',
+        'To list possible owners, page with shipKind: [operator, person, agent, app]: eligible owners are argo and active person, agent and app ships. This includes person ships that own only themselves.',
+        'Filters, each combined with AND: query (text the name or type holds, in any case); nameQuery (text the name holds, in any case); name (the exact name of a ship); shipKind (operator, person, agent, ...: page with [operator, person, agent, app] and active status to list eligible owners, including self-owned person ships); status, type, shipIds, assignedTo (the trierarch ships a crew request is assigned to), needsCrew (withTrierarchs or withoutTrierarchs: the ships on Needs crew as the trierarch plugin being connected decides), crewRequest (none, needsCrew, crewedByHand, or the status the trierarch wrote), kind (console, claudeCode, codex, trierarch, plugin as pluginShipIds names them, other) and state (alert, waiting, working, idle: the active ships in your read reach in that Harbour state) take any of the values given.',
       ].join(' '),
     })
     .input(fleetListInputSchema)
@@ -1115,7 +1116,7 @@ export const fleetRouter = router({
     .meta({
       description: [
         'Needs fleet:network. Turns a built-in network rule on or off, as its own action with BuiltInRuleChanged (decision 0034).',
-        'viewerRead lets the viewer read every ship, and is the one you turn. open lets every ship reach every ship by every verb: it is on exactly while the fleet has no rules applied, so turning it is refused. argo, owner, answer, pluginRead, sendToPlugin, pluginSend, meeting and installation are never off: turning them is refused. A rule already as asked changes nothing. Answers the version.',
+        'viewerRead lets the viewer read every ship, and is the one you turn. open lets every ship reach every ship by every verb: it is on exactly while the fleet has no rules applied, so turning it is refused. argo, owner, sendToOwner, answer, pluginRead, sendToPlugin, pluginSend, meeting and installation are never off: turning them is refused. sendToOwner permits send to the direct owner only, with no reverse read/manage or further ancestor reach; scopes and all other send checks still apply. A rule already as asked changes nothing. Answers the version.',
       ].join(' '),
     })
     .input(setBuiltInRuleInputSchema)

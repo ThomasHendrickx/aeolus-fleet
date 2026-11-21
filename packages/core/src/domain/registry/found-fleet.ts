@@ -31,12 +31,12 @@ export interface FleetFounded {
  */
 export async function foundFleet(
   deps: { tx: FoundFleetTx; ids: IdGenerator },
-  input: { name: string; email: string | null; passwordHash: string | null; at: Date; hasViewer?: boolean },
+  input: { fleetId: FleetId; name: string; email: string | null; passwordHash: string | null; at: Date; hasViewer?: boolean },
 ): Promise<FleetFounded> {
   const { tx, ids } = deps;
   const { name, email, passwordHash, at } = input;
 
-  const fleetId = ids('fleet');
+  const { fleetId } = input;
   await tx.fleets.create({ id: fleetId, name, createdAt: at });
   await tx.healthSnapshots.write(fleetId, { hours: [{ hour: hourMarkOf(at), stuck: [], acknowledged: [] }], fold: { seq: 0, deliveries: [], turns: [] } });
 

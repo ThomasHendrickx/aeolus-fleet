@@ -305,7 +305,7 @@ function owningShipOf(actor: ReachingActor): ShipId | null {
  * rules: argo reaches every ship and every ship reaches argo, but reads argo
  * only by a rule, so argo's messages are not every ship's to read; an owner's
  * ship reaches the ships it owns (decision 0045), and an account the ships
- * its person ship owns; a ship answers the sender of a message it received;
+ * its person ship owns; a ship sends to its direct owner only, without reverse read/manage or ancestor reach; a ship answers the sender of a message it received;
  * a plugin ship reads every ship, by its kind (decision 0050), every ship
  * sends to a plugin ship and a plugin ship sends to every ship, so plugins
  * are always reachable; and the installation manages
@@ -328,6 +328,9 @@ export function reachRuleOf(
   const owningShip = owningShipOf(sender);
   if (owningShip !== null && recipient.owner === owningShip) {
     return { builtIn: 'owner' };
+  }
+  if (verb === 'send' && sender.kind !== 'account' && sender.kind !== 'installation' && sender.owner === recipient.id) {
+    return { builtIn: 'sendToOwner' };
   }
   if (verb === 'send' && isAnswerToSender) {
     return { builtIn: 'answer' };

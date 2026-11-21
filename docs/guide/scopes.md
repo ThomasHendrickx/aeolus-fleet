@@ -12,6 +12,8 @@ So `fleet:manage` lets a ship release ships, but only the ships its reach lets i
 
 ## Owners and reach
 
+Ownership is direct: no read or manage reach follows a chain of owners. A holder of `fleet:owner` changes an owner within its manage reach; a loop is refused as `OWNERSHIP_CYCLE`, and choosing the current owner changes nothing.
+
 The [owner](words.md#owner) and the [Owner built-in rule](network-rules.md#the-built-in-rules) affect reach; the scope for an action is still required. See the [blueprint's Owners paragraph](../blueprint.md#access) and [how an owner is chosen](commission-and-crew.md#commission-a-ship).
 
 ## What every ship has

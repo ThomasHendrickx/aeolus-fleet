@@ -524,3 +524,21 @@ describe('declared network rules on Postgres (decision 0037)', () => {
     await expect(core.prisma.event.findMany({ where: { type: 'NetworkRulesDeclared' }, select: { details: true } })).resolves.toEqual([{ details: { rules: 1, version: 2 } }]);
   });
 });
+
+describe('the direct-owner send built-in on Postgres (#1989)', () => {
+  it('stores a child message to its immediate owner under restricted rules, but refuses further ancestors', async () => {
+    // Given a child, direct owner and ancestor with all ordinary reach closed.
+    const ancestor = await aShip('ancestor');
+    unwrap(await core.useCases.setOwner(argo, { shipId: planner.shipId, ownerShipId: ancestor.shipId }));
+    unwrap(await core.useCases.setOwner(argo, { shipId: vault.shipId, ownerShipId: planner.shipId }));
+    await apply(await aNetworker(), []);
+
+    // When the child sends to the owner and the ancestor.
+    unwrap(await core.useCases.sendMessage(vault, aMessage(planner)));
+    const refused = await core.useCases.sendMessage(vault, aMessage(ancestor));
+
+    // Then only the direct-owner send is durably accepted.
+    expect(refused).toMatchObject({ isOk: false, error: { kind: 'NOT_REACHABLE' } });
+    await expect(stored()).resolves.toEqual({ messages: 1, deliveries: 1, accepted: 1 });
+  });
+});

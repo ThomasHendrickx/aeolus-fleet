@@ -303,7 +303,7 @@ describe('the rule each reach names (decision 0034)', () => {
     ]);
   });
 
-  it("names the owner for the ships an owner's ship owns, by every verb, and not the other way", async () => {
+  it("names owner reach to direct children and send-only reach back to their owner", async () => {
     const { shipId: thomasId } = unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name: 'thomas', type: 'person', kind: 'person' }));
     unwrap(await registry.setOwner(argo, { shipId: vault.shipId, ownerShipId: thomasId }));
     await setRules([]);
@@ -316,7 +316,25 @@ describe('the rule each reach names (decision 0034)', () => {
       { builtIn: 'owner' },
       { builtIn: 'owner' },
     ]);
-    expect(toOwner).toEqual({ send: [], read: [], manage: [] });
+    expect(toOwner).toEqual({ send: [{ shipId: thomasId, rule: { builtIn: 'sendToOwner' } }], read: [], manage: [] });
+  });
+
+  it('allows send only to the immediate agent owner, with no reach to further ancestors', async () => {
+    // Given a child, agent owner and app ancestor under restricted rules.
+    const { shipId: ancestorId } = unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name: 'ancestor', type: 'app', kind: 'app' }));
+    unwrap(await registry.setOwner(argo, { shipId: planner.shipId, ownerShipId: ancestorId }));
+    unwrap(await registry.setOwner(argo, { shipId: scout.shipId, ownerShipId: planner.shipId }));
+    await setRules([]);
+
+    // When reach to the owner and ancestor is explained.
+    const owner = unwrap(await explainReach(argo, { fromShipId: scout.shipId, toShipId: planner.shipId }));
+    const ancestor = unwrap(await explainReach(argo, { fromShipId: scout.shipId, toShipId: ancestorId }));
+    const descendants = unwrap(await explainReach(argo, { fromShipId: ancestorId, toShipId: scout.shipId }));
+
+    // Then only the immediate owner's send is granted; reach does not traverse ownership.
+    expect(owner).toEqual({ send: [{ shipId: planner.shipId, rule: { builtIn: 'sendToOwner' } }], read: [], manage: [] });
+    expect(ancestor).toEqual({ send: [], read: [], manage: [] });
+    expect(descendants).toEqual({ send: [], read: [], manage: [] });
   });
 
   it('names open for every verb while the fleet has no rules applied, and nothing once it has', async () => {

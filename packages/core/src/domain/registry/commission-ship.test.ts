@@ -735,7 +735,7 @@ describe('an app ship commissioned by the gateway, with the owner argo picked (d
   });
 
   it.each([
-    ['an agent ship', async (): Promise<ShipId> => unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' })).shipId],
+    ['a trierarch ship', async (): Promise<ShipId> => unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'computer', type: 'trierarch', kind: 'trierarch' })).shipId],
     ['a retired person ship', async (): Promise<ShipId> => {
       const shipId = unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'leaver', type: 'person', kind: 'person' })).shipId;
       unwrap(await registryUseCases(core).retireShip(argo, { shipId }));

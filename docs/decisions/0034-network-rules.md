@@ -8,7 +8,8 @@
   A selector matches an actor: a ship by its labels and owner, an account by the `group` values in its account token (0052, 0058). An unknown id matches none. Allow-only: no deny rules, no precedence, never by type. Limits in 0037.
 - **Built-in rules**, core's own, seeded at fleet create, shown first in the rule list, marked built-in:
   - argo to and from every ship, every verb, except that a ship reads argo only by a rule, so argo's messages are not every ship's. Never off: a bad rule set must not lock argo out.
-  - the owner's ship to the ships it owns, every verb. Never off: a human is always responsible (0045).
+  - the owner's ship to its direct children, every verb. Never off (0045).
+  - `sendToOwner`: a ship sends to its direct owner. Never off, visible in the built-in list. Send only: no reverse read/manage and no reach further up the chain. Scopes and all other send checks still apply.
   - an answer to the sender of the message it answers (inReplyTo, a delivery to it or one of its type it claimed), send. Never off: an allowed send must be able to get its answer.
   - a ship of kind plugin reads every ship (0050). Connect in the console commissions the plugin's ship as kind plugin (`fleet:connect` (0053), `PluginConnected`); only a retire of the ship ends it (`PluginDisconnected`), a release ends nothing. Never off, so saving rules never narrows what a plugin reads.
   - plugins are always reachable: every ship sends to every ship of kind plugin, and every ship of kind plugin sends to every ship, send. Never off, so a ship always reaches the plugins that serve it and a plugin always reaches the ships it serves, with nothing declared.

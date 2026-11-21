@@ -3,7 +3,7 @@ import type { FleetId } from '@aeolus-fleet/common';
 import type { Clock } from '../shared/clock.js';
 import { ok } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
-import type { FleetRemoval, FleetRepository } from './ports.js';
+import type { FleetRemoval, FleetRepository, ShipRepository } from './ports.js';
 
 /** How many rows of one kind a batch removes at most, as the pruning pass reads (500): each batch stays one short transaction. */
 export const REMOVAL_BATCH = 500;
@@ -11,6 +11,7 @@ export const REMOVAL_BATCH = 500;
 export const REMOVAL_BUDGET_MS = 10_000;
 
 export interface RemoveDeletedFleetsTx {
+  ships: Pick<ShipRepository, 'lockOwnership'>;
   fleetRemoval: FleetRemoval;
 }
 
@@ -41,7 +42,13 @@ export function createRemoveDeletedFleets(deps: {
     const startedAt = deps.clock.now().getTime();
     for (const step of ['removeHistoryBatch', 'removeRecordsBatch'] as const) {
       for (;;) {
-        const result = await deps.uow.run(async (tx) => ok((await tx.fleetRemoval.tryLock(fleetId)) ? await tx.fleetRemoval[step](fleetId, batchSize) : 'locked'));
+        const result = await deps.uow.run(async (tx) => {
+          if (!(await tx.fleetRemoval.tryLock(fleetId))) {
+            return ok('locked' as const);
+          }
+          await tx.ships.lockOwnership(fleetId);
+          return ok(await tx.fleetRemoval[step](fleetId, batchSize));
+        });
         const batch = result.isOk ? result.value : 'locked';
         if (batch === 'locked') {
           return;
@@ -56,6 +63,7 @@ export function createRemoveDeletedFleets(deps: {
     }
     await deps.uow.run(async (tx) => {
       if (await tx.fleetRemoval.tryLock(fleetId)) {
+        await tx.ships.lockOwnership(fleetId);
         await tx.fleetRemoval.removeRest(fleetId);
       }
       return ok(undefined);

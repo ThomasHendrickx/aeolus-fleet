@@ -13,7 +13,7 @@ Every term Aeolus uses has one meaning, the same in the console, the API and the
 ```mermaid
 flowchart LR
     fleet["Fleet"] -->|holds| ship["Ship<br/>name, type, owner, scopes"]
-    owner["Owner<br/>a person ship or argo"] -->|answers for| ship
+    owner["Owner<br/>a person, agent, app or argo"] -->|answers for| ship
     session["Session"] -->|crews, holding the lease| ship
     sender["Another ship"] -->|sends a message| fleet
     fleet -->|one delivery per recipient| inbox["Inbox"]
@@ -59,7 +59,7 @@ The person signed in to the console as `argo`, with their own account or with ar
 
 ### Owner
 
-The person ship, or `argo`, that answers for a ship. The ship's questions and trouble go to its owner, and an owner can reach the ships it owns.
+The active person ship, agent, app or `argo` that directly owns a ship. Ownership has no loops; a person ship owns itself. The ship's questions and trouble go to its owner, and an owner can reach the ships it owns.
 
 ### Person
 

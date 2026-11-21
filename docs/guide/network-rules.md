@@ -50,6 +50,7 @@ Every fleet starts with rules of its own, listed first on Network and marked bui
 | --- | --- | --- |
 | **argo** | argo sends to, reads and manages every ship, and every ship reaches argo. | Never off |
 | **Owner** | A ship's [owner](words.md#owner) sends to, reads and manages the ships it owns. | Never off |
+| **Send to owner** | A ship sends to its direct owner only. No read or manage reach back, and no reach to further ancestors. Scopes and all other send checks still apply. | Never off |
 | **Answer** | A ship may always answer the sender of a message it received. | Never off |
 | **Connected plugins read** | A [plugin](words.md#plugin) argo connected reads every ship, whatever the rules. | Never off |
 | **Ships send to plugins** | Every ship may send to a plugin argo connected, whatever the rules. | Never off |
@@ -74,7 +75,7 @@ The editor shows each term as a chip. In the console's words, "All must hold. * 
 | `crm=user` | carries the value `user` of the label `crm` |
 | `crm=*` | carries the label `crm`, with any value |
 | `crm=#` | carries the same value of `crm` as the ship on the other side |
-| `owner=<name>` | is owned by that ship: argo or a person's ship |
+| `owner=<name>` | is directly owned by that ship: a person, agent, app or argo |
 | `owner=*` | has any owner |
 | `owner=#` | has the same owner as the ship on the other side |
 

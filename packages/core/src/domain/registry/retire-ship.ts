@@ -95,7 +95,8 @@ export type RetireShip = (
  * settings without a lock: retire takes them exclusively later, after the
  * ships it owns, and a shared hold taken first would deadlock two retires.
  *
- * It locks the ship first, as a release does (FOR NO KEY UPDATE). A send to
+ * It takes the fleet ownership lock before meetings, schedules and ships,
+ * then locks the ship as a release does (FOR NO KEY UPDATE). A send to
  * the ship holds it FOR SHARE while it resolves the selector, so the two
  * serialise: a send that commits first has its delivery abandoned here, and a
  * send after finds the ship retired and is refused. Then it holds the
@@ -114,6 +115,7 @@ export function createRetireShip(deps: {
   return (caller, { shipId }) =>
     withDataKeys({ sealing: deps.sealing, fleetId: caller.fleetId }, (held) => keepingReachRefusal(deps.uow, async (tx): Promise<Result<{ abandonedDeliveries: number }, RetireShipRefusal | DataKeysNeeded>> => {
       const { fleetId } = caller;
+      await tx.ships.lockOwnership(fleetId);
       const meetings = await lockMeetingsOf(tx, { fleetId, shipId });
       const schedules = await lockSchedulesOf(tx, { fleetId, shipId });
       const ship = await tx.ships.findForUpdate(fleetId, shipId);
@@ -160,6 +162,9 @@ export function createRetireShip(deps: {
       }
       const argo = await tx.ships.findOperatorShip(fleetId);
       for (const ownedShip of await tx.ships.listActiveOwnedByForUpdate(fleetId, shipId)) {
+        if (ownedShip.id === shipId) {
+          continue;
+        }
         // Never refused: an owned ship is active and never argo's own, and argo is always active.
         const changed = changeOwner(ownedShip, { owner: argo, why: 'ownerRetired', at, actor });
         if (changed.isOk && changed.value.ship.owner !== null && changed.value.ship.owner !== ownedShip.owner) {
