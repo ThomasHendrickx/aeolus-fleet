@@ -275,6 +275,7 @@ const SHIP_REFUSAL_CODES = [
   'DELIVERY_NOT_OPEN',
   'DELIVERY_NOT_UNDELIVERABLE',
   'KEY_UNAVAILABLE',
+  'IDEMPOTENCY_KEY_REUSED',
 ] as const satisfies readonly DomainErrorKind[];
 
 type ShipRefusalCodeKind = (typeof SHIP_REFUSAL_CODES)[number];

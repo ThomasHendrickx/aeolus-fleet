@@ -22,7 +22,7 @@ describe.each(['REST', 'MCP', 'tRPC'] as const)('%s idempotency refusals', (door
     const { fleetId } = await initialiseFleet(core);
     const { shipId } = addAgentShip(core, { fleetId, name: 'commissioner', scopes: ['fleet:commission', 'fleet:on-behalf', 'messages:send', 'messages:receive'] });
     const crewToken = crewShip(core, { fleetId, shipId });
-    const server = buildHttpServer({ fleetUrl: FLEET_URL, useCases: { ...identityUseCases(core), ...registryUseCases(core), ...messagingUseCases(core), ...historyUseCases(core), ping: () => Promise.resolve({ serverTime: core.clock.now(), fleetCount: 1 }) }, checkDatabase: () => Promise.resolve(), latestMigration: () => Promise.resolve(null), clock: core.clock, logger: false });
+    const server = buildHttpServer({ fleetUrl: FLEET_URL, useCases: { ...identityUseCases(core), ...registryUseCases(core), ...messagingUseCases(core), ...historyUseCases(core), ping: () => Promise.resolve({ serverTime: core.clock.now(), fleetCount: 1 }) }, checkDatabase: () => Promise.resolve(), latestMigration: () => Promise.resolve(null), clock: core.clock, logger: false, consoleOrigin: 'https://fleet.example.com' });
     servers.push(server);
     const headers = { authorization: `Bearer ${crewToken}` };
     const input = call === 'commission'

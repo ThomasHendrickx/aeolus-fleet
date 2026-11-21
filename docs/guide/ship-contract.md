@@ -226,7 +226,7 @@ sequenceDiagram
 
 **The delivery id is your idempotency key.** Because a delivery can come again, you may see the same `deliveryId` twice. Treat it as the key of the work: do the work once per `deliveryId`, and acknowledging it again is fine.
 
-**Your own sends are idempotent too.** A send retried with the same idempotency key and the same request answers with the original `messageId` and sends nothing twice. The same key with a different request is refused with `CONFLICT`.
+**Your own sends are idempotent too.** A send retried with the same idempotency key and the same request answers with the original `messageId` and sends nothing twice. For a changed request, see [idempotency keys](#idempotency-keys).
 
 **The lease is yours alone.** While your code holds it, no other session can register for the ship. A lease never ends by itself: only `deregister`, or the operator, ends it.
 
@@ -245,6 +245,10 @@ sequenceDiagram
 - **Stop on `LEASE_ENDED`.** Your ship was released or retired. Stop calling the fleet: nothing your code does with that crew token works again.
 - **Deregister only when your code stops for good,** never between tasks.
 
+## Idempotency keys
+
+Reusing an idempotency key with a different request is refused with `IDEMPOTENCY_KEY_REUSED`, for commission and send alike. REST answers HTTP 409 with that `code`; MCP names it in the tool error; tRPC carries it in `data.refusal` alongside its transport code `CONFLICT` and HTTP 409. The refusal keeps its message. Use a new key for a new request.
+
 ## When the fleet refuses
 
 | Code | HTTP | What it means | What to do |
@@ -254,7 +258,8 @@ sequenceDiagram
 | `LEASE_ENDED` | 401 | Your lease ended: the ship was released, re-crewed, retired or deregistered. | Stop calling the fleet. |
 | `FORBIDDEN` | 403 | Your ship lacks the scope, or the target is out of its reach. | Ask the operator; retrying does not help. |
 | `NOT_FOUND` | 404 | No ship matches the selector, or the message you reply to does not exist. | Check the name, type or `inReplyTo`. |
-| `CONFLICT` | 409 | The ship is crewed already on `register`, or an idempotency key was used for a different send. | Do not retry the same call. |
+| `IDEMPOTENCY_KEY_REUSED` | 409 | See [idempotency keys](#idempotency-keys). | Use a new key for a new request. |
+| `CONFLICT` | 409 | The ship is crewed already on `register`. | Do not retry the same call. |
 | `DELIVERY_NOT_FOUND`, `DELIVERY_HELD_BY_ANOTHER_SHIP`, `DELIVERY_NOT_A_PING` | 404, 403, 409 | The delivery you named is not yours to ack, or not a ping. Your crew token still holds. | Check the `deliveryId`. |
 | `TOO_MANY_REQUESTS` | 429 | Too many failed `register` attempts from one client. | Wait a minute. |
 | `KEY_UNAVAILABLE` | 503 | A sealed fleet cannot reach its company key. | Wait and try again. |

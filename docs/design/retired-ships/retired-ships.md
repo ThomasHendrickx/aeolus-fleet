@@ -122,9 +122,11 @@ flowchart TD
   com(["A commission repeated with an earlier key"]) --> lock["Lock the key, look it up (L21)"]
   lock --> key{"A ship holds the key?"}
   key -->|"yes, same request"| same["Answers that ship, retired or not"]
-  key -->|"yes, another request"| reused["IDEMPOTENCY_KEY_REUSED"]
+  key -->|"yes, another request"| reused["idempotency-key refusal"]
   key -->|"no: never used, or its ship removed"| new["A new ship, new id, checked as any commission (D7)"]
 ```
+
+The [ship contract](../../guide/ship-contract.md#idempotency-keys) defines the idempotency-key refusal.
 
 ### What goes wrong
 
