@@ -1,4 +1,4 @@
-import type { DeliveryId, IdGenerator, MeetingId, MessageId, ScheduleId, ShipId, ShipStatus } from '@aeolus-fleet/common';
+import type { LeaseId, DeliveryId, IdGenerator, MeetingId, MessageId, ScheduleId, ShipId, ShipStatus } from '@aeolus-fleet/common';
 
 import { findSender, holdLease, isLeasePushed, type FindSenderTx, type HoldLeaseTx, type LeaseEnded, type LeaseRepository, type ShipRepository, type Ship } from '../registry/public.js';
 import type { Crew } from '../shared/caller.js';
@@ -26,6 +26,8 @@ export interface ReceivedDelivery {
   deliveryId: DeliveryId;
   messageId: MessageId;
   senderShipId: ShipId;
+  /** Immutable authenticated sending lease, never the receiver or current crew. */
+  senderLeaseId: LeaseId | null;
   /** The sender's name and type as they are now, so the crew can answer it by name. */
   senderName: string;
   senderType: string;
@@ -86,7 +88,7 @@ export async function receivedDeliveryOf(
   return ok({
     deliveryId: delivery.id,
     messageId: message.id,
-    senderShipId: message.senderShipId,
+    senderShipId: message.senderShipId, senderLeaseId: message.senderLeaseId,
     senderName: sender.value.ship.name,
     senderType: sender.value.ship.type,
     senderStatus: sender.value.status,

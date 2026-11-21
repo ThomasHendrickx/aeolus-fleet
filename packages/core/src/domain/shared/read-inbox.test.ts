@@ -65,6 +65,7 @@ describe("reading argo's inbox", () => {
       replies: [],
       message: {
         id: newer.messageId,
+        senderLeaseId: captain.leaseId,
         sender: { id: captain.shipId, name: 'release-captain' },
         inReplyTo: null,
         sentAt: core.clock.now(),
@@ -142,8 +143,8 @@ describe("reading argo's inbox", () => {
     const [entry] = await history.readInbox(argo, { filter: 'all' }).then(unwrap).then(({ items }) => items);
 
     expect(entry?.replies).toEqual([
-      { id: first, contentType: 'text/plain', payload: 'go', sentAt: firstAt },
-      { id: second, contentType: 'text/plain', payload: 'and thanks', sentAt: core.clock.now() },
+      { id: first, senderLeaseId: argo.leaseId, contentType: 'text/plain', payload: 'go', sentAt: firstAt },
+      { id: second, senderLeaseId: argo.leaseId, contentType: 'text/plain', payload: 'and thanks', sentAt: core.clock.now() },
     ]);
   });
 
@@ -200,4 +201,17 @@ describe("a viewer reading argo's inbox", () => {
 
     await expect(fleet.history.readInbox(fleet.viewer, { filter: 'all' }).then(unwrap).then(({ items }) => items)).resolves.toEqual([]);
   });
+});
+
+it('keeps sending evidence on inbox messages and full replies (#1993)', async () => {
+  // Given
+  const { deliveryId } = await toArgo(captain, 'I accept the instructions');
+  const { messageId } = unwrap(await messaging.sendMessage(argo, { selector: { kind: 'ship', shipId: captain.shipId }, inReplyTo: core.state.deliveries.find((held) => held.id === deliveryId)?.messageId, payload: 'Proceed', idempotencyKey: newKey() }));
+
+  // When
+  const inbox = unwrap(await history.readInbox(argo, { filter: 'all' }));
+
+  // Then
+  expect(inbox.items[0]?.message).toHaveProperty('senderLeaseId', captain.leaseId);
+  expect(inbox.items[0]?.replies).toContainEqual(expect.objectContaining({ id: messageId, senderLeaseId: argo.leaseId }));
 });

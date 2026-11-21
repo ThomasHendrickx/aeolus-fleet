@@ -623,6 +623,7 @@ export const shipRouter = router({
     .meta({
       description: [
         'Hands you your next deliveries, up to max (1 to 10, one when left out), each with its message and its sender:',
+        'senderLeaseId is the immutable authenticated sending lease, or null when no sending evidence was recorded. It is not the current sender lease or the receiving lease. Redelivery and full-message reads preserve it; null or a failed read cannot confirm a crew.',
         'senderShipId, senderName (the name to answer to), senderType, and senderStatus (awaitingCrew, crewed or retired) as it is now.',
         'A retired sender refuses a reply; its delivery is still yours to ack.',
         'A forced message, one to act on now, comes before every other.',

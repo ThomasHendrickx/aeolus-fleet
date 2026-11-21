@@ -108,6 +108,7 @@ describe('delivery, re-read', () => {
         deliveryId,
         messageId,
         senderShipId: lookoutId,
+        senderLeaseId: lookout.leaseId,
         senderName: 'lookout',
         senderType: 'watcher',
         senderStatus: 'crewed',

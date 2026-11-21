@@ -66,6 +66,7 @@ describe('the exchange read', () => {
         {
           messageId: answered,
           senderShipId: thomasId,
+          senderLeaseId: thomas.leaseId,
           payload: 'Yes, merge it',
           contentType: 'text/plain',
           inReplyTo: asked,
@@ -76,6 +77,7 @@ describe('the exchange read', () => {
         {
           messageId: asked,
           senderShipId: lookoutId,
+          senderLeaseId: lookout.leaseId,
           payload: 'Merge PR #1497?',
           contentType: 'text/plain',
           inReplyTo: null,

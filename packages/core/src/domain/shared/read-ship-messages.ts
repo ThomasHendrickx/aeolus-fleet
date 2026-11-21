@@ -13,7 +13,7 @@ import type { PayloadSealing } from '../messaging/public.js';
 export const PREVIEW_LENGTH = 120;
 
 /** A message as the ship page lists it: its payload cut to a preview. */
-export type ListedMessage = Omit<HistoryMessage, 'payload' | 'delivery'> & {
+export type ListedMessage = Omit<HistoryMessage, 'payload' | 'delivery' | 'senderLeaseId'> & {
   /** Empty when its payload is unreadable. */
   preview: string;
   /** Its payload is sealed under a data key that cannot be had, or does not open (decision 0068, B9). */
@@ -57,7 +57,14 @@ export function createReadShipMessages(deps: { history: ShipHistory; readReach: 
     const listed = await listedMessages(of, messages.items.filter((message) => readsMessage(reach, partiesOf(message, message.delivery.claimedBy))));
     return ok({
       items: listed.map(({ payload, delivery, ...message }) => ({
-        ...message,
+        id: message.id,
+        sender: message.sender,
+        recipient: message.recipient,
+        inReplyTo: message.inReplyTo,
+        sentAt: message.sentAt,
+        contentType: message.contentType,
+        model: message.model,
+        isPayloadSealed: message.isPayloadSealed,
         preview: typeof payload === 'string' ? previewOf(payload) : '',
         isPayloadUnreadable: typeof payload !== 'string',
         delivery: {

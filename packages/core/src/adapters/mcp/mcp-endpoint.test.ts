@@ -364,6 +364,14 @@ describe('the ship tools at /mcp', () => {
     }
   });
 
+  it('describes currentLease null and omission in the public ship contract', async () => {
+    await start();
+
+    const { description } = await tool('fleet_ship');
+
+    expect(description).toContain('Null means no open lease at that read, including retired and remnant ships; omission means unavailable, including the crew:run-only path.');
+  });
+
   it('give fleet_list and fleet_ship an object output schema, since fleet_list answers a page', async () => {
     await start();
 

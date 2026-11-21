@@ -329,7 +329,8 @@ describe('getting one ship on Postgres', () => {
     const { shipId, secret } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
     core.clock.advance(60_000);
     const crewedAt = core.clock.now();
-    unwrap(await core.useCases.claimShip({ shipId, secret: secretOf(secret), location: { kind: 'SERVER' }, harness: 'claude-code' }));
+    const { crewToken } = unwrap(await core.useCases.claimShip({ shipId, secret: secretOf(secret), location: { kind: 'SERVER' }, harness: 'claude-code' }));
+    const crew = unwrap(await core.useCases.authenticate.byCrewToken(crewToken));
 
     await expect(core.useCases.getShip(argo, { shipId })).resolves.toEqual({
       isOk: true,
@@ -353,6 +354,7 @@ describe('getting one ship on Postgres', () => {
         awaitingCrewSince: null,
         commissionedAt,
         crewedSince: crewedAt,
+        currentLease: { id: crew.leaseId, startedAt: crewedAt },
         retiredAt: null,
         removedAt: null,
         ownerShipId: argoId,

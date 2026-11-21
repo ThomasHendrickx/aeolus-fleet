@@ -1,4 +1,4 @@
-import type { MeetingId, MessageId, MicPattern, ParticipantState, ShipId, ShipKind, ShipStatus } from '@aeolus-fleet/common';
+import type { LeaseId, MeetingId, MessageId, MicPattern, ParticipantState, ShipId, ShipKind, ShipStatus } from '@aeolus-fleet/common';
 
 import { shipStatus, type LeaseRepository, type ShipRepository } from '../registry/public.js';
 import type { ShipCaller } from '../shared/caller.js';
@@ -41,6 +41,7 @@ function participantState(participant: Participant): ParticipantState {
 export interface ContributionRead {
   messageId: MessageId;
   sender: MeetingParty;
+  senderLeaseId: LeaseId | null;
   /** Plain, or marked unreadable when its data key cannot be had (decision 0068, B9). */
   payload: ListedPayload;
   contentType: string;
@@ -108,7 +109,7 @@ export function createReadMeeting(deps: { uow: UnitOfWork<ReadMeetingTx>; sealin
         if (!payload.isOk) {
           return payload;
         }
-        items.push({ messageId: message.id, sender: await party(message.senderShipId), payload: payload.value, contentType: message.contentType, model: message.model, sentAt: message.createdAt });
+        items.push({ messageId: message.id, sender: await party(message.senderShipId), senderLeaseId: message.senderLeaseId, payload: payload.value, contentType: message.contentType, model: message.model, sentAt: message.createdAt });
       }
       const requests: MicRead['requests'] = [];
       for (const request of meeting.micRequests) {

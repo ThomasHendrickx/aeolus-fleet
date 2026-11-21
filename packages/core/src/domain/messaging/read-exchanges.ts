@@ -1,4 +1,4 @@
-import { RECORD_PAGE_SIZE_DEFAULT, type MessageId, type ShipId, type ShipKind } from '@aeolus-fleet/common';
+import { RECORD_PAGE_SIZE_DEFAULT, type LeaseId, type MessageId, type ShipId, type ShipKind } from '@aeolus-fleet/common';
 
 import { holdLease, type HoldLeaseTx, type LeaseEnded } from '../registry/public.js';
 import type { Crew } from '../shared/caller.js';
@@ -21,7 +21,7 @@ export interface ExchangesEntry {
   otherShipKind: ShipKind;
   unacknowledged: number;
   unseenPlainMessages: number;
-  newestMessage: { messageId: MessageId; senderShipId: ShipId; payload: ListedPayload; contentType: string; sentAt: Date };
+  newestMessage: { messageId: MessageId; senderShipId: ShipId; senderLeaseId: LeaseId | null; payload: ListedPayload; contentType: string; sentAt: Date };
 }
 
 export type ReadExchangesRefusal = DomainError<'KEY_UNAVAILABLE'> | LeaseEnded;
@@ -60,7 +60,7 @@ export function createReadExchanges(deps: { uow: UnitOfWork<ReadExchangesTx>; se
             otherShipKind: otherShip.kind,
             unacknowledged,
             unseenPlainMessages,
-            newestMessage: { messageId: message.id, senderShipId: message.senderShipId, payload: payload.value, contentType: message.contentType, sentAt: message.createdAt },
+            newestMessage: { messageId: message.id, senderShipId: message.senderShipId, senderLeaseId: message.senderLeaseId, payload: payload.value, contentType: message.contentType, sentAt: message.createdAt },
           });
         }
         return ok({ items, nextCursor: page.nextCursor });

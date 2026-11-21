@@ -56,6 +56,7 @@ describe('operatorInboxOutputSchema', () => {
     repliedWith: null,
     replies: [],
     message: {
+      senderLeaseId: null,
       id: newId('message'),
       sender: releaseCaptain,
       inReplyTo: null,
@@ -73,7 +74,7 @@ describe('operatorInboxOutputSchema', () => {
   });
 
   it("takes argo's replies to it, each with its content type and payload", () => {
-    const replied = { ...open, replies: [{ id: newId('message'), contentType: 'application/json', payload: '{"go":true}', isPayloadUnreadable: false, sentAt: AT }] };
+    const replied = { ...open, replies: [{ senderLeaseId: null, id: newId('message'), contentType: 'application/json', payload: '{"go":true}', isPayloadUnreadable: false, sentAt: AT }] };
 
     expect(operatorInboxOutputSchema.parse(lastPage(replied))).toEqual(lastPage(replied));
   });

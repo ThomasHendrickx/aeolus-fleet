@@ -1,4 +1,4 @@
-import { RECORD_PAGE_SIZE_DEFAULT, type DeliveryId, type DeliveryState, type MessageId, type ShipId } from '@aeolus-fleet/common';
+import { RECORD_PAGE_SIZE_DEFAULT, type LeaseId, type DeliveryId, type DeliveryState, type MessageId, type ShipId } from '@aeolus-fleet/common';
 
 import { holdLease, type HoldLeaseTx, type LeaseEnded, type ShipRepository } from '../registry/public.js';
 import type { Crew } from '../shared/caller.js';
@@ -29,6 +29,8 @@ export interface ReceivedDelivery {
 export interface ExchangeEntry {
   messageId: MessageId;
   senderShipId: ShipId;
+  /** Immutable authenticated sending lease, never the receiver or current crew. */
+  senderLeaseId: LeaseId | null;
   payload: ListedPayload;
   contentType: string;
   inReplyTo: MessageId | null;
@@ -99,7 +101,7 @@ export function createReadExchange(deps: { uow: UnitOfWork<ReadExchangeTx>; seal
           }
           items.push({
             messageId: message.id,
-            senderShipId: message.senderShipId,
+            senderShipId: message.senderShipId, senderLeaseId: message.senderLeaseId,
             payload: payload.value,
             contentType: message.contentType,
             inReplyTo: message.inReplyToMessageId,

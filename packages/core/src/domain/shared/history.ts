@@ -11,6 +11,7 @@ import {
   type EventType,
   type FleetId,
   type LabelValueId,
+  type LeaseId,
   type MeetingId,
   type MessageId,
   type ShipId,
@@ -109,6 +110,8 @@ export type ShownNeedsAttentionEntry<Payload = string> = Omit<NeedsAttentionEntr
 /** One message with its delivery as it stands; its payload plain, or as stored when the port reads it (decision 0068). */
 export interface HistoryMessage<Payload = string> {
   id: MessageId;
+  /** Immutable provenance, retained independently of the lease. */
+  senderLeaseId: LeaseId | null;
   sender: HistoryParty;
   recipient: HistoryRecipient;
   inReplyTo: MessageId | null;
@@ -237,6 +240,7 @@ export type NeedsAttentionState = Extract<DeliveryState, 'undeliverable' | 'notH
 /** A reply the inbox's ship sent to a message in its inbox. */
 export interface InboxReply<Payload = string> {
   id: MessageId;
+  senderLeaseId: LeaseId | null;
   contentType: string;
   payload: Payload;
   sentAt: Date;

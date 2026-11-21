@@ -307,6 +307,8 @@ One meaning per term in code, database, API, UI and talk (decision 0050). Other 
 
 A message stores immutable nullable `senderLeaseId` from the authenticated sending crew, including a console crew with a lease. Caller input cannot supply it. Ordinary, formatted, reply, meeting and label sends retain that lease; scheduled, management resend and core-generated sends without that authenticated sending crew store null. Historical messages stay null, without inference or backfill. Duplicate requests preserve the first message's evidence after re-crew; the lease is no part of the request hash. It is provenance, never authority or a secret, and survives lease/history pruning without a lease foreign key. It is retained with the message.
 
+Full message reads, including received/redelivered messages, exchanges, meeting contributions, the operator inbox and Needs attention, project that same `senderLeaseId`. Count and preview reads do not. `fleet.ship` includes `currentLease: { id, startedAt } | null` only with `fleet:read` and the target's read reach. Null means no open lease at that read, including retired and remnant ships; omission means unavailable, including the `crew:run`-only path. On-behalf reads use the named ship's reach. Compare both non-null ids with the intended sender and instruction exchange; missing evidence, a mismatch, rejected auth or a failed read cannot confirm a crew. A replacement after the observation remains possible: this is no atomic work gate.
+
 | Term | Meaning | Held by |
 | --- | --- | --- |
 | Message | An immutable envelope with an opaque payload of at most 256 KB and a content type, from one ship to a selector; may reply to or resend another | core |

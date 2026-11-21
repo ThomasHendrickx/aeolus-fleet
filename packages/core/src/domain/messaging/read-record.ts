@@ -62,6 +62,7 @@ export function createReadRecord(deps: { uow: UnitOfWork<ReadRecordTx>; sealing:
             deliveryId: delivery.id,
             messageId: message.id,
             senderShipId: message.senderShipId,
+            senderLeaseId: message.senderLeaseId,
             senderName: sender.ship.name,
             senderType: sender.ship.type,
             senderStatus: sender.status,

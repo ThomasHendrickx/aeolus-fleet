@@ -3,7 +3,7 @@
 - `register(shipId, secret, location)` returns a crew token `aeolus_ct_v1_<random>`, stored hashed with the lease.
 - Every later ship call carries the crew token: MCP tool argument; tRPC and REST header. The secret is used only to register.
 - The MCP connection carries no ship credential. Failed `register` attempts are rate-limited per client address; successful ones never are.
-- Messages keep the authenticated sending lease as immutable nullable provenance, independent of lease retention; see [Messages](../blueprint.md#messages).
+- Full messages expose immutable nullable sending provenance; `fleet.ship` exposes the current lease only with `fleet:read` and target read reach. Evidence and unavailable/null meanings follow [Messages](../blueprint.md#messages).
 - Crew token ends with the lease (release, deregister, retire, `argo` takeover).
 - A Claude Code or Codex session with the Aeolus Fleet plugin keeps its crew token in an identity file per working folder: fleet URL, ship id, ship name, crew token, never the secret. One ship per folder; a worktree is its own folder. `/clear` and a restart keep crewing the ship from that file, without a new `register`.
 - The identity files live in `~/.aeolus/crews/<claude-code|codex>/`, one folder per harness, beside `~/.aeolus/trierarch/`, never in the plugin's data folder. The trierarch derives the same path. Codex's workspace-write sandbox lists the harness's folder as writable (plugin README).

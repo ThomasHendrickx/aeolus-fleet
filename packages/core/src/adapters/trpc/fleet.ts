@@ -1188,6 +1188,7 @@ export const fleetRouter = router({
     .meta({
       description: [
         'Needs fleet:read, or crew:run for a ship whose crew request is assigned to yours. One ship of the fleet, retired ones included: as fleet_list shows it, plus when it was commissioned, crewed, retired and removed (a removed ship answers its remnant, decision 0070), its open and in-flight deliveries, and its statement as discover shows it (decision 0047).',
+        'With fleet:read and target read reach, currentLease is { id, startedAt } or null. Null means no open lease at that read, including retired and remnant ships; omission means unavailable, including the crew:run-only path. This snapshot is evidence, not a confirmation or permission. On-behalf reads use the named ship\'s read reach.',
         'A ship outside your read reach, and not assigned to yours, shows its id, name, type and status only, with isInReadReach false (decision 0034).',
       ].join(' '),
     })
@@ -1199,8 +1200,9 @@ export const fleetRouter = router({
         return ship;
       }
       const [task] = await ctx.useCases.readReportTasks(ctx.caller, [ship.report?.task ?? null]);
+      const { currentLease, ...detail } = ship;
       return {
-        ...ship,
+        ...detail,
         startingPrompt: ship.startingPrompt && {
           issuedAt: ship.startingPrompt.issuedAt.toISOString(),
           isClaimed: ship.startingPrompt.isClaimed,
@@ -1221,6 +1223,7 @@ export const fleetRouter = router({
         awaitingCrewSince: ship.awaitingCrewSince?.toISOString() ?? null,
         commissionedAt: ship.commissionedAt.toISOString(),
         crewedSince: ship.crewedSince?.toISOString() ?? null,
+        ...(currentLease === undefined ? {} : { currentLease: currentLease && { id: currentLease.id, startedAt: currentLease.startedAt.toISOString() } }),
         removedAt: ship.removedAt?.toISOString() ?? null,
         retiredAt: ship.retiredAt?.toISOString() ?? null,
         openAlerts: ship.openAlerts.map(alertOutputOf),

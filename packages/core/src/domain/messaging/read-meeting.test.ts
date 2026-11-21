@@ -109,8 +109,8 @@ describe('reading a meeting', () => {
 
     expect(read.contributions).toEqual({
       items: [
-        { messageId: second, sender: { id: product.shipId, name: 'product' }, payload: 'Friday works', contentType: 'text/plain', model: SESSION_MODEL, sentAt: new Date('2026-10-24T09:00:02.000Z') },
-        { messageId: first, sender: { id: chief.shipId, name: 'chief' }, payload: 'Agenda: the launch', contentType: 'text/plain', model: SESSION_MODEL, sentAt: new Date('2026-10-24T09:00:01.000Z') },
+        { messageId: second, senderLeaseId: null, sender: { id: product.shipId, name: 'product' }, payload: 'Friday works', contentType: 'text/plain', model: SESSION_MODEL, sentAt: new Date('2026-10-24T09:00:02.000Z') },
+        { messageId: first, senderLeaseId: null, sender: { id: chief.shipId, name: 'chief' }, payload: 'Agenda: the launch', contentType: 'text/plain', model: SESSION_MODEL, sentAt: new Date('2026-10-24T09:00:01.000Z') },
       ],
       nextCursor: null,
     });
@@ -138,4 +138,17 @@ describe('reading a meeting', () => {
       { kind: 'MEETING_NOT_FOUND', message: `Meeting ${unknown} does not exist or you are not one of its participants` },
     ]);
   });
+});
+
+
+it('projects the immutable sending lease on full meeting contributions (#1993)', async () => {
+  // Given
+  const crew = crewAboard(core, chief);
+  const messageId = await contributed(crew, 'I accept these instructions');
+
+  // When
+  const read = unwrap(await messaging.readMeeting(product, { meetingId, limit: 20 }));
+
+  // Then
+  expect(read.contributions.items).toContainEqual(expect.objectContaining({ messageId, senderLeaseId: crew.leaseId }));
 });

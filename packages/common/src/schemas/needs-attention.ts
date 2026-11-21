@@ -32,6 +32,7 @@ export const needsAttentionDeliverySchema = z.object({
   /** The ship whose attempt made it undeliverable, or whose turn did not handle it: its ship page lists it. */
   ship: partySchema,
   message: z.object({
+    senderLeaseId: idSchema('lease').nullable(),
     id: idSchema('message'),
     sender: partySchema,
     recipient: messageRecipientSchema,

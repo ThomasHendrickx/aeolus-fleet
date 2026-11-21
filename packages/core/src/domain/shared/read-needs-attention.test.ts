@@ -71,6 +71,7 @@ describe('reading Needs attention', () => {
         message: {
           id: messageId,
           sender: { id: scene.planner.shipId, name: 'planner' },
+          senderLeaseId: scene.planner.leaseId,
           recipient: { kind: 'ship', ship: { id: scene.scout.shipId, name: 'scout' } },
           inReplyTo: null,
           sentAt,

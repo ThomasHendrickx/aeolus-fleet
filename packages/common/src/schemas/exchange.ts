@@ -37,6 +37,8 @@ export type ExchangeInput = z.infer<typeof exchangeInputSchema>;
 export const exchangeEntrySchema = z.object({
   messageId: idSchema('message'),
   senderShipId: idSchema('ship'),
+  /** Authenticated sending lease at acceptance; null when no evidence was recorded. */
+  senderLeaseId: idSchema('lease').nullable(),
   payload: z.string(),
   isPayloadUnreadable: z.boolean(),
   contentType: z.string(),
@@ -94,6 +96,8 @@ export const exchangesEntrySchema = z.object({
   newestMessage: z.object({
     messageId: idSchema('message'),
     senderShipId: idSchema('ship'),
+    /** Authenticated sending lease at acceptance; null when no evidence was recorded. */
+    senderLeaseId: idSchema('lease').nullable(),
     payload: z.string(),
     isPayloadUnreadable: z.boolean(),
     contentType: z.string(),

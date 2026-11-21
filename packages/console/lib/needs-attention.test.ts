@@ -17,6 +17,7 @@ function anUndeliverable(recipient: NeedsAttentionDelivery['message']['recipient
     reason: null,
     ship: tester,
     message: {
+      senderLeaseId: null,
       id: newId('message'),
       sender: builder,
       recipient,

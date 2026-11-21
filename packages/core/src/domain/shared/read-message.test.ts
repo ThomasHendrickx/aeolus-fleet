@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import type { MessageId } from '@aeolus-fleet/common';
 
-import { crewOfToken, deliveryIdOf } from '../../../test/support/core-fixtures.js';
+import { crewAboard, crewOfToken, deliveryIdOf } from '../../../test/support/core-fixtures.js';
 import { aCrewSettings, shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { historyScenario, type HistoryScenario } from '../../../test/support/history-scenario.js';
 import { valueIdOf } from '../../../test/support/label-fixtures.js';
@@ -334,4 +334,57 @@ describe('reading one message within read reach (decision 0034)', () => {
 
     expect(refusalOf(await fleet.history.readMessage(fleet.reader, { messageId }))).toEqual({ kind: 'MESSAGE_NOT_FOUND', message: `No message ${messageId} in this fleet, or it is no longer kept` });
   });
+});
+
+
+it('keeps sending lease L1 across replacement and redelivery while the current ship evidence is L2 (#1993)', async () => {
+  // Given
+  const person = unwrap(await scene.registry.commissionShip(scene.argo, { name: 'reader', type: 'person', kind: 'person', idempotencyKey: newKey() }));
+  scene.scout = { ...crewAboard(scene.core, { fleetId: scene.fleetId, shipId: person.shipId }), kind: 'person' };
+  const messageId = await scene.send(scene.planner, { to: { kind: 'ship', shipId: scene.scout.shipId }, payload: 'Instructions accepted' });
+  const first = scene.planner.leaseId;
+  const received = unwrap(await scene.messaging.receiveDeliveries(scene.scout, {}));
+  unwrap(await scene.registry.releaseShip(scene.argo, { shipId: scene.planner.shipId }));
+  const replacement = crewAboard(scene.core, scene.planner);
+
+  // When
+  const redelivered = unwrap(await scene.messaging.receiveDeliveries(scene.scout, {}));
+  const read = unwrap(await scene.history.readMessage(scene.argo, { messageId }));
+  const current = unwrap(await scene.registry.getShip(scene.argo, { shipId: scene.planner.shipId }));
+  const exchange = unwrap(await scene.messaging.readExchange(scene.scout, { otherShipId: scene.planner.shipId }));
+  const exchanges = unwrap(await scene.messaging.readExchanges(scene.scout, {}));
+  const record = unwrap(await scene.messaging.readRecord(scene.scout, {}));
+  const deliveryId = deliveryIdOf(scene.core, messageId);
+  unwrap(await scene.messaging.acknowledgeDelivery(scene.scout, { deliveryId }));
+  const reread = unwrap(await scene.messaging.readDelivery(scene.scout, { deliveryId }));
+
+  // Then
+  for (const message of [received.deliveries[0], redelivered.deliveries[0], read, exchange.items[0], exchanges.items[0]?.newestMessage, record.items[0], reread]) {
+    expect(message).toHaveProperty('senderLeaseId', first);
+  }
+  expect(current).toHaveProperty('currentLease', { id: replacement.leaseId, startedAt: scene.core.clock.now() });
+  expect(replacement.leaseId).not.toBe(first);
+});
+
+it('returns null evidence for a message without an authenticated sending crew (#1993)', async () => {
+  // Given
+  const messageId = await scene.send(scene.argo, { to: { kind: 'ship', shipId: scene.scout.shipId } });
+
+  // When
+  const message = unwrap(await scene.history.readMessage(scene.argo, { messageId }));
+
+  // Then
+  expect(message).toHaveProperty('senderLeaseId', null);
+});
+
+it('keeps sending evidence on the full Needs attention message (#1993)', async () => {
+  // Given
+  const messageId = await scene.send(scene.planner, { to: { kind: 'ship', shipId: scene.scout.shipId } });
+  for (let attempt = 0; attempt < 5; attempt += 1) unwrap(await scene.messaging.receiveDeliveries(scene.scout, {}));
+
+  // When
+  const page = unwrap(await scene.history.readNeedsAttention(scene.argo, { shipId: scene.scout.shipId }));
+
+  // Then
+  expect(page.items[0]?.message).toMatchObject({ id: messageId, senderLeaseId: scene.planner.leaseId });
 });

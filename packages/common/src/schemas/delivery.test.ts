@@ -147,7 +147,7 @@ describe('deliveryOutputSchema', () => {
   const reread = {
     deliveryId: newId('delivery'),
     messageId: newId('message'),
-    senderShipId: newId('ship'),
+    senderShipId: newId('ship'), senderLeaseId: null,
     senderName: 'lookout',
     senderType: 'watcher',
     senderStatus: 'retired',
@@ -164,6 +164,17 @@ describe('deliveryOutputSchema', () => {
     sendTime: null,
     state: 'acknowledged',
   };
+
+  it('preserves nullable authenticated sending evidence on a delivery (#1993)', () => {
+    // Given
+    const senderLeaseId = newId('lease');
+    // When
+    const read = deliveryOutputSchema.parse({ ...reread, senderLeaseId });
+    // Then
+    expect(read).toHaveProperty('senderLeaseId', senderLeaseId);
+    expect(deliveryOutputSchema.safeParse({ ...reread, senderLeaseId: undefined }).success).toBe(false);
+    expect(deliveryOutputSchema.safeParse({ ...reread, senderLeaseId: newId('ship') }).success).toBe(false);
+  });
 
   it('answers the delivery whole, as receive hands one, with its state', () => {
     expect(deliveryOutputSchema.parse(reread)).toEqual(reread);
@@ -189,7 +200,7 @@ describe('receivedDeliverySchema', () => {
   const delivery = {
     deliveryId: newId('delivery'),
     messageId: newId('message'),
-    senderShipId: newId('ship'),
+    senderShipId: newId('ship'), senderLeaseId: null,
     senderName: 'argo',
     senderType: 'operator',
     senderStatus: 'crewed',
@@ -323,7 +334,7 @@ describe('pushReceivedDeliverySchema', () => {
   const delivery = {
     deliveryId: newId('delivery'),
     messageId: newId('message'),
-    senderShipId: newId('ship'),
+    senderShipId: newId('ship'), senderLeaseId: null,
     senderName: 'argo',
     senderType: 'operator',
     senderStatus: 'crewed',
