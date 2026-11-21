@@ -14,7 +14,7 @@ export interface ListMeetingsTx {
 
 export type ListMeetings = (caller: ShipCaller, input?: MeetingsInput) => Promise<Result<Page<ListedMeeting, string>, never>>;
 
-/** The crew and messages:receive scope are checked at the door; the query enforces fleet and participant visibility. */
+/** The caller must check the crew and messages:receive scope; the query enforces fleet and participant visibility. */
 export function createListMeetings(deps: { uow: UnitOfWork<ListMeetingsTx> }): ListMeetings {
   return (caller, input) => deps.uow.run(async (tx) => ok(await tx.meetings.listOf(caller.fleetId, {
     shipId: caller.shipId, cursor: input?.cursor, limit: input?.limit ?? MEETINGS_PAGE_SIZE_DEFAULT,

@@ -184,9 +184,11 @@ export type MeetingEnded = z.infer<typeof meetingEndedSchema>;
 export const MEETINGS_PAGE_SIZE_DEFAULT = 20;
 export const MEETINGS_PAGE_SIZE_MAX = 100;
 
+const MAX_DATE_EPOCH_MS = 8_640_000_000_000_000;
+
 const meetingsCursorPartsSchema = z.tuple([
   z.enum(['o', 'e']),
-  z.string().regex(/^\d+$/).transform(Number).pipe(z.int().min(0).max(8_640_000_000_000_000)),
+  z.string().regex(/^\d+$/).transform(Number).pipe(z.int().min(0).max(MAX_DATE_EPOCH_MS)),
   idSchema('meeting'),
 ]);
 
