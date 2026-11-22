@@ -2,7 +2,7 @@ import { createServer, type Server } from 'node:http';
 
 import { createTRPCClient, httpBatchLink } from '@trpc/client';
 import type { FastifyInstance } from 'fastify';
-import type { Browser, BrowserContext } from 'playwright';
+import type { Browser, BrowserContext, Page } from 'playwright';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { createPrismaClient, type PrismaClient } from '../packages/core/src/adapters/prisma/client.js';
@@ -67,6 +67,12 @@ async function newPage() {
   return context.newPage();
 }
 
+/** No password input on the page, whatever its label: only the input's type says that, so this one place uses a raw locator. */
+async function expectNoPasswordInput(page: Page): Promise<void> {
+  // eslint-disable-next-line browser-tests/no-restricted-syntax -- an unlabelled password input has no role, label or text to find it by; only its type does
+  await expect(page.locator('input[type="password"]').count()).resolves.toBe(0);
+}
+
 describe('a hosted console', () => {
   it('answers its sign-in route with a redirect to the hosting service, and serves no password form', async () => {
     const response = await fetch(`${web.url}/sign-in`, { redirect: 'manual' });
@@ -107,7 +113,7 @@ describe('a hosted console', () => {
 
     await again.getByRole('heading', { name: 'We couldn’t sign you in' }).waitFor();
     await expect(again.getByTestId('sign-in-failed-again').getAttribute('href')).resolves.toBe(hostedSignInUrl);
-    await expect(again.getByLabel('Password').count()).resolves.toBe(0);
+    await expectNoPasswordInput(again);
   });
 
   it("says the operator signed in somewhere else before the hosting service's sign-in, and serves no password form", async () => {
@@ -117,7 +123,7 @@ describe('a hosted console', () => {
 
     await page.getByTestId('sign-in-signed-in-elsewhere').getByText('You signed in somewhere else').waitFor();
     await expect(page.getByTestId('sign-in-elsewhere-again').getAttribute('href')).resolves.toBe(hostedSignInUrl);
-    await expect(page.getByLabel('Password').count()).resolves.toBe(0);
+    await expectNoPasswordInput(page);
   });
 
   it('shows a page left open the notice once the operator signs in somewhere else and it goes on', async () => {

@@ -13,7 +13,7 @@ import { FLEET_URL } from '../packages/core/test/support/core-fixtures.js';
 import { createMigratedDatabase } from '../packages/core/src/testing/database.js';
 import { newKey } from '../packages/core/src/testing/keys.js';
 import { unwrap } from '../packages/core/src/testing/result.js';
-import { afterFrames, visible } from './support/browser.js';
+import { visible } from './support/browser.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 
 // The guide (decision 0024) on a phone (#721): a step about a ship timeline's
@@ -25,8 +25,6 @@ const PHONE = { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch:
 /** Renames that fill the timeline past the fold, so its newest entry can sit mid window. */
 const RENAMES = 12;
 const ANCHOR = 'ship-timeline-entry';
-/** How many painted frames in a row a box must stay put before the page counts as settled. */
-const SETTLE_FRAMES = 30;
 /** How far the visitor scrolls down: past the anchor, so it leaves the top of the window. */
 const VISITOR_SCROLL = 600;
 /**
@@ -117,23 +115,9 @@ function overlaps(one: Box, other: Box): boolean {
   return one.x < other.x + other.width && other.x < one.x + one.width && one.y < other.y + other.height && other.y < one.y + one.height;
 }
 
-/** Where each part sits once none moves for SETTLE_FRAMES painted frames: the popover fades in and the page scrolls to the anchor. */
-async function settled(page: Page, locators: [Locator, Locator, Locator]): Promise<[Box, Box, Box]> {
-  const read = () => Promise.all(locators.map((locator) => locator.boundingBox({ timeout: 1_000 }).catch(() => null)));
-  const isSettled = async (): Promise<boolean> => {
-    const before = await read();
-    for (let frame = 0; frame < SETTLE_FRAMES; frame += 1) {
-      await afterFrames(page);
-    }
-    const after = await read();
-    return after.every((box, index) => box !== null && JSON.stringify(box) === JSON.stringify(before[index]));
-  };
-  await expect.poll(isSettled).toBe(true);
-  const [first, second, third] = await read();
-  if (!first || !second || !third) {
-    throw new Error('A part of the step left the page.');
-  }
-  return [first, second, third];
+/** Where each part sits now; null while a part is not on the page. */
+async function boxesOf(locators: Locator[]): Promise<(Box | null)[]> {
+  return Promise.all(locators.map((locator) => locator.boundingBox({ timeout: 1_000 }).catch(() => null)));
 }
 
 /** Opens the step's page and checks its anchor and the entry below it are in sight beside its popover. */
@@ -146,13 +130,17 @@ async function expectAnchorAndNextEntryInSight(page: Page, whenInSight: () => Pr
   await expect.poll(() => entries.count()).toBeGreaterThan(RENAMES);
   await whenInSight();
 
-  const [popover, newest, next] = await settled(page, [step, entries.nth(0), entries.nth(1)]);
+  // The page and the popover move into place by themselves: the final position is what is asserted, until it holds.
+  await expect.poll(() => entriesOutOfSight(step, entries)).toEqual([]);
+}
 
-  for (const entry of [newest, next]) {
-    expect(entry.y).toBeGreaterThanOrEqual(0);
-    expect(entry.y + entry.height).toBeLessThanOrEqual(PHONE.viewport.height);
-    expect(overlaps(popover, entry)).toBe(false);
+/** Which of the newest two entries is not wholly in the window, or sits under the popover; empty once both are in sight. */
+async function entriesOutOfSight(step: Locator, entries: Locator): Promise<string[]> {
+  const [popover, ...shown] = await boxesOf([step, entries.nth(0), entries.nth(1)]);
+  if (!popover) {
+    return ['popover'];
   }
+  return shown.flatMap((entry, index) => (entry && entry.y >= 0 && entry.y + entry.height <= PHONE.viewport.height && !overlaps(popover, entry) ? [] : [`entry ${String(index)}`]));
 }
 
 describe('a guide step on a phone', () => {
@@ -186,9 +174,7 @@ describe('a guide step on a phone', () => {
     late.resolve(undefined);
     await page.getByRole('heading', { name: `scout-${String(RENAMES)}` }).waitFor();
 
-    const [, newest] = await settled(page, [step, entries.nth(0), entries.nth(1)]);
-
-    expect(newest.y).toBeLessThan(0);
+    await expect.poll(async () => (await boxesOf([entries.nth(0)]))[0]?.y).toBeLessThan(0);
   });
 });
 

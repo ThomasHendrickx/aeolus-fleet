@@ -265,8 +265,8 @@ describe.each([
 
     await visible(page, 'avatar-menu').click();
     await visible(page, 'avatar-menu-sign-out').click();
-    // Sign out is sent only once the call still answering has been answered, so the held answer is let go after the click, never before it.
-    await afterFrames(page);
+    // The console sends Sign out only once every call on its way has answered, so Sign out waits for the held answer: it is let go once the menu says it is signing out.
+    await page.getByText('Signing out…').filter({ visible: true }).waitFor();
     held.release();
     await page.waitForURL(`${web.url}/sign-in`);
     await held.answered;
