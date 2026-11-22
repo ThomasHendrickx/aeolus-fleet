@@ -118,7 +118,11 @@ describe('switching the console between two fleets of one organisation', () => {
     const signInsBefore = accountApp.signInsAsked();
     await openFleets(page);
 
-    // When it chooses fleet B
+    // When it chooses fleet B, the console's answer held for a moment: the built console answers at once, and the row would be opening for less than a frame
+    await page.route('**/sign-in/fleet?*', async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 1_000));
+      await route.continue();
+    });
     await page.getByRole('link', { name: 'second fleet' }).click();
 
     // Then the row says it is opening, and the console arrives in fleet B and says so, focus on the launcher
