@@ -4,9 +4,11 @@ import js from '@eslint/js';
 import nextPlugin from '@next/eslint-plugin-next';
 import checkFile from 'eslint-plugin-check-file';
 import jsxA11y from 'eslint-plugin-jsx-a11y-x';
+import playwright from 'eslint-plugin-playwright';
 import reactHooks from 'eslint-plugin-react-hooks';
 import reactX from 'eslint-plugin-react-x';
 import { defineConfig, globalIgnores } from 'eslint/config';
+import { builtinRules } from 'eslint/use-at-your-own-risk';
 import tseslint from 'typescript-eslint';
 
 /*
@@ -334,9 +336,56 @@ function importRules({ patterns, paths = [], syntax = [] }) {
   };
 }
 
+/**
+ * Every file that drives a browser: the end-to-end tests with their support
+ * files, browser tests, and the stories, which run as browser tests (#303).
+ */
+const storyFiles = ['**/*.stories.{ts,tsx}'];
+const driverFiles = ['e2e/**/*.{ts,tsx}', '**/*.e2e.test.{ts,tsx}', '**/*.browser.test.{ts,tsx}'];
+
+const sleepMessage =
+  "A browser test never sleeps on a timer: wait on what the app does, with a retrying assertion, a known response or the part's data-state (behaviour-driven-development skill). A simulated slow server holds its answer until the test releases it.";
+
+const rawLocatorMessage =
+  'A browser test finds parts by their testid, role or text (getByTestId, getByRole, getByText), never by a CSS or XPath locator, data-testid selectors included. A part with no accessible handle gets a data-testid.';
+
+/**
+ * The playwright plugin's no-raw-locators lets a template literal or a
+ * variable through, so locators are restricted by syntax: every call of
+ * locator, $, $$, $eval, $$eval and waitForSelector, and every string that
+ * builds a data-testid selector.
+ * @type {SyntaxRestriction[]}
+ */
+const browserTestRawLocators = [
+  ...['locator', 'waitForSelector', '$', '$$', '$eval', '$$eval'].flatMap((method) => [
+    { selector: `CallExpression[callee.type="MemberExpression"][callee.computed=false][callee.property.name="${method}"]`, message: rawLocatorMessage },
+    { selector: `CallExpression[callee.type="MemberExpression"][callee.computed=true][callee.property.value="${method}"]`, message: rawLocatorMessage },
+  ]),
+  { selector: 'Literal[value=/\\[data-testid/]', message: rawLocatorMessage },
+  { selector: 'TemplateElement[value.raw=/\\[data-testid/]', message: rawLocatorMessage },
+];
+
+/** @type {SyntaxRestriction[]} */
+const browserTestTimers = [
+  // setTimeout(...), new Promise((resolve) => setTimeout(resolve, 50)), or the same imported from node:timers/promises.
+  { selector: 'Identifier[name="setTimeout"]', message: sleepMessage },
+  // globalThis['setTimeout'](...)
+  { selector: 'Literal[value="setTimeout"]', message: sleepMessage },
+];
+
+/*
+ * The browser-test restriction is no-restricted-syntax too, but under its own
+ * plugin name: the guardrail blocks above and below already set that rule for
+ * the stories, and ESLint keeps one set of options per rule.
+ */
+const browserTestPlugin = { rules: { 'no-restricted-syntax': builtinRules.get('no-restricted-syntax') } };
+
 export default defineConfig(
   globalIgnores([
     '**/node_modules/',
+    // Installed skills (skills-lock.json) and agent settings: other repositories' files, never edited here.
+    '.agents/',
+    '.claude/',
     '**/dist/',
     '**/.next/',
     '**/coverage/',
@@ -562,5 +611,22 @@ export default defineConfig(
         },
       ],
     },
+  },  {
+    // Waits are on the app, never on time or the network (behaviour-driven-development and web-frontend skills).
+    name: 'aeolus/browser-tests',
+    files: [...driverFiles, ...storyFiles],
+    plugins: { playwright, 'browser-tests': browserTestPlugin },
+    rules: {
+      'playwright/no-wait-for-timeout': 'error',
+      'playwright/no-networkidle': 'error',
+      'browser-tests/no-restricted-syntax': ['error', ...browserTestRawLocators],
+    },
+  },
+  {
+    // A story's fake service answers after a delay of its own, so only the files that drive a browser also refuse timers.
+    name: 'aeolus/browser-test-timers',
+    files: driverFiles,
+    plugins: { 'browser-tests': browserTestPlugin },
+    rules: { 'browser-tests/no-restricted-syntax': ['error', ...browserTestRawLocators, ...browserTestTimers] },
   },
 );
