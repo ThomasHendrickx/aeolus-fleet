@@ -4,7 +4,10 @@ import { promisify } from 'node:util';
 
 import { afterAll, describe, expect, it } from 'vitest';
 
-import { reserveWebUrl, startWeb, type RunningWeb } from './web.js';
+import { readFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
+
+import { reserveWebUrl, routeManifest, routesToWaitFor, startWeb, type RunningWeb } from './web.js';
 
 // The web app the end-to-end tests start: a run that is killed must not keep
 // the next run from starting its own (#514).
@@ -12,7 +15,7 @@ import { reserveWebUrl, startWeb, type RunningWeb } from './web.js';
 /** Nothing listens here: the sign-in page needs no server to answer. */
 const NO_SERVER_URL = 'http://127.0.0.1:9';
 
-/** Two starts of next dev, each compiling the sign-in page. */
+/** Two starts of the built console. */
 const TWO_STARTS_MS = 400_000;
 
 /** Starts the web app in this file's own child process: a test run. */
@@ -64,7 +67,7 @@ async function killedRun(): Promise<void> {
 
 describe('the web app of the end-to-end tests', () => {
   it(
-    'starts its own after a killed test run, which leaves no next dev behind',
+    'starts its own after a killed test run, which leaves no next start behind',
     async () => {
       await killedRun();
 
@@ -74,4 +77,25 @@ describe('the web app of the end-to-end tests', () => {
     },
     TWO_STARTS_MS,
   );
+});
+
+describe('the routes the web app is waited for on', () => {
+  it('come from the production build manifest: pages and route handlers, a made-up value for each dynamic segment, and neither an api route nor /health, which answers 503 while the server is down', () => {
+    expect(
+      routesToWaitFor({
+        '/(console)/page': '/',
+        '/(console)/ships/[shipId]/page': '/ships/[shipId]',
+        '/sign-in/ticket/route': '/sign-in/ticket',
+        '/.well-known/aeolus-palette.json/route': '/.well-known/aeolus-palette.json',
+        '/api/reads/route': '/api/reads',
+        '/health/route': '/health',
+      }),
+    ).toEqual(['/', '/ships/test', '/sign-in/ticket', '/.well-known/aeolus-palette.json']);
+  });
+
+  it('include the routes the suite opens that no page lists', async () => {
+    const manifest = routeManifest.parse(JSON.parse(await readFile(fileURLToPath(new URL('../../packages/console/.next/app-path-routes-manifest.json', import.meta.url)), 'utf8')));
+
+    expect(routesToWaitFor(manifest)).toEqual(expect.arrayContaining(['/sign-in', '/sign-in/ticket', '/sign-in/done', '/.well-known/aeolus-palette.json']));
+  });
 });

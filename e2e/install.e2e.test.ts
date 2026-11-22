@@ -90,7 +90,8 @@ async function healthStatus(url: string): Promise<number | undefined> {
 }
 
 beforeAll(async () => {
-  await run('npm', ['run', 'build'], { cwd: repositoryRoot, env: { ...process.env, NEXT_TELEMETRY_DISABLED: '1' } });
+  // Common and the console come from the build the run made once (npm run build:e2e); only core, which that build lacks, is built here.
+  await run('npm', ['run', 'build', '--workspace', '@aeolus-fleet/core'], { cwd: repositoryRoot });
 
   tarballsFolder = await mkdtemp(join(tmpdir(), 'aeolus-tarballs-'));
   await run(

@@ -139,6 +139,7 @@ npm install              # also generates the Prisma clients
 npm run typecheck
 npm run lint
 npx playwright install chromium   # once, for the end-to-end and story tests
+npm run build:e2e        # common, ui and the console once, before end-to-end tests
 npm test                 # unit, integration, end-to-end and story tests; npm run test:unit needs no Docker
 npm run test:stories     # every Storybook story of the console as a test, in Chromium
 ```
