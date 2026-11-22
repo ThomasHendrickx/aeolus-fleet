@@ -118,15 +118,20 @@ describe('switching the console between two fleets of one organisation', () => {
     const signInsBefore = accountApp.signInsAsked();
     await openFleets(page);
 
-    // When it chooses fleet B, the console's answer held for a moment: the built console answers at once, and the row would be opening for less than a frame
+    // When it chooses fleet B, the console's answer held until the test has seen the Opening row: the built console answers at once, and the row would be opening for less than a frame
+    let release: () => void = () => undefined;
+    const isSeen = new Promise<void>((resolve) => {
+      release = resolve;
+    });
     await page.route('**/sign-in/fleet?*', async (route) => {
-      await new Promise((resolve) => setTimeout(resolve, 1_000));
+      await isSeen;
       await route.continue();
     });
     await page.getByRole('link', { name: 'second fleet' }).click();
 
     // Then the row says it is opening, and the console arrives in fleet B and says so, focus on the launcher
     await page.getByText('Opening second fleet').first().waitFor();
+    release();
     await page.getByText('Console is open in second fleet.').waitFor({ timeout: 20_000 });
     await isHydrated(page);
     await expect(page.locator('[data-testid="app-switcher-fleet-pill"]:visible').getAttribute('title')).resolves.toContain('second fleet');
