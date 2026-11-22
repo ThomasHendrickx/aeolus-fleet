@@ -138,10 +138,10 @@ export default defineConfig({
         extends: true,
         test: {
           // The console in a real browser: Postgres, the server and the web app
-          // in development mode, driven by Playwright. Never a published plugin.
+          // from its production build, driven by Playwright. Never a published plugin.
           name: 'console:e2e',
           include: ['e2e/**/*.e2e.test.ts'],
-          // Each file starts its own next dev in packages/console; one at a time.
+          // Each file starts its own next start in packages/console; one at a time.
           fileParallelism: false,
           // Core and the console only: flows across trains are checked on staging, against the candidate.
           globalSetup: ['packages/core/src/testing/postgres-global-setup.ts'],

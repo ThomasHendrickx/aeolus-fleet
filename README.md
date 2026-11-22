@@ -139,6 +139,7 @@ npm install              # also generates the Prisma clients
 npm run typecheck
 npm run lint
 npx playwright install chromium   # once, for the end-to-end and story tests
+npm run build --workspace @aeolus-fleet/common --workspace @aeolus-fleet/ui --workspace @aeolus-fleet/console  # before end-to-end tests
 npm test                 # unit, integration, end-to-end and story tests; npm run test:unit needs no Docker
 npm run test:stories     # every Storybook story of the console as a test, in Chromium
 ```

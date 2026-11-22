@@ -8,7 +8,7 @@ import { join } from 'node:path';
 /**
  * Ports for the end-to-end tests' servers, claimed across every test run on
  * the host: full runs in other worktrees share it (#686). A port found free
- * is only free until something else binds it, and next dev binds its port
+ * is only free until something else binds it, and next start binds its port
  * seconds after it is chosen. So ports come from below the ephemeral range,
  * where no listen on port 0 and no container's mapped port lands, and a run
  * claims each one with a file no other run passes over while it lives.
@@ -75,7 +75,7 @@ async function isLive(name: string, claimsDirectory: string): Promise<boolean> {
   }
 }
 
-/** Whether nothing listens on the port, on every address, as next dev listens. */
+/** Whether nothing listens on the port, on every address, as next start listens. */
 async function isFree(port: number): Promise<boolean> {
   const probe = createServer();
   probe.listen(port);

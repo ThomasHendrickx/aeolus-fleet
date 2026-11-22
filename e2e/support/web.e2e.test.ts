@@ -12,7 +12,7 @@ import { reserveWebUrl, startWeb, type RunningWeb } from './web.js';
 /** Nothing listens here: the sign-in page needs no server to answer. */
 const NO_SERVER_URL = 'http://127.0.0.1:9';
 
-/** Two starts of next dev, each compiling the sign-in page. */
+/** Two starts of the built console. */
 const TWO_STARTS_MS = 400_000;
 
 /** Starts the web app in this file's own child process: a test run. */
@@ -64,7 +64,7 @@ async function killedRun(): Promise<void> {
 
 describe('the web app of the end-to-end tests', () => {
   it(
-    'starts its own after a killed test run, which leaves no next dev behind',
+    'starts its own after a killed test run, which leaves no next start behind',
     async () => {
       await killedRun();
 
