@@ -100,7 +100,7 @@ describe("the fleet overview's bar", () => {
 
     const cards = await isPageWider();
     await page.goto('/?view=list');
-    await page.getByTestId('fleet-overview').and(page.locator('[data-view=list]')).waitFor();
+    await expect.poll(() => page.getByTestId('fleet-overview').getAttribute('data-view')).toBe('list');
 
     expect([cards, await isPageWider()]).toEqual([false, false]);
   });

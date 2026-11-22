@@ -103,7 +103,9 @@ function draftCount(): Promise<number> {
 /** Picks one label value for a side of the last rule, in its Add label popover. */
 async function pick(page: Page, at: { side: 'from' | 'to'; key: string; value: string }): Promise<void> {
   await page.getByTestId('network-rule').last().getByTestId(`network-rule-${at.side}-add`).click();
-  const picker = page.locator('[data-testid="network-rule-popover"][data-open]');
+  const picker = page.getByTestId('network-rule-popover');
+  // The open one: a popover that just closed may still be fading out beside it.
+  await expect.poll(() => picker.count()).toBe(1);
   await picker.getByTestId('label-picker-key').filter({ hasText: at.key }).click();
   await picker.getByTestId('label-picker-value').filter({ hasText: at.value }).click();
 }

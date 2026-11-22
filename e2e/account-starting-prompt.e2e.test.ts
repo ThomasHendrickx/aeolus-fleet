@@ -10,6 +10,7 @@ import { unwrap } from '../packages/core/src/testing/result.js';
 import { createUseCases } from '../packages/core/src/wiring.js';
 import { aCrewSettings } from '../packages/core/test/support/crew-fixtures.js';
 import { FLEET_URL, OPERATOR } from '../packages/core/test/support/core-fixtures.js';
+import { isInState } from './support/browser.js';
 import { openRowMenu } from './support/console.js';
 import { startFakeAccountApp, type FakeAccountApp } from './support/fake-account-app.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
@@ -106,7 +107,7 @@ describe('a person and the agent ship they commissioned', () => {
     await dialog.getByText(/This prompt stops the one issued/).waitFor();
     await expect(dialog.getByTestId('starting-prompt-text').textContent()).resolves.not.toBe(firstPrompt);
     // The approved design draws the focus ring on the ChatGPT guide link when the dialog opens.
-    await expect(dialog.locator('[data-testid="starting-prompt-chatgpt-guide"]:focus-visible').count()).resolves.toBe(1);
+    await expect.poll(() => isInState(dialog.getByTestId('starting-prompt-chatgpt-guide'), ':focus-visible')).toBe(true);
     await expect(dialog.getByText('Couldn’t issue a starting prompt').count()).resolves.toBe(0);
   });
 });

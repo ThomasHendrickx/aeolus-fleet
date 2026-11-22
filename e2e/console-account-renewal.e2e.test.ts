@@ -96,7 +96,7 @@ describe("an account's token renewed in the browser", () => {
     unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'renewed-scout', type: 'reviewer' }));
 
     await page.getByRole('link', { name: 'renewed-scout' }).first().waitFor();
-    await page.locator('[data-slot="live-status"]:visible', { hasText: 'Live' }).first().waitFor();
+    await page.getByText('Live', { exact: true }).filter({ visible: true }).first().waitFor();
   });
 
   it('follows the scopes the fresh token carries: a right taken away goes from the page', async () => {

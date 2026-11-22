@@ -103,7 +103,7 @@ async function signedIn(): Promise<{ page: Page; asked: Record<string, unknown>[
 }
 
 async function rowNames(page: Page): Promise<string[]> {
-  const rows = await page.getByRole('table', { name: 'Ships' }).locator('tbody tr').all();
+  const rows = await page.getByRole('table', { name: 'Ships' }).getByTestId(/^fleet-row-/).all();
   const ids = await Promise.all(rows.map((row) => row.getAttribute('data-testid')));
   return ids.map((id) => (id ?? '').replace('fleet-row-', ''));
 }
@@ -111,7 +111,7 @@ async function rowNames(page: Page): Promise<string[]> {
 describe('the overview of a fleet larger than a page', () => {
   it('opens on its first 20 ships, argo first and then by name, asking the server one page', async () => {
     const { page, asked } = await signedIn();
-    await page.waitForLoadState('networkidle');
+    await page.getByTestId(`fleet-row-${shipName(PAGE_SIZE - 1)}`).waitFor();
 
     const expected = ['argo', ...Array.from({ length: PAGE_SIZE - 1 }, (_, index) => shipName(index + 1))];
     const pages = overviewPagesOf(asked);
@@ -154,10 +154,10 @@ describe('the overview of a fleet larger than a page', () => {
 
   it('opens the overview, Labels and Needs crew without reading every ship of the fleet', async () => {
     const { page, asked } = await signedIn();
-    await page.waitForLoadState('networkidle');
-    for (const path of ['/labels', '/needs-crew']) {
+    await page.getByTestId(`fleet-row-${shipName(PAGE_SIZE - 1)}`).waitFor();
+    for (const { path, heading } of [{ path: '/labels', heading: 'Labels' }, { path: '/needs-crew', heading: 'Needs crew' }]) {
       await page.goto(path);
-      await page.waitForLoadState('networkidle');
+      await page.getByRole('heading', { name: heading, exact: true }).waitFor();
     }
 
     // The whole-fleet snapshot asked every status at the largest page size, page after page.

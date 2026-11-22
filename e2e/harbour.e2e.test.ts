@@ -159,11 +159,13 @@ describe('Harbour on the fleet overview', () => {
     await tileOf(page, 'builder-gateway').waitFor();
 
     // Not cut short: the name takes no more room than its tile gives it, across or down.
-    await expect(
-      page.evaluate(
-        "(() => { const name = [...document.querySelectorAll('[data-testid=harbour-tile] span')].find((span) => span.textContent === 'builder-gateway'); const tiles = [...document.querySelectorAll('[data-testid=harbour-group-agents] [data-testid=harbour-tile]')]; return [name.scrollWidth <= name.clientWidth && name.scrollHeight <= name.clientHeight, new Set(tiles.slice(0, 2).map((tile) => tile.getBoundingClientRect().top)).size]; })()",
-      ),
-    ).resolves.toEqual([true, 1]);
+    const name = tileOf(page, 'builder-gateway').getByText('builder-gateway', { exact: true });
+    const isWhole = await name.evaluate((span: { scrollWidth: number; clientWidth: number; scrollHeight: number; clientHeight: number }) => span.scrollWidth <= span.clientWidth && span.scrollHeight <= span.clientHeight);
+    const rowsOfFirstTwoTiles = await page
+      .getByTestId('harbour-group-agents')
+      .getByTestId('harbour-tile')
+      .evaluateAll((tiles: { getBoundingClientRect(): { top: number } }[]) => new Set(tiles.slice(0, 2).map((tile) => tile.getBoundingClientRect().top)).size);
+    expect([isWhole, rowsOfFirstTwoTiles]).toEqual([true, 1]);
   });
 
   it("moves a ship's tile live when its crew reports blocked, without a reload", async () => {

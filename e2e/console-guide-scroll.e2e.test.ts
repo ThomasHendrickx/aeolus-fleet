@@ -13,6 +13,7 @@ import { FLEET_URL } from '../packages/core/test/support/core-fixtures.js';
 import { createMigratedDatabase } from '../packages/core/src/testing/database.js';
 import { newKey } from '../packages/core/src/testing/keys.js';
 import { unwrap } from '../packages/core/src/testing/result.js';
+import { visible } from './support/browser.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 
 // The guide (decision 0024) brings a step's anchor into view before it points
@@ -90,21 +91,12 @@ async function signedInViewer(options: BrowserContextOptions): Promise<Page> {
 
 /** Where the anchor this width shows sits in the window; null while it is not there. */
 function anchorBox(page: Page): Promise<{ y: number; height: number } | null> {
-  return page.locator(`[data-testid="${anchor}"]:visible`).first().boundingBox({ timeout: SETTLE_MS });
+  return visible(page, anchor).first().boundingBox({ timeout: 1_000 });
 }
 
-/** How long the anchor must stay put before the page counts as settled. */
-const SETTLE_MS = 500;
-
-/** Where the anchor sits once the page settles: the fleet's parts above it load in their own time. */
-async function settledAnchorBox(page: Page): Promise<{ y: number; height: number }> {
-  const isSettled = async (): Promise<boolean> => {
-    const before = await anchorBox(page).catch(() => null);
-    await page.waitForTimeout(SETTLE_MS);
-    const after = await anchorBox(page).catch(() => null);
-    return before !== null && before.y === after?.y;
-  };
-  await expect.poll(isSettled).toBe(true);
+/** Where the anchor sits once the fleet is on the page: the list is read and the live fleet has connected. */
+async function anchorBoxOnceLoaded(page: Page): Promise<{ y: number; height: number }> {
+  await page.getByText('Live', { exact: true }).filter({ visible: true }).first().waitFor();
   const box = await anchorBox(page);
   if (box === null) {
     throw new Error('The list shows no ship named old.');
@@ -115,16 +107,16 @@ async function settledAnchorBox(page: Page): Promise<{ y: number; height: number
 /** Ends the window just above the anchor, at the width the page has, with the page at its top. */
 async function foldJustAboveTheAnchor(page: Page): Promise<void> {
   await page.goto('/?view=list');
-  const box = await settledAnchorBox(page);
+  const box = await anchorBoxOnceLoaded(page);
   const width = page.viewportSize()?.width ?? 0;
   await page.setViewportSize({ width, height: Math.floor(box.y) - BELOW_THE_FOLD });
 }
 
-/** Whether the anchor lies wholly inside the window once the page settles. */
+/** Whether the anchor lies wholly inside the window now. */
 async function isAnchorInView(page: Page): Promise<boolean> {
-  const box = await settledAnchorBox(page);
+  const box = await anchorBox(page).catch(() => null);
   const windowHeight = page.viewportSize()?.height ?? 0;
-  return box.y >= 0 && box.y + box.height <= windowHeight;
+  return box !== null && box.y >= 0 && box.y + box.height <= windowHeight;
 }
 
 describe('a guide step whose anchor is below the fold', () => {
@@ -147,6 +139,7 @@ describe('a guide step whose anchor is below the fold', () => {
     const step = page.getByTestId('tour-step');
     await step.getByText('A ship', { exact: true }).waitFor();
     await expect.poll(() => step.getAttribute('data-placement')).toBe('anchored');
-    await expect(isAnchorInView(page)).resolves.toBe(true);
+    // The page scrolls to the anchor by itself: the final position is what is asserted, until it holds.
+    await expect.poll(() => isAnchorInView(page)).toBe(true);
   });
 });

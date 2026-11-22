@@ -38,7 +38,7 @@ export const SigningInAsArgo: Story = {
   play: async ({ canvasElement }) => {
     const row = within(canvasElement).getByRole('button', { name: 'Signing in as argo' });
     await expect(row).toBeDisabled();
-    await expect(row.querySelector('[data-testid="settings-sign-in-as-argo-spinner"]')).not.toBeNull();
+    await expect(within(row).getByTestId('settings-sign-in-as-argo-spinner')).toBeInTheDocument();
   },
 };
 

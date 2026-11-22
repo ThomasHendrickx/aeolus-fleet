@@ -16,7 +16,7 @@ import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './supp
 // it is opening its page while the web app's server answers, however long
 // the server takes.
 
-/** How long the test holds the server's answer to the click back: far longer than a click may wait for an answer. */
+/** How long a click may wait for the server before it shows it is opening; the test holds the answer back until then. */
 const SLOW_SERVER_MS = 3_000;
 /** A click shows it is working within this. */
 const AT_ONCE_MS = 1_000;
@@ -48,7 +48,7 @@ afterAll(async () => {
 });
 
 /** argo on the inbox, with the server's answer to a navigation to the fleet overview held back. */
-async function onInboxWithSlowOverview(viewport?: { width: number; height: number }): Promise<Page> {
+async function onInboxWithSlowOverview(viewport?: { width: number; height: number }): Promise<{ page: Page; answer: () => void }> {
   const context = await browser.newContext({ baseURL: web.url, ...(viewport === undefined ? {} : { viewport, isMobile: true, hasTouch: true }) });
   contexts.push(context);
   const page = await context.newPage();
@@ -56,44 +56,50 @@ async function onInboxWithSlowOverview(viewport?: { width: number; height: numbe
   await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
   await page.goto('/inbox');
   await page.getByRole('heading', { name: 'Inbox' }).waitFor();
-  // The server's answer to the click, its page as React Server Components, comes late.
+  // The server's answer to the click, its page as React Server Components, comes late: when the test lets it.
+  const answered = Promise.withResolvers<undefined>();
   await page.route(
     (url) => url.pathname === '/' && url.searchParams.has('_rsc'),
     async (route) => {
-      await new Promise((resolve) => setTimeout(resolve, SLOW_SERVER_MS));
+      await answered.promise;
       await route.continue();
     },
   );
-  return page;
+  return { page, answer: () => {
+    answered.resolve(undefined);
+  } };
 }
 
 describe('a click in the navigation', () => {
   it('shows at once that the fleet overview is opening, while the server is slow to answer', async () => {
-    const page = await onInboxWithSlowOverview();
+    const { page, answer } = await onInboxWithSlowOverview();
 
     const clickedAt = Date.now();
     await page.getByTestId('nav-overview').click();
     await page.getByTestId('nav-overview').getByRole('status').filter({ hasText: 'Opening' }).waitFor({ timeout: SLOW_SERVER_MS });
 
     expect(Date.now() - clickedAt).toBeLessThan(AT_ONCE_MS);
+    answer();
   });
 
   it("shows it in the phone's tab bar too", async () => {
-    const page = await onInboxWithSlowOverview({ width: 390, height: 844 });
+    const { page, answer } = await onInboxWithSlowOverview({ width: 390, height: 844 });
 
     const clickedAt = Date.now();
     await page.getByTestId('tab-fleet').click();
     await page.getByTestId('tab-fleet').getByRole('status').filter({ hasText: 'Opening' }).waitFor({ timeout: SLOW_SERVER_MS });
 
     expect(Date.now() - clickedAt).toBeLessThan(AT_ONCE_MS);
+    answer();
   });
 
   it('opens the page once the server answers, and the item no longer shows it is opening', async () => {
-    const page = await onInboxWithSlowOverview();
+    const { page, answer } = await onInboxWithSlowOverview();
 
     await page.getByTestId('nav-overview').click();
+    answer();
 
-    await page.getByRole('heading', { name: 'Fleet overview' }).waitFor({ timeout: SLOW_SERVER_MS * 3 });
+    await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
     await expect(page.getByTestId('nav-overview').getByRole('status').count()).resolves.toBe(0);
   });
 });

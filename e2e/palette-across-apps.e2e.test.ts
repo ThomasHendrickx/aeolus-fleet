@@ -127,11 +127,11 @@ describe('the palette across apps', () => {
   it("offers the gateway's Copy MCP address in the console; Enter copies it and says Copied, opening no app (A3)", async () => {
     // Given the account may open the gateway, its palette open on "mcp"
     const page = await paletteFor('mcp');
-    const copy = page.locator('[data-testid="command-palette-item"][data-item-key="gateway:mcp-address"]');
+    const copy = page.getByTestId('command-palette-item').filter({ hasText: 'Copy MCP address' });
     await copy.waitFor();
 
     // When it presses Enter on Copy MCP address
-    await copy.locator('xpath=self::*[@aria-selected="true"]').waitFor();
+    await expect.poll(() => copy.getAttribute('aria-selected')).toBe('true');
     await page.keyboard.press('Enter');
 
     // Then the address is copied, the row says Copied, and the console stays
@@ -143,7 +143,7 @@ describe('the palette across apps', () => {
   it("finds Account's Your rights from the console, under Account, and opens it there (A2, M2)", async () => {
     // Given the account's palette open on "rights"
     const page = await paletteFor('rights');
-    const rights = page.locator('[data-testid="command-palette-item"][data-item-key="account:rights"]');
+    const rights = page.getByTestId('command-palette-item').filter({ hasText: 'Your rights' });
 
     // Then Your rights shows, naming the app it opens
     await expect(rights.getByTestId('command-palette-item-app').textContent()).resolves.toBe('Account');

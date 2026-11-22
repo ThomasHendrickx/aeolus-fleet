@@ -25,7 +25,6 @@ import { withOperatorLogin } from '../packages/core/test/support/operator-login.
 const clock = createTestClock(new Date().toISOString());
 /** Two refresh cycles of the squadrons list (5 s each), with room for a slow first compile. */
 const WITHIN_MS = 15_000;
-const SAMPLE_EVERY_MS = 250;
 
 /**
  * A squadrons that is connected, has one repository and no squadron, and
@@ -76,17 +75,6 @@ function aSlowSquadrons() {
   };
 }
 
-async function waitUntil(isMet: () => boolean, withinMs: number): Promise<boolean> {
-  const deadline = Date.now() + withinMs;
-  while (Date.now() < deadline) {
-    if (isMet()) {
-      return true;
-    }
-    await new Promise((resolve) => setTimeout(resolve, SAMPLE_EVERY_MS));
-  }
-  return isMet();
-}
-
 let database: PrismaClient;
 let server: FastifyInstance;
 const squadrons = aSlowSquadrons();
@@ -129,13 +117,13 @@ describe('reads beside a slow mutation', () => {
     await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
     await page.goto('/settings');
     const refresh = page.getByTestId('repositories-refresh');
-    await refresh.and(page.locator(':enabled')).waitFor();
+    await expect.poll(() => refresh.isEnabled()).toBe(true);
 
     await refresh.click();
-    await expect(waitUntil(squadrons.isRefreshing, WITHIN_MS)).resolves.toBe(true);
+    await expect.poll(squadrons.isRefreshing, { timeout: WITHIN_MS }).toBe(true);
     const listedBefore = squadrons.listCount();
 
-    await expect(waitUntil(() => squadrons.listCount() > listedBefore, WITHIN_MS)).resolves.toBe(true);
+    await expect.poll(() => squadrons.listCount() > listedBefore, { timeout: WITHIN_MS }).toBe(true);
     expect(squadrons.isRefreshing()).toBe(true);
   });
 });

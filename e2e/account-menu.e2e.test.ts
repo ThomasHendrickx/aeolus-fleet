@@ -11,6 +11,7 @@ import { createMigratedDatabase } from '../packages/core/src/testing/database.js
 import { createTestClock } from '../packages/core/test/support/postgres-core.js';
 import { unwrap } from '../packages/core/src/testing/result.js';
 import { accountButton, holdSignOutSlow, openSettings, signIn } from './support/console.js';
+import { afterFrames, isInState, pageClasses, visible } from './support/browser.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 import { withOperatorLogin } from '../packages/core/test/support/operator-login.js';
 
@@ -23,10 +24,6 @@ import { withOperatorLogin } from '../packages/core/test/support/operator-login.
 const clock = createTestClock('2026-10-01T09:00:00.000Z');
 /** Sign-ins are rate limited per window; each test signs in after the window of the one before. */
 const SIGN_IN_WINDOW_MS = 60_000;
-/** How long after Sign out the calls the page sends are watched. */
-const AFTER_SIGN_OUT_MS = 3_000;
-/** How long a call's answer is held on its way back, long enough for Sign out to answer first without the console waiting for it. */
-const HELD_ANSWER_MS = 2_000;
 /** How soon coming back to the page asks its reads again: well before the fleet's own refresh (30 s) would. */
 const ASKED_AGAIN_MS = 5_000;
 
@@ -82,9 +79,10 @@ async function signedInPage(options: { isPhone: boolean }): Promise<Page> {
  * for a while on its way back to the console: the server has answered,
  * renewing the session cookie, but the console has not heard it yet.
  */
-function holdOneAnswer(page: Page, procedure: string): { reached: Promise<undefined>; answered: Promise<undefined> } {
+function holdOneAnswer(page: Page, procedure: string): { reached: Promise<undefined>; answered: Promise<undefined>; release: () => void } {
   const reached = Promise.withResolvers<undefined>();
   const answered = Promise.withResolvers<undefined>();
+  const released = Promise.withResolvers<undefined>();
   let isHolding = false;
   void page.route(
     (url) => (url.pathname.startsWith('/trpc/') || url.pathname.startsWith('/api/reports/')) && url.pathname.includes(procedure),
@@ -96,12 +94,15 @@ function holdOneAnswer(page: Page, procedure: string): { reached: Promise<undefi
       isHolding = true;
       const response = await route.fetch();
       reached.resolve(undefined);
-      await new Promise((resolve) => setTimeout(resolve, HELD_ANSWER_MS));
+      await released.promise;
       await route.fulfill({ response });
       answered.resolve(undefined);
     },
   );
-  return { reached: reached.promise, answered: answered.promise };
+  const release = (): void => {
+    released.resolve(undefined);
+  };
+  return { reached: reached.promise, answered: answered.promise, release };
 }
 
 /** What the console logs about a component switching between controlled and uncontrolled, as React and Base UI warn. */
@@ -115,13 +116,8 @@ function controlledWarnings(page: Page): string[] {
   return warnings;
 }
 
-function visible(page: Page, testId: string) {
-  return page.locator(`[data-testid="${testId}"]:visible`);
-}
-
 async function isDark(page: Page): Promise<boolean> {
-  const classes = (await page.locator('html').getAttribute('class')) ?? '';
-  return classes.split(/\s+/).includes('dark');
+  return (await pageClasses(page)).includes('dark');
 }
 
 describe.each([
@@ -161,7 +157,7 @@ describe.each([
     // Then it shows at once, focus stays on it, the browser keeps it, and the next load paints it
     await expect.poll(() => isDark(page)).toBe(true);
     await page.getByRole('status').filter({ hasText: 'Theme: Dark' }).waitFor();
-    await expect(page.getByRole('button', { name: 'Dark' }).and(page.locator(':focus')).count()).resolves.toBe(1);
+    await expect.poll(() => isInState(page.getByRole('button', { name: 'Dark' }), ':focus')).toBe(true);
     await expect.poll(() => themeCookieOf(page)).toBe('dark');
     await page.reload({ waitUntil: 'domcontentloaded' });
     await expect(isDark(page)).resolves.toBe(true);
@@ -211,7 +207,7 @@ describe.each([
     await page.getByRole('dialog', { name: 'Keyboard shortcuts' }).getByText('Search ships or jump to').waitFor();
     await page.keyboard.press('Escape');
 
-    await expect.poll(() => shortcuts.and(page.locator(':focus')).count()).toBe(1);
+    await expect.poll(() => isInState(shortcuts, ':focus')).toBe(true);
   });
 
   it('explains in the Apps and fleets panel that this installation has Console alone (docs/design/app-navigation, single-app)', async () => {
@@ -259,7 +255,7 @@ describe.each([
     const page = await signedInPage({ isPhone });
     await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
     // The live fleet reads the fleet again once it connects; only coming back to the page may ask it after that.
-    await page.waitForLoadState('networkidle');
+    await page.getByText('Live', { exact: true }).filter({ visible: true }).first().waitFor();
     const held = holdOneAnswer(page, 'fleet.harbour');
     const askedAgain = page.waitForRequest((request) => new URL(request.url()).pathname.includes('fleet.harbour'), { timeout: ASKED_AGAIN_MS });
     // Coming back to the page asks its reads again, the fleet among them; TanStack Query hears it on window.
@@ -269,7 +265,9 @@ describe.each([
 
     await visible(page, 'avatar-menu').click();
     await visible(page, 'avatar-menu-sign-out').click();
-
+    // The console sends Sign out only once every call on its way has answered, so Sign out waits for the held answer: it is let go once the menu says it is signing out.
+    await page.getByText('Signing out…').filter({ visible: true }).waitFor();
+    held.release();
     await page.waitForURL(`${web.url}/sign-in`);
     await held.answered;
     await expect(page.context().cookies()).resolves.toEqual([]);
@@ -294,7 +292,9 @@ describe.each([
 
     await visible(page, 'avatar-menu-sign-out').click();
     await page.waitForURL(`${web.url}/sign-in`);
-    await new Promise((resolve) => setTimeout(resolve, AFTER_SIGN_OUT_MS));
+    // The sign-in page is up: the page that sent Sign out is gone, and no later call is its.
+    await page.getByLabel('Email').waitFor();
+    await afterFrames(page);
 
     expect(hasSessionEnded).toBe(true);
     expect(readsAfterSessionEnded).toEqual([]);
@@ -310,8 +310,12 @@ describe.each([
     await signOut.started;
     // Coming back to the page while Sign out is on its way asks its reads again; TanStack Query hears it on window.
     await page.evaluate("window.dispatchEvent(new Event('visibilitychange'))");
+    await afterFrames(page);
+    signOut.release();
     await page.waitForURL(`${web.url}/sign-in`);
-    await new Promise((resolve) => setTimeout(resolve, AFTER_SIGN_OUT_MS));
+    // The sign-in page is up: the page that sent Sign out is gone, and no later call is its.
+    await page.getByLabel('Email').waitFor();
+    await afterFrames(page);
 
     expect(signOut.callsSent).toEqual([]);
   });
@@ -357,7 +361,9 @@ describe.each([
 
     await visible(page, 'avatar-menu-sign-out').click();
     await page.waitForURL(`${web.url}/sign-in`);
-    await new Promise((resolve) => setTimeout(resolve, AFTER_SIGN_OUT_MS));
+    // The sign-in page is up: the page that sent Sign out is gone, and no later call is its.
+    await page.getByLabel('Email').waitFor();
+    await afterFrames(page);
 
     expect(writesSent).toEqual(['console.signOut']);
   });

@@ -86,7 +86,7 @@ async function tileNames(page: Page): Promise<string[]> {
 }
 
 async function rowNames(page: Page): Promise<string[]> {
-  const rows = await page.getByRole('table', { name: 'Ships' }).locator('tbody tr').all();
+  const rows = await page.getByRole('table', { name: 'Ships' }).getByTestId(/^fleet-row-/).all();
   const ids = await Promise.all(rows.map((row) => row.getAttribute('data-testid')));
   return ids.map((id) => (id ?? '').replace('fleet-row-', ''));
 }

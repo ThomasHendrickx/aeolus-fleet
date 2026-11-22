@@ -84,7 +84,7 @@ describe('the overview rows', () => {
 
     await page.getByRole('row', { name: /builder/ }).getByTestId('fleet-runs-on').getByTestId('fleet-model-hint').hover();
 
-    await page.locator('[data-slot="tooltip-content"]').getByText(/^Model, stated /).waitFor();
+    await page.getByText(/^Model, stated /).waitFor();
   });
 
   it('leaves the retired ship out of the rows, and its ship page keeps its retirement time', async () => {

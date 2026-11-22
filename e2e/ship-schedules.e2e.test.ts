@@ -89,7 +89,7 @@ describe('a ship’s schedules on its page', () => {
   it('lists a schedule the ship made, and argo pauses it and then cancels it, each shown in its row and its timeline', async () => {
     await crewedOverRest({ name: 'chief-of-staff', type: 'chief' });
     const scheduler = await crewedOverRest({ name: 'scheduler', type: 'scheduler' });
-    const { scheduleId } = await scheduler.schedule({
+    await scheduler.schedule({
       selector: { kind: 'ship', name: 'chief-of-staff' },
       payload: 'Check in',
       timing: { kind: 'every', every: 'PT6H' },
@@ -99,7 +99,7 @@ describe('a ship’s schedules on its page', () => {
     await page.goto(`/ships/${scheduler.shipId}`);
     await page.getByRole('tab', { name: 'Schedules' }).click();
     await page.waitForURL(`${web.url}/ships/${scheduler.shipId}?tab=schedules`);
-    const row = page.locator(`[data-testid="ship-schedule"][data-schedule-id="${scheduleId}"]`);
+    const row = page.getByTestId('ship-schedule');
     await row.getByText('To chief-of-staff').waitFor();
     await row.getByText('Every 6 h').waitFor();
     await row.getByText('Active', { exact: true }).waitFor();

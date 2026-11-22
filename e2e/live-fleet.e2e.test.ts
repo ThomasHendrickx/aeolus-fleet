@@ -112,7 +112,7 @@ describe('the live fleet overview', () => {
     const prompt = await commissionInConsole(first, { name: 'scout', type: 'reviewer' });
     const watched = shipRow(second, 'scout');
     await watched.getByText('Awaiting crew').waitFor({ timeout: LIVE_TIMEOUT_MS });
-    await watched.and(second.locator('[data-new]')).waitFor();
+    await expect.poll(() => watched.getAttribute('data-new')).not.toBeNull();
 
     unwrap(await useCases.claimShip({ shipId: shipIdIn(prompt), secret: secretIn(prompt), location: { kind: 'CLOUD' }, harness: 'claude-code' }));
     await watched.getByText('Crewed').waitFor({ timeout: LIVE_TIMEOUT_MS });

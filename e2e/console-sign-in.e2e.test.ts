@@ -9,6 +9,7 @@ import { giveOperatorLogin } from '../packages/core/test/support/operator-login.
 import { FLEET_URL, OPERATOR } from '../packages/core/test/support/core-fixtures.js';
 import { createMigratedDatabase } from '../packages/core/src/testing/database.js';
 import { createTestClock } from '../packages/core/test/support/postgres-core.js';
+import { visible } from './support/browser.js';
 import { signIn } from './support/console.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 
@@ -81,8 +82,8 @@ describe('the first run, self-hosted: the link fleet:init printed', () => {
     await page.goto(signInLink);
 
     await expectSignedIn(page);
-    await page.locator('[data-testid="avatar-menu"]:visible').click();
-    await page.locator('[data-testid="avatar-menu-signed-in-as"]:visible', { hasText: 'Signed in as argo' }).waitFor();
+    await visible(page, 'avatar-menu').click();
+    await visible(page, 'avatar-menu-signed-in-as').filter({ hasText: 'Signed in as argo' }).waitFor();
     await page.keyboard.press('Escape');
     await page.getByTestId('nav-settings').click();
     await page.getByTestId('settings-sign-in-state').filter({ hasText: 'npx aeolus-core sign-in' }).waitFor();
@@ -161,7 +162,7 @@ describe('the console sign-in', () => {
     const page = await newPage();
     await page.goto('/sign-in');
 
-    await page.getByRole('button', { name: 'Sign in' }).and(page.locator(':enabled')).waitFor();
+    await expect.poll(() => page.getByRole('button', { name: 'Sign in' }).isEnabled()).toBe(true);
     await expect(page.getByTestId('sign-in-insecure-context').count()).resolves.toBe(0);
   });
 
@@ -178,8 +179,9 @@ describe('the console sign-in', () => {
     const page = await newPage();
     await page.goto('/sign-in');
 
-    const href = await page.locator('link[rel="icon"]').first().getAttribute('href');
-    const icon = await fetch(new URL(href ?? '/missing', web.url));
+    // Page source, as the e2e project has no DOM types.
+    const href = await page.evaluate(`document.querySelector('link[rel="icon"]')?.getAttribute('href')`);
+    const icon = await fetch(new URL(typeof href === 'string' ? href : '/missing', web.url));
 
     expect(icon.headers.get('content-type')).toContain('image/svg+xml');
     await expect(icon.text()).resolves.toContain('aria-label="Aeolus"');
@@ -253,7 +255,7 @@ describe('the console sign-in', () => {
     await expectSignedIn(page);
 
     // The Sidebar's account button on desktop; the phone TopBar's Avatar is hidden.
-    await page.locator('[data-testid="avatar-menu"]:visible').click();
+    await visible(page, 'avatar-menu').click();
     await page.getByRole('menuitem', { name: 'Sign out' }).click();
 
     await page.waitForURL(`${web.url}/sign-in`);

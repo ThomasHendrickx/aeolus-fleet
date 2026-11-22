@@ -52,13 +52,17 @@ async function killedRun(): Promise<void> {
     stdio: ['ignore', 'pipe', 'inherit'],
   });
   let output = '';
-  run.stdout.on('data', (chunk: Buffer) => (output += chunk.toString()));
-  while (!output.includes('serving')) {
-    if (run.exitCode !== null) {
-      throw new Error(`the test run exited with ${String(run.exitCode)}:\n${output}`);
+  const serving = Promise.withResolvers<undefined>();
+  run.stdout.on('data', (chunk: Buffer) => {
+    output += chunk.toString();
+    if (output.includes('serving')) {
+      serving.resolve(undefined);
     }
-    await new Promise((resolve) => setTimeout(resolve, 200));
-  }
+  });
+  run.once('close', (code) => {
+    serving.reject(new Error(`the test run exited with ${String(code)}:\n${output}`));
+  });
+  await serving.promise;
   const { stdout } = await promisify(execFile)('pgrep', ['-P', String(run.pid)]);
   leftBehind.push(...stdout.split('\n').filter(Boolean).map(Number));
   run.kill('SIGKILL');

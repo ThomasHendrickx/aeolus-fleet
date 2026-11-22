@@ -14,6 +14,7 @@ import { createMigratedDatabase } from '../packages/core/src/testing/database.js
 import { newKey } from '../packages/core/src/testing/keys.js';
 import { unwrap } from '../packages/core/src/testing/result.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
+import { pageClasses } from './support/browser.js';
 import { accountButton, openSettings } from './support/console.js';
 
 // The read-only console of a viewer session (decision 0022), end to end: a
@@ -103,7 +104,7 @@ describe('the console of a viewer session', () => {
     await page.reload({ waitUntil: 'domcontentloaded' });
 
     // Then it is dark from the first paint, and Settings offers no theme switch
-    await expect(page.locator('html').getAttribute('class')).resolves.toMatch(/(^|\s)dark(\s|$)/);
+    expect(await pageClasses(page)).toContain('dark');
     await openSettings(page);
     await page.getByRole('button', { name: 'Keyboard shortcuts' }).waitFor();
     await expect(page.getByRole('button', { name: 'Dark' }).count()).resolves.toBe(0);

@@ -14,6 +14,7 @@ import { createUseCases, type UseCases } from '../packages/core/src/wiring.js';
 import { FLEET_URL, OPERATOR, operatorCaller } from '../packages/core/test/support/core-fixtures.js';
 import { startFakeAccountApp, type FakeAccount, type FakeAccountApp } from './support/fake-account-app.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
+import { afterFrames, pageClasses, visible } from './support/browser.js';
 import { formPostHeld, holdFormPosts, letFormPostsGo, openSettings } from './support/console.js';
 
 // A human signs in to the console as their own account (accounts design, F1,
@@ -82,7 +83,7 @@ describe('an account signing in to the console', () => {
     await page.getByRole('link', { name: 'scout' }).first().waitFor();
     // Live shows once the page is hydrated: a menu click before that does nothing.
     await page.getByRole('banner').getByText('Live', { exact: true }).waitFor({ timeout: 20_000 });
-    await page.locator('[data-testid="avatar-menu"]:visible').click();
+    await visible(page, 'avatar-menu').click();
     await page.getByText('Signed in with your account').filter({ visible: true }).waitFor();
     await page.getByTestId('avatar-menu-who').getByText('Your account', { exact: true }).waitFor();
     await page.keyboard.press('Escape');
@@ -112,12 +113,17 @@ describe('an account signing in to the console', () => {
     const page = await newPage();
     await page.goto('/');
     await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
-    await page.waitForLoadState('networkidle');
+    await page.getByText('Live', { exact: true }).filter({ visible: true }).first().waitFor();
+    // The page's own ask is made once the console has answered its first read: wait for it, not for the network to go quiet.
+    await expect.poll(() => accountApp.appsListsAsked()).toBeGreaterThan(0);
     const asked = accountApp.appsListsAsked();
 
     await page.reload();
     await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
-    await page.waitForLoadState('networkidle');
+    // Live: the page has connected, and the reads it makes once connected are made.
+    await page.getByText('Live', { exact: true }).filter({ visible: true }).first().waitFor();
+    await expect.poll(() => accountApp.appsListsAsked() - asked).toBe(1);
+    await afterFrames(page);
 
     expect(accountApp.appsListsAsked() - asked).toBe(1);
   });
@@ -127,7 +133,7 @@ describe('an account signing in to the console', () => {
     const page = await newPage();
     await page.goto('/');
     await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
-    await page.waitForLoadState('networkidle');
+    await page.getByText('Live', { exact: true }).filter({ visible: true }).first().waitFor();
     const asked = accountApp.appsListsAsked();
     const reads: Request[] = [];
     page.on('request', (request) => {
@@ -187,7 +193,7 @@ describe('an account signing in to the console', () => {
     // Then the browser keeps Dark for every app, and the next page paints it
     await expect.poll(async () => (await page.context().cookies()).find((cookie) => cookie.name === THEME_COOKIE)?.value).toBe('dark');
     await page.reload({ waitUntil: 'domcontentloaded' });
-    await expect(page.locator('html').getAttribute('class')).resolves.toContain('dark');
+    await expect.poll(() => pageClasses(page)).toContain('dark');
   });
 
   it('shows the theme another Aeolus app kept in this browser, from the first paint (header-across-apps T1)', async () => {
@@ -200,7 +206,7 @@ describe('an account signing in to the console', () => {
     await page.goto('/', { waitUntil: 'domcontentloaded' });
 
     // Then the console is dark from the first paint
-    await expect(page.locator('html').getAttribute('class')).resolves.toContain('dark');
+    expect(await pageClasses(page)).toContain('dark');
   });
 
   it('says there is nothing to manage here for an account without fleet:read', async () => {
@@ -243,7 +249,7 @@ describe('an account signing in to the console', () => {
     await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
     const revokedBefore = accountApp.revoked().length;
 
-    await page.locator('[data-testid="avatar-menu"]:visible').click();
+    await visible(page, 'avatar-menu').click();
     await page.getByRole('menuitem', { name: 'Sign out' }).click();
 
     await page.waitForURL(`${web.url}/sign-in?signed=out`);
@@ -264,7 +270,7 @@ describe('an account signing in to the console', () => {
     await holdFormPosts(page);
 
     // When the account presses Sign out
-    await page.locator('[data-testid="avatar-menu"]:visible').click();
+    await visible(page, 'avatar-menu').click();
     await page.getByRole('menuitem', { name: 'Sign out' }).click();
     await formPostHeld(page, '/sign-in/out');
 
