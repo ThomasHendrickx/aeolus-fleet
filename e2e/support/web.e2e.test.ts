@@ -80,7 +80,7 @@ describe('the web app of the end-to-end tests', () => {
 });
 
 describe('the routes the web app is waited for on', () => {
-  it('come from the production build manifest: pages and route handlers, a made-up value for each dynamic segment, and no api route', () => {
+  it('come from the production build manifest: pages and route handlers, a made-up value for each dynamic segment, and neither an api route nor /health, which answers 503 while the server is down', () => {
     expect(
       routesToWaitFor({
         '/(console)/page': '/',
@@ -88,6 +88,7 @@ describe('the routes the web app is waited for on', () => {
         '/sign-in/ticket/route': '/sign-in/ticket',
         '/.well-known/aeolus-palette.json/route': '/.well-known/aeolus-palette.json',
         '/api/reads/route': '/api/reads',
+        '/health/route': '/health',
       }),
     ).toEqual(['/', '/ships/test', '/sign-in/ticket', '/.well-known/aeolus-palette.json']);
   });

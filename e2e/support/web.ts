@@ -1,9 +1,12 @@
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
+import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { chromium, type Browser } from 'playwright';
+import { z } from 'zod';
 
 // .ts, not .js: a test run starts this file in Node itself, beside Vitest.
 import { claimFreePort } from './port-claims.ts';
@@ -17,6 +20,22 @@ export function freePort(): Promise<number> {
 
 /** Runs next start for as long as the process that starts it lives. */
 const nextStart = fileURLToPath(new URL('next-start.ts', import.meta.url));
+
+/** The build's route manifest: each internal route name to the path it serves. */
+export const routeManifest = z.record(z.string(), z.string());
+
+/**
+ * The routes to wait for, from the production build's own manifest
+ * (.next/app-path-routes-manifest.json), so a page added to the console is
+ * waited for without editing this file. Every page and route handler counts,
+ * each dynamic segment filled with a made-up value; api routes are called by
+ * the console itself, never opened by a test.
+ */
+export function routesToWaitFor(manifest: Readonly<Record<string, string>>): string[] {
+  return Object.values(manifest)
+    .filter((route) => route !== '/api' && !route.startsWith('/api/') && !route.startsWith('/_'))
+    .map((route) => route.replace(/\[[^\]]+\]/g, 'test'));
+}
 
 export interface RunningWeb {
   url: string;
@@ -36,7 +55,7 @@ export async function reserveWebUrl(): Promise<string> {
 /**
  * Starts the web app with `next start` at the reserved URL, with the given
  * server as its AEOLUS_SERVER_URL (and a fake squadrons as its AEOLUS_SQUADRONS_URL, a fake trierarch plugin as its AEOLUS_TRIERARCH_PLUGIN_URL, the hosting service's sign-in as its
- * AEOLUS_HOSTED_SIGN_IN_URL, and the account app as AEOLUS_ACCOUNT_APP_URL with the console's client credentials, when given), and waits until the routes the suite opens answer. The console must be built first.
+ * AEOLUS_HOSTED_SIGN_IN_URL, and the account app as AEOLUS_ACCOUNT_APP_URL with the console's client credentials, when given), and waits until every route of the build answers (routesToWaitFor). The console must be built first (npm run build:e2e).
  *
  * The browser calls the server itself, so the server goes by `localhost`
  * like the console: one site, or the SameSite=Strict session cookie would
@@ -76,7 +95,7 @@ export async function startWeb(web: { url: string; serverUrl: string; squadronsU
     }
   };
 
-  const routes = ['/sign-in', '/sign-in/argo/confirm', '/sign-in/argo/refused', '/sign-in/unreachable', '/sign-in/failed', '/sign-in/switch-failed', '/sign-in/nothing-to-manage', '/sign-in/no-rights', '/', '/fleet-health', '/fleet-health/test', '/scopes', '/squadrons', '/squadrons/test', '/squadrons/templates/test', '/squadrons/blueprints/test', '/sealing', '/trierarchs', '/trierarchs/mcp-servers', '/trierarchs/test', '/needs-crew', '/usage', '/labels', '/network', '/messages/test', '/inbox', '/settings', '/ships/test', '/needs-attention'];
+  const routes = routesToWaitFor(routeManifest.parse(JSON.parse(await readFile(join(webRoot, '.next', 'app-path-routes-manifest.json'), 'utf8'))));
   const deadline = Date.now() + 180_000;
   while (Date.now() < deadline) {
     if (child.exitCode !== null) {
