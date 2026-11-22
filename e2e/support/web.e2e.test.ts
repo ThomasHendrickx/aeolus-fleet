@@ -4,7 +4,10 @@ import { promisify } from 'node:util';
 
 import { afterAll, describe, expect, it } from 'vitest';
 
-import { reserveWebUrl, startWeb, type RunningWeb } from './web.js';
+import { readFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
+
+import { reserveWebUrl, routesToWaitFor, startWeb, type RunningWeb } from './web.js';
 
 // The web app the end-to-end tests start: a run that is killed must not keep
 // the next run from starting its own (#514).
@@ -74,4 +77,26 @@ describe('the web app of the end-to-end tests', () => {
     },
     TWO_STARTS_MS,
   );
+});
+
+describe('the routes the web app is waited for on', () => {
+  it('come from the production build manifest: pages and route handlers, a made-up value for each dynamic segment, and no api route', () => {
+    expect(
+      routesToWaitFor({
+        '/(console)/page': '/',
+        '/(console)/ships/[shipId]/page': '/ships/[shipId]',
+        '/sign-in/ticket/route': '/sign-in/ticket',
+        '/.well-known/aeolus-palette.json/route': '/.well-known/aeolus-palette.json',
+        '/api/reads/route': '/api/reads',
+      }),
+    ).toEqual(['/', '/ships/test', '/sign-in/ticket', '/.well-known/aeolus-palette.json']);
+  });
+
+  it('include the routes the suite opens that no page lists', async () => {
+    const manifest = JSON.parse(
+      await readFile(fileURLToPath(new URL('../../packages/console/.next/app-path-routes-manifest.json', import.meta.url)), 'utf8'),
+    ) as Record<string, string>;
+
+    expect(routesToWaitFor(manifest)).toEqual(expect.arrayContaining(['/sign-in', '/sign-in/ticket', '/sign-in/done', '/.well-known/aeolus-palette.json']));
+  });
 });
