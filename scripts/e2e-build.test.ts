@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
 
 // The console is built once per CI run, by one npm script that the workflow
 // and the README both name; no end-to-end file builds it again.
@@ -10,7 +11,7 @@ const read = (path: string): string => readFileSync(fileURLToPath(new URL(`../${
 
 describe('the build the end-to-end tests run against', () => {
   it('is one npm script, build:e2e, that builds common, ui and the console', () => {
-    const scripts = (JSON.parse(read('package.json')) as { scripts: Record<string, string> }).scripts;
+    const { scripts } = z.object({ scripts: z.record(z.string(), z.string()) }).parse(JSON.parse(read('package.json')));
 
     expect(scripts['build:e2e']).toBe('npm run build --workspace @aeolus-fleet/common --workspace @aeolus-fleet/ui --workspace @aeolus-fleet/console');
   });

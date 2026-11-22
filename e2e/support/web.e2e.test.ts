@@ -7,7 +7,7 @@ import { afterAll, describe, expect, it } from 'vitest';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
-import { reserveWebUrl, routesToWaitFor, startWeb, type RunningWeb } from './web.js';
+import { reserveWebUrl, routeManifest, routesToWaitFor, startWeb, type RunningWeb } from './web.js';
 
 // The web app the end-to-end tests start: a run that is killed must not keep
 // the next run from starting its own (#514).
@@ -93,9 +93,7 @@ describe('the routes the web app is waited for on', () => {
   });
 
   it('include the routes the suite opens that no page lists', async () => {
-    const manifest = JSON.parse(
-      await readFile(fileURLToPath(new URL('../../packages/console/.next/app-path-routes-manifest.json', import.meta.url)), 'utf8'),
-    ) as Record<string, string>;
+    const manifest = routeManifest.parse(JSON.parse(await readFile(fileURLToPath(new URL('../../packages/console/.next/app-path-routes-manifest.json', import.meta.url)), 'utf8')));
 
     expect(routesToWaitFor(manifest)).toEqual(expect.arrayContaining(['/sign-in', '/sign-in/ticket', '/sign-in/done', '/.well-known/aeolus-palette.json']));
   });
