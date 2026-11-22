@@ -264,10 +264,9 @@ describe.each([
     await held.reached;
 
     await visible(page, 'avatar-menu').click();
-    const signOutSent = page.waitForRequest((request) => new URL(request.url()).pathname.endsWith('/console.signOut'));
     await visible(page, 'avatar-menu-sign-out').click();
-    await signOutSent;
-    // The held answer reaches the console only once Sign out is on its way.
+    // Sign out is sent only once the call still answering has been answered, so the held answer is let go after the click, never before it.
+    await afterFrames(page);
     held.release();
     await page.waitForURL(`${web.url}/sign-in`);
     await held.answered;
