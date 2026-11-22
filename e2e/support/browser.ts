@@ -13,9 +13,8 @@ export function visible(page: Page | Locator, testId: string): Locator {
  * the way a keyboard focuses. One reading: wait with expect.poll.
  */
 export async function isInState(part: Locator, state: ':focus' | ':focus-visible'): Promise<boolean> {
-  // Page source, as the e2e project has no DOM types.
-  const isIn = await part.evaluate(`(element) => element.matches(${JSON.stringify(state)})`);
-  return isIn === true;
+  // A function, not page source: the console's content security policy refuses the eval that reads source as a function.
+  return part.evaluate((element: { matches(selector: string): boolean }, selector: string) => element.matches(selector), state);
 }
 
 /** The classes on the page's html element, such as the theme. One reading: wait with expect.poll. */

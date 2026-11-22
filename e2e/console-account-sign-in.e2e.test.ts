@@ -14,7 +14,7 @@ import { createUseCases, type UseCases } from '../packages/core/src/wiring.js';
 import { FLEET_URL, OPERATOR, operatorCaller } from '../packages/core/test/support/core-fixtures.js';
 import { startFakeAccountApp, type FakeAccount, type FakeAccountApp } from './support/fake-account-app.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
-import { pageClasses, visible } from './support/browser.js';
+import { afterFrames, pageClasses, visible } from './support/browser.js';
 import { formPostHeld, holdFormPosts, letFormPostsGo, openSettings } from './support/console.js';
 
 // A human signs in to the console as their own account (accounts design, F1,
@@ -114,12 +114,16 @@ describe('an account signing in to the console', () => {
     await page.goto('/');
     await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
     await page.getByText('Live', { exact: true }).filter({ visible: true }).first().waitFor();
+    // The page's own ask is made once the console has answered its first read: wait for it, not for the network to go quiet.
+    await expect.poll(() => accountApp.appsListsAsked()).toBeGreaterThan(0);
     const asked = accountApp.appsListsAsked();
 
     await page.reload();
     await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
     // Live: the page has connected, and the reads it makes once connected are made.
     await page.getByText('Live', { exact: true }).filter({ visible: true }).first().waitFor();
+    await expect.poll(() => accountApp.appsListsAsked() - asked).toBe(1);
+    await afterFrames(page);
 
     expect(accountApp.appsListsAsked() - asked).toBe(1);
   });

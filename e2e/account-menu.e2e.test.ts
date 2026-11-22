@@ -264,11 +264,12 @@ describe.each([
     await held.reached;
 
     await visible(page, 'avatar-menu').click();
+    const signedOut = page.waitForResponse((response) => new URL(response.url()).pathname.endsWith('/console.signOut'));
     await visible(page, 'avatar-menu-sign-out').click();
-
-    await page.waitForURL(`${web.url}/sign-in`);
+    await signedOut;
     // The held answer reaches the console only now that Sign out has answered first.
     held.release();
+    await page.waitForURL(`${web.url}/sign-in`);
     await held.answered;
     await expect(page.context().cookies()).resolves.toEqual([]);
   });

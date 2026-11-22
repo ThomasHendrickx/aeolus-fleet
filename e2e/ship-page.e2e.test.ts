@@ -107,7 +107,8 @@ function messageRow(page: Page | Locator, saying: string | RegExp) {
   return page.getByTestId('message-row').filter({ hasText: saying });
 }
 
-const ASKED = /"task"\s*:\s*"review"/;
+/** The asked message's line: its JSON fields as `key value`. */
+const ASKED = 'task review';
 
 describe('the ship page', () => {
   it('opens a message task from its report and shows the matching recipient progress', async () => {

@@ -160,11 +160,11 @@ describe('Harbour on the fleet overview', () => {
 
     // Not cut short: the name takes no more room than its tile gives it, across or down.
     const name = tileOf(page, 'builder-gateway').getByText('builder-gateway', { exact: true });
-    const isWhole = await name.evaluate('(span) => span.scrollWidth <= span.clientWidth && span.scrollHeight <= span.clientHeight');
+    const isWhole = await name.evaluate((span: { scrollWidth: number; clientWidth: number; scrollHeight: number; clientHeight: number }) => span.scrollWidth <= span.clientWidth && span.scrollHeight <= span.clientHeight);
     const rowsOfFirstTwoTiles = await page
       .getByTestId('harbour-group-agents')
       .getByTestId('harbour-tile')
-      .evaluateAll('(tiles) => new Set(tiles.slice(0, 2).map((tile) => tile.getBoundingClientRect().top)).size');
+      .evaluateAll((tiles: { getBoundingClientRect(): { top: number } }[]) => new Set(tiles.slice(0, 2).map((tile) => tile.getBoundingClientRect().top)).size);
     expect([isWhole, rowsOfFirstTwoTiles]).toEqual([true, 1]);
   });
 

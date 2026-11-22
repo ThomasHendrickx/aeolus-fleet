@@ -88,8 +88,8 @@ async function pickFleetScope(page: Page, { scope, description }: { scope: strin
   if (description !== undefined) {
     await choices.getByText(description).waitFor();
   }
-  // The choice's label holds its scope code, so the label text finds its checkbox.
-  const choice = choices.getByLabel(scope);
+  // The choice's label holds its scope code, so the label text finds its checkbox (and its hidden input, which the role leaves out).
+  const choice = choices.getByRole('checkbox').and(choices.getByLabel(scope));
   await choice.click();
   await expect.poll(() => choice.getAttribute('aria-checked')).toBe('true');
 }
