@@ -82,6 +82,21 @@ afterAll(async () => {
   await database.$disconnect();
 });
 
+/**
+ * Holds every read but the EARLY ones until `answered` settles. The ship header's read
+ * goes through the console's /api/reports, not /trpc: holding /trpc alone let the header
+ * land as the visitor scrolled, and the visitor then scrolled from the top of the page (#2016).
+ */
+async function holdBackPartsAboveTimeline(page: Page, answered: () => Promise<unknown>): Promise<void> {
+  const isRead = (url: URL) => url.pathname.startsWith('/trpc/') || url.pathname.startsWith('/api/reports/');
+  await page.route(isRead, async (route) => {
+    if (!EARLY.test(route.request().url())) {
+      await answered();
+    }
+    await route.continue();
+  });
+}
+
 async function signedInViewer(): Promise<Page> {
   const { ticket } = await installation().operators.issueSignInTicket.mutate({ fleetId, as: 'viewer' });
   const context = await browser.newContext({ baseURL: web.url, ...PHONE });
@@ -145,24 +160,14 @@ describe('a guide step on a phone', () => {
 
   it('keeps them in sight when what sits above the anchor loads after it', async () => {
     const page = await signedInViewer();
-    await page.route('**/trpc/**', async (route) => {
-      if (!EARLY.test(route.request().url())) {
-        await new Promise((resolve) => setTimeout(resolve, LATE_MS));
-      }
-      await route.continue();
-    });
+    await holdBackPartsAboveTimeline(page, () => new Promise((resolve) => setTimeout(resolve, LATE_MS)));
     await expectAnchorAndNextEntryInSight(page);
   });
 
   it('leaves the page where the visitor scrolled it when what sits above the anchor loads later', async () => {
     const page = await signedInViewer();
     const late = Promise.withResolvers<undefined>();
-    await page.route('**/trpc/**', async (route) => {
-      if (!EARLY.test(route.request().url())) {
-        await late.promise;
-      }
-      await route.continue();
-    });
+    await holdBackPartsAboveTimeline(page, () => late.promise);
     await page.goto(`/ships/${shipId}`);
     const step = page.getByTestId('tour-step');
     await step.getByText('What happened last').waitFor();
