@@ -114,7 +114,7 @@ async function signedIn(): Promise<Page> {
 
 /** The ships the overview lists, argo aside, by name. */
 async function listed(page: Page): Promise<string[]> {
-  const rows = await page.locator('[data-testid^="fleet-row-"]').all();
+  const rows = await page.getByTestId(/^fleet-row-/).all();
   const names = await Promise.all(rows.map(async (row) => ((await row.getAttribute('data-testid')) ?? '').replace('fleet-row-', '')));
   return names.filter((name) => name !== 'argo');
 }
@@ -122,8 +122,8 @@ async function listed(page: Page): Promise<string[]> {
 /** Picks a value under its key in the open Labels menu, then closes it; the URL then carries it. */
 async function pick(page: Page, label: { key: string; value: string }): Promise<void> {
   // The open one: a menu that just closed may still be fading out beside it.
-  const popover = page.locator('[data-testid="fleet-filter-labels-popover"][data-open]');
-  await popover.waitFor();
+  const popover = page.getByTestId('fleet-filter-labels-popover');
+  await expect.poll(() => popover.count(), WITHIN).toBe(1);
   await popover.getByRole('group', { name: label.key, exact: true }).getByRole('button', { name: new RegExp(`^${label.value}\\s*\\d+$`) }).click();
   await expect.poll(() => new URL(page.url()).searchParams.getAll('label'), WITHIN).toContain(idOf(`${label.key}=${label.value}`));
   await page.keyboard.press('Escape');

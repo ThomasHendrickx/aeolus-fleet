@@ -11,6 +11,7 @@ import { FLEET_URL, OPERATOR, operatorCaller, secretOf } from '../packages/core/
 import { createMigratedDatabase } from '../packages/core/src/testing/database.js';
 import { createTestClock } from '../packages/core/test/support/postgres-core.js';
 import { unwrap } from '../packages/core/src/testing/result.js';
+import { visible } from './support/browser.js';
 import { signIn } from './support/console.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 import { newKey } from '../packages/core/src/testing/keys.js';
@@ -123,13 +124,8 @@ async function toArgo(from: Session, payload: string): Promise<string> {
   ).messageId;
 }
 
-/** The visible one of a test id: the desktop and phone layouts both render it. */
-function visible(page: Page, testId: string) {
-  return page.locator(`[data-testid="${testId}"]:visible`);
-}
-
 function inboxRow(page: Page, payload: string) {
-  return page.locator('[data-testid="inbox-row"]:visible').filter({ hasText: payload });
+  return visible(page, 'inbox-row').filter({ hasText: payload });
 }
 
 describe('the operator inbox', () => {

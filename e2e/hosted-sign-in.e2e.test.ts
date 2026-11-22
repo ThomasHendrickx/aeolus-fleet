@@ -107,7 +107,7 @@ describe('a hosted console', () => {
 
     await again.getByRole('heading', { name: 'We couldn’t sign you in' }).waitFor();
     await expect(again.getByTestId('sign-in-failed-again').getAttribute('href')).resolves.toBe(hostedSignInUrl);
-    await expect(again.locator('input[type="password"]').count()).resolves.toBe(0);
+    await expect(again.getByLabel('Password').count()).resolves.toBe(0);
   });
 
   it("says the operator signed in somewhere else before the hosting service's sign-in, and serves no password form", async () => {
@@ -117,7 +117,7 @@ describe('a hosted console', () => {
 
     await page.getByTestId('sign-in-signed-in-elsewhere').getByText('You signed in somewhere else').waitFor();
     await expect(page.getByTestId('sign-in-elsewhere-again').getAttribute('href')).resolves.toBe(hostedSignInUrl);
-    await expect(page.locator('input[type="password"]').count()).resolves.toBe(0);
+    await expect(page.getByLabel('Password').count()).resolves.toBe(0);
   });
 
   it('shows a page left open the notice once the operator signs in somewhere else and it goes on', async () => {

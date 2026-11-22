@@ -11,6 +11,7 @@ import { createMigratedDatabase } from '../packages/core/src/testing/database.js
 import { newKey } from '../packages/core/src/testing/keys.js';
 import { createTestClock } from '../packages/core/test/support/postgres-core.js';
 import { unwrap } from '../packages/core/src/testing/result.js';
+import { afterFrames } from './support/browser.js';
 import { signIn, openRowMenu } from './support/console.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 import { withOperatorLogin } from '../packages/core/test/support/operator-login.js';
@@ -20,9 +21,8 @@ import { withOperatorLogin } from '../packages/core/test/support/operator-login.
 // plain actions.
 
 const clock = createTestClock('2026-10-03T12:00:00.000Z');
-/** Longer than three refresh cycles of the squadrons list (5 s each), with its retries. */
-const STEADY_FOR_MS = 16_000;
-const SAMPLE_EVERY_MS = 250;
+/** How many times the overview reads the fleet again while the menu stays open. */
+const REFRESHES = 4;
 
 let database: PrismaClient;
 let useCases: UseCases;
@@ -98,9 +98,13 @@ describe('a console without squadrons', () => {
     await page.getByTestId('fleet-ship-retire').waitFor();
 
     const shown: number[] = [];
-    for (const started = Date.now(); Date.now() - started < STEADY_FOR_MS; ) {
+    for (let refresh = 0; refresh < REFRESHES; refresh += 1) {
+      // Coming back to the page asks its reads again; TanStack Query hears it on window.
+      const read = page.waitForResponse((response) => response.url().includes('fleet.list'));
+      await page.evaluate("window.dispatchEvent(new Event('visibilitychange'))");
+      await read;
+      await afterFrames(page);
       shown.push(await page.getByTestId('fleet-ship-retire').count());
-      await page.waitForTimeout(SAMPLE_EVERY_MS);
     }
     await page.keyboard.press('Escape');
     await page.getByTestId('nav-health').click();

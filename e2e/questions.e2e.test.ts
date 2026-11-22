@@ -13,6 +13,7 @@ import { FLEET_URL, OPERATOR, operatorCaller, secretOf } from '../packages/core/
 import { createMigratedDatabase } from '../packages/core/src/testing/database.js';
 import { createTestClock } from '../packages/core/test/support/postgres-core.js';
 import { unwrap } from '../packages/core/src/testing/result.js';
+import { visible } from './support/browser.js';
 import { signIn } from './support/console.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 import { newKey } from '../packages/core/src/testing/keys.js';
@@ -122,13 +123,8 @@ const QUESTION = {
   pick: { option: 2, why: 'Fewest changes.' },
 };
 
-/** The visible one of a test id: the desktop and phone layouts both render it. */
-function visible(page: Page, testId: string) {
-  return page.locator(`[data-testid="${testId}"]:visible`);
-}
-
 function questionRow(page: Page, title: string) {
-  return page.locator('[data-testid="inbox-question-row"]:visible').filter({ hasText: title });
+  return visible(page, 'inbox-question-row').filter({ hasText: title });
 }
 
 describe('questions to argo', () => {
@@ -168,7 +164,7 @@ describe('questions to argo', () => {
     await questionRow(page, QUESTION.title).click();
     await visible(page, 'inbox-answered').waitFor();
     await page.goto('/inbox');
-    await page.locator('[data-testid="inbox-empty"]:visible').waitFor();
+    await visible(page, 'inbox-empty').waitFor();
   });
 
   it('answers with a note alone once the pick is taken back, asking for more context', async () => {
@@ -297,7 +293,7 @@ describe('questions to argo', () => {
     });
 
     await questionRow(page, replacement.title).waitFor({ timeout: LIVE_TIMEOUT_MS });
-    await expect(page.locator('[data-testid="inbox-row"]:visible').count()).resolves.toBe(0);
+    await expect.poll(() => visible(page, 'inbox-row').count()).toBe(0);
     await questionRow(page, withdrawn.title).click();
     await visible(page, 'inbox-stale').getByText('Withdrawn by implementer-d', { exact: false }).waitFor();
     await expect(visible(page, 'inbox-answer').count()).resolves.toBe(0);

@@ -12,6 +12,7 @@ import { FLEET_URL, OPERATOR, operatorCaller, secretOf } from '../packages/core/
 import { createMigratedDatabase } from '../packages/core/src/testing/database.js';
 import { createTestClock } from '../packages/core/test/support/postgres-core.js';
 import { unwrap } from '../packages/core/src/testing/result.js';
+import { visible } from './support/browser.js';
 import { signIn } from './support/console.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 import { newKey } from '../packages/core/src/testing/keys.js';
@@ -150,8 +151,8 @@ async function signedInPage(): Promise<Page> {
   return page;
 }
 
-function stuckRow(page: Page, deliveryId: string) {
-  return page.locator(`[data-testid="drilldown-row"][data-delivery-id="${deliveryId}"]:visible`);
+function stuckRow(page: Page, payload: string) {
+  return visible(page, 'drilldown-row').filter({ hasText: payload });
 }
 
 describe('Health', () => {
@@ -162,17 +163,17 @@ describe('Health', () => {
     const navigation = page.getByTestId('nav-health');
     await navigation.waitFor();
 
-    const deliveryId = await undeliverable({ from: builder, to: tester, payload: '{"run":"e2e","ref":"pr-320"}' });
+    await undeliverable({ from: builder, to: tester, payload: '{"run":"e2e","ref":"pr-320"}' });
 
     await navigation.getByText('1').waitFor({ timeout: LIVE_TIMEOUT_MS });
     await navigation.click();
     await page.waitForURL(`${web.url}/fleet-health`);
     await page.getByRole('heading', { name: 'Health' }).first().waitFor();
-    const cause = page.locator('[data-testid="health-cause"][data-cause="undeliverable"]');
+    const cause = page.getByTestId('health-cause').filter({ hasText: 'Taken five times' });
     await cause.getByText('tester-01').first().waitFor({ timeout: LIVE_TIMEOUT_MS });
     await cause.getByTestId('health-cause-open').click();
     await page.waitForURL(`${web.url}/fleet-health/undeliverable`);
-    const row = stuckRow(page, deliveryId);
+    const row = stuckRow(page, '{"run":"e2e","ref":"pr-320"}');
     await row.getByText('{"run":"e2e","ref":"pr-320"}').waitFor();
 
     await row.getByTestId('drilldown-resend').click();
@@ -192,7 +193,7 @@ describe('Health', () => {
     const deliveryId = await undeliverable({ from: planner, to: reviewer, payload: 'Pause all reviews until 15:00.' });
     const page = await signedInPage();
     await page.goto('/fleet-health/undeliverable');
-    const row = stuckRow(page, deliveryId);
+    const row = stuckRow(page, 'Pause all reviews until 15:00.');
     await row.getByText('Pause all reviews until 15:00.').waitFor();
 
     await row.getByTestId('drilldown-dismiss').click();
@@ -210,7 +211,7 @@ describe('Health', () => {
     unwrap(await useCases.retireShip(argo, { shipId: mapper.shipId }));
     const page = await signedInPage();
     await page.goto('/fleet-health');
-    const cause = page.locator('[data-testid="health-cause"][data-cause="noShipCanTake"]');
+    const cause = page.getByTestId('health-cause').filter({ hasText: 'Sent to a type with no active ship' });
     await cause.getByText('mapper', { exact: true }).first().waitFor();
     await cause.getByTestId('health-next-step').getByText('Commission a mapper').waitFor();
 
@@ -226,11 +227,11 @@ describe('Health', () => {
     await page.goto(`/ships/${surveyor.shipId}`);
     await page.getByRole('heading', { name: 'surveyor-01' }).first().waitFor();
 
-    const deliveryId = await notHandled({ to: surveyor, payload: 'Survey the bay.' });
+    await notHandled({ to: surveyor, payload: 'Survey the bay.' });
 
     const section = page.getByTestId('ship-not-handled');
     await section.getByRole('heading', { name: 'Not handled (1)' }).waitFor({ timeout: LIVE_TIMEOUT_MS });
-    const row = section.locator(`[data-testid="attention-row"][data-delivery-id="${deliveryId}"]:visible`);
+    const row = visible(section, 'attention-row').filter({ hasText: 'Survey the bay.' });
     await row.getByText('Survey the bay.').waitFor();
     await row.getByTestId('attention-resend').waitFor();
     await row.getByTestId('attention-dismiss').waitFor();

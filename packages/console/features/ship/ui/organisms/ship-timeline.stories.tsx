@@ -42,7 +42,7 @@ export const OwnerRetired: Story = {
     for (const owner of [PLANNER, ARGO]) {
       const link = canvas.getByRole('link', { name: owner.name });
       await expect(link).toHaveAttribute('href', `/ships/${owner.id}`);
-      await expect(link.closest('[data-testid="ship-timeline-entry"]')).toHaveTextContent(' owns it now');
+      await expect(canvas.getAllByTestId('ship-timeline-entry').find((entry) => entry.contains(link))).toHaveTextContent(' owns it now');
     }
   },
 };

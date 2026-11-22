@@ -79,13 +79,17 @@ async function otherRunClaims(where: PortClaims, options: { claims: number; isHe
   // Listened for at once: a run that is not held may end before it is awaited.
   const exited = once(run, 'exit');
   let output = '';
-  run.stdout.on('data', (chunk: Buffer) => (output += chunk.toString()));
-  while (!output.includes('\n')) {
-    if (run.exitCode !== null) {
-      throw new Error(`the other run exited with ${String(run.exitCode)}:\n${output}`);
+  const answered = Promise.withResolvers<undefined>();
+  run.stdout.on('data', (chunk: Buffer) => {
+    output += chunk.toString();
+    if (output.includes('\n')) {
+      answered.resolve(undefined);
     }
-    await new Promise((resolve) => setTimeout(resolve, 50));
-  }
+  });
+  run.once('close', (code) => {
+    answered.reject(new Error(`the other run exited with ${String(code)}:\n${output}`));
+  });
+  await answered.promise;
   if (!options.isHeld) {
     await exited;
   }

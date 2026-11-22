@@ -117,11 +117,11 @@ export const BarAboveTheSidebar: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     const bar = [...canvasElement.querySelectorAll<HTMLElement>('[data-slot="app-header"]')].find((header) => header.getClientRects().length > 0);
-    const sidebar = canvasElement.querySelector('[data-slot="sidebar"]');
+    const sidebar = canvasElement.querySelector<HTMLElement>('[data-slot="sidebar"]');
     await expect(bar?.getBoundingClientRect().left).toBe(canvasElement.getBoundingClientRect().left);
     await expect(sidebar?.getBoundingClientRect().top).toBeGreaterThanOrEqual(bar?.getBoundingClientRect().bottom ?? Infinity);
     await expect(canvas.getByRole('button', { name: 'Account: Signed in as argo' }).closest('[data-slot="app-header"]')).toBe(bar);
-    await expect(sidebar?.querySelector('[data-testid="avatar-menu"]')).toBeNull();
+    await expect(sidebar === null ? null : within(sidebar).queryByTestId('avatar-menu')).toBeNull();
   },
 };
 

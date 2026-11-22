@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import type { Browser, BrowserContext, Page } from 'playwright';
+import type { Browser, BrowserContext, Locator, Page } from 'playwright';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
@@ -102,9 +102,12 @@ async function signedInPage(): Promise<Page> {
   return page;
 }
 
-function messageRow(page: Page, messageId: string) {
-  return page.locator(`[data-testid="message-row"][data-message-id="${messageId}"]`);
+/** A message's row, found by what it says: the question and its reply are rows of one thread. */
+function messageRow(page: Page | Locator, saying: string | RegExp) {
+  return page.getByTestId('message-row').filter({ hasText: saying });
 }
+
+const ASKED = /"task"\s*:\s*"review"/;
 
 describe('the ship page', () => {
   it('opens a message task from its report and shows the matching recipient progress', async () => {
@@ -150,32 +153,32 @@ describe('the ship page', () => {
         idempotencyKey: 'ask-scout',
       }),
     ).messageId;
-    await messageRow(page, asked).getByText('Pending').waitFor({ timeout: LIVE_TIMEOUT_MS });
+    await messageRow(page, ASKED).getByText('Pending').waitFor({ timeout: LIVE_TIMEOUT_MS });
 
     const [delivery] = receivedSchema.parse(await scout.call('receive', { max: 1 })).deliveries;
-    await messageRow(page, asked).getByText('Handed (pulled)').waitFor({ timeout: LIVE_TIMEOUT_MS });
+    await messageRow(page, ASKED).getByText('Handed (pulled)').waitFor({ timeout: LIVE_TIMEOUT_MS });
     await scout.call('ack', { deliveryId: delivery?.deliveryId });
-    await messageRow(page, asked).getByText('Acknowledged').waitFor({ timeout: LIVE_TIMEOUT_MS });
+    await messageRow(page, ASKED).getByText('Acknowledged').waitFor({ timeout: LIVE_TIMEOUT_MS });
 
-    const answered = sentSchema.parse(
+    sentSchema.parse(
       await scout.call('send', {
         selector: { kind: 'ship', name: 'planner' },
         payload: 'Reviewed: two comments on PR 48',
         idempotencyKey: 'answer-planner',
         inReplyTo: asked,
       }),
-    ).messageId;
-    const thread = page.getByTestId('message-thread').filter({ has: messageRow(page, asked) });
-    await thread.locator(`[data-message-id="${answered}"]`).getByText('Pending').waitFor({ timeout: LIVE_TIMEOUT_MS });
+    );
+    const thread = page.getByTestId('message-thread').filter({ has: messageRow(page, ASKED) });
+    await messageRow(thread, 'Reviewed: two comments on PR 48').getByText('Pending').waitFor({ timeout: LIVE_TIMEOUT_MS });
     await expect(page.getByTestId('message-thread').count()).resolves.toBe(1);
 
     await page.getByRole('tab', { name: 'Timeline' }).click();
     const timeline = page.getByTestId('ship-timeline');
-    await timeline.locator('[data-type="MessageAccepted"]').filter({ hasText: 'Sent a message to' }).waitFor();
-    await timeline.locator('[data-type="DeliveryAcknowledged"]').waitFor();
+    await timeline.getByTestId('ship-timeline-entry').filter({ hasText: 'Sent a message to' }).waitFor();
+    await timeline.getByTestId('ship-timeline-entry').filter({ hasText: 'acknowledged' }).waitFor();
 
     await page.getByRole('tab', { name: 'Messages' }).click();
-    await messageRow(page, asked).click();
+    await messageRow(page, ASKED).click();
     const sheet = page.getByTestId('message-sheet');
     await sheet.waitFor();
     expect(page.url()).toContain(`message=${asked}`);
@@ -195,7 +198,7 @@ describe('the ship page', () => {
     await page.goto('/?view=list');
     const row = page.getByTestId('fleet-row-scout');
     await expect(row.getByTestId('fleet-runs-on').getByTestId('fleet-model-hint').textContent()).resolves.toMatch(/^claude-opus-5-5, Model, stated /);
-    await row.locator('[data-slot="location-tag"]').getByText('Claude Code').waitFor();
+    await row.getByText('Claude Code').first().waitFor();
   });
 
   it("replies as argo from a message's sheet: the reply reaches its sender, naming the message", async () => {

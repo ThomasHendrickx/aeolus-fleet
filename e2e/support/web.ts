@@ -86,8 +86,19 @@ export async function startWeb(web: { url: string; serverUrl: string; squadronsU
     stdio: ['pipe', 'pipe', 'pipe'],
   });
   let output = '';
-  child.stdout.on('data', (chunk: Buffer) => (output += chunk.toString()));
-  child.stderr.on('data', (chunk: Buffer) => (output += chunk.toString()));
+  // next start says "Ready in" once it listens: the app's own readiness, awaited, never slept for.
+  const listening = Promise.withResolvers<undefined>();
+  const take = (chunk: Buffer) => {
+    output += chunk.toString();
+    if (output.includes('Ready in')) {
+      listening.resolve(undefined);
+    }
+  };
+  child.stdout.on('data', take);
+  child.stderr.on('data', take);
+  child.once('exit', (code) => {
+    listening.reject(new Error(`next start exited with ${String(code)}:\n${output}`));
+  });
 
   const stop = async () => {
     if (child.exitCode === null) {
@@ -96,6 +107,7 @@ export async function startWeb(web: { url: string; serverUrl: string; squadronsU
     }
   };
 
+  await listening.promise;
   const routes = routesToWaitFor(routeManifest.parse(JSON.parse(await readFile(join(webRoot, '.next', 'app-path-routes-manifest.json'), 'utf8'))));
   const deadline = Date.now() + 180_000;
   while (Date.now() < deadline) {
@@ -108,9 +120,8 @@ export async function startWeb(web: { url: string; serverUrl: string; squadronsU
         return { url, stop };
       }
     } catch {
-      // Not listening yet.
+      // A route's answer was cut off: ask every route again.
     }
-    await new Promise((resolve) => setTimeout(resolve, 500));
   }
   await stop();
   throw new Error(`next start did not serve the routes in time:\n${output}`);

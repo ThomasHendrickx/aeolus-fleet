@@ -9,6 +9,7 @@ import type { AppRouter } from '../packages/core/src/index.js';
 import { FLEET_URL } from '../packages/core/test/support/core-fixtures.js';
 import { createMigratedDatabase } from '../packages/core/src/testing/database.js';
 import { newKey } from '../packages/core/src/testing/keys.js';
+import { afterFrames } from './support/browser.js';
 import { holdSignOutSlow } from './support/console.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 
@@ -17,8 +18,6 @@ import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './supp
 // audience, dismissed per session, and a link that signs out.
 
 const INSTALLATION_TOKEN = 'aeolus_installation_test_0123456789abcdef';
-/** How long after leaving the calls the page sends are watched. */
-const AFTER_SIGN_OUT_MS = 3_000;
 
 let server: FastifyInstance;
 let serverUrl: string;
@@ -72,8 +71,13 @@ async function signedIn(as: 'operator' | 'viewer'): Promise<Page> {
   return page;
 }
 
-function notice(page: Page, id: string) {
-  return page.locator(`[data-testid="notice"][data-notice-id="${id}"]`);
+const NOTICE_TEXT = {
+  maintenance: 'Maintenance on Saturday at 06:00 UTC.',
+  'read-only': 'You are looking at this fleet read-only.',
+};
+
+function notice(page: Page, id: keyof typeof NOTICE_TEXT) {
+  return page.getByTestId('notice').filter({ hasText: NOTICE_TEXT[id] });
 }
 
 describe('the notices above the console', () => {
@@ -129,8 +133,10 @@ describe('the notices above the console', () => {
     await signOut.started;
     // Coming back to the page while Sign out is on its way asks its reads again; TanStack Query hears it on window.
     await page.evaluate("window.dispatchEvent(new Event('visibilitychange'))");
+    await afterFrames(page);
+    signOut.release();
     await page.waitForURL(`${web.url}/sign-in`);
-    await new Promise((resolve) => setTimeout(resolve, AFTER_SIGN_OUT_MS));
+    await page.getByRole('button', { name: 'Sign in' }).waitFor();
 
     expect(signOut.callsSent).toEqual([]);
   });

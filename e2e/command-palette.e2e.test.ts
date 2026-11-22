@@ -91,6 +91,11 @@ function palette(page: Page) {
   return page.getByTestId('command-palette');
 }
 
+/** An item of the open palette, found by the label it shows. */
+function item(page: Page, label: string | RegExp) {
+  return palette(page).getByTestId('command-palette-item').filter({ hasText: label });
+}
+
 describe('the CommandPalette', () => {
   it('opens on Cmd+K and opens a ship found by name', async () => {
     const { shipId } = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'reviewer-01', type: 'reviewer' }));
@@ -99,21 +104,21 @@ describe('the CommandPalette', () => {
 
     await page.keyboard.press('ControlOrMeta+k');
     await palette(page).getByTestId('command-palette-input').fill('revi');
-    await palette(page).locator(`[data-testid="command-palette-item"][data-item-key="ship:${shipId}"]`).click();
+    await item(page, 'reviewer-01').click();
 
     await page.waitForURL(`${web.url}/ships/${shipId}`);
     await palette(page).waitFor({ state: 'hidden' });
   });
 
   it('asks the server for the first 20 ships that match what is typed, never every ship', async () => {
-    const { shipId } = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'lighthouse', type: 'keeper' }));
+    unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'lighthouse', type: 'keeper' }));
     const page = await signedInPage();
     await page.getByTestId('header-search').waitFor();
     const asked = fleetListAsked(page);
 
     await page.keyboard.press('ControlOrMeta+k');
     await palette(page).getByTestId('command-palette-input').fill('lighth');
-    await palette(page).locator(`[data-testid="command-palette-item"][data-item-key="ship:${shipId}"]`).waitFor();
+    await item(page, 'lighthouse').waitFor();
 
     expect(asked).toContainEqual(expect.objectContaining({ query: 'lighth', limit: 20 }));
   });
@@ -125,7 +130,7 @@ describe('the CommandPalette', () => {
     await page.getByTestId('header-search').click();
     await palette(page).getByTestId('command-palette-input').fill('commission');
     // Commission ship is offered once the session's access is known; Enter before that chooses nothing.
-    await palette(page).locator('[data-testid="command-palette-item"][data-item-key="action:commission"][aria-selected="true"]').waitFor();
+    await expect.poll(() => item(page, 'Commission ship').getAttribute('aria-selected')).toBe('true');
     await page.keyboard.press('Enter');
 
     await page.getByTestId('commission-dialog').waitFor();
@@ -150,7 +155,7 @@ describe('the CommandPalette', () => {
 
     await page.getByTestId('top-bar-search').click();
     await palette(page).getByTestId('command-palette-input').fill('health');
-    await palette(page).locator('[data-testid="command-palette-item"][data-item-key="page:health"]').click();
+    await item(page, /^Health/).click();
 
     await page.waitForURL(`${web.url}/fleet-health`);
   });

@@ -13,6 +13,7 @@ import { FLEET_URL } from '../packages/core/test/support/core-fixtures.js';
 import { createMigratedDatabase } from '../packages/core/src/testing/database.js';
 import { newKey } from '../packages/core/src/testing/keys.js';
 import { unwrap } from '../packages/core/src/testing/result.js';
+import { afterFrames, visible } from './support/browser.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 
 // The guide (decision 0024) brings a step's anchor into view before it points
@@ -90,17 +91,19 @@ async function signedInViewer(options: BrowserContextOptions): Promise<Page> {
 
 /** Where the anchor this width shows sits in the window; null while it is not there. */
 function anchorBox(page: Page): Promise<{ y: number; height: number } | null> {
-  return page.locator(`[data-testid="${anchor}"]:visible`).first().boundingBox({ timeout: SETTLE_MS });
+  return visible(page, anchor).first().boundingBox({ timeout: 1_000 });
 }
 
-/** How long the anchor must stay put before the page counts as settled. */
-const SETTLE_MS = 500;
+/** How many painted frames in a row the anchor must stay put before the page counts as settled. */
+const SETTLE_FRAMES = 30;
 
 /** Where the anchor sits once the page settles: the fleet's parts above it load in their own time. */
 async function settledAnchorBox(page: Page): Promise<{ y: number; height: number }> {
   const isSettled = async (): Promise<boolean> => {
     const before = await anchorBox(page).catch(() => null);
-    await page.waitForTimeout(SETTLE_MS);
+    for (let frame = 0; frame < SETTLE_FRAMES; frame += 1) {
+      await afterFrames(page);
+    }
     const after = await anchorBox(page).catch(() => null);
     return before !== null && before.y === after?.y;
   };

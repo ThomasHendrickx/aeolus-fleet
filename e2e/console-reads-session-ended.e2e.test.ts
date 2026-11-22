@@ -12,6 +12,7 @@ import { FLEET_URL, OPERATOR } from '../packages/core/test/support/core-fixtures
 import { createMigratedDatabase } from '../packages/core/src/testing/database.js';
 import { createTestClock } from '../packages/core/test/support/postgres-core.js';
 import { unwrap } from '../packages/core/src/testing/result.js';
+import { afterFrames } from './support/browser.js';
 import { signIn } from './support/console.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 import { withOperatorLogin } from '../packages/core/test/support/operator-login.js';
@@ -29,12 +30,6 @@ const SESSION_LIFETIME_MS = 30 * DAY_MS;
 const WITHIN_MS = 15_000;
 const UNAUTHORIZED = 401;
 const clock = createTestClock(new Date().toISOString());
-/** How long the sign-in page takes to answer: a slow way out. */
-const SLOW_WAY_OUT_MS = 2_000;
-/** How long after leaving the calls the page sends are watched. */
-const AFTER_LEAVING_MS = 3_000;
-/** How long a page's live subscription waits before it reaches the server: longer than the page takes to show its reads. */
-const LATE_LIVE_MS = 2_000;
 
 /** A squadrons that is connected and has no squadron and no blueprint. */
 function aConnectedSquadrons(): Server {
@@ -108,11 +103,12 @@ async function aSquadronsPageHearingOnlyItsReads(): Promise<Page> {
 }
 
 /**
- * Holds the page's live subscription for a while before it reaches the
- * server, as a slow WebSocket does: what the page sends meanwhile waits and
- * goes once the server is reached.
+ * Holds the page's live subscription before it reaches the server until
+ * release() is called, as a slow WebSocket does: what the page sends meanwhile
+ * waits and goes once the server is reached.
  */
-async function holdLiveSubscription(page: Page): Promise<void> {
+async function holdLiveSubscription(page: Page): Promise<{ release: () => void }> {
+  const released = Promise.withResolvers<undefined>();
   await page.routeWebSocket(/\/trpc$/, (socket) => {
     const waiting: (string | Buffer)[] = [];
     let server: WebSocketRoute | undefined;
@@ -123,24 +119,29 @@ async function holdLiveSubscription(page: Page): Promise<void> {
         server.send(message);
       }
     });
-    setTimeout(() => {
+    void released.promise.then(() => {
       const reached = socket.connectToServer();
       for (const message of waiting.splice(0)) {
         reached.send(message);
       }
       server = reached;
-    }, LATE_LIVE_MS);
+    });
   });
+  return {
+    release: () => {
+      released.resolve(undefined);
+    },
+  };
 }
 
 /** A signed-in page on the squadrons list, whose reads ask again every few seconds; its live subscription comes late when asked. */
 async function aSquadronsPage({ isLiveLate = false }: { isLiveLate?: boolean } = {}): Promise<Page> {
   const page = await aSignedInPage();
-  if (isLiveLate) {
-    await holdLiveSubscription(page);
-  }
+  const liveSubscription = isLiveLate ? await holdLiveSubscription(page) : undefined;
   await page.goto('/squadrons');
   await page.getByText('No blueprints found').waitFor();
+  // The subscription reaches the server only once the page shows its reads.
+  liveSubscription?.release();
   // Live once the server started the subscription, with the session still valid: from then only a read can hear it ended.
   await page.getByRole('banner').getByText('Live', { exact: true }).waitFor();
   return page;
@@ -166,7 +167,7 @@ describe('a console page whose session ended', () => {
 
     clock.advance(SESSION_LIFETIME_MS);
     await page.waitForURL(`${web.url}/sign-in`, { timeout: WITHIN_MS });
-    await new Promise((resolve) => setTimeout(resolve, AFTER_LEAVING_MS));
+    await page.getByRole('button', { name: 'Sign in' }).waitFor();
 
     expect(timesLeft).toBe(1);
   });
@@ -203,10 +204,12 @@ describe('a console page whose session ended', () => {
         callsWhileLeaving.push(pathname);
       }
     });
+    // The sign-in page answers when the test lets it: a slow way out.
+    const wayOut = Promise.withResolvers<undefined>();
     await page.route(
       (url) => url.pathname === '/sign-in',
       async (route) => {
-        await new Promise((resolve) => setTimeout(resolve, SLOW_WAY_OUT_MS));
+        await wayOut.promise;
         await route.continue();
       },
     );
@@ -215,8 +218,10 @@ describe('a console page whose session ended', () => {
     await expect.poll(() => isRefused && isLeaving, { timeout: WITHIN_MS }).toBe(true);
     // Coming back to the page while it is on its way out asks its reads again; TanStack Query hears it on window.
     await page.evaluate("window.dispatchEvent(new Event('visibilitychange'))");
+    await afterFrames(page);
+    wayOut.resolve(undefined);
     await page.waitForURL(`${web.url}/sign-in`, { timeout: WITHIN_MS });
-    await new Promise((resolve) => setTimeout(resolve, AFTER_LEAVING_MS));
+    await page.getByRole('button', { name: 'Sign in' }).waitFor();
 
     expect(callsWhileLeaving).toEqual([]);
   });

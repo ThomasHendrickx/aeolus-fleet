@@ -13,6 +13,7 @@ import { FLEET_URL } from '../packages/core/test/support/core-fixtures.js';
 import { createMigratedDatabase } from '../packages/core/src/testing/database.js';
 import { newKey } from '../packages/core/src/testing/keys.js';
 import { unwrap } from '../packages/core/src/testing/result.js';
+import { afterFrames, visible } from './support/browser.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 
 // The guide (decision 0024) on a phone (#721): a step about a ship timeline's
@@ -24,10 +25,8 @@ const PHONE = { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch:
 /** Renames that fill the timeline past the fold, so its newest entry can sit mid window. */
 const RENAMES = 12;
 const ANCHOR = 'ship-timeline-entry';
-/** How long a box must stay put before the page counts as settled. */
-const SETTLE_MS = 500;
-/** How much later than the timeline and the guide the parts above the timeline answer, as on a slow network (#1194). */
-const LATE_MS = 400;
+/** How many painted frames in a row a box must stay put before the page counts as settled. */
+const SETTLE_FRAMES = 30;
 /** How far the visitor scrolls down: past the anchor, so it leaves the top of the window. */
 const VISITOR_SCROLL = 600;
 /**
@@ -118,12 +117,14 @@ function overlaps(one: Box, other: Box): boolean {
   return one.x < other.x + other.width && other.x < one.x + one.width && one.y < other.y + other.height && other.y < one.y + one.height;
 }
 
-/** Where each part sits once none moves for SETTLE_MS: the popover fades in and the page scrolls to the anchor. */
-async function settled(locators: [Locator, Locator, Locator]): Promise<[Box, Box, Box]> {
-  const read = () => Promise.all(locators.map((locator) => locator.boundingBox({ timeout: SETTLE_MS }).catch(() => null)));
+/** Where each part sits once none moves for SETTLE_FRAMES painted frames: the popover fades in and the page scrolls to the anchor. */
+async function settled(page: Page, locators: [Locator, Locator, Locator]): Promise<[Box, Box, Box]> {
+  const read = () => Promise.all(locators.map((locator) => locator.boundingBox({ timeout: 1_000 }).catch(() => null)));
   const isSettled = async (): Promise<boolean> => {
     const before = await read();
-    await new Promise((resolve) => setTimeout(resolve, SETTLE_MS));
+    for (let frame = 0; frame < SETTLE_FRAMES; frame += 1) {
+      await afterFrames(page);
+    }
     const after = await read();
     return after.every((box, index) => box !== null && JSON.stringify(box) === JSON.stringify(before[index]));
   };
@@ -136,15 +137,16 @@ async function settled(locators: [Locator, Locator, Locator]): Promise<[Box, Box
 }
 
 /** Opens the step's page and checks its anchor and the entry below it are in sight beside its popover. */
-async function expectAnchorAndNextEntryInSight(page: Page): Promise<void> {
+async function expectAnchorAndNextEntryInSight(page: Page, whenInSight: () => Promise<void> = () => Promise.resolve()): Promise<void> {
   await page.goto(`/ships/${shipId}`);
   const step = page.getByTestId('tour-step');
   await step.getByText('What happened last').waitFor();
   await expect.poll(() => step.getAttribute('data-placement')).toBe('anchored');
-  const entries = page.locator(`[data-testid="${ANCHOR}"]:visible`);
+  const entries = visible(page, ANCHOR);
   await expect.poll(() => entries.count()).toBeGreaterThan(RENAMES);
+  await whenInSight();
 
-  const [popover, newest, next] = await settled([step, entries.nth(0), entries.nth(1)]);
+  const [popover, newest, next] = await settled(page, [step, entries.nth(0), entries.nth(1)]);
 
   for (const entry of [newest, next]) {
     expect(entry.y).toBeGreaterThanOrEqual(0);
@@ -160,8 +162,13 @@ describe('a guide step on a phone', () => {
 
   it('keeps them in sight when what sits above the anchor loads after it', async () => {
     const page = await signedInViewer();
-    await holdBackPartsAboveTimeline(page, () => new Promise((resolve) => setTimeout(resolve, LATE_MS)));
-    await expectAnchorAndNextEntryInSight(page);
+    const late = Promise.withResolvers<undefined>();
+    await holdBackPartsAboveTimeline(page, () => late.promise);
+    await expectAnchorAndNextEntryInSight(page, async () => {
+      // The timeline and the guide are on the page; now the parts above it answer.
+      late.resolve(undefined);
+      await page.getByRole('heading', { name: `scout-${String(RENAMES)}` }).waitFor();
+    });
   });
 
   it('leaves the page where the visitor scrolled it when what sits above the anchor loads later', async () => {
@@ -172,14 +179,14 @@ describe('a guide step on a phone', () => {
     const step = page.getByTestId('tour-step');
     await step.getByText('What happened last').waitFor();
     await expect.poll(() => step.getAttribute('data-placement')).toBe('anchored');
-    const entries = page.locator(`[data-testid="${ANCHOR}"]:visible`);
+    const entries = visible(page, ANCHOR);
     await page.mouse.move(PHONE.viewport.width / 2, PHONE.viewport.height / 2);
     await page.mouse.wheel(0, VISITOR_SCROLL);
     await expect.poll(async () => (await entries.nth(0).boundingBox())?.y).toBeLessThan(0);
     late.resolve(undefined);
     await page.getByRole('heading', { name: `scout-${String(RENAMES)}` }).waitFor();
 
-    const [, newest] = await settled([step, entries.nth(0), entries.nth(1)]);
+    const [, newest] = await settled(page, [step, entries.nth(0), entries.nth(1)]);
 
     expect(newest.y).toBeLessThan(0);
   });

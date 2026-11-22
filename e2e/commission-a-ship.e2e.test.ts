@@ -84,12 +84,14 @@ async function fillCommission(page: Page, ship: { name: string; type: string; no
 async function pickFleetScope(page: Page, { scope, description }: { scope: string; description?: string }): Promise<void> {
   const dialog = page.getByTestId('commission-dialog');
   await dialog.getByTestId('permissions-search').fill(scope);
-  const option = dialog.getByTestId('permissions-choices').locator('label').filter({ has: page.getByText(scope, { exact: true }) });
+  const choices = dialog.getByTestId('permissions-choices');
   if (description !== undefined) {
-    await option.getByText(description).waitFor();
+    await choices.getByText(description).waitFor();
   }
-  await option.getByTestId('permissions-choice').click();
-  await option.getByRole('checkbox', { checked: true }).waitFor();
+  // The choice's label holds its scope code, so the label text finds its checkbox.
+  const choice = choices.getByLabel(scope);
+  await choice.click();
+  await expect.poll(() => choice.getAttribute('aria-checked')).toBe('true');
 }
 
 async function commission(page: Page, ship: { name: string; type: string; note?: string }): Promise<void> {
@@ -151,7 +153,6 @@ describe('commissioning a ship in the console', () => {
     const owner = page.getByTestId('commission-dialog').getByTestId('commission-owner');
     await owner.fill('later-commission-owner');
     await page.getByText('No person ship is named later-commission-owner.').waitFor();
-    await page.waitForLoadState('networkidle');
 
     // When the account app commissions the person ship while the dialog stays open.
     unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'later-commission-owner', type: 'person', kind: 'person' }));
@@ -170,7 +171,6 @@ describe('commissioning a ship in the console', () => {
     const owner = page.getByTestId('change-owner-field');
     await owner.fill('later-change-owner');
     await page.getByText('No person ship is named later-change-owner.').waitFor();
-    await page.waitForLoadState('networkidle');
 
     // When the account app commissions the person ship while the dialog stays open.
     unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'later-change-owner', type: 'person', kind: 'person' }));
@@ -365,7 +365,7 @@ describe('claiming a commissioned ship', () => {
     });
 
     await row.getByText('Crewed').waitFor();
-    await expect(row.locator('[data-slot="location-tag"]').getAttribute('title')).resolves.toBe('Claude Code · Other: a ci runner');
+    await row.getByTitle('Claude Code · Other: a ci runner', { exact: true }).waitFor();
     await expect(row.getByRole('button', { name: 'Get the starting prompt' }).count()).resolves.toBe(0);
     await shipRow(page, 'argo').getByText(/· Chrome/).waitFor();
   });

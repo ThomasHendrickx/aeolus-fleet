@@ -1,5 +1,5 @@
 import type { Page, Request } from 'playwright';
-import { onTestFailed } from 'vitest';
+import { expect, onTestFailed } from 'vitest';
 
 /**
  * Signs in to the console with an email and a password, once the button is
@@ -12,7 +12,7 @@ export async function signIn(page: Page, login: { email: string; password: strin
   await page.getByLabel('Email').fill(login.email);
   await page.getByLabel('Password').fill(login.password);
   const button = page.getByRole('button', { name: 'Sign in' });
-  await button.and(page.locator(':enabled')).waitFor();
+  await expect.poll(() => button.isEnabled()).toBe(true);
   const trail = signInTrail(page);
   onTestFailed(({ task }) => {
     // The failure's own error, before the reporter prints it: it carries the trail.
@@ -72,8 +72,8 @@ function signInTrail(page: Page): string[] {
 /** Picks the owner of a ship argo commissions, a person ship, in the open CommissionDialog (docs/design/ship-owners). */
 export async function pickOwner(page: Page, name: string): Promise<void> {
   const owner = page.getByTestId('commission-dialog').getByTestId('commission-owner');
-  // The owner argo named last shows by itself once read: picking it again changes nothing.
-  await page.waitForLoadState('networkidle');
+  // The owner argo named last shows by itself once the person ships are read: picking it again changes nothing.
+  await expect.poll(() => owner.getAttribute('placeholder')).not.toBe('Reading the person ships');
   if ((await owner.inputValue()) === name) {
     return;
   }
@@ -85,24 +85,22 @@ export async function openRowMenu(page: Page, shipName: string): Promise<void> {
   await page.getByTestId(`fleet-row-${shipName}`).getByTestId('fleet-actions').click();
 }
 
-/** How long Sign out's answer is held on its way back to the console: a slow way out. */
-const SLOW_SIGN_OUT_MS = 2_000;
-
 /** Whether a request is a call the console sends: a tRPC call or a console read. */
 function isConsoleCall(pathname: string): boolean {
   return pathname.startsWith('/trpc/') || pathname.startsWith('/api/reads/') || pathname.startsWith('/api/reports/');
 }
 
 /**
- * Holds Sign out's answer on its way back to the console for a while, and
- * lists every call the console sends once it has sent Sign out, Sign out
- * aside. started settles as Sign out is sent, answered as the console hears
- * its answer.
+ * Holds Sign out's answer on its way back to the console until release() is
+ * called, a slow way out, and lists every call the console sends once it has
+ * sent Sign out, Sign out aside. started settles as Sign out is sent, answered
+ * as the console hears its answer.
  */
-export function holdSignOutSlow(page: Page): { callsSent: string[]; started: Promise<undefined>; answered: Promise<undefined> } {
+export function holdSignOutSlow(page: Page): { callsSent: string[]; started: Promise<undefined>; answered: Promise<undefined>; release: () => void } {
   const callsSent: string[] = [];
   const started = Promise.withResolvers<undefined>();
   const answered = Promise.withResolvers<undefined>();
+  const released = Promise.withResolvers<undefined>();
   let hasStarted = false;
   page.on('request', (request) => {
     const { pathname } = new URL(request.url());
@@ -116,14 +114,16 @@ export function holdSignOutSlow(page: Page): { callsSent: string[]; started: Pro
   void page.route(
     (url) => url.pathname.endsWith('/console.signOut'),
     async (route) => {
-      await new Promise((resolve) => setTimeout(resolve, SLOW_SIGN_OUT_MS));
       const response = await route.fetch();
-      await new Promise((resolve) => setTimeout(resolve, SLOW_SIGN_OUT_MS));
+      await released.promise;
       await route.fulfill({ response });
       answered.resolve(undefined);
     },
   );
-  return { callsSent, started: started.promise, answered: answered.promise };
+  const release = () => {
+    released.resolve(undefined);
+  };
+  return { callsSent, started: started.promise, answered: answered.promise, release };
 }
 
 /**
