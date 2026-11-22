@@ -29,11 +29,12 @@ export const routeManifest = z.record(z.string(), z.string());
  * (.next/app-path-routes-manifest.json), so a page added to the console is
  * waited for without editing this file. Every page and route handler counts,
  * each dynamic segment filled with a made-up value; api routes are called by
- * the console itself, never opened by a test.
+ * the console itself, never opened by a test, and /health answers 503 while
+ * the server is down, which is its answer, not a route that is not ready.
  */
 export function routesToWaitFor(manifest: Readonly<Record<string, string>>): string[] {
   return Object.values(manifest)
-    .filter((route) => route !== '/api' && !route.startsWith('/api/') && !route.startsWith('/_'))
+    .filter((route) => route !== '/api' && !route.startsWith('/api/') && route !== '/health' && !route.startsWith('/_'))
     .map((route) => route.replace(/\[[^\]]+\]/g, 'test'));
 }
 
