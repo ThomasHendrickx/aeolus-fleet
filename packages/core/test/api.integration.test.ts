@@ -314,6 +314,8 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_fleet_journeys$/),
       expect.stringMatching(/^\d{14}_meeting_list$/),
       expect.stringMatching(/^\d{14}_message_sender_lease$/),
+      expect.stringMatching(/^\d{14}_meeting_goal_end_time$/),
+      expect.stringMatching(/^\d{14}_meeting_deadlines$/),
     ]);
   });
 });
