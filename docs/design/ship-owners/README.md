@@ -18,7 +18,7 @@ Every image is the console's own `CommissionDialog`, rendered in Storybook: befo
    Request a crew
 ```
 
-Signed in as an account nothing changes: the account's person ship owns the ship (0045). A ship an agent ship commissions keeps its commissioner's owner (O2 a); no screen shows that.
+Commission ownership follows [decision 0045](../../decisions/0045-owners.md).
 
 ## Boards
 

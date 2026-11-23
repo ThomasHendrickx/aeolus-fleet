@@ -41,6 +41,12 @@ These are requirements of the [detailed design for #1982](design/squadrons-core/
 
 The squadrons release adopting the complete one-ship start takes the actual core/common version containing all required slices as its minimum. Historical messages retain null sending evidence; no upgrade infers it from a later crew. The current lease is an observation at read time, not an atomic promise covering later work. Squadrons owns instruction correlation, confirmation and recovery; core stores only its generic message/lease facts.
 
+## Commission ownership
+
+An agent/app commissioner owns its new agent/app by default (decision 0045), recorded by `OwnerSet` with `how: commissioner`. Named owners and both `ownerOf` ownership choices follow [decision 0045](decisions/0045-owners.md). Existing ships keep their owner. An app handles its ships' questions and permission asks; escalation is each owner asking its own owner, never core forwarding. Sibling reach follows network rules matching the ships’ direct owners (0034).
+
+Release runs the read-only [owner-selector rule listing](owner-selector-rules.sql) for each fleet when shipping the commission default. It covers applied, draft and declared rules. It names the fleet, rule source, declarer where present, rule position, verb and both selectors, including `owner=*`, `owner=#` and named owners. The installation can collect it across fleets; a fleet manager can read their fleet's rules through `fleet.networkRules` and declared rules through `fleet.declaredNetworkRules`. Built-in owner reach applies to direct children (0034).
+
 ## Authenticated plugin calls
 
 `fleet.callPlugin`, REST `POST /api/v1/fleet/callPlugin` and MCP `fleet_callPlugin`, together with the context/answer schemas and `@aeolus-fleet/common/plugin-server`, need core/common 0.42.0. A plugin raises its minimum to 0.42.0 before using this call. Deployment and the durable reservation port are in [Serving authenticated plugin calls](plugin-calls.md); authority and refusal semantics are in the [approved contract](design/plugin-actor-contract.md). Repository operations remain the trierarch plugin's API, not core's.

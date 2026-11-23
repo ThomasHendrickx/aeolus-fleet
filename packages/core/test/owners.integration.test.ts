@@ -54,6 +54,19 @@ describe('the owner set at commission on Postgres', () => {
     await expect(ownerEventsAbout(shipId)).resolves.toEqual([['OwnerSet', { ownerShipId: argoId, how: 'argoByDefault' }]]);
   });
 
+  it.each(['agent', 'app'] as const)('stores the %s commissioner as owner with OwnerSet in Postgres', async (kind) => {
+    // Given a commissioner whose existing owner is argo.
+    const manager = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'manager', type: 'manager', kind, scopes: ['fleet:commission'] })).shipId;
+
+    // When it commissions without owner or ownerOf.
+    const { shipId } = unwrap(await core.useCases.commissionShip({ ...argo, shipId: manager, kind }, { idempotencyKey: newKey(), name: 'deputy', type: 'worker' }));
+
+    // Then state and event name the commissioner, leaving existing ownership alone.
+    await expect(ownerOf(shipId)).resolves.toBe(manager);
+    await expect(ownerEventsAbout(shipId)).resolves.toEqual([['OwnerSet', { ownerShipId: manager, how: 'commissioner' }]]);
+    await expect(ownerOf(manager)).resolves.toBe(argoId);
+  });
+
   it('stores nothing when its OwnerSet cannot be written', async () => {
     const before = await everyRow(core.prisma);
     const failingCommission = createCommissionShip({
@@ -255,14 +268,19 @@ describe('a commission racing the retire of the owner it inherits on Postgres', 
     // When retirement races the commission, it must wait for ownership.
     const pending = commission(scout, { idempotencyKey: newKey(), name: 'helper', type: 'reviewer', ...(mode === 'requester' ? { ownerOf: scoutId } : {}) });
     await held.reached;
-    const retirement = core.useCases.retireShip(argo, { shipId: thomasId });
+    const retirement = core.useCases.retireShip(argo, { shipId: mode === 'commissioner' ? scoutId : thomasId });
     const [commissioned, retired] = await Promise.all([pending, retirement]);
 
     // Then retirement finds the committed child and transfers it with its event.
     const { shipId } = unwrap(commissioned);
     unwrap(retired);
-    await expect(ownerOf(shipId)).resolves.toBe(argoId);
-    expect(await ownerEventsAbout(shipId)).toContainEqual(['OwnerChanged', { fromShipId: thomasId, toShipId: argoId, why: 'ownerRetired' }]);
+    if (mode === 'commissioner') {
+      await expect(ownerOf(shipId)).resolves.toBe(thomasId);
+      expect(await ownerEventsAbout(shipId)).toContainEqual(['OwnerChanged', { fromShipId: scoutId, toShipId: thomasId, why: 'ownerRetired' }]);
+    } else {
+      await expect(ownerOf(shipId)).resolves.toBe(argoId);
+      expect(await ownerEventsAbout(shipId)).toContainEqual(['OwnerChanged', { fromShipId: thomasId, toShipId: argoId, why: 'ownerRetired' }]);
+    }
   });
 
 });
@@ -369,11 +387,11 @@ describe('a ship argo commissions from the console, on Postgres (#1777)', () => 
     expect(owners).toEqual([
       { whoami: 'charlotte', ship: 'charlotte' },
       { whoami: 'burak', ship: 'burak' },
-      { whoami: 'charlotte', ship: 'charlotte' },
-      { whoami: 'argo', ship: 'argo' },
+      { whoami: 'orchestrator-1', ship: 'orchestrator-1' },
+      { whoami: 'orchestrator-2', ship: 'orchestrator-2' },
     ]);
     await expect(ownerEventsAbout(accounts)).resolves.toEqual([['OwnerSet', { ownerShipId: burakId, how: 'accountPersonShip' }]]);
-    await expect(ownerEventsAbout(fromPersonOrchestrator)).resolves.toEqual([['OwnerSet', { ownerShipId: charlotteId, how: 'inherited' }]]);
-    await expect(ownerEventsAbout(fromArgoOrchestrator)).resolves.toEqual([['OwnerSet', { ownerShipId: argoId, how: 'inherited' }]]);
+    await expect(ownerEventsAbout(fromPersonOrchestrator)).resolves.toEqual([['OwnerSet', { ownerShipId: personOrchestratorId, how: 'commissioner' }]]);
+    await expect(ownerEventsAbout(fromArgoOrchestrator)).resolves.toEqual([['OwnerSet', { ownerShipId: argoOrchestratorId, how: 'commissioner' }]]);
   });
 });
