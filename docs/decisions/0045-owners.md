@@ -9,7 +9,7 @@
 - Ownership is acyclic: a person self-root is the only self-reference. `setOwner` and fresh commissions validate the proposed owner and its ancestors within the fleet; missing, retired or ineligible owners refuse `INVALID_OWNER`, and direct or multi-edge loops refuse `OWNERSHIP_CYCLE`, without state or event writes. A same-owner change writes nothing. Owner writers, including commission, implicit person commission, retirement, fleet creation and deletion, take the fleet ownership lock before meeting, schedule, ship and other subordinate locks. State and owner events commit together.
 - Ownership reach is direct: an owner reaches its immediate children for every verb; ancestors gain no reach through the chain. A child sends to its direct owner through the visible `sendToOwner` built-in, without reverse read/manage reach; scopes and all other send checks apply (0034).
 - argo counts as a human here, as the fallback: a human crews argo (0012). A ship that falls to argo is a failing made visible, never a normal path (0057).
-- An agent or app owner handles the questions and permission asks its ships send it. A question climbs only when each owner asks its own owner; core never forwards it. Sibling reach is unchanged: rules still match the ships' direct owners (0034).
+- An agent or app owner handles the questions and permission asks its ships send it. A question climbs only when each owner asks its own owner; core never forwards it. Sibling reach rules match the ships' direct owners (0034).
 - The owner is used in four places, all through what exists:
   - questions and gates go to the owner's ship (0038);
   - trouble a ship reports goes to the owner's ship (0026);
