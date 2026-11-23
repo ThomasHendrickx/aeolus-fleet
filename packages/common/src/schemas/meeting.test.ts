@@ -172,3 +172,15 @@ describe('the ended notice (decision 0061, M15)', () => {
     expect(meetingEndedSchema.parse(notice)).toEqual(notice);
   });
 });
+
+
+it('takes an optional short goal and UTC end time at the open', () => {
+  // Given a bounded goal and an end time.
+  const input = { idempotencyKey: 'meeting-goal', goal: '  Agree the release date  ', endsAt: '2026-12-01T10:00:00.000Z' };
+  // When the input is parsed.
+  const parsed = openMeetingInputSchema.parse(input);
+  // Then the short text is trimmed and the time preserved.
+  expect(parsed).toEqual({ ...input, goal: 'Agree the release date' });
+  expect(openMeetingInputSchema.safeParse({ ...input, goal: 'a'.repeat(201) }).success).toBe(false);
+  expect(openMeetingInputSchema.safeParse({ ...input, endsAt: 'tomorrow' }).success).toBe(false);
+});

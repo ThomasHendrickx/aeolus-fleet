@@ -257,3 +257,60 @@ it('records null sending evidence on generated meeting notices', async () => {
   for (const message of core.state.messages) expect(message).toMatchObject({ senderLeaseId: null });
   for (const event of core.state.events.filter(({ type }) => type === 'MessageAccepted')) expect(event.details).toMatchObject({ senderLeaseId: null });
 });
+
+
+it('keeps the optional goal in the added notice and the meeting read', async () => {
+  // Given an opener with a short goal for its invitees.
+  const input = { ...aMeeting(), goal: 'Agree the release date' };
+
+  // When it opens the meeting.
+  const meetingId = await opened(input);
+  const read = unwrap(await messaging.readMeeting(marketing, { meetingId, limit: 20 }));
+
+  // Then both ways of learning about it carry that goal.
+  expect(JSON.parse(plainPayloadOf(core.state.messages[0]))).toMatchObject({ goal: 'Agree the release date' });
+  expect(read).toMatchObject({ goal: 'Agree the release date' });
+});
+
+
+it.each([-1, 0])('refuses an end time %i milliseconds from now without storing anything', async (offset) => {
+  // Given an end time that is not in the future.
+  const input = { ...aMeeting(), endsAt: new Date(core.clock.now().getTime() + offset).toISOString() };
+  // When the opener asks to open it.
+  const result = await messaging.openMeeting(chief, input);
+  // Then nothing is stored or woken.
+  expect(refusalOf(result).kind).toBe('INVALID_MEETING_END_TIME');
+  expect([core.state.meetings, core.state.messages, core.state.deliveries, core.state.events, core.state.notices]).toEqual([[], [], [], [], []]);
+});
+
+it('takes a trimmed goal of 200 characters and refuses one over, storing nothing for the refusal', async () => {
+  // Given the approved short-text boundary.
+  const input = { ...aMeeting(), goal: 'a'.repeat(201) };
+  // When the goal is too long.
+  expect(refusalOf(await messaging.openMeeting(chief, input)).kind).toBe('INVALID_MEETING_GOAL');
+  // Then nothing is stored, and the exact boundary still opens.
+  expect(core.state.meetings).toEqual([]);
+  const meetingId = await opened({ ...aMeeting(), goal: `  ${'a'.repeat(200)}  ` });
+  expect(unwrap(await messaging.readMeeting(chief, { meetingId, limit: 20 }))).toMatchObject({ goal: 'a'.repeat(200) });
+});
+
+it('keeps the future end time on the meeting read and keeps a retry after it idempotent', async () => {
+  // Given a meeting with an end time.
+  const input = { ...aMeeting(), endsAt: '2026-10-24T09:02:00.000Z' };
+  const meetingId = await opened(input);
+  // When time passes and its opener retries the same request.
+  core.clock.advance(120_000);
+  expect(await opened(input)).toBe(meetingId);
+  // Then its deadline remains the original one.
+  expect(unwrap(await messaging.readMeeting(chief, { meetingId, limit: 20 }))).toMatchObject({ endsAt: new Date('2026-10-24T09:02:00.000Z') });
+});
+
+it.each([{ goal: 'Another goal' }, { endsAt: '2026-10-24T10:00:00.000Z' }])('refuses a changed goal or end time under the same open key: %j', async (change) => {
+  // Given an already opened meeting.
+  const input = aMeeting();
+  await opened(input);
+  // When the opener changes the goal or end time under that key.
+  const result = await messaging.openMeeting(chief, { ...input, ...change });
+  // Then it is another request, not a repeat.
+  expect(refusalOf(result).kind).toBe('IDEMPOTENCY_KEY_REUSED');
+});

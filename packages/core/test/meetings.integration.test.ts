@@ -706,3 +706,17 @@ describe("a meeting's life on Postgres", () => {
 function aMeetingContribution(meetingId: MeetingId): MessageToSend {
   return { selector: { kind: 'meeting', meetingId }, payload: 'Wrap up', idempotencyKey: newKey(), model: MODEL };
 }
+
+
+it('persists the goal and end time and reads them through the Postgres adapter', async () => {
+  // Given a meeting opened with a goal and future end time.
+  const endsAt = new Date(core.clock.now().getTime() + 60_000).toISOString();
+  const input = { ...aMeeting(), goal: 'Agree the release date', endsAt };
+  const { meetingId } = unwrap(await core.useCases.openMeeting(chief, input));
+  // When the adapter reloads it from Postgres.
+  const read = unwrap(await core.useCases.readMeeting(chief, { meetingId, limit: 20 }));
+  // Then both values survive storage and are available to every participant.
+  expect(read).toMatchObject({ goal: 'Agree the release date', endsAt: new Date(endsAt) });
+  const notice = await core.prisma.message.findFirst({ where: { fleetId, meetingId }, orderBy: { id: 'asc' } });
+  expect(JSON.parse(notice?.payload ?? '{}')).toMatchObject({ goal: 'Agree the release date' });
+});
