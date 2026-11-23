@@ -326,6 +326,19 @@ it.each([60_000, 60_001])('refuses calls and answers at or past the meeting end 
 
 describe('silence and the deadline', () => {
   const pass = () => createEndDueMeetings({ uow: core.uow, fleets: core.fleets, meetings: core.meetings, clock: core.clock, ids: core.ids, hasher: core.hasher, sealing: core.sealing })();
+  it('counts closed calls once when a deadline ends the meeting', async () => {
+    // Given a call and meeting due together at the call-count limit.
+    ({ meetingId } = unwrap(await messaging.openMeeting(chair, { ships: [{ shipId: alpha.shipId }], endAfterCalls: 1, endsAt: '2026-11-23T10:01:00.000Z', idempotencyKey: newKey(), model: SESSION_MODEL })));
+    unwrap(await messaging.openCall(chair, { ...aCall(), deadline: '2026-11-23T10:01:00.000Z' }));
+    let counts = 0;
+    const uow: typeof core.uow = { run: (work) => core.uow.run((tx) => work({ ...tx, meetings: { ...tx.meetings, closedCallCount: async (...args) => { counts += 1; return tx.meetings.closedCallCount(...args); } } })) };
+    core.clock.advance(60_000);
+    // When maintenance closes the call.
+    await createEndDueMeetings({ uow, fleets: core.fleets, meetings: core.meetings, clock: core.clock, ids: core.ids, hasher: core.hasher, sealing: core.sealing })((_fleetId, error) => { throw error; });
+    // Then the meeting ends using one count.
+    expect(counts).toBe(1);
+    expect(core.state.meetings.find((meeting) => meeting.id === meetingId)?.endedAt).toEqual(core.clock.now());
+  });
   it('marks a ship awaiting crew silent at opening and closes after the other answer', async () => {
     // Given beta has no crew when the call opens.
     core.state.leases = core.state.leases.filter((lease) => lease.shipId !== beta.shipId);
