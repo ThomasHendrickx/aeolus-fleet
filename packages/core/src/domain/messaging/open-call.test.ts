@@ -188,8 +188,8 @@ it('does not bypass meeting restrictions for answers and refuses an unknown call
 /** The full JSON notice, measured in UTF-8; fixture padding reaches the actual envelope boundary. */
 function lastRoundPayload(): string {
   const payload = core.state.messages.filter((message) => message.contentType === 'application/vnd.aeolus.meeting.round+json').at(-1)?.payload;
-  if (typeof payload !== 'string') throw new Error('Expected an unsealed round notice');
-  return payload;
+  expect(payload).toBeTypeOf('string');
+  return typeof payload === 'string' ? payload : '';
 }
 
 it.each([262_144, 262_145])('keeps an inline round of exactly 256 KB, and switches every answer to a reference one byte over: %s bytes', async (bytes) => {

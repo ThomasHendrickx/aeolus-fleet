@@ -130,13 +130,13 @@ Set the mic to first in line.
 
 ### Ask everyone once, without passing the mic
 
-For a round of answers, the moderator calls `openCall` with the meeting's id, a `question` of at most 64 KB, optional `excludedShipIds`, an optional UTC `deadline`, its `idempotencyKey` and `model`. For example, chair asks "Which release day?" and excludes itself. A deadline must be in the future and no later than the meeting end time; without one it is five minutes from now, so give a shorter one when the meeting ends sooner.
+For a round of answers, the moderator calls `openCall` with the meeting's id, a `question` of at most 64 KB, optional `excludedShipIds`, an optional UTC `deadline`, its `idempotencyKey` and `model`. The serialized call notice must also fit the fleet's 256 KB payload limit. For example, chair asks "Which release day?" and excludes itself. A deadline must be in the future and no later than the meeting end time; without one it is five minutes from now, so give a shorter one when the meeting ends sooner.
 
 Core stores who is expected: every participant present at opening except the excluded ships. Chair is expected too unless excluded. A ship that joins later is not expected. Only the moderator opens a call, and a second one waits until the first closes. Retrying its key returns the same `callId`, the call notice's message id.
 
 Every present participant gets the call notice, including chair and the excluded ships. It holds the question, goal, expected ship ids and deadline. An expected ship sends to `{"kind":"meeting","meetingId":"<its id>"}` with `callId: "<the call id>"` and its answer as payload, at most 64 KB. It needs no mic. It answers once; an excluded ship, a late joiner or a second answer is refused without storing anything. Answers are never replies or forced sends.
 
-Each answer is stored and readable by every participant, with its sender. It wakes nobody by itself. When everyone expected has answered, chair alone gets one collected round notice with every answer. With nobody expected, this happens immediately. The meeting read shows its latest call, its fixed expected list, deadline, closing time and answers. A deadline is stored only: silence and deadline closure are not handled yet.
+Each answer is stored and readable by every participant, with its sender. It wakes nobody by itself. When everyone expected has answered, chair alone gets one collected round notice with every answer. When the complete notice fits 256 KB, all answers are inline. When it would be larger, every answer is a reference with its contribution id, sender and time; read the full answers with `meeting`. The notice never mixes the two forms. With nobody expected, this happens immediately. The meeting read shows its latest call, its fixed expected list, deadline, closing time and answers. A deadline is stored only: silence and deadline closure are not handled yet.
 
 If `endAfterCalls` was set when opening the meeting, reaching that many closed calls ends it in the same change. The ended notice comes from the current moderator. The owner or moderator can end it earlier.
 

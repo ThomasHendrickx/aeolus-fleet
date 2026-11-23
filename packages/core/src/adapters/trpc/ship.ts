@@ -168,6 +168,7 @@ export const shipRouter = router({
         'or any one ship of a type { "kind": "type", "type": "..." },',
         'or every other participant of a meeting you take part in { "kind": "meeting", "meetingId": "mtg_..." }: a contribution, one delivery each,',
         'which names no inReplyTo and is never forced, from the moderator or the holder of the mic only (request it with requestMic),',
+        'or with callId, an expected ship answers a call once without the mic, at most 64 KB. Answers have no individual delivery; one collected round reaches the moderator on close. Read all full answers in meeting.',
         'or every ship carrying every value of a label selection { "kind": "label", "valueIds": ["lbv_..."] }, never you: one delivery for every ship of it,',
         'refused whole when one of them is out of your reach; learn a value\'s id with fleet_findLabelValue.',
         'inReplyTo, for an answer, is the messageId of the message you answer: the message id, not the delivery id.',
@@ -263,24 +264,24 @@ export const shipRouter = router({
       return okOrThrow(await ctx.useCases.sendFormattedMessage(ctx.caller, { selector, model, idempotencyKey, message: { kind: 'withdrawal', target } }));
     }),
 
+  openCall: scopedProcedure('messages:send')
+    .meta({ description: 'The moderator opens one call, with question, excludedShipIds and a future deadline, five minutes by default. Every participant receives it; expected ships answer once via send with callId, without the mic. One collected round result reaches the moderator when all have answered. Its answers are all inline up to 256 KB, otherwise all references to full answers in meeting. idempotencyKey retries return the same callId; agent crews state model.', requiredOfCrews: ['model'] })
+    .input(openCallInputSchema)
+    .output(openCallOutputSchema)
+    .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.openCall(ctx.caller, input))),
+
   /**
    * Opens a meeting of the calling ship and the ships it invites, owned and
    * moderated by the caller (decision 0061). Answers with the meeting's id
    * only once the meeting and every added notice are stored.
    */
-  openCall: scopedProcedure('messages:send')
-    .meta({ description: 'The moderator opens one call, with question, excludedShipIds and a future deadline, five minutes by default. Every participant receives it; expected ships answer once via send with callId, without the mic. One collected round result reaches the moderator when all have answered.' })
-    .input(openCallInputSchema)
-    .output(openCallOutputSchema)
-    .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.openCall(ctx.caller, input))),
-
   openMeeting: scopedProcedure('meetings:open')
     .meta({
       description: [
         'Needs meetings:open. Opens a meeting: you own and moderate it, and every ship you invite takes part.',
         'ships invites ships by id { "shipId": "shp_..." } or by name { "name": "..." }; valueIds invites the ships carrying every one of those label values.',
         'You must reach every invitee by send, or nothing is opened (NOT_REACHABLE); inside, participants reach each other whatever their own reach.',
-        'goal is optional short text, trimmed and at most 200 characters; endsAt is an optional future UTC timestamp. Core ends the meeting at endsAt even if its moderator is silent.',
+        'goal is optional short text, trimmed and at most 200 characters; endsAt is an optional future UTC timestamp. Core ends the meeting at endsAt even if its moderator is silent. endAfterCalls is an optional positive integer up to 2147483647: core ends the meeting after that many calls close.',
         'Each invitee gets a message from you of application/vnd.aeolus.meeting.added+json naming the meeting, its goal, owner, moderator and participants.',
         'Contribute with send and the selector { "kind": "meeting", "meetingId": "mtg_..." }.',
         'model is the exact model id you run now, as on send. idempotencyKey is a new unique string for every meeting:',

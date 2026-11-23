@@ -172,7 +172,12 @@ export const meetingCallSchema = z.object({
   question: z.string(), expectedShipIds: z.array(idSchema('ship')), deadline: isoTime,
 });
 /** One collected round, sent only to the moderator after closure. */
-export const meetingRoundSchema = meetingCallReadSchema.extend({ meetingId: idSchema('meeting'), goal: z.string().nullable() });
+const roundEnvelopeSchema = meetingCallReadSchema.omit({ answers: true }).extend({ meetingId: idSchema('meeting'), goal: z.string().nullable() });
+export const meetingAnswerReferenceSchema = z.strictObject({ messageId: idSchema('message'), sender: partySchema, sentAt: isoTime });
+export const meetingRoundSchema = z.discriminatedUnion('areAnswersReferences', [
+  roundEnvelopeSchema.extend({ areAnswersReferences: z.literal(false), answers: z.array(contributionSchema) }),
+  roundEnvelopeSchema.extend({ areAnswersReferences: z.literal(true), answers: z.array(meetingAnswerReferenceSchema) }),
+]);
 
 export const meetingOutputSchema = z.object({
   endAfterCalls: z.int().nullable(),

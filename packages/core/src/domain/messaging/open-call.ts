@@ -12,6 +12,7 @@ import { closeCallWithin, type CallCloseTx } from './call-round.js';
 import { withinDailyMessageLimit, type DailyMessageLimitTx } from './daily-message-limit.js';
 import { sealedMessage, withDataKeys, type DataKeysNeeded, type PayloadSealing } from './data-keys.js';
 import { sendRequestText } from './send-request.js';
+import { payload as checkedPayload } from './payload.js';
 import { openCall, type CallRefusal } from './meeting-call.js';
 import { acceptContribution, type AcceptRefusal } from './message.js';
 import type { MeetingRepository, MessageRepository, RequestHasher } from './ports.js';
@@ -53,7 +54,9 @@ export function createOpenCall(deps: { uow: UnitOfWork<OpenCallTx>; clock: Clock
       const withinLimit = await withinDailyMessageLimit(tx, { fleetId: caller.fleetId, time: at });
       if (!withinLimit.isOk) return withinLimit;
       const { call, events } = opened.value;
-      const accepted = acceptContribution({ messageId: call.id, fleetId: caller.fleetId, senderShipId: caller.shipId, senderKind: caller.kind, senderLeaseId: isCrew(caller) ? caller.leaseId : null, meetingId: meeting.id, deliveries: meeting.participants.filter((p) => p.leftAt === null).map((p) => ({ deliveryId: deps.ids('delivery'), shipId: p.shipId })), payload: JSON.stringify({ meetingId: meeting.id, callId: call.id, goal: meeting.goal, question: input.question, expectedShipIds: call.expectedShipIds, deadline: call.deadline.toISOString() }), contentType: MEETING_CALL_CONTENT_TYPE, model: input.model, idempotencyKey: key.value, requestHash, ...(caller.signedInAccountId === undefined ? {} : { signedInAccountId: caller.signedInAccountId }), at });
+      const payload = checkedPayload(JSON.stringify({ meetingId: meeting.id, callId: call.id, goal: meeting.goal, question: input.question, expectedShipIds: call.expectedShipIds, deadline: call.deadline.toISOString() }));
+      if (!payload.isOk) return payload;
+      const accepted = acceptContribution({ messageId: call.id, fleetId: caller.fleetId, senderShipId: caller.shipId, senderKind: caller.kind, senderLeaseId: isCrew(caller) ? caller.leaseId : null, meetingId: meeting.id, deliveries: meeting.participants.filter((p) => p.leftAt === null).map((p) => ({ deliveryId: deps.ids('delivery'), shipId: p.shipId })), payload: payload.value, contentType: MEETING_CALL_CONTENT_TYPE, model: input.model, idempotencyKey: key.value, requestHash, ...(caller.signedInAccountId === undefined ? {} : { signedInAccountId: caller.signedInAccountId }), at });
       if (!accepted.isOk) return accepted;
       const message = await sealedMessage({ tx, held }, { message: accepted.value.message, sealedRequestHash: deps.hasher.hash(sendRequestText({ selector: accepted.value.message.selector, payload: undefined, contentType: MEETING_CALL_CONTENT_TYPE, inReplyTo: undefined, isForced: false })) });
       if (!message.isOk) return message;
