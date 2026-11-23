@@ -24,8 +24,6 @@ import { withOperatorLogin } from '../packages/core/test/support/operator-login.
 const clock = createTestClock('2026-10-01T09:00:00.000Z');
 /** Sign-ins are rate limited per window; each test signs in after the window of the one before. */
 const SIGN_IN_WINDOW_MS = 60_000;
-/** How soon coming back to the page asks its reads again: well before the fleet's own refresh (30 s) would. */
-const ASKED_AGAIN_MS = 5_000;
 
 let database: PrismaClient;
 let useCases: UseCases;
@@ -64,11 +62,12 @@ afterAll(async () => {
 /** A phone: below the sm breakpoint, where the TopBar Avatar opens the menu as a bottom sheet. */
 const PHONE = { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true };
 
-async function signedInPage(options: { isPhone: boolean }): Promise<Page> {
+async function signedInPage(options: { isPhone: boolean; beforeSignIn?: (page: Page) => Promise<void> }): Promise<Page> {
   clock.advance(SIGN_IN_WINDOW_MS);
   const context = await browser.newContext({ baseURL: web.url, ...(options.isPhone ? PHONE : {}) });
   contexts.push(context);
   const page = await context.newPage();
+  await options.beforeSignIn?.(page);
   await signIn(page, OPERATOR);
   await page.waitForURL(`${web.url}/`);
   return page;
@@ -79,12 +78,12 @@ async function signedInPage(options: { isPhone: boolean }): Promise<Page> {
  * for a while on its way back to the console: the server has answered,
  * renewing the session cookie, but the console has not heard it yet.
  */
-function holdOneAnswer(page: Page, procedure: string): { reached: Promise<undefined>; answered: Promise<undefined>; release: () => void } {
+async function holdOneAnswer(page: Page, procedure: string): Promise<{ reached: Promise<undefined>; answered: Promise<undefined>; release: () => void }> {
   const reached = Promise.withResolvers<undefined>();
   const answered = Promise.withResolvers<undefined>();
   const released = Promise.withResolvers<undefined>();
   let isHolding = false;
-  void page.route(
+  await page.route(
     (url) => (url.pathname.startsWith('/trpc/') || url.pathname.startsWith('/api/reports/')) && url.pathname.includes(procedure),
     async (route) => {
       if (isHolding) {
@@ -252,15 +251,9 @@ describe.each([
   });
 
   it('signs out with a call still answering, and that call does not set the session cookie again', async () => {
-    const page = await signedInPage({ isPhone });
-    await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
-    // The live fleet reads the fleet again once it connects; only coming back to the page may ask it after that.
-    await page.getByText('Live', { exact: true }).filter({ visible: true }).first().waitFor();
-    const held = holdOneAnswer(page, 'fleet.harbour');
-    const askedAgain = page.waitForRequest((request) => new URL(request.url()).pathname.includes('fleet.harbour'), { timeout: ASKED_AGAIN_MS });
-    // Coming back to the page asks its reads again, the fleet among them; TanStack Query hears it on window.
-    await page.evaluate("window.dispatchEvent(new Event('visibilitychange'))");
-    await askedAgain;
+    let held: Awaited<ReturnType<typeof holdOneAnswer>> | undefined;
+    const page = await signedInPage({ isPhone, beforeSignIn: async (newPage) => { held = await holdOneAnswer(newPage, 'fleet.harbour'); } });
+    if (held === undefined) throw new Error('Harbour answer was not held');
     await held.reached;
 
     await visible(page, 'avatar-menu').click();
