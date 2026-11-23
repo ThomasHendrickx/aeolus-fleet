@@ -224,14 +224,16 @@ describe('a send under network rules', () => {
     expect(fromPlanner).toEqual({
       ships: [
         { id: argo.shipId, name: 'argo', type: 'operator', kind: 'operator', status: 'crewed', statement: null, verified: [] },
+        { id: labeller.shipId, name: 'labeller', type: 'networking', kind: 'agent', status: 'awaitingCrew', statement: null, verified: [] },
         { id: vault.shipId, name: 'vault', type: 'vault', kind: 'agent', status: 'awaitingCrew', statement: null, verified: [] },
       ],
       types: [
         { type: 'operator', reachable: 1 },
+        { type: 'networking', reachable: 1 },
         { type: 'vault', reachable: 1 },
       ],
     });
-    expect(fromVault.ships.map((ship) => ship.name)).toEqual(['argo']);
+    expect(fromVault.ships.map((ship) => ship.name)).toEqual(['argo', 'labeller']);
     await expect(core.prisma.event.count()).resolves.toBe(before);
     await expect(core.prisma.reachRefusal.count()).resolves.toBe(0);
   });
@@ -262,9 +264,9 @@ describe('a send under network rules', () => {
           fleetId: argo.fleetId,
           id: read[0]?.id,
           at: core.clock.now(),
-          sender: { kind: 'ship', id: vault.shipId, name: 'vault', labels: [label(sensitive, 'sensitive')], owner: { id: argo.shipId, name: 'argo' } },
+          sender: { kind: 'ship', id: vault.shipId, name: 'vault', labels: [label(sensitive, 'sensitive')], owner: { id: labeller.shipId, name: 'labeller' } },
           askedBy: null,
-          recipient: { kind: 'ship', ship: { id: planner.shipId, name: 'planner', labels: [label(shared, 'shared')], owner: { id: argo.shipId, name: 'argo' } } },
+          recipient: { kind: 'ship', ship: { id: planner.shipId, name: 'planner', labels: [label(shared, 'shared')], owner: { id: labeller.shipId, name: 'labeller' } } },
           verb: 'send',
           settingsVersion: 1,
         },
@@ -276,6 +278,7 @@ describe('a send under network rules', () => {
 
     expect(explained.send).toEqual([
       { shipId: argo.shipId, rule: { builtIn: 'argo' } },
+      { shipId: labeller.shipId, rule: { builtIn: 'sendToOwner' } },
       { shipId: vault.shipId, rule: { rule: 0 } },
     ]);
   });
@@ -345,7 +348,7 @@ describe('a send under rules with terms of any value and of the same value', () 
 
     const explained = unwrap(await core.useCases.explainReach(argo, { fromShipId: planner.shipId }));
 
-    expect(explained.send.map((reached) => reached.shipId)).toEqual([argo.shipId, scout.shipId]);
+    expect(explained.send.map((reached) => reached.shipId)).toEqual([argo.shipId, labeller.shipId, scout.shipId]);
   });
 
   it('keeps as claimants of a send to a type only its ships with the same value', async () => {
@@ -469,7 +472,7 @@ describe('a send to a type under network rules', () => {
     expect(refusal?.recipient).toEqual({
       kind: 'type',
       type: 'keeper',
-      ships: [{ id: unreachable.shipId, name: 'keeper-b', labels: [{ labelId: trustId, key: 'trust', valueId: sensitive, value: 'sensitive' }], owner: { id: argo.shipId, name: 'argo' } }],
+      ships: [{ id: unreachable.shipId, name: 'keeper-b', labels: [{ labelId: trustId, key: 'trust', valueId: sensitive, value: 'sensitive' }], owner: { id: labeller.shipId, name: 'labeller' } }],
     });
   });
 
