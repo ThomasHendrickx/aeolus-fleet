@@ -465,6 +465,31 @@ describe('a fleet whose database is too busy for a send', () => {
     expect(sent).toEqual({ answer: { status: 503, body: BUSY_REFUSAL }, stored: [] });
   });
 
+  it('keeps a database connection available for a call when core starts before maintenance is due', async () => {
+    // Given room for the listener and one call, with no maintenance due yet.
+    const owner = new URL(databaseUrl).username;
+    const role = `limited_${randomBytes(6).toString('hex')}`;
+    const password = randomBytes(12).toString('hex');
+    // The role and password are generated here, never outside input.
+    await database.$executeRawUnsafe(`CREATE ROLE ${role} LOGIN PASSWORD '${password}' CONNECTION LIMIT 2 IN ROLE "${owner}"`);
+    const limitedUrl = new URL(databaseUrl);
+    limitedUrl.username = role;
+    limitedUrl.password = password;
+    const starting = createApp({ databaseUrl: limitedUrl.toString(), publicUrl: FLEET_URL, logger: false, hasMaintenancePass: false });
+    const callConnection = createPrismaClient(limitedUrl.toString());
+    try {
+      // When core starts listening for committed notifications.
+      await starting.ready();
+      await untilListenerConnected(database, role);
+
+      // Then startup has not taken the connection reserved for a call.
+      await expect(callConnection.$queryRaw`SELECT 1 AS available`).resolves.toEqual([{ available: 1 }]);
+    } finally {
+      await callConnection.$disconnect();
+      await starting.close();
+    }
+  });
+
   it('refuses a send as busy when Postgres refuses a connection as one too many, and stores nothing', { timeout: 60_000 }, async () => {
     const token = await crewToken('crowded-sender');
     const owner = new URL(databaseUrl).username;

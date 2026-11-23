@@ -1,3 +1,5 @@
+import { MEETING_TITLE_MAX_LENGTH } from '@aeolus-fleet/common';
+
 import type { FleetId, MeetingId, MessageId, MicPattern, ShipId } from '@aeolus-fleet/common';
 
 import { refuse, type DomainError } from '../shared/errors.js';
@@ -15,6 +17,10 @@ export interface Meeting {
   fleetId: FleetId;
   /** A short name a person reads when auditing later; none when it was opened without one. */
   title: string | null;
+  /** What the participants should achieve; none without a stated goal. */
+  goal: string | null;
+  /** When core must end it; none without a deadline. */
+  endsAt: Date | null;
   ownerShipId: ShipId;
   moderatorShipId: ShipId;
   /** The ship that opened it, whose idempotency key it was opened with. */
@@ -80,7 +86,7 @@ export function isPresent(meeting: Meeting, shipId: ShipId): boolean {
   return meeting.participants.some((participant) => participant.shipId === shipId && participant.leftAt === null);
 }
 
-export type OpenMeetingRefusal = DomainError<'MEETING_WITHOUT_INVITEES'>;
+export type OpenMeetingRefusal = DomainError<'MEETING_WITHOUT_INVITEES' | 'INVALID_MEETING_GOAL' | 'INVALID_MEETING_END_TIME'>;
 
 /**
  * Opens a meeting of the opener and the ships it invited, resolved and each
@@ -93,6 +99,8 @@ export function openMeeting(input: {
   meetingId: MeetingId;
   fleetId: FleetId;
   title: string | null;
+  goal: string | null;
+  endsAt: Date | null;
   openerShipId: ShipId;
   invitedShipIds: readonly ShipId[];
   idempotencyKey: string;
@@ -100,6 +108,13 @@ export function openMeeting(input: {
   at: Date;
 }): Result<{ meeting: Meeting; events: NewEvent[] }, OpenMeetingRefusal> {
   const { meetingId, fleetId, openerShipId, at } = input;
+  const goal = input.goal?.trim() ?? null;
+  if (goal !== null && goal.length > MEETING_TITLE_MAX_LENGTH) {
+    return refuse('INVALID_MEETING_GOAL', `A meeting goal is at most ${String(MEETING_TITLE_MAX_LENGTH)} characters`);
+  }
+  if (input.endsAt !== null && (!Number.isFinite(input.endsAt.getTime()) || input.endsAt <= at)) {
+    return refuse('INVALID_MEETING_END_TIME', 'A meeting end time must be in the future');
+  }
   const shipIds = [...new Set([openerShipId, ...input.invitedShipIds])];
   if (shipIds.length === 1) {
     return refuse('MEETING_WITHOUT_INVITEES', 'A meeting needs at least one ship besides its opener: invite ships by id, by name or by label');
@@ -108,6 +123,8 @@ export function openMeeting(input: {
     id: meetingId,
     fleetId,
     title: input.title,
+    goal,
+    endsAt: input.endsAt,
     ownerShipId: openerShipId,
     moderatorShipId: openerShipId,
     openedByShipId: openerShipId,
@@ -151,12 +168,15 @@ export type ContributionRefusal = PresenceRefusal | DomainError<'CONTRIBUTION_RE
  */
 export function checkContribution(
   meeting: Meeting | undefined,
-  contribution: { meetingId: MeetingId; senderShipId: ShipId; inReplyTo: MessageId | undefined; isForced: boolean },
+  contribution: { meetingId: MeetingId; senderShipId: ShipId; inReplyTo: MessageId | undefined; isForced: boolean; at: Date },
 ): Result<ShipId[], ContributionRefusal> {
   const { meetingId, senderShipId } = contribution;
   const present = checkPresent(meeting, { meetingId, shipId: senderShipId, ended: 'it takes no more contributions' });
   if (!present.isOk) {
     return present;
+  }
+  if (present.value.endsAt !== null && present.value.endsAt <= contribution.at) {
+    return refuse('MEETING_ENDED', `Meeting ${meetingId} ended: it takes no more contributions`);
   }
   if (contribution.inReplyTo !== undefined) {
     return refuse('CONTRIBUTION_REPLIES', 'A contribution replies to no message: send it to the meeting without inReplyTo');

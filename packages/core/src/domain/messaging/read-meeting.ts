@@ -59,6 +59,8 @@ export interface MicRead {
 export interface MeetingRead {
   meetingId: MeetingId;
   title: string | null;
+  goal: string | null;
+  endsAt: Date | null;
   owner: MeetingParty;
   moderator: MeetingParty;
   openedAt: Date;
@@ -119,6 +121,8 @@ export function createReadMeeting(deps: { uow: UnitOfWork<ReadMeetingTx>; sealin
       return ok({
         meetingId,
         title: meeting.title,
+        goal: meeting.goal,
+        endsAt: meeting.endsAt,
         owner: await party(meeting.ownerShipId),
         moderator: await party(meeting.moderatorShipId),
         openedAt: meeting.openedAt,

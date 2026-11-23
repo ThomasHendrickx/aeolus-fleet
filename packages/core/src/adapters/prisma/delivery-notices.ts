@@ -8,6 +8,7 @@
  * server's schedule timer.
  */
 import pg from 'pg';
+import { z } from 'zod';
 
 import type { FleetEventNotice } from '../../domain/shared/events.js';
 import type { DeliveryNotice, Notifier } from '../../domain/shared/notifier.js';
@@ -15,6 +16,7 @@ import type { Db } from './client.js';
 import type { ScheduleNotice } from '../../domain/messaging/ports.js';
 import { FLEET_EVENT_CHANNEL } from './event-log.js';
 import { toDeliveryNotice, toFleetEventNotice } from './rows.js';
+import { MEETING_DEADLINE_CHANNEL } from './meetings.js';
 import { SCHEDULE_DUE_CHANNEL, toScheduleNotice } from './schedules.js';
 
 /** The one channel every pending delivery is announced on. */
@@ -61,6 +63,7 @@ export function listenForPendingDeliveries(options: {
   onFleetEvent?: (notice: FleetEventNotice) => void;
   /** Hears that a schedule's next attempt is due at a time (schedules.ts), for the server's schedule timer. */
   onScheduleDue?: (notice: ScheduleNotice) => void;
+  onMeetingDeadline?: (at: Date) => void;
   onListening?: () => void;
   onError?: (error: Error) => void;
   /** The first wait before trying again; 1 second unless a test says otherwise. */
@@ -108,6 +111,8 @@ export function listenForPendingDeliveries(options: {
           options.onNotice(toDeliveryNotice(JSON.parse(payload)));
         } else if (channel === FLEET_EVENT_CHANNEL) {
           options.onFleetEvent?.(toFleetEventNotice(JSON.parse(payload)));
+        } else if (channel === MEETING_DEADLINE_CHANNEL) {
+          options.onMeetingDeadline?.(new Date(z.iso.datetime().parse(payload)));
         } else if (channel === SCHEDULE_DUE_CHANNEL) {
           options.onScheduleDue?.(toScheduleNotice(JSON.parse(payload)));
         }
@@ -118,7 +123,7 @@ export function listenForPendingDeliveries(options: {
     client
       .connect()
       // The channels are constants, never outside input.
-      .then(() => client.query(`LISTEN ${DELIVERY_PENDING_CHANNEL}; LISTEN ${FLEET_EVENT_CHANNEL}; LISTEN ${SCHEDULE_DUE_CHANNEL}`))
+      .then(() => client.query(`LISTEN ${DELIVERY_PENDING_CHANNEL}; LISTEN ${FLEET_EVENT_CHANNEL}; LISTEN ${SCHEDULE_DUE_CHANNEL}; LISTEN ${MEETING_DEADLINE_CHANNEL}`))
       .then(
         () => {
           if (client !== current) {

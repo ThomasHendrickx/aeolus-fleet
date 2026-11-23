@@ -311,6 +311,7 @@ export interface InMemoryWakeStreams extends WakeStreams {
 }
 
 export interface InMemoryCore {
+  meetings: MeetingRepository;
   state: InMemoryState;
   uow: UnitOfWork<InMemoryTx>;
   /** The ships, read outside a unit of work. */
@@ -1473,6 +1474,8 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       },
     },
     meetings: {
+      claimDue: (fleetId, { at, tried }) => Promise.resolve(structuredClone(state.meetings.filter((meeting) => meeting.fleetId === fleetId && meeting.endedAt === null && meeting.endsAt !== null && meeting.endsAt <= at && !tried.includes(meeting.id)).sort((a, b) => (a.endsAt?.getTime() ?? 0) - (b.endsAt?.getTime() ?? 0) || a.id.localeCompare(b.id))[0])),
+      nextEndTime: (fleetId) => Promise.resolve(state.meetings.filter((meeting) => meeting.fleetId === fleetId && meeting.endedAt === null).flatMap((meeting) => meeting.endsAt === null ? [] : [meeting.endsAt]).sort((a, b) => a.getTime() - b.getTime())[0]),
       listOf: (fleetId, { shipId, cursor, limit }) => {
         const position = cursor === undefined ? undefined : readMeetingsCursor(cursor);
         const rows = state.meetings.flatMap((meeting): ListedMeeting[] => {
@@ -2744,7 +2747,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     },
   };
 
-  return { state, uow, fleets: tx.fleets, scheduleAttempts, pushedCrews, ships: tx.ships, leases: tx.leases, crewRequests: tx.crewRequests, clearRequests: tx.clearRequests, labels: tx.labels, reachRefusals: tx.reachRefusals, declaredNetworkRules: tx.declaredNetworkRules, scopeNamespaces: tx.scopeNamespaces, commissionApprovals: tx.commissionApprovals, definedScopes: tx.definedScopes, sealings: tx.sealings, featureFlags: tx.featureFlags, featureFlagReads: { source: { kind: 'installation' }, flags: tx.featureFlags }, keyVault, recoveryKeys: inMemoryRecoveryKeys, sealing: { sealer: inMemoryPayloadSealer, dataKeys: createFleetDataKeys({ sealings: tx.sealings, vault: keyVault.vault, sealer: inMemoryPayloadSealer, recoveryKeys: inMemoryRecoveryKeys, clock, uow, ids }) }, callers, accounts, listing, installationFleets, installationSettings: installationSettingsRepository, fleetLimitReads, feed, history, health: healthRecords, healthSnapshots, notices, noticeDismissals, guide, guideProgress, clock, ids, hasher, passwords, random, wakeStreams };
+  return { state, uow, meetings: tx.meetings, fleets: tx.fleets, scheduleAttempts, pushedCrews, ships: tx.ships, leases: tx.leases, crewRequests: tx.crewRequests, clearRequests: tx.clearRequests, labels: tx.labels, reachRefusals: tx.reachRefusals, declaredNetworkRules: tx.declaredNetworkRules, scopeNamespaces: tx.scopeNamespaces, commissionApprovals: tx.commissionApprovals, definedScopes: tx.definedScopes, sealings: tx.sealings, featureFlags: tx.featureFlags, featureFlagReads: { source: { kind: 'installation' }, flags: tx.featureFlags }, keyVault, recoveryKeys: inMemoryRecoveryKeys, sealing: { sealer: inMemoryPayloadSealer, dataKeys: createFleetDataKeys({ sealings: tx.sealings, vault: keyVault.vault, sealer: inMemoryPayloadSealer, recoveryKeys: inMemoryRecoveryKeys, clock, uow, ids }) }, callers, accounts, listing, installationFleets, installationSettings: installationSettingsRepository, fleetLimitReads, feed, history, health: healthRecords, healthSnapshots, notices, noticeDismissals, guide, guideProgress, clock, ids, hasher, passwords, random, wakeStreams };
 }
 
 /** The tables whose rows belong to a fleet by their fleet id: all but the fleets and the installation's requests. */

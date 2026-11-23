@@ -51,6 +51,8 @@ describe('reading a meeting', () => {
     expect({ ...read, participants: undefined, mic: undefined, contributions: undefined }).toEqual({
       meetingId,
       title: 'Launch plan',
+      goal: null,
+      endsAt: null,
       owner: { id: chief.shipId, name: 'chief' },
       moderator: { id: chief.shipId, name: 'chief' },
       openedAt: new Date(OPENED_AT),

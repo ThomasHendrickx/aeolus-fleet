@@ -28,7 +28,7 @@ export function meetingId(serial: number) {
 
 export function aMeetingForList(meetingHarness: Pick<MeetingListHarness, 'fleetId' | 'shipId' | 'ownerId' | 'moderatorId' | 'otherId'>, { serial, ...overrides }: { serial: number } & Partial<Meeting>): Meeting {
   return {
-    id: meetingId(serial), fleetId: meetingHarness.fleetId, title: 'Planning',
+    id: meetingId(serial), fleetId: meetingHarness.fleetId, title: 'Planning', goal: null, endsAt: null,
     ownerShipId: meetingHarness.ownerId, moderatorShipId: meetingHarness.moderatorId, openedByShipId: meetingHarness.ownerId,
     idempotencyKey: `meeting-${String(serial)}`, requestHash: 'hash', openedAt: OPENED, endedAt: null,
     micHolderShipId: meetingHarness.moderatorId, micPattern: 'moderator',
