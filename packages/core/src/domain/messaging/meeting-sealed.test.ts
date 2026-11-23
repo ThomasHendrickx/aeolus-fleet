@@ -121,7 +121,7 @@ describe('a meeting in a sealed fleet (decision 0068, B17)', () => {
 });
 
 
-it('preserves call and answer retries when existing plain payloads become sealed', async () => {
+it.each(['stored payloads', 'call retry', 'answer retry'])('preserves %s when existing plain payloads become sealed', async (outcome) => {
   // Given a new plain fleet, with a call and one answer before sealing starts.
   const plain = createInMemoryCore('2026-11-23T10:00:00.000Z');
   const fleet = await initialiseFleet(plain);
@@ -139,7 +139,7 @@ it('preserves call and answer retries when existing plain payloads become sealed
   await sealFleet(plain, fleet.fleetId);
   await createSealStoredPayloads({ uow: plain.uow, sealings: plain.sealings, sealing: plain.sealing, clock: plain.clock, ids: plain.ids, hasher: plain.hasher })();
   // Then command and answer retries still return their original ids.
-  expect(plain.state.messages.every((m) => typeof m.payload !== 'string')).toBe(true);
-  expect(unwrap(await messaging.openCall(chair, input))).toEqual({ callId });
-  expect(unwrap(await messaging.sendMessage(alpha, reply))).toEqual(original);
+  if (outcome === 'stored payloads') expect(plain.state.messages.every((m) => typeof m.payload !== 'string')).toBe(true);
+  if (outcome === 'call retry') expect(unwrap(await messaging.openCall(chair, input))).toEqual({ callId });
+  if (outcome === 'answer retry') expect(unwrap(await messaging.sendMessage(alpha, reply))).toEqual(original);
 });

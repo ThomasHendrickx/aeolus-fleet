@@ -190,11 +190,11 @@ it('takes an optional short goal and UTC end time at the open', () => {
 });
 
 
-it('takes a positive call-count end condition through the 32-bit storage boundary', () => {
+it.each([
+  [1, true], [2_147_483_647, true], [0, false], [-1, false], [1.5, false], [2_147_483_648, false],
+])('accepts call-count %s: %s', (endAfterCalls, isAccepted) => {
   // Given an otherwise valid meeting open.
   const input = { ships: [{ name: 'alpha' }], model: 'gpt-6.1-sol', idempotencyKey: 'count-limit' };
-  // When a count is provided.
-  for (const endAfterCalls of [1, 2_147_483_647]) expect(openMeetingInputSchema.safeParse({ ...input, endAfterCalls }).success).toBe(true);
-  // Then zero, fractions and one above the boundary are refused.
-  for (const endAfterCalls of [0, -1, 1.5, 2_147_483_648]) expect(openMeetingInputSchema.safeParse({ ...input, endAfterCalls }).success).toBe(false);
+  // When a count is checked, then its individual boundary result holds.
+  expect(openMeetingInputSchema.safeParse({ ...input, endAfterCalls }).success).toBe(isAccepted);
 });

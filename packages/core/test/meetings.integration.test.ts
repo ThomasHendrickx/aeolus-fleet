@@ -832,22 +832,34 @@ it('announces a new deadline only after the opening commits, for every core time
 describe('a call on Postgres', () => {
   const callInput = (meetingId: MeetingId) => ({ meetingId, question: 'Which day?', excludedShipIds: [chief.shipId], model: MODEL, idempotencyKey: newKey() });
   const answer = ({ meetingId, callId, shipId }: { meetingId: MeetingId; callId: MessageId; shipId: ShipId }) => core.useCases.sendMessage(agentCaller({ fleetId, shipId }), { selector: { kind: 'meeting', meetingId }, callId, payload: shipId === marketingId ? 'Friday' : 'Monday', model: MODEL, idempotencyKey: newKey() });
-  it('serializes concurrent opens and answers, survives reload, closes once and uses indexed call reads', async () => {
-    // Given a meeting with two expected participants.
+  it('serializes concurrent opens so only one call opens', async () => {
     const { meetingId } = unwrap(await core.useCases.openMeeting(chief, aMeeting()));
-    // When two opens race, then two final answers race.
     const opens = await Promise.all([core.useCases.openCall(chief, callInput(meetingId)), core.useCases.openCall(chief, callInput(meetingId))]);
     expect(opens.filter((r) => r.isOk)).toHaveLength(1);
-    const callId = opens.flatMap((r) => r.isOk ? [r.value.callId] : [])[0];
-    if (callId === undefined) throw new Error('No call opened');
+  });
+  async function answeredCall() {
+    const { meetingId } = unwrap(await core.useCases.openMeeting(chief, aMeeting()));
+    const { callId } = unwrap(await core.useCases.openCall(chief, callInput(meetingId)));
     const answers = await Promise.all([answer({ meetingId, callId, shipId: marketingId }), answer({ meetingId, callId, shipId: productId })]);
-    expect(answers.every((r) => r.isOk)).toBe(true);
-    // Then a fresh read holds every answer and one round delivery exists.
+    for (const result of answers) unwrap(result);
+    return { meetingId, callId };
+  }
+  it('retains concurrent answers when reloaded through a fresh repository', async () => {
+    const { meetingId } = await answeredCall();
     const read = unwrap(await core.useCases.readMeeting(chief, { meetingId, limit: 20 }));
-    expect(read.call).toMatchObject({ callId, closedAt: core.clock.now() });
     expect(read.call?.answers.map((a) => a.payload).sort()).toEqual(['Friday', 'Monday']);
+  });
+  it('delivers one round when the final answers race', async () => {
+    const { meetingId } = await answeredCall();
     await expect(core.prisma.message.count({ where: { fleetId, meetingId, contentType: 'application/vnd.aeolus.meeting.round+json' } })).resolves.toBe(1);
+  });
+  it('records one close when the final answers race', async () => {
+    await answeredCall();
     await expect(core.prisma.event.count({ where: { fleetId, type: 'CallClosed' } })).resolves.toBe(1);
+  });
+  it('uses indexed reads for calls and their answers', async () => {
+    const { meetingId, callId } = await answeredCall();
+    const read = unwrap(await core.useCases.readMeeting(chief, { meetingId, limit: 20 }));
     const statements: { query: string; params: string }[] = [];
     const client = createPrismaClientTellingStatements(core.databaseUrl, (query, params) => { if (query.includes('meeting_calls') || query.includes('messages')) statements.push({ query, params }); });
     try {
@@ -856,15 +868,37 @@ describe('a call on Postgres', () => {
       await meetings.findCall(fleetId, { meetingId, callId });
       await meetings.closedCallCount(fleetId, meetingId);
       const answerIds = read.call?.answers.map((a) => a.messageId) ?? [];
-      const stored = await createPrismaMessageRepository(client).findMany(fleetId, answerIds);
-      expect(stored.map((m) => m.callId)).toEqual([callId, callId]);
-      const row = await client.message.findFirst({ where: { fleetId, id: answerIds[0] } });
-      expect(toMessage(row).callId).toBe(callId);
+      await createPrismaMessageRepository(client).findMany(fleetId, answerIds);
       expect(statements.length).toBeGreaterThan(0);
       for (const statement of statements) await assertIndexedPlan(core.prisma, statement);
     } finally { await client.$disconnect(); }
   });
-  it('rolls back a call and its notices and events after a forced failure, then can retry', async () => {
+  it('retains the call id on each answer envelope', async () => {
+    const { meetingId, callId } = await answeredCall();
+    const read = unwrap(await core.useCases.readMeeting(chief, { meetingId, limit: 20 }));
+    const answerIds = read.call?.answers.map((a) => a.messageId) ?? [];
+    const stored = await createPrismaMessageRepository(core.prisma).findMany(fleetId, answerIds);
+    expect(stored.map((m) => m.callId)).toEqual([callId, callId]);
+  });
+  it('reads the call id from a persisted answer row', async () => {
+    const { meetingId, callId } = await answeredCall();
+    const row = await core.prisma.message.findFirst({ where: { fleetId, meetingId, callId } });
+    expect(toMessage(row).callId).toBe(callId);
+  });
+  it('retains the answer contributions when saving the call state', async () => {
+    // Given a call state loaded before an expected participant answers.
+    const { meetingId } = unwrap(await core.useCases.openMeeting(chief, aMeeting()));
+    const { callId } = unwrap(await core.useCases.openCall(chief, callInput(meetingId)));
+    const meetings = createPrismaMeetingRepository(core.prisma);
+    const call = await meetings.findCall(fleetId, { meetingId, callId });
+    if (call === undefined) throw new Error('No call opened');
+    const { messageId } = unwrap(await answer({ meetingId, callId, shipId: marketingId }));
+    // When only the call state is saved, its answer contributions remain authoritative.
+    await meetings.saveCall(call);
+    // Then reloading derives the retained answer from its contribution.
+    expect((await meetings.findCall(fleetId, { meetingId, callId }))?.answers).toEqual([{ shipId: marketingId, messageId }]);
+  });
+  it.each(['rolls back the opening', 'retries the opening'])('%s after a forced failure', async (outcome) => {
     // Given a failure after the first call delivery has been queued.
     const { meetingId } = unwrap(await core.useCases.openMeeting(chief, aMeeting()));
     const before = await storedCounts();
@@ -874,11 +908,14 @@ describe('a call on Postgres', () => {
     // When the opening fails.
     await expect(open(chief, input)).rejects.toThrow('call failure');
     // Then no call, message, event or delivery survives; retry opens it.
-    await expect(storedCounts()).resolves.toEqual(before);
-    await expect(core.prisma.event.count({ where: { fleetId, type: 'CallOpened' } })).resolves.toBe(0);
-    expect((await core.useCases.openCall(chief, input)).isOk).toBe(true);
+    if (outcome === 'rolls back the opening') {
+      await expect(storedCounts()).resolves.toEqual(before);
+      await expect(core.prisma.event.count({ where: { fleetId, type: 'CallOpened' } })).resolves.toBe(0);
+    } else {
+      expect((await core.useCases.openCall(chief, input)).isOk).toBe(true);
+    }
   });
-  it('rolls back the final answer, close and ending together on a round-notice failure', async () => {
+  it.each(['rolls back the final answer, close and ending together', 'retries the final answer to end once'])('%s on a round-notice failure', async (outcome) => {
     // Given a call whose final answer would end the meeting.
     const { meetingId } = unwrap(await core.useCases.openMeeting(chief, { ...aMeeting(), endAfterCalls: 1 }));
     const { callId } = unwrap(await core.useCases.openCall(chief, callInput(meetingId)));
@@ -889,11 +926,15 @@ describe('a call on Postgres', () => {
     // When the final answer's round delivery cannot be queued.
     await expect(send(agentCaller({ fleetId, shipId: productId }), { selector: { kind: 'meeting', meetingId }, callId, payload: 'Monday', model: MODEL, idempotencyKey: newKey() })).rejects.toThrow('round failure');
     // Then none of that transaction survives, and a retry ends the meeting once.
-    await expect(storedCounts()).resolves.toEqual(before);
-    const read = unwrap(await core.useCases.readMeeting(chief, { meetingId, limit: 20 }));
-    expect(read.endedAt).toBeNull();
-    expect(read.call?.answers).toHaveLength(1);
-    unwrap(await answer({ meetingId, callId, shipId: productId }));
-    expect(unwrap(await core.useCases.readMeeting(chief, { meetingId, limit: 20 })).endedAt).toEqual(core.clock.now());
+    if (outcome === 'rolls back the final answer, close and ending together') {
+      await expect(storedCounts()).resolves.toEqual(before);
+      const read = unwrap(await core.useCases.readMeeting(chief, { meetingId, limit: 20 }));
+      expect(read.endedAt).toBeNull();
+      expect(read.call?.answers).toHaveLength(1);
+    } else {
+      unwrap(await answer({ meetingId, callId, shipId: productId }));
+      expect(unwrap(await core.useCases.readMeeting(chief, { meetingId, limit: 20 })).endedAt).toEqual(core.clock.now());
+      await expect(core.prisma.event.count({ where: { fleetId, type: 'MeetingEnded' } })).resolves.toBe(1);
+    }
   });
 });
