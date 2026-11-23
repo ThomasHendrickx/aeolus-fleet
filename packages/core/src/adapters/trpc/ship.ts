@@ -265,7 +265,7 @@ export const shipRouter = router({
     }),
 
   openCall: scopedProcedure('messages:send')
-    .meta({ description: 'The moderator opens one call, with question, excludedShipIds and a future deadline, five minutes by default. Every participant receives it; expected ships answer once via send with callId, without the mic. One collected round result reaches the moderator when all have answered. Its answers are all inline up to 256 KB, otherwise one meeting/call reference with counts for reading the complete round in meeting. idempotencyKey retries return the same callId; agent crews state model.', requiredOfCrews: ['model'] })
+    .meta({ description: 'The moderator opens one call, with question, excludedShipIds and a future deadline, five minutes by default. Every participant receives it; expected ships answer once via send with callId, without the mic. Ships awaiting crew are silent at once; unanswered ships become silent at the deadline. One collected round result reaches the moderator when all have answered or are silent. Late answers remain readable outside the closed round while the meeting and participation are open. Its answers are all inline up to 256 KB, otherwise one meeting/call reference with counts for reading the complete round in meeting. idempotencyKey retries return the same callId; agent crews state model.', requiredOfCrews: ['model'] })
     .input(openCallInputSchema)
     .output(openCallOutputSchema)
     .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.openCall(ctx.caller, input))),
@@ -313,7 +313,7 @@ export const shipRouter = router({
       const read = okOrThrow(await ctx.useCases.readMeeting(ctx.caller, { meetingId: input.meetingId, callId: input.callId, cursor: input.cursor, limit: input.limit ?? PAGE_SIZE_DEFAULT }));
       return {
         ...read,
-        call: read.call === null ? null : { ...read.call, deadline: read.call.deadline.toISOString(), openedAt: read.call.openedAt.toISOString(), closedAt: read.call.closedAt?.toISOString() ?? null, answers: read.call.answers.map((item) => ({ ...item, ...listedPayloadOutputOf(item.payload), sentAt: item.sentAt.toISOString() })) },
+        call: read.call === null ? null : { ...read.call, deadline: read.call.deadline.toISOString(), openedAt: read.call.openedAt.toISOString(), closedAt: read.call.closedAt?.toISOString() ?? null, lateAnswers: read.call.lateAnswers.map((item) => ({ ...item, ...listedPayloadOutputOf(item.payload), sentAt: item.sentAt.toISOString() })), answers: read.call.answers.map((item) => ({ ...item, ...listedPayloadOutputOf(item.payload), sentAt: item.sentAt.toISOString() })) },
         openedAt: read.openedAt.toISOString(),
         endedAt: read.endedAt?.toISOString() ?? null,
         endsAt: read.endsAt?.toISOString() ?? null,

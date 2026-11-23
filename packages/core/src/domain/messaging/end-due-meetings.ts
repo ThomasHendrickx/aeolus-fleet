@@ -2,17 +2,19 @@
 import type { FleetId, IdGenerator, MeetingId } from '@aeolus-fleet/common';
 
 import type { Clock } from '../shared/clock.js';
+import type { DomainError } from '../shared/errors.js';
 import { recordEvent } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { withDataKeys, type DataKeysNeeded, type PayloadSealing } from './data-keys.js';
+import { closeCallWithin, type CallCloseTx } from './call-round.js';
 import { endAtDeadline } from './meeting-life.js';
-import { tellOfChange, type MeetingNoticeTx } from './meeting-notice.js';
+import { tellOfChange } from './meeting-notice.js';
 import type { AcceptRefusal } from './message.js';
 import type { MeetingRepository, RequestHasher } from './ports.js';
 
-export interface EndDueMeetingsTx extends MeetingNoticeTx {
-  meetings: Pick<MeetingRepository, 'claimDue' | 'save'>;
+export interface EndDueMeetingsTx extends CallCloseTx {
+  meetings: Pick<MeetingRepository, 'claimDue' | 'save' | 'latestCall' | 'saveCall' | 'closedCallCount'>;
 }
 export type EndMeetingFailed = (fleetId: FleetId, error: unknown) => void;
 export type EndDueMeetings = (onError?: EndMeetingFailed) => Promise<{ nextAttemptAt: Date | undefined }>;
@@ -34,10 +36,17 @@ export function createEndDueMeetings(deps: {
       for (;;) {
         const claimed: { id?: MeetingId } = {};
         try {
-          const result = await withDataKeys({ sealing: deps.sealing, fleetId }, (held) => deps.uow.run(async (tx): Promise<Result<MeetingId | undefined, AcceptRefusal | DataKeysNeeded>> => {
+          const result = await withDataKeys({ sealing: deps.sealing, fleetId }, (held) => deps.uow.run(async (tx): Promise<Result<MeetingId | undefined, AcceptRefusal | DataKeysNeeded | DomainError<'KEY_UNAVAILABLE'>>> => {
             const meeting = await tx.meetings.claimDue(fleetId, { at: deps.clock.now(), tried });
             if (meeting === undefined) return ok(undefined);
             claimed.id = meeting.id;
+            const call = await tx.meetings.latestCall(fleetId, meeting.id);
+            if (call?.closedAt === null && call.deadline <= deps.clock.now()) {
+              const closed = await closeCallWithin({ tx, ids: deps.ids, hasher: deps.hasher, held }, { meeting, call, by: meeting.moderatorShipId, at: deps.clock.now() });
+              if (!closed.isOk) return closed;
+              // A call-count ending takes precedence over the end-time ending in this transaction.
+              if (meeting.endAfterCalls !== null && meeting.endAfterCalls !== undefined && await tx.meetings.closedCallCount(fleetId, meeting.id) >= meeting.endAfterCalls) return ok(meeting.id);
+            }
             const changed = endAtDeadline(meeting, deps.clock.now());
             if (changed === undefined) return ok(undefined);
             await tx.meetings.save(changed.meeting);

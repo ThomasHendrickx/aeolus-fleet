@@ -479,7 +479,7 @@ async function answerWithin(deps: SendDeps, send: { caller: ShipCaller; request:
   if (!limit.isOk) return limit;
   const accepted = acceptContribution({ messageId, fleetId: caller.fleetId, senderShipId: caller.shipId, senderKind: caller.kind, senderLeaseId: isCrew(caller) ? caller.leaseId : null, meetingId: meeting.id, deliveries: [], payload: request.payload, contentType: request.contentType, model: request.model, idempotencyKey: request.idempotencyKey, requestHash: request.requestHash, ...(caller.signedInAccountId === undefined ? {} : { signedInAccountId: caller.signedInAccountId }), at });
   if (!accepted.isOk) return accepted;
-  const message = await sealedMessage(deps, { message: { ...accepted.value.message, callId: request.callId }, sealedRequestHash: request.sealedRequestHash });
+  const message = await sealedMessage(deps, { message: { ...accepted.value.message, callId: request.callId, isLate: answered.value.call.answers.find((answer) => answer.messageId === messageId)?.isLate ?? false }, sealedRequestHash: request.sealedRequestHash });
   if (!message.isOk) return message;
   await tx.messages.create(message.value);
   await tx.meetings.contributed(caller.fleetId, { meetingId: meeting.id, at });

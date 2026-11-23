@@ -129,6 +129,7 @@ export function createPrismaMessageRepository(db: Db): BufferedMessageRepository
           resendOfMessageId: message.resendOfMessageId,
           meetingId: message.meetingId,
           callId: message.callId ?? null,
+          isLate: message.isLate ?? false,
           scheduleId: message.scheduleId,
           sendTime: message.sendTime,
           createdAt: message.createdAt,

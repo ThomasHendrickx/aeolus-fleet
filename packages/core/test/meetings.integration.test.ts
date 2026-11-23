@@ -974,3 +974,63 @@ describe('call silence on Postgres', () => {
     } finally { await app.close(); }
   });
 });
+
+
+it('rolls back deadline silence, its round notice and events together, then closes once across concurrent passes', async () => {
+  // Given an open call with both expected ships crewed.
+  for (const shipId of [marketingId, productId]) await crewOf(shipId);
+  const { meetingId } = unwrap(await core.useCases.openMeeting(chief, aMeeting()));
+  const { callId } = unwrap(await core.useCases.openCall(chief, { meetingId, question: 'Ready?', excludedShipIds: [chief.shipId], model: MODEL, idempotencyKey: newKey() }));
+  await expect.poll(() => deadlines.length).toBe(1);
+  await expect.poll(() => notices.length).toBe(5);
+  notices.length = 0;
+  core.clock.advance(300_000);
+  const broken = unitOfWorkWith((tx) => ({ ...tx, notifier: { deliveryPending: async (notice) => { await tx.notifier.deliveryPending(notice); throw new Error('deadline round failure'); } } }));
+  const failures: unknown[] = [];
+  // When the close fails after queuing its notice.
+  await endDueWith(broken)((_fleetId, error) => { failures.push(error); });
+  // Then neither silence nor close nor its event or notice survives.
+  expect(failures).toHaveLength(1);
+  expect((await createPrismaMeetingRepository(core.prisma).findCall(fleetId, { meetingId, callId }))).toMatchObject({ closedAt: null, silentShipIds: [] });
+  await expect(core.prisma.event.count({ where: { fleetId, type: 'CallClosed' } })).resolves.toBe(0);
+  await expect(core.prisma.message.count({ where: { fleetId, meetingId, contentType: 'application/vnd.aeolus.meeting.round+json' } })).resolves.toBe(0);
+  expect(notices).toEqual([]);
+  // When two servers recover that same deadline together.
+  const racing = racingUnitOfWork({ prisma: core.prisma, transactions: 2 }, (tx, allArrived) => ({
+    ...tx, meetings: { ...tx.meetings, claimDue: async (scope, query) => { const meeting = await tx.meetings.claimDue(scope, query); await allArrived(); return meeting; } },
+  }));
+  await Promise.all([endDueWith(racing)(), endDueWith(racing)()]);
+  // Then exactly one committed round records both silent ships.
+  expect((await createPrismaMeetingRepository(core.prisma).findCall(fleetId, { meetingId, callId }))).toMatchObject({ closedAt: core.clock.now(), silentShipIds: [marketingId, productId] });
+  await expect(core.prisma.event.count({ where: { fleetId, type: 'CallClosed' } })).resolves.toBe(1);
+  await expect.poll(() => notices.length).toBe(1);
+});
+
+it('uses the indexed call deadlines to recover a due call among closed history', async () => {
+  // Given one open call among 5,000 closed calls.
+  for (const shipId of [marketingId, productId]) await crewOf(shipId);
+  const { meetingId } = unwrap(await core.useCases.openMeeting(chief, aMeeting()));
+  const { callId } = unwrap(await core.useCases.openCall(chief, { meetingId, question: 'Ready?', excludedShipIds: [chief.shipId], model: MODEL, idempotencyKey: newKey() }));
+  await core.prisma.$executeRaw`
+    INSERT INTO meeting_calls (id, fleet_id, meeting_id, request_hash, expected_ship_ids, deadline, opened_at, closed_at)
+    SELECT 'msg_' || lpad(i::text, 26, '0'), ${fleetId}, ${meetingId}, 'hash', ARRAY[]::text[], ${core.clock.now()}, ${core.clock.now()}, ${core.clock.now()}
+    FROM generate_series(1, 5000) i`;
+  await core.prisma.$executeRaw`ANALYZE meeting_calls`;
+  core.clock.advance(300_000);
+  const statements: { query: string; params: string }[] = [];
+  const client = createPrismaClientTellingStatements(core.databaseUrl, (query, params) => { if (query.includes('meeting_calls') && (query.includes('SKIP LOCKED') || query.includes('c.deadline AS at'))) statements.push({ query, params }); });
+  try {
+    // When a new repository finds the durable deadline and claims its meeting.
+    const meetings = createPrismaMeetingRepository(client);
+    expect(await meetings.nextEndTime(fleetId)).toEqual(core.clock.now());
+    await client.$transaction(async (tx) => { expect((await createPrismaMeetingRepository(tx).claimDue(fleetId, { at: core.clock.now(), tried: [] }))?.id).toBe(meetingId); });
+    // Then the next instant uses the deadline index and the claim uses an open-call partial index.
+    expect(statements).toHaveLength(2);
+    for (const statement of statements) {
+      const plan = await assertIndexedPlan(core.prisma, statement);
+      expect(plan).toMatch(/meeting_calls_(?:due|one_open)_idx/);
+      if (!statement.query.includes('SKIP LOCKED')) expect(plan).toContain('meeting_calls_due_idx');
+    }
+    expect((await meetings.findCall(fleetId, { meetingId, callId }))?.closedAt).toBeNull();
+  } finally { await client.$disconnect(); }
+});

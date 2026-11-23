@@ -43,6 +43,7 @@ export interface Message {
   /** The meeting it was contributed to, or tells of as the notice that added its recipient (decision 0061). */
   meetingId: MeetingId | null;
   callId?: MessageId | null;
+  isLate?: boolean;
   /**
    * The schedule it was sent for, and that send time; none on a live send
    * (decision 0062). Once the schedule went with its removed ship, the send

@@ -1,6 +1,7 @@
 /** The moderator opens one durable call, snapshots its expected ships and tells every participant. */
 import { MEETING_CALL_CONTENT_TYPE, type IdGenerator, type MeetingId, type MessageId, type ShipId } from '@aeolus-fleet/common';
 
+import { shipStatus, type LeaseRepository } from '../registry/public.js';
 import { isCrew, type ShipCaller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
@@ -18,6 +19,7 @@ import { acceptContribution, type AcceptRefusal } from './message.js';
 import type { MeetingRepository, MessageRepository, RequestHasher } from './ports.js';
 
 export interface OpenCallTx extends CallCloseTx, DailyMessageLimitTx {
+  leases: Pick<LeaseRepository, 'findCrewed'>;
   messages: MessageRepository;
   meetings: MeetingRepository;
 }
@@ -48,7 +50,10 @@ export function createOpenCall(deps: { uow: UnitOfWork<OpenCallTx>; clock: Clock
       const meeting = await tx.meetings.findForUpdate(caller.fleetId, input.meetingId);
       const previous = await tx.meetings.latestCall(caller.fleetId, input.meetingId);
       const at = deps.clock.now();
-      const opened = openCall(meeting, { meetingId: input.meetingId, by: caller.shipId, requestHash, callId: deps.ids('message'), question: input.question, excludedShipIds: input.excludedShipIds ?? [], deadline: input.deadline === undefined ? undefined : new Date(input.deadline), previous, at });
+      const ships = await tx.ships.findMany(caller.fleetId, meeting?.participants.filter((p) => p.leftAt === null).map((p) => p.shipId) ?? []);
+      const crewed = await tx.leases.findCrewed(caller.fleetId, ships.map((ship) => ship.id));
+      const awaitingCrewShipIds = ships.filter((ship) => shipStatus(ship, { isCrewed: crewed.includes(ship.id) }) === 'awaitingCrew').map((ship) => ship.id);
+      const opened = openCall(meeting, { meetingId: input.meetingId, by: caller.shipId, requestHash, awaitingCrewShipIds, callId: deps.ids('message'), question: input.question, excludedShipIds: input.excludedShipIds ?? [], deadline: input.deadline === undefined ? undefined : new Date(input.deadline), previous, at });
       if (!opened.isOk) return opened;
       if (meeting === undefined) return refuse('MEETING_NOT_FOUND', 'The meeting does not exist');
       const withinLimit = await withinDailyMessageLimit(tx, { fleetId: caller.fleetId, time: at });
