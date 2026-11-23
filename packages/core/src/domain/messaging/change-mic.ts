@@ -33,7 +33,8 @@ export type ChangeMic = (caller: ShipCaller, input: { meetingId: MeetingId; chan
  * Changes the mic of a meeting the caller takes part in (decision 0061, M7 to
  * M11), in one unit of work with its events. The meeting is held for update,
  * so mic changes take turns and a contribution in flight finishes first. The
- * ship that gets the mic is told by a message from the moderator, which states
+ * ship that gets the mic is told by its holding response to a request, or by
+ * a message from the moderator otherwise. That message states
  * no model: the change may be another ship's, as a release under first in line.
  * In a sealed fleet that notice is sealed with data keys unwrapped before the
  * unit of work (decision 0068, B17).
@@ -52,7 +53,8 @@ export function createChangeMic(deps: { uow: UnitOfWork<ChangeMicTx>; clock: Clo
       for (const event of events) {
         await recordEvent({ events: tx.events, ids: deps.ids }, event);
       }
-      const told = await tellOfChange({ tx, ids: deps.ids, hasher: deps.hasher, held }, { meeting, micGivenTo: givenTo, endedBy: null, at });
+      const isCallerToldByResponse = input.change.kind === 'request' && givenTo === caller.shipId;
+      const told = await tellOfChange({ tx, ids: deps.ids, hasher: deps.hasher, held }, { meeting, micGivenTo: isCallerToldByResponse ? null : givenTo, endedBy: null, at });
       if (!told.isOk) {
         return told;
       }
