@@ -257,7 +257,7 @@ export const fleetRouter = router({
       description: [
         'Needs fleet:commission, fleet:person for a person ship, or fleet:connect for a plugin ship. Commissions a new ship awaiting crew, for a ship, an account or the installation: name and type are handles (lowercase letters, digits, hyphens, colons).',
         'scopes adds scopes to the two every ship has, each one you may grant: a core scope you hold, or a declared scope of the namespace your ship declared. fleet_grantScopes changes them later.',
-        "The new ship's owner is your owner, you when you are a person ship, or your person ship when you are an account; an account without a person ship in the fleet is refused.",
+        "The new ship's owner is you when you are a person ship or an agent/app commissioning an agent/app, your person ship when you are an account, or your owner otherwise; an account without a person ship in the fleet is refused.",
         'valueIds gives it label values from the start, each a value of a label you defined or a value you carry yourself (decision 0053).',
         "ownerOf, which needs fleet:on-behalf, names the actual requester. ownership is requester-owner when omitted and inherits its owner; requester makes that requesting person, agent or app the owner. ownership requires ownerOf and cannot accompany owner. Scopes come from the live requester or recorded approval, never the chosen owner.",
         'approval names a kept approvalId and matching subjectDigest. Only its permitted commissioner may use it, for a subset of its scopes, with ownerOf still naming requester ownership. Withdrawal stops new commissions and leaves completed retries unchanged.',

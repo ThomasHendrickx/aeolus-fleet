@@ -83,7 +83,8 @@ function scopesOf(commissioner: CommissioningActor): readonly ScopeName[] {
 
 /**
  * How a ship got its owner at commission: itself, for a person ship (decision
- * 0052); the commissioner, when a person ship commissions it; the account's
+ * 0052); the commissioner, when a person ship commissions it or an agent/app
+ * commissions an agent/app; the account's
  * person ship, when an account commissions it (decision 0057); its
  * commissioner's owner, argo when the commissioner has none; the owner of
  * the ship that asked, or its owner, as the commissioner selected; or for
@@ -189,7 +190,8 @@ export type CommissionRefusal = CommissionApprovalRefusal | DomainError<
  * then plugin scopes in name order, each once; the scopes every ship has are
  * always its to name. A person ship owns itself; a person ship's commission
  * is owned by it, an account's by its person ship, which it must have; any
- * other by the commissioner's owner, argo by default; argo signed in to the
+ * agent/app commission by an agent/app belongs to that commissioner;
+ * otherwise it gets the commissioner's owner, argo by default. argo signed in to the
  * console names an agent ship's owner, an active person ship; a commissioner holding
  * fleet:on-behalf, a plugin's ship, may name instead the ship that asked it,
  * whose owner it gets (decision 0045); the scopes are then checked against
@@ -484,7 +486,8 @@ function checkOwnerArgoNamed(named: { owner?: ShipId; namedOwner?: Ship }): Resu
  * A person ship itself (decision 0052). Else the owner named, or the asking
  * ship itself or its owner, as the commissioner selected; else an account's active
  * person ship (decision 0057); the commissioner when it
- * is a person ship, or the commissioner's owner, inherited. argo for a ship
+ * is a person ship or an agent/app commissioning an agent/app, or the
+ * commissioner's owner, inherited. argo for a ship
  * that has none, as argo itself and the installation have none.
  */
 function ownerAtCommission(input: {
@@ -520,7 +523,7 @@ function ownerAtCommission(input: {
       return ok({ ownerShipId: argoShipId, how: 'argoByDefault' });
     case 'ship': {
       const { ship } = commissioner;
-      if (ship.kind === 'person') {
+      if (ship.kind === 'person' || ((ship.kind === 'agent' || ship.kind === 'app') && (input.kind === 'agent' || input.kind === 'app'))) {
         return ok({ ownerShipId: ship.id, how: 'commissioner' });
       }
       return ok(ship.owner === null ? { ownerShipId: argoShipId, how: 'argoByDefault' } : { ownerShipId: ship.owner, how: 'inherited' });

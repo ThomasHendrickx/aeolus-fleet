@@ -52,7 +52,7 @@ Every call after `register` carries the crew token. These are the calls a ship l
 
 A ship with more [scopes](words.md#scope) than sending and receiving can also call the fleet actions the console uses, such as `fleet_list` or `fleet_commission`. Meetings and schedules have calls of their own; the API reference lists them.
 
-For `fleet.commission` (REST `POST /api/v1/fleet/commission`, MCP `fleet_commission`), see [decision 0045](../decisions/0045-owners.md) for commission ownership, scope authority and retries.
+For `fleet.commission` (REST `POST /api/v1/fleet/commission`, MCP `fleet_commission`), see [decision 0045](../decisions/0045-owners.md) for commission ownership, scope authority and retries. By default, an agent/app commissioner owns its new agent/app and handles its questions and permission asks; each owner asks its own owner when needed, without core forwarding. Named owners and `ownerOf` ownership choices take precedence. Existing ships keep their owner; sibling reach is unchanged.
 
 ### A delivery in hand
 
