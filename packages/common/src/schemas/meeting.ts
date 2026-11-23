@@ -36,6 +36,8 @@ export const openMeetingInputSchema = z.object({
   valueIds: z.array(idSchema('labelValue')).optional(),
   idempotencyKey: idempotencyKeySchema,
   model: modelSchema.optional(),
+  goal: z.string().trim().max(MEETING_TITLE_MAX_LENGTH, `A meeting goal is at most ${String(MEETING_TITLE_MAX_LENGTH)} characters`).optional(),
+  endsAt: isoTime.optional(),
   title: z.string().trim().max(MEETING_TITLE_MAX_LENGTH, `A meeting title is at most ${String(MEETING_TITLE_MAX_LENGTH)} characters`).optional(),
 });
 
@@ -138,6 +140,8 @@ export const contributionSchema = z.object({
  * contributions, newest first.
  */
 export const meetingOutputSchema = z.object({
+  goal: z.string().nullable(),
+  endsAt: isoTime.nullable(),
   meetingId: idSchema('meeting'),
   title: z.string().nullable(),
   owner: partySchema,
@@ -156,6 +160,7 @@ export const MEETING_ADDED_CONTENT_TYPE = 'application/vnd.aeolus.meeting.added+
 
 /** The payload of the added notice: the meeting, its title (null without one), its owner, its moderator and its participants, by id and name. */
 export const meetingAddedSchema = z.object({
+  goal: z.string().nullable(),
   meetingId: idSchema('meeting'),
   title: z.string().nullable(),
   owner: partySchema,

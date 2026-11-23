@@ -102,7 +102,7 @@ export async function addedNoticeOf(tx: { ships: Pick<ShipRepository, 'find'> },
     names.set(shipId, ship?.name ?? shipId);
   }
   const party = (id: ShipId) => ({ id, name: names.get(id) ?? id });
-  return { meetingId: meeting.id, title: meeting.title, owner: party(meeting.ownerShipId), moderator: party(meeting.moderatorShipId), participants: present.map(({ shipId }) => party(shipId)) };
+  return { meetingId: meeting.id, title: meeting.title, goal: meeting.goal, owner: party(meeting.ownerShipId), moderator: party(meeting.moderatorShipId), participants: present.map(({ shipId }) => party(shipId)) };
 }
 
 /**

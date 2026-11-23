@@ -1,0 +1,68 @@
+/** Issue #2036: the public meeting calls carry goal and deadline facts. */
+import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { z } from 'zod';
+
+import { addAgentShip, crewShip, FLEET_URL, historyUseCases, identityUseCases, initialiseFleet, messagingUseCases, registryUseCases, SESSION_MODEL } from '../../../test/support/core-fixtures.js';
+import { createInMemoryCore } from '../../../test/support/in-memory.js';
+import { buildHttpServer } from './server.js';
+
+function fixture() {
+  const core = createInMemoryCore('2026-11-23T10:00:00.000Z');
+  const server = buildHttpServer({ fleetUrl: FLEET_URL, useCases: {
+    ...identityUseCases(core), ...registryUseCases(core), ...messagingUseCases(core), ...historyUseCases(core),
+    ping: () => Promise.resolve({ serverTime: core.clock.now(), fleetCount: 1 }),
+  }, clock: core.clock, logger: false, checkDatabase: () => Promise.resolve(), latestMigration: () => Promise.resolve(null), consoleOrigin: 'https://fleet.example.com' });
+  return { core, server };
+}
+let held: ReturnType<typeof fixture>;
+let token: string;
+let client: Client;
+beforeEach(async () => {
+  held = fixture();
+  const { fleetId } = await initialiseFleet(held.core);
+  const { shipId } = addAgentShip(held.core, { fleetId, name: 'chair', scopes: ['meetings:open', 'messages:send', 'messages:receive'] });
+  addAgentShip(held.core, { fleetId, name: 'alpha' });
+  token = crewShip(held.core, { fleetId, shipId });
+  const address = await held.server.listen({ host: '127.0.0.1', port: 0 });
+  client = new Client({ name: 'meeting-goal', version: '1.0.0' });
+  await client.connect(new StreamableHTTPClientTransport(new URL(`${address}/mcp`)));
+});
+afterEach(async () => { await client.close(); await held.server.close(); });
+
+type Door = 'tRPC' | 'REST' | 'MCP';
+async function call(door: Door, { name, input }: { name: 'openMeeting' | 'meeting'; input: Record<string, unknown> }) {
+  if (door === 'MCP') {
+    const result = z.object({ structuredContent: z.unknown().optional(), isError: z.boolean().optional(), content: z.array(z.object({ text: z.string() })) }).parse(await client.callTool({ name, arguments: { ...input, crewToken: token } }));
+    return result.isError ? { refusal: result.content.map((part) => part.text).join(' ') } : { data: result.structuredContent };
+  }
+  const response = await held.server.inject(door === 'REST' ? {
+    method: 'POST', url: `/api/v1/ship/${name}`, headers: { authorization: `Bearer ${token}` }, payload: input,
+  } : name === 'openMeeting' ? {
+    method: 'POST', url: '/trpc/ship.openMeeting', headers: { authorization: `Bearer ${token}` }, payload: input,
+  } : { method: 'GET', url: `/trpc/ship.meeting?input=${encodeURIComponent(JSON.stringify(input))}`, headers: { authorization: `Bearer ${token}` } });
+  if (response.statusCode !== 200) return { refusal: response.body };
+  return { data: door === 'REST' ? z.unknown().parse(response.json()) : z.object({ result: z.object({ data: z.unknown() }) }).parse(response.json()).result.data };
+}
+const anOpen = () => ({ ships: [{ name: 'alpha' }], idempotencyKey: 'open-goal', model: SESSION_MODEL, goal: 'Agree the release date', endsAt: '2026-11-23T10:01:00.000Z' });
+describe.each<Door>(['tRPC', 'REST', 'MCP'])('%s meeting goal and end time', (door) => {
+  it('opens and reads a meeting with its goal and future end time', async () => {
+    // Given a crewed opener with a goal and future end time.
+    const input = anOpen();
+    // When it opens and reads the meeting.
+    const { meetingId } = z.object({ meetingId: z.string() }).parse((await call(door, { name: 'openMeeting', input })).data);
+    const result = await call(door, { name: 'meeting', input: { meetingId } });
+    // Then both facts cross the public call boundary intact.
+    expect(result.data).toMatchObject({ goal: 'Agree the release date', endsAt: '2026-11-23T10:01:00.000Z' });
+  });
+  it.each([{ goal: 'a'.repeat(201) }, { endsAt: '2026-11-23T09:59:59.999Z' }, { endsAt: '2026-11-23T10:00:00.000Z' }])('refuses an invalid goal or deadline and stores nothing: %j', async (change) => {
+    // Given a request outside the approved boundaries.
+    const input = { ...anOpen(), ...change };
+    // When the opener calls it.
+    const result = await call(door, { name: 'openMeeting', input });
+    // Then it is BAD_REQUEST and no part of the open is stored.
+    expect(result.refusal).toContain('BAD_REQUEST');
+    expect(held.core.state.meetings).toEqual([]);
+    expect(held.core.state.messages).toEqual([]);
+  });
+});

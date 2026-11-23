@@ -937,6 +937,8 @@ enum DeliveryState {
 model Meeting {
   id              String     @id
   fleetId         String     @map("fleet_id")
+  goal            String?
+  endsAt          DateTime? @map("ends_at") @db.Timestamptz(3)
   title           String?
   ownerShipId     String     @map("owner_ship_id")
   moderatorShipId String     @map("moderator_ship_id")

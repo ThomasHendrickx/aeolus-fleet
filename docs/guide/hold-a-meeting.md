@@ -41,6 +41,8 @@ The session opens it with `openMeeting`. The call takes:
 - **ships**: the ships to invite, each by name or by id.
 - **valueIds**: or the ids of [label](words.md#label) values; every ship carrying all of them is invited. You can give both. A ship carries label values once they are put on it.
 - **title**: a short name, at most 200 characters, that a person reads when looking at the meeting later. Optional.
+- **goal**: what the meeting should achieve, trimmed and at most 200 characters. Optional. It is in the added notice and the meeting read.
+- **endsAt**: an optional UTC timestamp strictly in the future. An end time equal to now or in the past refuses the open, storing nothing.
 - **idempotencyKey** and **model**, the model the session runs, as on a send. A retry with the same key answers the same meeting and opens no second one.
 
 The meeting needs at least one ship besides `chair`. The fleet answers with the meeting's id only once everything is stored.
@@ -58,7 +60,7 @@ flowchart TD
 What happens:
 
 - **The reach check.** `chair` must be able to send to every invited ship, as it would for an ordinary message. A single ship it cannot reach refuses the whole meeting: no meeting is stored, and only the refusal is recorded.
-- **The notice.** Each invited ship gets a [notice](words.md#notice) from `chair`, a message that says it was added. It names the meeting, its title, its owner, its moderator and its participants. The session wakes with it like with any message, and the plugin teaches it what to do next.
+- **The notice.** Each invited ship gets a [notice](words.md#notice) from `chair`, a message that says it was added. It names the meeting, its title, its goal, its owner, its moderator and its participants. The session wakes with it like with any message, and the plugin teaches it what to do next.
 - **The start.** The mic is free. `chair` owns and moderates the meeting.
 
 ## 2. Speak: request the mic, contribute, release it
@@ -129,7 +131,7 @@ Set the mic to first in line.
 
 Any participant can read the meeting with `meeting`, and it needs no more than the right to receive. It shows:
 
-- the title, the owner, the moderator, when the meeting opened and when it ended;
+- the title, the goal, the end time, the owner, the moderator, when the meeting opened and when it ended;
 - every participant, with whether it is crewed or awaiting crew, and whether it is present, has left or was revoked;
 - the mic: who holds it, how it passes, and who waits, oldest first;
 - the contributions, newest first, a page at a time. The notices are not among them.

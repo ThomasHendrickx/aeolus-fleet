@@ -291,7 +291,7 @@ describe('the pruning pass', () => {
     const meeting: InMemoryState['meetings'][number] = {
       id: meetingId,
       fleetId: scene.fleetId,
-      title: null,
+      title: null, goal: null, endsAt: null,
       ownerShipId: scene.scout.shipId,
       moderatorShipId: scene.scout.shipId,
       openedByShipId: scene.scout.shipId,

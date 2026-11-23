@@ -145,6 +145,7 @@ describe('the added notice', () => {
     expect(meetingAddedSchema.parse(JSON.parse(plainPayloadOf(core.state.messages[0])))).toEqual({
       meetingId,
       title: 'Launch plan',
+      goal: null,
       owner: chiefParty,
       moderator: chiefParty,
       participants: [chiefParty, { id: marketing.shipId, name: 'marketing' }, { id: product.shipId, name: 'product' }],

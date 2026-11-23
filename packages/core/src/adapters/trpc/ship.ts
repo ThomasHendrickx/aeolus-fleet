@@ -305,6 +305,7 @@ export const shipRouter = router({
         ...read,
         openedAt: read.openedAt.toISOString(),
         endedAt: read.endedAt?.toISOString() ?? null,
+        endsAt: read.endsAt?.toISOString() ?? null,
         mic: { ...read.mic, requests: read.mic.requests.map((request) => ({ ...request, requestedAt: request.requestedAt.toISOString() })) },
         contributions: { ...read.contributions, items: read.contributions.items.map((item) => ({ ...item, ...listedPayloadOutputOf(item.payload), sentAt: item.sentAt.toISOString() })) },
       };

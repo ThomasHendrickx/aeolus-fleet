@@ -15,6 +15,8 @@ const meetingRow = z.object({
   id: idSchema('meeting'),
   fleetId: idSchema('fleet'),
   title: z.string().nullable(),
+  goal: z.string().nullable(),
+  endsAt: z.date().nullable(),
   ownerShipId: idSchema('ship'),
   moderatorShipId: idSchema('ship'),
   openedByShipId: idSchema('ship'),

@@ -77,7 +77,7 @@ describe('the added notice (decision 0061)', () => {
 
   it('carries the meeting, its title, its owner, its moderator and its participants by id and name', () => {
     const owner = { id: newId('ship'), name: 'chief-of-staff' };
-    const notice = { meetingId: newId('meeting'), title: 'Weekly heads', owner, moderator: owner, participants: [owner, { id: newId('ship'), name: 'head-of-product' }] };
+    const notice = { meetingId: newId('meeting'), title: 'Weekly heads', goal: null, owner, moderator: owner, participants: [owner, { id: newId('ship'), name: 'head-of-product' }] };
 
     expect(meetingAddedSchema.parse(notice)).toEqual(notice);
   });
@@ -85,7 +85,7 @@ describe('the added notice (decision 0061)', () => {
   it('carries a null title for a meeting opened without one', () => {
     const owner = { id: newId('ship'), name: 'chief-of-staff' };
 
-    expect(meetingAddedSchema.safeParse({ meetingId: newId('meeting'), title: null, owner, moderator: owner, participants: [owner] }).success).toBe(true);
+    expect(meetingAddedSchema.safeParse({ meetingId: newId('meeting'), title: null, goal: null, owner, moderator: owner, participants: [owner] }).success).toBe(true);
   });
 });
 
@@ -120,6 +120,8 @@ describe('the meeting read', () => {
     const read = {
       meetingId: newId('meeting'),
       title: null,
+      goal: null,
+      endsAt: null,
       owner: chief,
       moderator: chief,
       openedAt: '2026-10-24T09:00:00.000Z',
