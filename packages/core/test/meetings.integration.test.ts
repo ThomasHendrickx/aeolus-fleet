@@ -805,11 +805,11 @@ it('core automatically recovers a due meeting after a restart without its modera
   const endsAt = new Date(core.clock.now().getTime() + 60_000).toISOString();
   const { meetingId } = unwrap(await core.useCases.openMeeting(chief, { ...aMeeting(), endsAt }));
   core.clock.advance(60_000);
-  // When core starts, without a maintenance pass or any participant action.
-  const app = createApp({ databaseUrl: core.databaseUrl, publicUrl: 'http://localhost', clock: core.clock, logger: false, hasMaintenancePass: false });
+  // When core restarts, its first maintenance pass recovers the missed notification without participant action.
+  const app = createApp({ databaseUrl: core.databaseUrl, publicUrl: 'http://localhost', clock: core.clock, logger: false, overduePassMs: 100 });
   try {
     await app.ready();
-    // Then its deadline timer recovers the stored ending and delivers its notices.
+    // Then core recovers the stored ending and delivers its notices.
     await expect.poll(() => core.prisma.meeting.findFirst({ where: { fleetId, id: meetingId } })).toMatchObject({ endedAt: new Date(endsAt) });
     await expect(core.prisma.message.count({ where: { fleetId, meetingId, contentType: MEETING_ENDED_CONTENT_TYPE } })).resolves.toBe(2);
   } finally { await app.close(); }
