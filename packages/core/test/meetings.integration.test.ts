@@ -3,6 +3,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createApp } from '../src/app.js';
 import { createPrismaClientTellingStatements } from '../src/adapters/prisma/client.js';
+import { createPrismaMessageRepository } from '../src/adapters/prisma/messaging.js';
+import { toMessage } from '../src/adapters/prisma/rows.js';
 import { createPrismaMeetingRepository } from '../src/adapters/prisma/meetings.js';
 import { assertIndexedPlan } from './support/assert-indexed-plan.js';
 import { sha256Hasher } from '../src/adapters/crypto/secrets.js';
@@ -847,11 +849,17 @@ describe('a call on Postgres', () => {
     await expect(core.prisma.message.count({ where: { fleetId, meetingId, contentType: 'application/vnd.aeolus.meeting.round+json' } })).resolves.toBe(1);
     await expect(core.prisma.event.count({ where: { fleetId, type: 'CallClosed' } })).resolves.toBe(1);
     const statements: { query: string; params: string }[] = [];
-    const client = createPrismaClientTellingStatements(core.databaseUrl, (query, params) => { if (query.includes('meeting_calls')) statements.push({ query, params }); });
+    const client = createPrismaClientTellingStatements(core.databaseUrl, (query, params) => { if (query.includes('meeting_calls') || query.includes('messages')) statements.push({ query, params }); });
     try {
       const meetings = createPrismaMeetingRepository(client);
       await meetings.latestCall(fleetId, meetingId);
       await meetings.findCall(fleetId, { meetingId, callId });
+      await meetings.closedCallCount(fleetId, meetingId);
+      const answerIds = read.call?.answers.map((a) => a.messageId) ?? [];
+      const stored = await createPrismaMessageRepository(client).findMany(fleetId, answerIds);
+      expect(stored.map((m) => m.callId)).toEqual([callId, callId]);
+      const row = await client.message.findFirst({ where: { fleetId, id: answerIds[0] } });
+      expect(toMessage(row).callId).toBe(callId);
       expect(statements.length).toBeGreaterThan(0);
       for (const statement of statements) await assertIndexedPlan(core.prisma, statement);
     } finally { await client.$disconnect(); }

@@ -784,3 +784,16 @@ describe('timelineSentence', () => {
     expect(onScoutsPage(anEntry(type, { actor, details: { scheduleId: newId('schedule'), ...details } }))).toEqual({ sentence, tone, icon });
   });
 });
+
+it.each<{ type: EventType; sentence: string }>([
+  { type: 'CallOpened', sentence: 'Opened a call in a meeting' },
+  { type: 'CallAnswered', sentence: 'Answered a call in a meeting' },
+  { type: 'CallClosed', sentence: 'Closed a call in a meeting' },
+])('words the meeting event $type', ({ type, sentence }) => {
+  // Given a recorded call event on this ship's timeline.
+  const entry = anEntry(type);
+  // When the timeline formats it.
+  const result = onScoutsPage(entry);
+  // Then it names the change in meeting language.
+  expect(result).toEqual({ sentence, tone: 'ok', icon: 'sent' });
+});
