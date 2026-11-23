@@ -5,7 +5,6 @@ import {
   MEETING_ADDED_CONTENT_TYPE,
   MEETING_ENDED_CONTENT_TYPE,
   MEETING_MIC_CONTENT_TYPE,
-  NO_TERMINAL_QUESTIONS,
   NOTICE_CONTENT_TYPE,
   QUESTION_CONTENT_TYPE,
   REPLACEMENT_CONTENT_TYPE,
@@ -82,8 +81,8 @@ describe('the ship protocol', () => {
     expect(rule).toContain('a CONFLICT on register means the ship is crewed already, by this conversation or another, and is no reason to retry');
   });
 
-  it("tells every ship the line the trierarch gives its sessions: no human reads its terminal, ask over the fleet, and its ship's owner for what only a human can answer (#588)", () => {
-    expect(SHIP_PROTOCOL.split('\n').find((line) => line.startsWith('4. '))).toContain(NO_TERMINAL_QUESTIONS);
+  it("routes questions to owners and lets owners escalate what they cannot answer (decision 0045)", () => {
+    expect(SHIP_PROTOCOL.split('\n').find((line) => line.startsWith('4. '))).toContain("A question goes to your ship's owner (a person, an agent or an app); owners ask their own owner what they cannot answer.");
   });
 
   it("tells every ship how to ask its owner's ship a question, as whoami names it, withdraw or replace it, and how its answer arrives, with the content types of decision 0038 (#684, decision 0045)", () => {
