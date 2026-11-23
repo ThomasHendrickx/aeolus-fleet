@@ -2,7 +2,7 @@
 import { MEETING_ENDED_CONTENT_TYPE } from '@aeolus-fleet/common';
 import { beforeEach, expect, it } from 'vitest';
 
-import { initialiseFleet, messagingUseCases, operatorCaller, plainPayloadOf, registryUseCases, SESSION_MODEL } from '../../../test/support/core-fixtures.js';
+import { crewAboard, initialiseFleet, messagingUseCases, operatorCaller, plainPayloadOf, registryUseCases, SESSION_MODEL } from '../../../test/support/core-fixtures.js';
 import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { createInMemoryCore } from '../../../test/support/in-memory.js';
 import { newKey } from '../../testing/keys.js';
@@ -117,4 +117,17 @@ it('refuses every mic change after the deadline before the ending pass', async (
   // Then each sees the ended refusal and nothing changes.
   expect(results.map((result) => refusalOf(result).kind)).toEqual(Array(6).fill('MEETING_ENDED'));
   expect(core.state.meetings).toEqual(before);
+});
+
+it('claims the earliest due meeting before a later meeting deadline', async () => {
+  // Given a call due before another meeting's end.
+  const { core, messaging, chief, alpha, input, meetingId } = scene;
+  crewAboard(core, alpha);
+  unwrap(await messaging.openCall(chief, { meetingId, question: 'Ready?', excludedShipIds: [chief.shipId], deadline: '2026-11-23T10:00:10.000Z', idempotencyKey: newKey(), model: SESSION_MODEL }));
+  unwrap(await messaging.openMeeting(chief, { ...input, idempotencyKey: newKey(), endsAt: '2026-11-23T10:00:30.000Z' }));
+  core.clock.advance(60_000);
+  // When maintenance claims a meeting.
+  const claimed = await core.meetings.claimDue(chief.fleetId, { at: core.clock.now(), tried: [] });
+  // Then the call's earlier deadline wins.
+  expect(claimed?.id).toBe(meetingId);
 });
