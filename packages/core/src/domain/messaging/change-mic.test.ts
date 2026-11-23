@@ -76,7 +76,7 @@ describe('a meeting opens', () => {
 });
 
 describe('a mic request (M8)', () => {
-  it('answers with the current queue and the caller holding the mic when fifo grants it at once', async () => {
+  it('answers holding without a mic notice when fifo grants the request at once', async () => {
     await done(chief, { kind: 'setPattern', pattern: 'fifo' });
 
     const response = unwrap(await changed(product, { kind: 'request' }));
@@ -85,6 +85,8 @@ describe('a mic request (M8)', () => {
       mic: { holder: { id: product.shipId, name: 'product' }, pattern: 'fifo', requests: [] },
       caller: { kind: 'holding' },
     });
+    expect(micNotices()).toEqual([]);
+    expect(core.state.notices).toEqual([]);
   });
 
   it('answers with who holds the mic, the ordered line and the caller place', async () => {
@@ -302,10 +304,13 @@ describe('first in line (M9)', () => {
     const afterRelease = micState();
     await done(chief, { kind: 'take' });
 
-    expect([afterRelease, micState(), micNotices().map(({ senderShipId }) => senderShipId)]).toEqual([
+    expect([afterRelease, micState(), micNotices().map(({ senderShipId, selector }) => ({ senderShipId, selector }))]).toEqual([
       { holder: marketing.shipId, waiting: [design.shipId] },
       { holder: design.shipId, waiting: [] },
-      [chief.shipId, chief.shipId, chief.shipId],
+      [
+        { senderShipId: chief.shipId, selector: { kind: 'ship', shipId: marketing.shipId } },
+        { senderShipId: chief.shipId, selector: { kind: 'ship', shipId: design.shipId } },
+      ],
     ]);
   });
 
