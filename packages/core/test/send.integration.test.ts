@@ -143,6 +143,7 @@ describe('sending a message on Postgres', () => {
         resendOfMessageId: null,
         meetingId: null,
         callId: null,
+        isLate: false,
         scheduleId: null,
         sendTime: null,
         createdAt: core.clock.now(),
