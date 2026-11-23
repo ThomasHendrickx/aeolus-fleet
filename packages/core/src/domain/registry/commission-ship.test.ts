@@ -379,7 +379,7 @@ describe('the owner of a new ship (decision 0045)', () => {
     expect(ownerSetOf(shipId)).toEqual([{ ownerShipId: argoId, how: 'argoByDefault' }]);
   });
 
-  it("is the commissioner's owner, inherited, with OwnerSet", async () => {
+  it("is the commissioner itself when an agent commissions it, with OwnerSet", async () => {
     const thomas = unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'thomas', type: 'person', kind: 'person' })).shipId;
     const manager = await commissioned(argo, 'manager');
     const held = core.state.ships.find((ship) => ship.id === manager);
@@ -389,17 +389,42 @@ describe('the owner of a new ship (decision 0045)', () => {
 
     const shipId = await commissioned(asAgent(manager), 'deputy');
 
-    expect(core.state.ships.find((ship) => ship.id === shipId)?.owner).toBe(thomas);
-    expect(ownerSetOf(shipId)).toEqual([{ ownerShipId: thomas, how: 'inherited' }]);
+    expect(core.state.ships.find((ship) => ship.id === shipId)?.owner).toBe(manager);
+    expect(ownerSetOf(shipId)).toEqual([{ ownerShipId: manager, how: 'commissioner' }]);
   });
 
-  it('is argo, inherited, when the commissioner is argo\'s', async () => {
+  it('is the agent commissioner even when argo owns it', async () => {
     const manager = await commissioned(argo, 'manager');
 
     const shipId = await commissioned(asAgent(manager), 'deputy');
 
+    expect(core.state.ships.find((ship) => ship.id === shipId)?.owner).toBe(manager);
+    expect(ownerSetOf(shipId)).toEqual([{ ownerShipId: manager, how: 'commissioner' }]);
+  });
+
+  it.each(['plugin', 'trierarch'] as const)('keeps the existing owner default for a %s ship an agent commissions', async (kind) => {
+    // Given an agent owned by argo with the scopes for this kind.
+    const manager = unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'manager', type: 'manager', scopes: ['fleet:commission', 'fleet:connect'] })).shipId;
+
+    // When it commissions a plugin or trierarch without a named owner.
+    const { shipId } = unwrap(await commissionShip(asAgent(manager), { idempotencyKey: newKey(), name: 'service', type: kind, kind }));
+
+    // Then the existing argo ownership default stays.
     expect(core.state.ships.find((ship) => ship.id === shipId)?.owner).toBe(argoId);
     expect(ownerSetOf(shipId)).toEqual([{ ownerShipId: argoId, how: 'inherited' }]);
+  });
+
+  it('is the app commissioner itself without changing its existing owner', async () => {
+    // Given an app owned by argo that may commission ships.
+    const manager = unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'manager', type: 'app', kind: 'app', owner: argoId, scopes: ['fleet:commission', 'fleet:manage'] })).shipId;
+
+    // When it commissions without naming an owner or ownerOf.
+    const shipId = await commissioned({ ...argo, shipId: manager, kind: 'app' }, 'deputy');
+
+    // Then it owns the new ship and its existing owner stays argo.
+    expect(core.state.ships.find((ship) => ship.id === shipId)?.owner).toBe(manager);
+    expect(ownerSetOf(shipId)).toEqual([{ ownerShipId: manager, how: 'commissioner' }]);
+    expect(core.state.ships.find((ship) => ship.id === manager)?.owner).toBe(argoId);
   });
 
   it('is the person ship itself, for a person ship, with OwnerSet saying so (decision 0052)', async () => {
