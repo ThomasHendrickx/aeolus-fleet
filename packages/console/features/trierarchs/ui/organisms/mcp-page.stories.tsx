@@ -255,7 +255,9 @@ export const Edit: Story = {
     const input = await screen.findByTestId('mcp-name');
     await userEvent.clear(input);
     await userEvent.type(input, 'graph');
-    await expect(screen.getByText('Crew requests that name company-graph will not be placed until they name graph.')).toBeVisible();
+    await waitFor(async () => {
+      await expect(screen.getByText('Crew requests that name company-graph will not be placed until they name graph.')).toBeVisible();
+    });
   },
 };
 export const Invalid: Story = {

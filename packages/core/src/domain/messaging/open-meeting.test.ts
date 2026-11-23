@@ -315,3 +315,13 @@ it.each([{ goal: 'Another goal' }, { endsAt: '2026-10-24T10:00:00.000Z' }])('ref
   // Then it is another request, not a repeat.
   expect(refusalOf(result).kind).toBe('IDEMPOTENCY_KEY_REUSED');
 });
+
+it('stores a whitespace-only goal as no goal', async () => {
+  // Given a goal containing only whitespace.
+  const input = { ...aMeeting(), goal: '  \t  ' };
+  // When the meeting opens.
+  const meetingId = await opened(input);
+  // Then the meeting and its notice have no goal.
+  expect(unwrap(await messaging.readMeeting(chief, { meetingId, limit: 20 }))).toMatchObject({ goal: null });
+  expect(JSON.parse(plainPayloadOf(core.state.messages[0]))).toMatchObject({ goal: null });
+});
