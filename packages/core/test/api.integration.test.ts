@@ -1,6 +1,6 @@
 import { readdirSync } from 'node:fs';
 
-import { alertOutputSchema, ANY_LABEL_VALUE, createIdGenerator, raiseAlertInputSchema, idSchema, MEETING_ADDED_CONTENT_TYPE, MEETING_MIC_CONTENT_TYPE, SAME_LABEL_VALUE, SCOPES, type FleetId, type NetworkRule, type Scope, type SendInput, type ShipId } from '@aeolus-fleet/common';
+import { alertOutputSchema, ANY_LABEL_VALUE, createIdGenerator, raiseAlertInputSchema, idSchema, MEETING_ADDED_CONTENT_TYPE, SAME_LABEL_VALUE, SCOPES, type FleetId, type NetworkRule, type Scope, type SendInput, type ShipId } from '@aeolus-fleet/common';
 import { createTRPCClient, httpBatchLink, TRPCClientError, type TRPCClient } from '@trpc/client';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
@@ -2554,15 +2554,14 @@ describe('network rules at the API', () => {
     // Only the moderator and the mic's holder contribute (M7): first in line, each head requests the mic and gets it in turn.
     await chief.ship.setMicPattern.mutate({ meetingId, pattern: 'fifo' });
     await expect(codeOf(product.ship.send.mutate(toMeeting(meetingId, 'Before my turn')))).resolves.toBe('CONFLICT');
-    await marketing.ship.requestMic.mutate({ meetingId });
+    await expect(marketing.ship.requestMic.mutate({ meetingId })).resolves.toMatchObject({ caller: { kind: 'holding' } });
     await marketing.ship.send.mutate(toMeeting(meetingId, 'Copy is ready'));
     await marketing.ship.releaseMic.mutate({ meetingId });
-    await product.ship.requestMic.mutate({ meetingId });
+    await expect(product.ship.requestMic.mutate({ meetingId })).resolves.toMatchObject({ caller: { kind: 'holding' } });
     await product.ship.send.mutate(toMeeting(meetingId, 'Friday works'));
-    const micNotice = { payload: JSON.stringify({ meetingId }), contentType: MEETING_MIC_CONTENT_TYPE, meetingId };
 
-    await expect(receivedBy(product)).resolves.toEqual([{ payload: 'Copy is ready', contentType: 'text/plain', meetingId }, micNotice]);
-    await expect(receivedBy(marketing)).resolves.toEqual([micNotice, { payload: 'Friday works', contentType: 'text/plain', meetingId }]);
+    await expect(receivedBy(product)).resolves.toEqual([{ payload: 'Copy is ready', contentType: 'text/plain', meetingId }]);
+    await expect(receivedBy(marketing)).resolves.toEqual([{ payload: 'Friday works', contentType: 'text/plain', meetingId }]);
     await expect(receivedBy(chief)).resolves.toEqual([
       { payload: 'Copy is ready', contentType: 'text/plain', meetingId },
       { payload: 'Friday works', contentType: 'text/plain', meetingId },
