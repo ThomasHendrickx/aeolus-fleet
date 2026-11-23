@@ -164,6 +164,7 @@ describe('the OpenAPI spec at /api/v1/openapi.json', () => {
       ['/ship/ask', ['post']],
       ['/ship/step', ['post']],
       ['/ship/withdraw', ['post']],
+      ['/ship/openCall', ['post']],
       ['/ship/openMeeting', ['post']],
       ['/ship/meeting', ['post']],
       ['/ship/meetings', ['post']],

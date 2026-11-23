@@ -305,3 +305,18 @@ it('reads the round named by a delayed notice after a newer call opens', async (
   expect(read.call).toMatchObject({ callId, expectedShipIds: [alpha.shipId, beta.shipId], closedAt: core.clock.now() });
   expect(read.call?.answers.map((item) => item.payload)).toEqual(['Friday', 'Monday']);
 });
+
+it.each([60_000, 60_001])('refuses calls and answers at or past the meeting end after %s ms', async (elapsed) => {
+  // Given a meeting with an open call and a future end time.
+  ({ meetingId } = unwrap(await messaging.openMeeting(chair, { ships: [{ shipId: alpha.shipId }], endsAt: '2026-11-23T10:01:00.000Z', idempotencyKey: newKey(), model: SESSION_MODEL })));
+  const { callId } = unwrap(await messaging.openCall(chair, { ...aCall(), deadline: '2026-11-23T10:01:00.000Z' }));
+  core.clock.advance(elapsed);
+  const before = counts();
+  // When the moderator opens another call and a participant answers the existing call.
+  const opened = await messaging.openCall(chair, aCall());
+  const answered = await answer(alpha, { callId });
+  // Then both refuse without storing anything, before the ending worker runs.
+  expect(refusalOf(opened)).toMatchObject({ kind: 'MEETING_ENDED', message: `Meeting ${meetingId} ended: it takes no more calls` });
+  expect(refusalOf(answered).kind).toBe('MEETING_ENDED');
+  expect(counts()).toEqual(before);
+});
