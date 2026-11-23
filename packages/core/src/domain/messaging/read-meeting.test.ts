@@ -156,3 +156,26 @@ it('projects the immutable sending lease on full meeting contributions (#1993)',
   // Then
   expect(read.contributions.items).toContainEqual(expect.objectContaining({ messageId, senderLeaseId: crew.leaseId }));
 });
+
+
+describe('round progress in one meeting read', () => {
+  it('shows delivered, answered, late and silent expected ships with current crew state', async () => {
+    // Given a call with crewed chief and marketing, and product awaiting crew.
+    crewAboard(core, chief);
+    crewAboard(core, marketing);
+    const { callId } = unwrap(await messaging.openCall(chief, { meetingId, question: 'Ready?', idempotencyKey: newKey(), model: SESSION_MODEL }));
+    // When the moderator reads before any answer.
+    const initial = unwrap(await messaging.readMeeting(chief, { meetingId, limit: 20 }));
+    // Then delivery state and immediate silence are visible alongside crew state.
+    expect(initial.call).toMatchObject({ progress: { items: [
+      { ship: { id: chief.shipId }, progress: 'delivered', status: 'crewed', turn: null, deliveredAt: new Date(OPENED_AT), acknowledgedAt: null },
+      { ship: { id: marketing.shipId }, progress: 'delivered', status: 'crewed', turn: null },
+      { ship: { id: product.shipId }, progress: 'silent', status: 'awaitingCrew', turn: null },
+    ], nextCursor: null } });
+    unwrap(await messaging.sendMessage(marketing, { selector: { kind: 'meeting', meetingId }, callId, payload: 'Ready', idempotencyKey: newKey(), model: SESSION_MODEL }));
+    unwrap(await messaging.sendMessage(product, { selector: { kind: 'meeting', meetingId }, callId, payload: 'Late', idempotencyKey: newKey(), model: SESSION_MODEL }));
+    expect(unwrap(await messaging.readMeeting(chief, { meetingId, limit: 20 })).call).toMatchObject({ progress: { items: [
+      { progress: 'delivered' }, { progress: 'answered' }, { progress: 'late' },
+    ] } });
+  });
+});

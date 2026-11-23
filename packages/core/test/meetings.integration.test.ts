@@ -5,6 +5,7 @@ import { createApp } from '../src/app.js';
 import { createPrismaClientTellingStatements } from '../src/adapters/prisma/client.js';
 import { createPrismaMessageRepository } from '../src/adapters/prisma/messaging.js';
 import { toMessage } from '../src/adapters/prisma/rows.js';
+import { createPrismaLeaseRepository } from '../src/adapters/prisma/registry.js';
 import { createPrismaMeetingRepository } from '../src/adapters/prisma/meetings.js';
 import { assertIndexedPlan } from './support/assert-indexed-plan.js';
 import { sha256Hasher } from '../src/adapters/crypto/secrets.js';
@@ -1033,4 +1034,32 @@ it('uses the indexed call deadlines to recover a due call among closed history',
     }
     expect((await meetings.findCall(fleetId, { meetingId, callId }))?.closedAt).toBeNull();
   } finally { await client.$disconnect(); }
+});
+
+
+it('pages expected ships in the database and reads acknowledged progress with pushed crew state', async () => {
+  // Given a call whose marketing crew has acknowledged its notice and reported busy.
+  const marketing = await crewOf(marketingId);
+  await crewOf(productId);
+  const { meetingId } = unwrap(await core.useCases.openMeeting(chief, aMeeting()));
+  const { callId } = unwrap(await core.useCases.openCall(chief, { meetingId, question: 'Ready?', excludedShipIds: [chief.shipId], model: MODEL, idempotencyKey: newKey() }));
+  const delivery = await core.prisma.delivery.findFirstOrThrow({ where: { fleetId, messageId: callId, recipientShipId: marketingId } });
+  const at = core.clock.now();
+  await core.prisma.delivery.update({ where: { id: delivery.id }, data: { state: 'acknowledged', claimedByShipId: marketingId, claimedByLeaseId: marketing.leaseId } });
+  await core.prisma.event.create({ data: { id: newId('event'), fleetId, type: 'DeliveryAcknowledged', occurredAt: at, actorKind: 'ship', actorShipId: marketingId, shipId: marketingId, deliveryId: delivery.id, messageId: callId, details: {}, seq: -1n } });
+  await core.prisma.lease.update({ where: { id: marketing.leaseId }, data: { pushedAt: at, turn: 'busy', turnAt: at } });
+  // When the moderator reads the first expected ship and continues with its own cursor.
+  const first = unwrap(await core.useCases.readMeeting(chief, { meetingId, callId, limit: 20, progressLimit: 1 }));
+  expect(first.call).toMatchObject({ progress: { items: [{ ship: { id: marketingId }, progress: 'acknowledged', status: 'crewed', turn: 'busy', deliveredAt: delivery.createdAt, acknowledgedAt: at }], nextCursor: marketingId } });
+  const second = unwrap(await core.useCases.readMeeting(chief, { meetingId, callId, limit: 20, progressLimit: 1, progressCursor: marketingId }));
+  // Then the second ship is delivered and its unreported plain session has no turn.
+  expect(second.call).toMatchObject({ progress: { items: [{ ship: { id: productId }, progress: 'delivered', status: 'crewed', turn: null }], nextCursor: null } });
+  const statements: { query: string; params: string }[] = [];
+  const client = createPrismaClientTellingStatements(core.databaseUrl, (query, params) => { statements.push({ query, params }); });
+  try {
+    await createPrismaMeetingRepository(client).progressPage(fleetId, { callId, limit: 20 });
+    await createPrismaLeaseRepository(client).readCrews(fleetId, [marketingId, productId]);
+    for (const statement of statements) await assertIndexedPlan(core.prisma, statement);
+  } finally { await client.$disconnect(); }
+
 });

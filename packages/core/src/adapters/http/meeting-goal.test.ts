@@ -80,6 +80,7 @@ describe.each<Door>(['tRPC', 'REST', 'MCP'])('%s meeting calls', (door) => {
     expect(callId).toMatch(/^msg_/);
     const read = await call(door, { name: 'meeting', input: { meetingId, callId } });
     expect(read.data).toMatchObject({ call: { callId, deadline: '2026-11-23T10:00:30.000Z', closedAt: null, answers: [] } });
+    expect(read.data).toMatchObject({ call: { progress: { items: [ { progress: 'delivered', status: 'crewed', turn: null, deliveredAt: '2026-11-23T10:00:00.000Z', acknowledgedAt: null }, { progress: 'delivered', status: 'crewed', turn: null } ], nextCursor: null } } });
   });
   it('reads silent ships and a late answer outside the closed round', async () => {
     // Given an expected chair that missed the call deadline, before maintenance runs.
