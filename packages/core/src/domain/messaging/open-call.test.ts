@@ -1,6 +1,6 @@
 /** Issue #2040: a moderator's call and its collected answers. */
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { MeetingId, MessageId } from '@aeolus-fleet/common';
+import { meetingRoundSchema, type MeetingId, type MessageId } from '@aeolus-fleet/common';
 
 import { crewAboard, sealFleet, initialiseFleet, messagingUseCases, operatorCaller, registryUseCases, SESSION_MODEL } from '../../../test/support/core-fixtures.js';
 import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
@@ -183,4 +183,51 @@ it('does not bypass meeting restrictions for answers and refuses an unknown call
   expect(counts()).toEqual(before);
   unwrap(await messaging.changeMeeting(chair, { meetingId, change: { kind: 'end' } }));
   expect(refusalOf(await messaging.sendMessage(alpha, input)).kind).toBe('MEETING_ENDED');
+});
+
+/** The full JSON notice, measured in UTF-8; fixture padding reaches the actual envelope boundary. */
+function lastRoundPayload(): string {
+  const payload = core.state.messages.filter((message) => message.contentType === 'application/vnd.aeolus.meeting.round+json').at(-1)?.payload;
+  if (typeof payload !== 'string') throw new Error('Expected an unsealed round notice');
+  return payload;
+}
+
+it.each([262_144, 262_145])('keeps an inline round of exactly 256 KB, and switches every answer to a reference one byte over: %s bytes', async (bytes) => {
+  // Given the overhead of this meeting's two-answer round, and JSON-escaped UTF-8 answers.
+  const probe = unwrap(await messaging.openCall(chair, aCall()));
+  unwrap(await answer(alpha, { callId: probe.callId, payload: '' }));
+  unwrap(await answer(beta, { callId: probe.callId, payload: '' }));
+  const overhead = new TextEncoder().encode(lastRoundPayload()).byteLength;
+  const firstPayload = '\u0000'.repeat(40_000);
+  const secondPayload = 'é'.repeat(Math.floor((bytes - overhead - 240_000) / 2)) + 'x'.repeat((bytes - overhead - 240_000) % 2);
+  const { callId } = unwrap(await messaging.openCall(chair, aCall()));
+  // When both expected ships answer, making the complete inline JSON reach the boundary.
+  const first = unwrap(await answer(alpha, { callId, payload: firstPayload }));
+  const second = unwrap(await answer(beta, { callId, payload: secondPayload }));
+  // Then there is one notice within the universal limit, and the meeting keeps both full answers.
+  const notice = lastRoundPayload();
+  const round = meetingRoundSchema.parse(JSON.parse(notice));
+  expect(new TextEncoder().encode(notice).byteLength).toBeLessThanOrEqual(262_144);
+  if (bytes === 262_144) {
+    expect(new TextEncoder().encode(notice).byteLength).toBe(262_144);
+    expect(round.areAnswersReferences).toBe(false);
+    expect(round.answers.map((item) => 'payload' in item ? item.payload : undefined)).toEqual([firstPayload, secondPayload]);
+  } else {
+    expect(round.areAnswersReferences).toBe(true);
+    expect(round.answers).toEqual([
+      { messageId: first.messageId, sender: { id: alpha.shipId, name: 'alpha' }, sentAt: '2026-11-23T10:00:00.000Z' },
+      { messageId: second.messageId, sender: { id: beta.shipId, name: 'beta' }, sentAt: '2026-11-23T10:00:00.000Z' },
+    ]);
+  }
+  expect(unwrap(await messaging.readMeeting(beta, { meetingId, limit: 20 })).call?.answers.map((item) => item.payload)).toEqual([firstPayload, secondPayload]);
+});
+
+it('refuses a call notice whose serialized question exceeds 256 KB, storing nothing', async () => {
+  // Given a 64 KB question whose JSON escaping makes its notice larger than 256 KB.
+  const before = counts();
+  // When the moderator opens the call.
+  const result = await messaging.openCall(chair, { ...aCall(), question: '\u0000'.repeat(65_536) });
+  // Then the universal payload limit refuses the entire opening.
+  expect(refusalOf(result).kind).toBe('PAYLOAD_TOO_LARGE');
+  expect(counts()).toEqual(before);
 });
