@@ -85,8 +85,8 @@ it('refuses meeting changes at the deadline before the ending pass', async () =>
   core.clock.advance(60_000);
   const before = structuredClone(core.state.meetings);
   // When participants attempt each meeting change.
+  const added = await messaging.addToMeeting(chief, { meetingId, ships: [{ shipId: beta.shipId }], model: SESSION_MODEL });
   const results = await Promise.all([
-    messaging.addToMeeting(chief, { meetingId, ships: [{ shipId: beta.shipId }], model: SESSION_MODEL }),
     messaging.changeMeeting(alpha, { meetingId, change: { kind: 'leave' } }),
     messaging.changeMeeting(beta, { meetingId, change: { kind: 'rejoin' } }),
     messaging.changeMeeting(chief, { meetingId, change: { kind: 'revoke', shipId: alpha.shipId } }),
@@ -95,7 +95,8 @@ it('refuses meeting changes at the deadline before the ending pass', async () =>
     messaging.changeMeeting(chief, { meetingId, change: { kind: 'end' } }),
   ]);
   // Then each sees the same refusal as an ended meeting, without a change.
-  expect(results.map((result) => refusalOf(result).kind)).toEqual(Array(7).fill('MEETING_ENDED'));
+  expect(refusalOf(added).kind).toBe('MEETING_ENDED');
+  expect(results.map((result) => refusalOf(result).kind)).toEqual(Array(6).fill('MEETING_ENDED'));
   expect(core.state.meetings).toEqual(before);
 });
 
