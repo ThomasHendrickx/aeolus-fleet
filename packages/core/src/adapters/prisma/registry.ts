@@ -436,6 +436,10 @@ export function crewedShipsStatement({ fleetId, shipIds }: { fleetId: FleetId; s
 
 export function createPrismaLeaseRepository(db: Db): LeaseRepository {
   return {
+    readCrews: async (fleetId, shipIds) => {
+      const rows = await db.lease.findMany({ where: { fleetId, shipId: { in: [...shipIds] }, endedAt: null }, select: { shipId: true, pushedAt: true, turn: true } });
+      return rows.map((row) => ({ shipId: idSchema('ship').parse(row.shipId), turn: row.pushedAt === null ? null : row.turn }));
+    },
     findOpenForUpdate: async (fleetId, shipId) => {
       const [row] = await db.$queryRaw<unknown[]>`
         SELECT id, fleet_id, ship_id, location::text AS location, location_description, harness, crew_token_hash,

@@ -1,4 +1,4 @@
-import { createIdGenerator, MEETING_ADDED_CONTENT_TYPE, MEETING_ENDED_CONTENT_TYPE, MEETING_MIC_CONTENT_TYPE, type FleetId, type MeetingId, type MessageId, type ShipId } from '@aeolus-fleet/common';
+import { idSchema, createIdGenerator, MEETING_ADDED_CONTENT_TYPE, MEETING_ENDED_CONTENT_TYPE, MEETING_MIC_CONTENT_TYPE, type FleetId, type MeetingId, type MessageId, type ShipId } from '@aeolus-fleet/common';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createApp } from '../src/app.js';
@@ -1045,8 +1045,8 @@ it('pages expected ships in the database and reads acknowledged progress with pu
   const { callId } = unwrap(await core.useCases.openCall(chief, { meetingId, question: 'Ready?', excludedShipIds: [chief.shipId], model: MODEL, idempotencyKey: newKey() }));
   const delivery = await core.prisma.delivery.findFirstOrThrow({ where: { fleetId, messageId: callId, recipientShipId: marketingId } });
   const at = core.clock.now();
-  await core.prisma.delivery.update({ where: { id: delivery.id }, data: { state: 'acknowledged', claimedByShipId: marketingId, claimedByLeaseId: marketing.leaseId } });
-  await core.prisma.event.create({ data: { id: newId('event'), fleetId, type: 'DeliveryAcknowledged', occurredAt: at, actorKind: 'ship', actorShipId: marketingId, shipId: marketingId, deliveryId: delivery.id, messageId: callId, details: {}, seq: -1n } });
+  unwrap(await core.useCases.receiveDeliveries(marketing, { max: 10 }));
+  unwrap(await core.useCases.acknowledgeDelivery(marketing, { deliveryId: idSchema('delivery').parse(delivery.id) }));
   await core.prisma.lease.update({ where: { id: marketing.leaseId }, data: { pushedAt: at, turn: 'busy', turnAt: at } });
   // When the moderator reads the first expected ship and continues with its own cursor.
   const first = unwrap(await core.useCases.readMeeting(chief, { meetingId, callId, limit: 20, progressLimit: 1 }));
@@ -1054,6 +1054,10 @@ it('pages expected ships in the database and reads acknowledged progress with pu
   const second = unwrap(await core.useCases.readMeeting(chief, { meetingId, callId, limit: 20, progressLimit: 1, progressCursor: marketingId }));
   // Then the second ship is delivered and its unreported plain session has no turn.
   expect(second.call).toMatchObject({ progress: { items: [{ ship: { id: productId }, progress: 'delivered', status: 'crewed', turn: null }], nextCursor: null } });
+  await core.prisma.lease.update({ where: { id: marketing.leaseId }, data: { turn: 'idle' } });
+  expect(unwrap(await core.useCases.readMeeting(chief, { meetingId, callId, limit: 20 })).call).toMatchObject({ progress: { items: [{ turn: 'idle' }, { turn: null }] } });
+  await core.prisma.lease.update({ where: { id: marketing.leaseId }, data: { turn: null } });
+  expect(unwrap(await core.useCases.readMeeting(chief, { meetingId, callId, limit: 20 })).call).toMatchObject({ progress: { items: [{ turn: null }, { turn: null }] } });
   const statements: { query: string; params: string }[] = [];
   const client = createPrismaClientTellingStatements(core.databaseUrl, (query, params) => { statements.push({ query, params }); });
   try {

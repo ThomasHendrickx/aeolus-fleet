@@ -1276,6 +1276,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
               return { shipId: lease.shipId, stated: held ? { version: held.stated.version, statement: { summary: held.stated.statement.summary } } : null };
             }),
         ),
+      readCrews: (fleetId, shipIds) => Promise.resolve(state.leases.filter((lease) => lease.fleetId === fleetId && lease.endedAt === null && shipIds.includes(lease.shipId)).map((lease) => ({ shipId: lease.shipId, turn: state.pushedLeases.some((held) => held.fleetId === fleetId && held.leaseId === lease.id) ? state.leaseTurns.find((held) => held.fleetId === fleetId && held.leaseId === lease.id)?.turn.state ?? null : null }))),
       findTurnForUpdate: (fleetId, leaseId) => {
         const isOpen = state.leases.some((held) => held.fleetId === fleetId && held.id === leaseId && held.endedAt === null);
         const held = state.leaseTurns.find((each) => each.fleetId === fleetId && each.leaseId === leaseId);
@@ -1476,6 +1477,15 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       },
     },
     meetings: {
+      progressPage: (fleetId, { callId, cursor, limit }) => {
+        const call = state.meetings.flatMap((meeting) => meeting.calls ?? []).find((held) => held.fleetId === fleetId && held.id === callId);
+        const rows = (call?.expectedShipIds ?? []).filter((id) => cursor === undefined || id > cursor).toSorted().slice(0, limit + 1).map((shipId) => {
+          const delivery = state.deliveries.find((held) => held.fleetId === fleetId && held.messageId === callId && held.recipient.kind === 'ship' && held.recipient.shipId === shipId);
+          const ack = state.events.find((event) => event.fleetId === fleetId && event.deliveryId === delivery?.id && event.type === 'DeliveryAcknowledged');
+          return { shipId, deliveredAt: delivery?.createdAt ?? null, acknowledgedAt: ack?.occurredAt ?? null, isAcknowledged: delivery?.state === 'acknowledged' };
+        });
+        return Promise.resolve(pageOf(rows, { limit, cursorOf: (row) => row.shipId }));
+      },
       createCall: (call) => { const meeting = state.meetings.find((m) => m.fleetId === call.fleetId && m.id === call.meetingId); if (meeting !== undefined) meeting.calls = [...(meeting.calls ?? []), storedCall(call)]; return Promise.resolve(); },
       saveCall: (call) => { const meeting = state.meetings.find((m) => m.fleetId === call.fleetId && m.id === call.meetingId); if (meeting?.calls !== undefined) meeting.calls = meeting.calls.map((c) => c.id === call.id ? { ...c, closedAt: call.closedAt, silentShipIds: call.silentShipIds } : c); return Promise.resolve(); },
       findCall: (fleetId, { meetingId, callId }) => Promise.resolve(callWithAnswers(state, state.meetings.flatMap((m) => m.calls ?? []).find((c) => c.fleetId === fleetId && c.meetingId === meetingId && c.id === callId))),

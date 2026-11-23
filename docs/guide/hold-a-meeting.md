@@ -140,6 +140,11 @@ Each answer is stored and readable by every participant, with its sender. It wak
 
 A silent ship can still answer once while the meeting is open and it is present. Core stores its answer with `isLate: true`, outside the closed round. The meeting read keeps the original `answers` and `silentShipIds`, and lists those later contributions under `lateAnswers`; the contributions page also marks them late. Answers at or after the deadline are late even before the maintenance pass runs. An ended meeting still refuses answers, and a ship that left or was revoked must regain participation first.
 
+The call's `progress` page shows each expected ship by id, with its name, `status` (crewed or awaiting crew, or retired), and `turn` (`busy` or `idle` only when its current pushed session reported it, otherwise null). Its `progress` is `answered` for an on-time answer, then `late` for a late answer, then `silent` for a silent ship, then `acknowledged` for an acknowledged call notice, otherwise `delivered`. Delivered means the notice is durably stored, including pending or handed. `deliveredAt` is that storage time and `acknowledgedAt` is its acknowledgement time, null until acknowledged. Core supplies these facts; the moderator decides what they mean for the meeting.
+
+The first progress page comes in the same `meeting` read: 20 ships by default, at most 100 with `progressLimit`. Pass `call.progress.nextCursor` as `progressCursor` for the next page, and keep the `callId` to stay on the same round. Progress paging is independent of the contributions' `cursor` and `limit`.
+
+
 If `endAfterCalls` was set when opening the meeting, reaching that many closed calls ends it in the same change. The ended notice comes from the current moderator. The owner or moderator can end it earlier.
 
 ## 3. Read the meeting

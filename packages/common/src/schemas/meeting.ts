@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { turnStateSchema } from './turn.js';
+
 import { shipKindSchema, shipStatusSchema } from '../fleet/index.js';
 import { idSchema } from '../ids/index.js';
 import { shipHandleSchema } from './fleet.js';
@@ -18,6 +20,10 @@ import { pageInputOf, pageOutputOf } from './page.js';
 
 /** ISO 8601 in UTC. */
 const isoTime = z.iso.datetime();
+
+/** Bounded meeting lists and expected-ship progress pages. */
+export const MEETINGS_PAGE_SIZE_DEFAULT = 20;
+export const MEETINGS_PAGE_SIZE_MAX = 100;
 
 /** The most characters a meeting's title holds: a short name a person reads when auditing later. */
 export const MEETING_TITLE_MAX_LENGTH = 200;
@@ -52,7 +58,7 @@ export type OpenMeetingInput = z.infer<typeof openMeetingInputSchema>;
 export const openMeetingOutputSchema = z.object({ meetingId: idSchema('meeting') });
 
 /** Input of `ship.meeting`: the meeting, and a page of its contributions, newest first. */
-export const meetingInputSchema = pageInputOf(idSchema('message')).extend({ meetingId: idSchema('meeting'), callId: idSchema('message').optional() });
+export const meetingInputSchema = pageInputOf(idSchema('message')).extend({ meetingId: idSchema('meeting'), callId: idSchema('message').optional(), progressCursor: idSchema('ship').optional(), progressLimit: z.int().min(1).max(MEETINGS_PAGE_SIZE_MAX).optional() });
 
 export type MeetingInput = z.infer<typeof meetingInputSchema>;
 
@@ -146,7 +152,17 @@ export const contributionSchema = z.object({
  * opened and ended (null while open), its participants, its mic, and a page of its
  * contributions, newest first.
  */
+export const meetingCallProgressSchema = z.object({
+  ship: partySchema,
+  progress: z.enum(['delivered', 'acknowledged', 'answered', 'late', 'silent']),
+  status: shipStatusSchema,
+  turn: turnStateSchema.nullable(),
+  deliveredAt: isoTime.nullable(),
+  acknowledgedAt: isoTime.nullable(),
+});
+
 export const meetingCallReadSchema = z.object({
+  progress: pageOutputOf(meetingCallProgressSchema, idSchema('ship')),
   callId: idSchema('message'),
   expectedShipIds: z.array(idSchema('ship')),
   silentShipIds: z.array(idSchema('ship')),
@@ -175,7 +191,7 @@ export const meetingCallSchema = z.object({
   question: z.string(), expectedShipIds: z.array(idSchema('ship')), deadline: isoTime,
 });
 /** One collected round, sent only to the moderator after closure. */
-const roundEnvelopeSchema = meetingCallReadSchema.omit({ answers: true, lateAnswers: true }).extend({ meetingId: idSchema('meeting'), goal: z.string().nullable() });
+const roundEnvelopeSchema = meetingCallReadSchema.omit({ answers: true, lateAnswers: true, progress: true }).extend({ meetingId: idSchema('meeting'), goal: z.string().nullable() });
 export const meetingRoundSchema = z.discriminatedUnion('isRoundReference', [
   roundEnvelopeSchema.extend({ isRoundReference: z.literal(false), answers: z.array(contributionSchema) }),
   z.strictObject({ meetingId: idSchema('meeting'), callId: idSchema('message'), isRoundReference: z.literal(true), expectedCount: z.int().min(0), answeredCount: z.int().min(0) }),
@@ -231,9 +247,6 @@ export const meetingEndedSchema = z.object({ meetingId: idSchema('meeting') });
 
 export type MeetingEnded = z.infer<typeof meetingEndedSchema>;
 
-/** A ship's bounded page of its own meetings (docs/design/meeting-list, Q4). */
-export const MEETINGS_PAGE_SIZE_DEFAULT = 20;
-export const MEETINGS_PAGE_SIZE_MAX = 100;
 
 const MAX_DATE_EPOCH_MS = 8_640_000_000_000_000;
 

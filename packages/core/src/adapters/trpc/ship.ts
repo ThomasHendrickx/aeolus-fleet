@@ -304,16 +304,17 @@ export const shipRouter = router({
         'each participant with its kind and status (crewed or awaitingCrew), its mic (holder, null while free; pattern; requests oldest first),',
         "and what was said so far, newest first. The call is the latest round unless you pass callId to read a particular round, including a delayed notice's reference,",
         'a page at a time: pass the nextCursor it answers as cursor for the page before. A late or rejoined participant reads here what it missed.',
+        'The call includes a progress page of expected ships with delivered, acknowledged, answered, late or silent progress, delivery and acknowledgement times, current crew status and a reported busy or idle turn for a pushed session. Pass progressCursor and progressLimit independently of contributions, 20 by default and at most 100. Keep callId when continuing a round.',
         'A meeting you take no part in is refused as one that does not exist (NOT_FOUND).',
       ].join(' '),
     })
     .input(meetingInputSchema)
     .output(meetingOutputSchema)
     .query(async ({ ctx, input }) => {
-      const read = okOrThrow(await ctx.useCases.readMeeting(ctx.caller, { meetingId: input.meetingId, callId: input.callId, cursor: input.cursor, limit: input.limit ?? PAGE_SIZE_DEFAULT }));
+      const read = okOrThrow(await ctx.useCases.readMeeting(ctx.caller, { meetingId: input.meetingId, callId: input.callId, progressCursor: input.progressCursor, progressLimit: input.progressLimit, cursor: input.cursor, limit: input.limit ?? PAGE_SIZE_DEFAULT }));
       return {
         ...read,
-        call: read.call === null ? null : { ...read.call, deadline: read.call.deadline.toISOString(), openedAt: read.call.openedAt.toISOString(), closedAt: read.call.closedAt?.toISOString() ?? null, lateAnswers: read.call.lateAnswers.map((item) => ({ ...item, ...listedPayloadOutputOf(item.payload), sentAt: item.sentAt.toISOString() })), answers: read.call.answers.map((item) => ({ ...item, ...listedPayloadOutputOf(item.payload), sentAt: item.sentAt.toISOString() })) },
+        call: read.call === null ? null : { ...read.call, progress: { ...read.call.progress, items: read.call.progress.items.map((item) => ({ ...item, deliveredAt: item.deliveredAt?.toISOString() ?? null, acknowledgedAt: item.acknowledgedAt?.toISOString() ?? null })) }, deadline: read.call.deadline.toISOString(), openedAt: read.call.openedAt.toISOString(), closedAt: read.call.closedAt?.toISOString() ?? null, lateAnswers: read.call.lateAnswers.map((item) => ({ ...item, ...listedPayloadOutputOf(item.payload), sentAt: item.sentAt.toISOString() })), answers: read.call.answers.map((item) => ({ ...item, ...listedPayloadOutputOf(item.payload), sentAt: item.sentAt.toISOString() })) },
         openedAt: read.openedAt.toISOString(),
         endedAt: read.endedAt?.toISOString() ?? null,
         endsAt: read.endsAt?.toISOString() ?? null,
