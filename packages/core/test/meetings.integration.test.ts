@@ -830,6 +830,7 @@ it('announces a new deadline only after the opening commits, for every core time
 
 
 describe('a call on Postgres', () => {
+  beforeEach(async () => { for (const shipId of [chief.shipId, marketingId, productId]) await crewOf(shipId); });
   const callInput = (meetingId: MeetingId) => ({ meetingId, question: 'Which day?', excludedShipIds: [chief.shipId], model: MODEL, idempotencyKey: newKey() });
   const answer = ({ meetingId, callId, shipId }: { meetingId: MeetingId; callId: MessageId; shipId: ShipId }) => core.useCases.sendMessage(agentCaller({ fleetId, shipId }), { selector: { kind: 'meeting', meetingId }, callId, payload: shipId === marketingId ? 'Friday' : 'Monday', model: MODEL, idempotencyKey: newKey() });
   it('serializes concurrent opens so only one call opens', async () => {
@@ -936,5 +937,40 @@ describe('a call on Postgres', () => {
       expect(unwrap(await core.useCases.readMeeting(chief, { meetingId, limit: 20 })).endedAt).toEqual(core.clock.now());
       await expect(core.prisma.event.count({ where: { fleetId, type: 'MeetingEnded' } })).resolves.toBe(1);
     }
+  });
+});
+
+
+describe('call silence on Postgres', () => {
+  it('persists immediate silence and accepts a late answer outside the closed round after reload', async () => {
+    // Given every expected ship awaits crew at opening.
+    const { meetingId } = unwrap(await core.useCases.openMeeting(chief, aMeeting()));
+    const { callId } = unwrap(await core.useCases.openCall(chief, { meetingId, question: 'Ready?', excludedShipIds: [chief.shipId], model: MODEL, idempotencyKey: newKey() }));
+    // When one ship gets a crew and answers the already closed call.
+    const marketing = await crewOf(marketingId);
+    const { messageId } = unwrap(await core.useCases.sendMessage(marketing, { selector: { kind: 'meeting', meetingId }, callId, payload: 'Late but retained', model: MODEL, idempotencyKey: newKey() }));
+    // Then a fresh read keeps silence and the original round separate from the late answer.
+    const read = unwrap(await core.useCases.readMeeting(chief, { meetingId, callId, limit: 20 }));
+    expect(read.call).toMatchObject({ silentShipIds: [marketingId, productId], answers: [], lateAnswers: [{ messageId, isLate: true, payload: 'Late but retained' }] });
+    expect(read.contributions.items).toContainEqual(expect.objectContaining({ messageId, isLate: true }));
+    await expect(core.prisma.event.count({ where: { fleetId, type: 'CallClosed' } })).resolves.toBe(1);
+  });
+  it('recovers a call deadline after restart and closes once with a revoked expected ship silent', async () => {
+    // Given a persisted call with a ship revoked mid-call and a deadline missed while core was stopped.
+    for (const shipId of [marketingId, productId]) await crewOf(shipId);
+    const { meetingId } = unwrap(await core.useCases.openMeeting(chief, aMeeting()));
+    const { callId } = unwrap(await core.useCases.openCall(chief, { meetingId, question: 'Ready?', excludedShipIds: [chief.shipId], model: MODEL, idempotencyKey: newKey() }));
+    unwrap(await core.useCases.changeMeeting(chief, { meetingId, change: { kind: 'revoke', shipId: productId } }));
+    core.clock.advance(300_000);
+    // When a fresh server starts its maintenance pass.
+    const app = createApp({ databaseUrl: core.databaseUrl, publicUrl: 'http://localhost', clock: core.clock, logger: false, overduePassMs: 100 });
+    try {
+      await app.ready();
+      // Then the durable deadline closes once and the moderator receives the silent ships.
+      await expect.poll(() => core.prisma.event.count({ where: { fleetId, type: 'CallClosed' } })).toBe(1);
+      const read = unwrap(await core.useCases.readMeeting(chief, { meetingId, callId, limit: 20 }));
+      expect(read.call).toMatchObject({ closedAt: core.clock.now(), silentShipIds: [marketingId, productId], answers: [] });
+      await expect(core.prisma.message.count({ where: { fleetId, meetingId, contentType: 'application/vnd.aeolus.meeting.round+json' } })).resolves.toBe(1);
+    } finally { await app.close(); }
   });
 });

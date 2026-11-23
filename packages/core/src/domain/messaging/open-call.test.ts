@@ -6,6 +6,7 @@ import { crewAboard, sealFleet, initialiseFleet, messagingUseCases, operatorCall
 import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { createInMemoryCore } from '../../../test/support/in-memory.js';
 import { newKey } from '../../testing/keys.js';
+import { createEndDueMeetings } from './end-due-meetings.js';
 import { refusalOf, unwrap } from '../../testing/result.js';
 import type { ShipCaller } from '../shared/caller.js';
 
@@ -24,6 +25,7 @@ beforeEach(async () => {
   alpha = await shipWithScopes({ registry, argo }, { name: 'alpha', type: 'agent', scopes: [] });
   beta = await shipWithScopes({ registry, argo }, { name: 'beta', type: 'agent', scopes: [] });
   later = await shipWithScopes({ registry, argo }, { name: 'later', type: 'agent', scopes: [] });
+  for (const ship of [chair, alpha, beta, later]) crewAboard(core, ship);
   messaging = messagingUseCases(core);
   ({ meetingId } = unwrap(await messaging.openMeeting(chair, { ships: [{ shipId: alpha.shipId }, { shipId: beta.shipId }], goal: 'Agree the release', idempotencyKey: newKey(), model: SESSION_MODEL })));
 });
@@ -319,4 +321,60 @@ it.each([60_000, 60_001])('refuses calls and answers at or past the meeting end 
   expect(refusalOf(opened)).toMatchObject({ kind: 'MEETING_ENDED', message: `Meeting ${meetingId} ended: it takes no more calls` });
   expect(refusalOf(answered).kind).toBe('MEETING_ENDED');
   expect(counts()).toEqual(before);
+});
+
+
+describe('silence and the deadline', () => {
+  const pass = () => createEndDueMeetings({ uow: core.uow, fleets: core.fleets, meetings: core.meetings, clock: core.clock, ids: core.ids, hasher: core.hasher, sealing: core.sealing })();
+  it('marks a ship awaiting crew silent at opening and closes after the other answer', async () => {
+    // Given beta has no crew when the call opens.
+    core.state.leases = core.state.leases.filter((lease) => lease.shipId !== beta.shipId);
+    const { callId } = unwrap(await messaging.openCall(chair, aCall()));
+    expect(unwrap(await messaging.readMeeting(chair, { meetingId, limit: 20 })).call).toMatchObject({ silentShipIds: [beta.shipId] });
+    // When the only crewed expected ship answers.
+    unwrap(await answer(alpha, { callId }));
+    // Then the moderator gets the closed round with beta silent.
+    expect(JSON.parse(lastRoundPayload())).toMatchObject({ silentShipIds: [beta.shipId], closedAt: '2026-11-23T10:00:00.000Z' });
+  });
+  it('closes immediately when every expected ship awaits crew', async () => {
+    // Given neither expected ship has a crew.
+    core.state.leases = core.state.leases.filter((lease) => lease.shipId === chair.shipId);
+    // When the call opens.
+    unwrap(await messaging.openCall(chair, aCall()));
+    // Then nobody waits five minutes for them.
+    expect(JSON.parse(lastRoundPayload())).toMatchObject({ silentShipIds: [alpha.shipId, beta.shipId], answers: [] });
+  });
+  it.each(['present', 'left', 'revoked'])('closes at the default deadline with the unanswered ship %s silent', async (state) => {
+    // Given a call with one answer, and beta may no longer participate.
+    const { callId } = unwrap(await messaging.openCall(chair, { ...aCall(), deadline: undefined }));
+    unwrap(await answer(alpha, { callId }));
+    if (state === 'left') unwrap(await messaging.changeMeeting(beta, { meetingId, change: { kind: 'leave' } }));
+    if (state === 'revoked') unwrap(await messaging.changeMeeting(chair, { meetingId, change: { kind: 'revoke', shipId: beta.shipId } }));
+    core.clock.advance(299_999);
+    expect((await pass()).nextAttemptAt).toEqual(new Date('2026-11-23T10:05:00.000Z'));
+    expect(unwrap(await messaging.readMeeting(chair, { meetingId, limit: 20 })).call?.closedAt).toBeNull();
+    // When maintenance reaches the deadline, twice.
+    core.clock.advance(1);
+    await pass();
+    await pass();
+    // Then one round closes and tells the moderator who was silent.
+    expect(JSON.parse(lastRoundPayload())).toMatchObject({ silentShipIds: [beta.shipId], answers: [{ sender: { id: alpha.shipId } }] });
+    expect(core.state.events.filter((event) => event.type === 'CallClosed')).toHaveLength(1);
+  });
+  it.each(['after maintenance', 'before maintenance'])('stores a late answer outside the closed round %s', async (timing) => {
+    // Given alpha answered, and beta missed the deadline.
+    const { callId } = unwrap(await messaging.openCall(chair, aCall()));
+    unwrap(await answer(alpha, { callId }));
+    core.clock.advance(300_000);
+    if (timing === 'after maintenance') await pass();
+    // When beta answers late.
+    const { messageId } = unwrap(await answer(beta, { callId, payload: 'Keep this late thought' }));
+    await pass();
+    // Then the answer stays readable, marked late, outside the closed round.
+    const read = unwrap(await messaging.readMeeting(chair, { meetingId, callId, limit: 20 }));
+    expect(read.contributions.items).toContainEqual(expect.objectContaining({ messageId, isLate: true, payload: 'Keep this late thought' }));
+    expect(read.call?.answers).toHaveLength(1);
+    expect(read.call).toMatchObject({ lateAnswers: [{ messageId, isLate: true }], silentShipIds: [beta.shipId] });
+    expect(JSON.parse(lastRoundPayload())).toMatchObject({ answers: [{ sender: { id: alpha.shipId } }], silentShipIds: [beta.shipId] });
+  });
 });
