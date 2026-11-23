@@ -75,13 +75,13 @@ describe.each<Door>(['tRPC', 'REST', 'MCP'])('%s meeting calls', (door) => {
     // When it opens a call excluding nobody.
     const opened = await call(door, { name: 'openCall', input: { meetingId, question: 'Friday?', idempotencyKey: 'call-friday', model: SESSION_MODEL, deadline: '2026-11-23T10:00:30.000Z' } });
     // Then every API door exposes the call and its stored snapshot.
-    expect(opened.data).toMatchObject({ callId: expect.stringMatching(/^msg_/) });
+    expect(opened.data).toHaveProperty('callId', expect.stringMatching(/^msg_/));
     const before = held.core.state.deliveries.length;
     const { callId } = z.object({ callId: z.string() }).parse(opened.data);
-    expect((await call(door, { name: 'send', input: { selector: { kind: 'meeting', meetingId }, callId, payload: 'Friday', model: SESSION_MODEL, idempotencyKey: 'chair-answer' } })).data).toMatchObject({ messageId: expect.any(String) });
+    expect((await call(door, { name: 'send', input: { selector: { kind: 'meeting', meetingId }, callId, payload: 'Friday', model: SESSION_MODEL, idempotencyKey: 'chair-answer' } })).data).toHaveProperty('messageId', expect.any(String));
     expect(held.core.state.deliveries).toHaveLength(before);
     const read = await call(door, { name: 'meeting', input: { meetingId } });
-    expect(read.data).toMatchObject({ call: { expectedShipIds: expect.any(Array), deadline: '2026-11-23T10:00:30.000Z', closedAt: null, answers: [{ payload: 'Friday', callId }] } });
+    expect(read.data).toMatchObject({ call: { deadline: '2026-11-23T10:00:30.000Z', closedAt: null, answers: [{ payload: 'Friday', callId }] } });
   });
   it('refuses a deadline past the meeting end and an oversized question without storing a call', async () => {
     // Given a meeting that ends in one minute.

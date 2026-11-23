@@ -1,4 +1,4 @@
-import { MEETING_TITLE_MAX_LENGTH } from '@aeolus-fleet/common';
+import { MEETING_TITLE_MAX_LENGTH, MEETING_CALL_COUNT_MAX } from '@aeolus-fleet/common';
 
 import type { FleetId, MeetingId, MessageId, MicPattern, ShipId } from '@aeolus-fleet/common';
 
@@ -21,6 +21,7 @@ export interface Meeting {
   goal: string | null;
   /** When core must end it; none without a deadline. */
   endsAt: Date | null;
+  endAfterCalls?: number | null;
   ownerShipId: ShipId;
   moderatorShipId: ShipId;
   /** The ship that opened it, whose idempotency key it was opened with. */
@@ -86,7 +87,7 @@ export function isPresent(meeting: Meeting, shipId: ShipId): boolean {
   return meeting.participants.some((participant) => participant.shipId === shipId && participant.leftAt === null);
 }
 
-export type OpenMeetingRefusal = DomainError<'MEETING_WITHOUT_INVITEES' | 'INVALID_MEETING_GOAL' | 'INVALID_MEETING_END_TIME'>;
+export type OpenMeetingRefusal = DomainError<'MEETING_WITHOUT_INVITEES' | 'INVALID_MEETING_GOAL' | 'INVALID_MEETING_END_TIME' | 'INVALID_LIMIT'>;
 
 /**
  * Opens a meeting of the opener and the ships it invited, resolved and each
@@ -101,6 +102,7 @@ export function openMeeting(input: {
   title: string | null;
   goal: string | null;
   endsAt: Date | null;
+  endAfterCalls?: number | null;
   openerShipId: ShipId;
   invitedShipIds: readonly ShipId[];
   idempotencyKey: string;
@@ -108,6 +110,7 @@ export function openMeeting(input: {
   at: Date;
 }): Result<{ meeting: Meeting; events: NewEvent[] }, OpenMeetingRefusal> {
   const { meetingId, fleetId, openerShipId, at } = input;
+  if (input.endAfterCalls != null && (!Number.isInteger(input.endAfterCalls) || input.endAfterCalls < 1 || input.endAfterCalls > MEETING_CALL_COUNT_MAX)) return refuse('INVALID_LIMIT', 'endAfterCalls is a positive 32-bit integer');
   const goal = input.goal?.trim() ?? null;
   if (goal !== null && goal.length > MEETING_TITLE_MAX_LENGTH) {
     return refuse('INVALID_MEETING_GOAL', `A meeting goal is at most ${String(MEETING_TITLE_MAX_LENGTH)} characters`);
@@ -125,6 +128,7 @@ export function openMeeting(input: {
     title: input.title,
     goal,
     endsAt: input.endsAt,
+    endAfterCalls: input.endAfterCalls ?? null,
     ownerShipId: openerShipId,
     moderatorShipId: openerShipId,
     openedByShipId: openerShipId,

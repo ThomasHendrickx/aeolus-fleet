@@ -1,3 +1,4 @@
+import { createOpenCall, type OpenCall } from './domain/messaging/open-call.js';
 import { createPrismaMeetingRepository } from './adapters/prisma/meetings.js';
 import { createEndDueMeetings, type EndDueMeetings } from './domain/messaging/end-due-meetings.js';
 import { type Lookup, createLookup } from './domain/registry/lookup.js';
@@ -323,6 +324,7 @@ export interface UseCases {
   readSealing: ReadSealing;
   readRecoverySet: ReadRecoverySet;
   recoverKeys: RecoverKeys;
+  openCall: OpenCall;
   openMeeting: OpenMeeting;
   readMeeting: ReadMeeting;
   listMeetings: ListMeetings;
@@ -598,6 +600,7 @@ export function createUseCases(options: {
     readSealing: createReadSealing({ sealings }),
     readRecoverySet: createReadRecoverySet({ sealings, featureFlags }),
     recoverKeys: createRecoverKeys({ uow, clock, ids, vault: keyVault, sealer: aesGcmPayloadSealer, sealings, featureFlags }),
+    openCall: createOpenCall({ uow, clock, ids, hasher: sha256Hasher, sealing }),
     openMeeting: createOpenMeeting({ uow, clock, ids, hasher: sha256Hasher, sealing }),
     readMeeting: createReadMeeting({ uow, sealing }),
     listMeetings: createListMeetings({ uow }),

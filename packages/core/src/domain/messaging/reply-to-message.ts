@@ -63,7 +63,7 @@ export function createReplyToMessage(deps: {
       if (!request.isOk) {
         return request;
       }
-      const inTx = { tx, clock: deps.clock, ids: deps.ids, held };
+      const inTx = { tx, clock: deps.clock, ids: deps.ids, hasher: deps.hasher, held };
       const sent = await sendWithin(inTx, { caller: crew, request: request.value });
       if (!sent.isOk) {
         return sent;

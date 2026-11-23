@@ -28,7 +28,7 @@ beforeEach(async () => {
   ({ meetingId } = unwrap(await messaging.openMeeting(chair, { ships: [{ shipId: alpha.shipId }, { shipId: beta.shipId }], goal: 'Agree the release', idempotencyKey: newKey(), model: SESSION_MODEL })));
 });
 const aCall = () => ({ meetingId, question: 'Which day?', excludedShipIds: [chair.shipId], deadline: '2026-11-23T10:05:00.000Z', idempotencyKey: newKey(), model: SESSION_MODEL });
-const answer = (by: ShipCaller, callId: MessageId, payload = 'Friday') => messaging.sendMessage(by, { selector: { kind: 'meeting', meetingId }, callId, payload, idempotencyKey: newKey(), model: SESSION_MODEL });
+const answer = (by: ShipCaller, { callId, payload = 'Friday' }: { callId: MessageId; payload?: string }) => messaging.sendMessage(by, { selector: { kind: 'meeting', meetingId }, callId, payload, idempotencyKey: newKey(), model: SESSION_MODEL });
 const counts = () => [core.state.messages.length, core.state.deliveries.length, core.state.events.length, core.state.notices.length];
 
 describe('a call and its answers', () => {
@@ -39,7 +39,8 @@ describe('a call and its answers', () => {
     const { callId } = unwrap(await messaging.openCall(chair, input));
     // Then the snapshot is stored and all participants get one delivery.
     expect(core.state.deliveries.filter((d) => d.messageId === callId).map((d) => d.recipient)).toEqual([chair, alpha, beta].map((s) => ({ kind: 'ship', shipId: s.shipId })));
-    expect(core.state.messages.find((m) => m.id === callId)).toMatchObject({ payload: expect.stringContaining('Agree the release'), contentType: 'application/vnd.aeolus.meeting.call+json' });
+    expect(core.state.messages.find((m) => m.id === callId)?.payload).toEqual(expect.stringContaining('Agree the release'));
+    expect(core.state.messages.find((m) => m.id === callId)?.contentType).toBe('application/vnd.aeolus.meeting.call+json');
     expect(unwrap(await messaging.readMeeting(alpha, { meetingId, limit: 20 })).call).toMatchObject({ callId, expectedShipIds: [alpha.shipId, beta.shipId], deadline: new Date(input.deadline), closedAt: null });
     const before = counts();
     expect(unwrap(await messaging.openCall(chair, input))).toEqual({ callId });
@@ -50,25 +51,26 @@ describe('a call and its answers', () => {
     const { callId } = unwrap(await messaging.openCall(chair, aCall()));
     const before = core.state.deliveries.length;
     // When alpha answers, then beta answers.
-    const first = unwrap(await answer(alpha, callId));
+    const first = unwrap(await answer(alpha, { callId }));
     expect(core.state.deliveries).toHaveLength(before);
-    const second = unwrap(await answer(beta, callId, 'Monday'));
+    const second = unwrap(await answer(beta, { callId, payload: 'Monday' }));
     // Then both answers are readable by all and one collected result reaches chair.
     const read = unwrap(await messaging.readMeeting(beta, { meetingId, limit: 20 }));
     expect(read.call).toMatchObject({ callId, closedAt: core.clock.now(), answers: [{ messageId: first.messageId, sender: { id: alpha.shipId }, payload: 'Friday' }, { messageId: second.messageId, sender: { id: beta.shipId }, payload: 'Monday' }] });
     expect(read.contributions.items).toEqual(expect.arrayContaining([expect.objectContaining({ messageId: first.messageId, sender: { id: alpha.shipId, name: 'alpha' } }), expect.objectContaining({ messageId: second.messageId, sender: { id: beta.shipId, name: 'beta' } })]));
     const deliveries = core.state.deliveries.slice(before);
     expect(deliveries.map((d) => d.recipient)).toEqual([{ kind: 'ship', shipId: chair.shipId }]);
-    expect(core.state.messages.find((m) => m.id === deliveries[0]?.messageId)).toMatchObject({ contentType: 'application/vnd.aeolus.meeting.round+json', payload: expect.stringContaining('Monday') });
+    expect(core.state.messages.find((m) => m.id === deliveries[0]?.messageId)?.contentType).toBe('application/vnd.aeolus.meeting.round+json');
+    expect(core.state.messages.find((m) => m.id === deliveries[0]?.messageId)?.payload).toEqual(expect.stringContaining('Monday'));
     expect(core.state.events.filter((e) => ['CallOpened', 'CallAnswered', 'CallClosed'].includes(e.type)).map((e) => e.type)).toEqual(['CallOpened', 'CallAnswered', 'CallAnswered', 'CallClosed']);
   });
   it('refuses a second answer without storing anything', async () => {
     // Given alpha has answered the open call.
     const { callId } = unwrap(await messaging.openCall(chair, aCall()));
-    unwrap(await answer(alpha, callId));
+    unwrap(await answer(alpha, { callId }));
     const before = counts();
     // When it answers a second time under another key.
-    expect(refusalOf(await answer(alpha, callId)).kind).toBe('ALREADY_PRESENT');
+    expect(refusalOf(await answer(alpha, { callId })).kind).toBe('ALREADY_PRESENT');
     // Then no message, event, delivery or wake was stored.
     expect(counts()).toEqual(before);
   });
@@ -78,7 +80,7 @@ describe('a call and its answers', () => {
     unwrap(await messaging.addToMeeting(chair, { meetingId, ships: [{ shipId: later.shipId }], model: SESSION_MODEL }));
     const before = counts();
     // When the excluded moderator or late joiner answers.
-    for (const ship of [chair, later]) expect(refusalOf(await answer(ship, callId)).kind).toBe('PARTICIPANT_NOT_FOUND');
+    for (const ship of [chair, later]) expect(refusalOf(await answer(ship, { callId })).kind).toBe('PARTICIPANT_NOT_FOUND');
     // Then the call still expects only alpha and beta, and nothing new was stored.
     expect(counts()).toEqual(before);
     expect(unwrap(await messaging.readMeeting(chair, { meetingId, limit: 20 })).call?.expectedShipIds).toEqual([alpha.shipId, beta.shipId]);
@@ -91,10 +93,10 @@ describe('a call and its answers', () => {
     expect(unwrap(await messaging.readMeeting(chair, { meetingId, limit: 20 })).call).toMatchObject({ closedAt: core.clock.now(), expectedShipIds: [], answers: [] });
     const { callId } = unwrap(await messaging.openCall(chair, { ...aCall(), excludedShipIds: [] }));
     // Then the moderator must answer too.
-    unwrap(await answer(alpha, callId));
-    unwrap(await answer(beta, callId));
+    unwrap(await answer(alpha, { callId }));
+    unwrap(await answer(beta, { callId }));
     expect(unwrap(await messaging.readMeeting(chair, { meetingId, limit: 20 })).call?.closedAt).toBeNull();
-    unwrap(await answer(chair, callId));
+    unwrap(await answer(chair, { callId }));
     expect(unwrap(await messaging.readMeeting(chair, { meetingId, limit: 20 })).call?.closedAt).toEqual(core.clock.now());
   });
   it('ends after the configured number of closed calls with an ended notice from the moderator', async () => {
@@ -143,10 +145,10 @@ describe('a refused call', () => {
     expect(unwrap(await messaging.readMeeting(chair, { meetingId, limit: 20 })).call?.deadline).toEqual(new Date('2026-11-23T10:05:00.000Z'));
     const before = counts();
     // When an expected ship exceeds the answer boundary.
-    expect(refusalOf(await answer(alpha, callId, 'a'.repeat(65_537))).kind).toBe('PAYLOAD_TOO_LARGE');
+    expect(refusalOf(await answer(alpha, { callId, payload: 'a'.repeat(65_537) })).kind).toBe('PAYLOAD_TOO_LARGE');
     // Then nothing is stored; the exact boundary is accepted.
     expect(counts()).toEqual(before);
-    unwrap(await answer(alpha, callId, 'a'.repeat(65_536)));
+    unwrap(await answer(alpha, { callId, payload: 'a'.repeat(65_536) }));
   });
 });
 
@@ -160,7 +162,7 @@ it('keeps calls, answers and the collected round sealed, with repeat answers rem
   // When alpha retries an answer and beta closes the round.
   const original = unwrap(await messaging.sendMessage(alpha, reply));
   expect(unwrap(await messaging.sendMessage(alpha, reply))).toEqual(original);
-  unwrap(await answer(beta, callId));
+  unwrap(await answer(beta, { callId }));
   expect(unwrap(await messaging.openCall(chair, input))).toEqual({ callId });
   // Then every new payload is sealed and the moderator receives the whole round as written.
   expect(core.state.messages.filter((m) => m.id >= callId).every((m) => typeof m.payload !== 'string')).toBe(true);

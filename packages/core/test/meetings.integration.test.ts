@@ -831,7 +831,7 @@ it('announces a new deadline only after the opening commits, for every core time
 
 describe('a call on Postgres', () => {
   const callInput = (meetingId: MeetingId) => ({ meetingId, question: 'Which day?', excludedShipIds: [chief.shipId], model: MODEL, idempotencyKey: newKey() });
-  const answer = (meetingId: MeetingId, callId: MessageId, shipId: ShipId) => core.useCases.sendMessage(agentCaller({ fleetId, shipId }), { selector: { kind: 'meeting', meetingId }, callId, payload: shipId === marketingId ? 'Friday' : 'Monday', model: MODEL, idempotencyKey: newKey() });
+  const answer = ({ meetingId, callId, shipId }: { meetingId: MeetingId; callId: MessageId; shipId: ShipId }) => core.useCases.sendMessage(agentCaller({ fleetId, shipId }), { selector: { kind: 'meeting', meetingId }, callId, payload: shipId === marketingId ? 'Friday' : 'Monday', model: MODEL, idempotencyKey: newKey() });
   it('serializes concurrent opens and answers, survives reload, closes once and uses indexed call reads', async () => {
     // Given a meeting with two expected participants.
     const { meetingId } = unwrap(await core.useCases.openMeeting(chief, aMeeting()));
@@ -840,7 +840,7 @@ describe('a call on Postgres', () => {
     expect(opens.filter((r) => r.isOk)).toHaveLength(1);
     const callId = opens.flatMap((r) => r.isOk ? [r.value.callId] : [])[0];
     if (callId === undefined) throw new Error('No call opened');
-    const answers = await Promise.all([answer(meetingId, callId, marketingId), answer(meetingId, callId, productId)]);
+    const answers = await Promise.all([answer({ meetingId, callId, shipId: marketingId }), answer({ meetingId, callId, shipId: productId })]);
     expect(answers.every((r) => r.isOk)).toBe(true);
     // Then a fresh read holds every answer and one round delivery exists.
     const read = unwrap(await core.useCases.readMeeting(chief, { meetingId, limit: 20 }));
@@ -882,9 +882,9 @@ describe('a call on Postgres', () => {
     // Given a call whose final answer would end the meeting.
     const { meetingId } = unwrap(await core.useCases.openMeeting(chief, { ...aMeeting(), endAfterCalls: 1 }));
     const { callId } = unwrap(await core.useCases.openCall(chief, callInput(meetingId)));
-    unwrap(await answer(meetingId, callId, marketingId));
+    unwrap(await answer({ meetingId, callId, shipId: marketingId }));
     const before = await storedCounts();
-    const broken = unitOfWorkWith((tx) => ({ ...tx, notifier: { deliveryPending: async () => { throw new Error('round failure'); } } }));
+    const broken = unitOfWorkWith((tx) => ({ ...tx, notifier: { deliveryPending: () => Promise.reject(new Error('round failure')) } }));
     const send = createSendMessage({ uow: broken, clock: core.clock, ids: newId, hasher: sha256Hasher, sealing: unsealedFleetsOnly });
     // When the final answer's round delivery cannot be queued.
     await expect(send(agentCaller({ fleetId, shipId: productId }), { selector: { kind: 'meeting', meetingId }, callId, payload: 'Monday', model: MODEL, idempotencyKey: newKey() })).rejects.toThrow('round failure');
@@ -893,7 +893,7 @@ describe('a call on Postgres', () => {
     const read = unwrap(await core.useCases.readMeeting(chief, { meetingId, limit: 20 }));
     expect(read.endedAt).toBeNull();
     expect(read.call?.answers).toHaveLength(1);
-    unwrap(await answer(meetingId, callId, productId));
+    unwrap(await answer({ meetingId, callId, shipId: productId }));
     expect(unwrap(await core.useCases.readMeeting(chief, { meetingId, limit: 20 })).endedAt).toEqual(core.clock.now());
   });
 });

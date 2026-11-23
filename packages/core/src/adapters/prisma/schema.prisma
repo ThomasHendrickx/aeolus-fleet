@@ -862,6 +862,8 @@ model Message {
   resendOfMessageId  String?      @map("resend_of_message_id")
   /// The meeting it was sent to, or the meeting whose added notice it is (decision 0061).
   meetingId          String?      @map("meeting_id")
+  /// The call this answer names, without an individual delivery.
+  callId String? @map("call_id")
   /// The schedule it was sent for, and that send time; none on a live send (decision 0062).
   scheduleId         String?      @map("schedule_id")
   sendTime           DateTime?    @map("send_time") @db.Timestamptz(3)
@@ -935,6 +937,8 @@ enum DeliveryState {
 /// A meeting of ships (decision 0061), id mtg_: one owner and one moderator,
 /// both participants, the opener at first.
 model Meeting {
+  endAfterCalls Int? @map("end_after_calls")
+  calls MeetingCall[]
   id              String     @id
   fleetId         String     @map("fleet_id")
   goal            String?
@@ -1676,4 +1680,25 @@ model CommissionApproval {
   @@unique([fleetId, id])
   @@index([fleetId, commissionerId])
   @@map("commission_approvals")
+}
+
+
+/// The meeting owns its calls; the answers hold message references, never copied payloads.
+model MeetingCall {
+  id String @id
+  fleetId String @map("fleet_id")
+  meetingId String @map("meeting_id")
+  requestHash String @map("request_hash")
+  expectedShipIds String[] @map("expected_ship_ids")
+  deadline DateTime @db.Timestamptz(3)
+  openedAt DateTime @map("opened_at") @db.Timestamptz(3)
+  closedAt DateTime? @map("closed_at") @db.Timestamptz(3)
+  answers Json @default("[]")
+  meeting Meeting @relation(fields: [fleetId, meetingId], references: [fleetId, id], onDelete: Cascade)
+
+  @@unique([fleetId, id])
+  @@index([fleetId, meetingId, id])
+  @@unique([fleetId, meetingId], map: "meeting_calls_one_open_idx", where: raw("closed_at IS NULL"))
+  @@index([fleetId, meetingId], map: "meeting_calls_closed_idx", where: raw("closed_at IS NOT NULL"))
+  @@map("meeting_calls")
 }

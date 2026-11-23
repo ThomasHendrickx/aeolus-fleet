@@ -41,6 +41,8 @@ import {
   meetingChangedOutputSchema,
   requestMicOutputSchema,
   notHandledInputSchema,
+  openCallInputSchema,
+  openCallOutputSchema,
   openMeetingInputSchema,
   openMeetingOutputSchema,
   setMicPatternInputSchema,
@@ -266,6 +268,12 @@ export const shipRouter = router({
    * moderated by the caller (decision 0061). Answers with the meeting's id
    * only once the meeting and every added notice are stored.
    */
+  openCall: scopedProcedure('messages:send')
+    .meta({ description: 'The moderator opens one call, with question, excludedShipIds and a future deadline, five minutes by default. Every participant receives it; expected ships answer once via send with callId, without the mic. One collected round result reaches the moderator when all have answered.' })
+    .input(openCallInputSchema)
+    .output(openCallOutputSchema)
+    .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.openCall(ctx.caller, input))),
+
   openMeeting: scopedProcedure('meetings:open')
     .meta({
       description: [
@@ -304,6 +312,7 @@ export const shipRouter = router({
       const read = okOrThrow(await ctx.useCases.readMeeting(ctx.caller, { meetingId: input.meetingId, cursor: input.cursor, limit: input.limit ?? PAGE_SIZE_DEFAULT }));
       return {
         ...read,
+        call: read.call === null ? null : { ...read.call, deadline: read.call.deadline.toISOString(), openedAt: read.call.openedAt.toISOString(), closedAt: read.call.closedAt?.toISOString() ?? null, answers: read.call.answers.map((item) => ({ ...item, ...listedPayloadOutputOf(item.payload), sentAt: item.sentAt.toISOString() })) },
         openedAt: read.openedAt.toISOString(),
         endedAt: read.endedAt?.toISOString() ?? null,
         endsAt: read.endsAt?.toISOString() ?? null,

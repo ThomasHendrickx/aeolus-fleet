@@ -496,6 +496,9 @@ Each event records its type and time, who caused it (a ship, `argo` included, or
 | `ShipRetired` | Registry | Unprocessed direct deliveries marked abandoned, id blocked forever |
 | `DeliveryAbandoned` | Registry | One per direct delivery a retire abandoned, written with `ShipRetired`; it stays in the timelines and its sender can see it |
 | `MessageAccepted` | Messaging | Deliveries created, receivers woken; details hold nullable `senderLeaseId` from the message and the model the sender stated, and `forced` for a forced send (0040). One per delivery of a contribution, each with its meeting (0061). A scheduled send's names its schedule and send time (0062) |
+| `CallOpened` | Messaging | The moderator opened a call with a fixed expected list and deadline; details name its meeting and call |
+| `CallAnswered` | Messaging | An expected ship answered once; names its answer message, meeting and call |
+| `CallClosed` | Messaging | Every expected ship answered (an empty list closes immediately); the moderator receives one collected round |
 | `MeetingOpened` | Messaging | A ship opened a meeting, owner and moderator itself (0061): details hold the meeting and how many participants |
 | `ParticipantAdded` | Messaging | The ship joined a meeting, one per participant, the opener included (0061): details hold the meeting |
 | `MicRequested` | Messaging | The ship requested the mic of its meeting (0061): details hold the meeting |

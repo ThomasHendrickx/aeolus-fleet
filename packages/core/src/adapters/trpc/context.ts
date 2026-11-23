@@ -1,3 +1,4 @@
+import type { OpenCall } from '../../domain/messaging/open-call.js';
 import type { Lookup } from '../../domain/registry/lookup.js';
 import type { createReadInstallationJourneys } from '../../domain/registry/read-installation-journeys.js';
 import type { CallPlugin } from '../../domain/registry/call-plugin.js';
@@ -269,6 +270,7 @@ export interface UseCases {
   deregister: Deregister;
   sendMessage: SendMessage;
   sendFormattedMessage: SendFormattedMessage;
+  openCall: OpenCall;
   openMeeting: OpenMeeting;
   scheduleMessage: ScheduleMessage;
   listSchedules: ListSchedules;

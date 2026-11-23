@@ -5,6 +5,7 @@ import type { Selector } from '../shared/selector.js';
 /** What a send asks for, its key aside: what a repeat of the key must ask for too. */
 export interface SendRequest {
   selector: Selector;
+  callId?: MessageId;
   /** None for a sealed message's request, whose hash leaves the payload out (decision 0068, B10). */
   payload: string | undefined;
   contentType: string;
@@ -23,7 +24,8 @@ export interface SendRequest {
  */
 export function sendRequestText(request: SendRequest): string {
   const fields = [selectorFields(request.selector), ...(request.payload === undefined ? [] : [request.payload]), request.contentType, request.inReplyTo ?? null];
-  return JSON.stringify(request.isForced ? [...fields, 'forced'] : fields);
+  const forced = request.isForced ? [...fields, 'forced'] : fields;
+  return JSON.stringify(request.callId === undefined ? forced : [...forced, 'call', request.callId]);
 }
 
 function selectorFields(selector: Selector): string[] {

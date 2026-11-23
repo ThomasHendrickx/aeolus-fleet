@@ -635,6 +635,7 @@ const messageRow = z.object({
   inReplyToMessageId: idSchema('message').nullable(),
   resendOfMessageId: idSchema('message').nullable(),
   meetingId: idSchema('meeting').nullable(),
+  callId: idSchema('message').nullable().optional(),
   scheduleId: idSchema('schedule').nullable(),
   sendTime: z.date().nullable(),
   createdAt: z.date(),
