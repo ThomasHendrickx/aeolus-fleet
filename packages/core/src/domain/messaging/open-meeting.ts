@@ -49,6 +49,7 @@ export interface MeetingToOpen {
   goal?: string;
   /** A UTC instant strictly in the future, when core ends the meeting. */
   endsAt?: string;
+  endAfterCalls?: number;
 }
 
 export interface MeetingOpened {
@@ -97,8 +98,8 @@ export function createOpenMeeting(deps: { uow: UnitOfWork<OpenMeetingTx>; clock:
     const trimmedGoal = input.goal?.trim();
     const goal = trimmedGoal === '' ? null : trimmedGoal ?? null;
     const endsAt = input.endsAt ?? null;
-    const requestHash = deps.hasher.hash(JSON.stringify([ships.map(inviteeText), valueIds, title, goal, endsAt]));
-    const open = { caller, ships, valueIds, title, goal, endsAt, idempotencyKey: key.value, requestHash, model: input.model };
+    const requestHash = deps.hasher.hash(JSON.stringify([ships.map(inviteeText), valueIds, title, goal, endsAt, input.endAfterCalls ?? null]));
+    const open = { endAfterCalls: input.endAfterCalls, caller, ships, valueIds, title, goal, endsAt, idempotencyKey: key.value, requestHash, model: input.model };
     return withDataKeys({ sealing: deps.sealing, fleetId: caller.fleetId }, (held) => keepingReachRefusal(deps.uow, (tx) => openWithin({ tx, clock: deps.clock, ids: deps.ids, hasher: deps.hasher, held }, open)));
   };
 }
@@ -110,7 +111,7 @@ function inviteeText(invitee: Invitee): string[] {
 
 async function openWithin(
   deps: { tx: OpenMeetingTx; clock: Clock; ids: IdGenerator; hasher: RequestHasher; held: HeldDataKeys },
-  open: { caller: ShipCaller; ships: readonly Invitee[]; valueIds: readonly LabelValueId[]; title: string | null; goal: string | null; endsAt: string | null; idempotencyKey: string; requestHash: string; model: string | undefined },
+  open: { endAfterCalls: number | undefined; caller: ShipCaller; ships: readonly Invitee[]; valueIds: readonly LabelValueId[]; title: string | null; goal: string | null; endsAt: string | null; idempotencyKey: string; requestHash: string; model: string | undefined },
 ): Promise<Result<MeetingOpened, OpenMeetingFailure | DataKeysNeeded>> {
   const { tx, clock, ids } = deps;
   const { fleetId, shipId: openerShipId } = open.caller;
@@ -127,7 +128,7 @@ async function openWithin(
     return invited;
   }
   const at = clock.now();
-  const opened = openMeeting({ meetingId: ids('meeting'), fleetId, title: open.title, goal: open.goal, endsAt: open.endsAt === null ? null : new Date(open.endsAt), openerShipId, invitedShipIds: invited.value, idempotencyKey: open.idempotencyKey, requestHash: open.requestHash, at });
+  const opened = openMeeting({ endAfterCalls: open.endAfterCalls, meetingId: ids('meeting'), fleetId, title: open.title, goal: open.goal, endsAt: open.endsAt === null ? null : new Date(open.endsAt), openerShipId, invitedShipIds: invited.value, idempotencyKey: open.idempotencyKey, requestHash: open.requestHash, at });
   if (!opened.isOk) {
     return opened;
   }

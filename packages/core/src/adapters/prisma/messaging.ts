@@ -128,6 +128,7 @@ export function createPrismaMessageRepository(db: Db): BufferedMessageRepository
           inReplyToMessageId: message.inReplyToMessageId,
           resendOfMessageId: message.resendOfMessageId,
           meetingId: message.meetingId,
+          callId: message.callId ?? null,
           scheduleId: message.scheduleId,
           sendTime: message.sendTime,
           createdAt: message.createdAt,
@@ -146,6 +147,7 @@ export function createPrismaMessageRepository(db: Db): BufferedMessageRepository
       const row = await db.message.findFirst({ where: { fleetId, senderShipId, idempotencyKey } });
       return row ? toMessage(row) : undefined;
     },
+    findMany: async (fleetId, messageIds) => (await db.message.findMany({ where: { fleetId, id: { in: [...messageIds] } } })).map(toMessage),
     find: async (fleetId, messageId) => {
       const row = await db.message.findFirst({ where: { fleetId, id: messageId } });
       return row ? toMessage(row) : undefined;

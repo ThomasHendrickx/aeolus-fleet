@@ -144,6 +144,7 @@ describe('the ship calls at /api/v1', () => {
       '/ship/ask',
       '/ship/step',
       '/ship/withdraw',
+      '/ship/openCall',
       '/ship/openMeeting',
       '/ship/meeting',
       '/ship/meetings',

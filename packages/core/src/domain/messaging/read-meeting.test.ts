@@ -53,6 +53,8 @@ describe('reading a meeting', () => {
       title: 'Launch plan',
       goal: null,
       endsAt: null,
+      endAfterCalls: null,
+      call: null,
       owner: { id: chief.shipId, name: 'chief' },
       moderator: { id: chief.shipId, name: 'chief' },
       openedAt: new Date(OPENED_AT),
@@ -111,8 +113,8 @@ describe('reading a meeting', () => {
 
     expect(read.contributions).toEqual({
       items: [
-        { messageId: second, senderLeaseId: null, sender: { id: product.shipId, name: 'product' }, payload: 'Friday works', contentType: 'text/plain', model: SESSION_MODEL, sentAt: new Date('2026-10-24T09:00:02.000Z') },
-        { messageId: first, senderLeaseId: null, sender: { id: chief.shipId, name: 'chief' }, payload: 'Agenda: the launch', contentType: 'text/plain', model: SESSION_MODEL, sentAt: new Date('2026-10-24T09:00:01.000Z') },
+        { messageId: second, callId: null, senderLeaseId: null, sender: { id: product.shipId, name: 'product' }, payload: 'Friday works', contentType: 'text/plain', model: SESSION_MODEL, sentAt: new Date('2026-10-24T09:00:02.000Z') },
+        { messageId: first, callId: null, senderLeaseId: null, sender: { id: chief.shipId, name: 'chief' }, payload: 'Agenda: the launch', contentType: 'text/plain', model: SESSION_MODEL, sentAt: new Date('2026-10-24T09:00:01.000Z') },
       ],
       nextCursor: null,
     });

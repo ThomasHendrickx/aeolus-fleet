@@ -5,6 +5,7 @@ import { idSchema } from '../ids/index.js';
 import { shipHandleSchema } from './fleet.js';
 import { partySchema } from './history.js';
 import { idempotencyKeySchema } from './idempotency-key.js';
+import { payloadBytes } from '../rules/payload.js';
 import { modelSchema } from './message.js';
 import { pageInputOf, pageOutputOf } from './page.js';
 
@@ -20,6 +21,9 @@ const isoTime = z.iso.datetime();
 
 /** The most characters a meeting's title holds: a short name a person reads when auditing later. */
 export const MEETING_TITLE_MAX_LENGTH = 200;
+export const MEETING_CALL_MAX_BYTES = 65_536;
+export const MEETING_CALL_DEFAULT_MS = 300_000;
+export const MEETING_CALL_COUNT_MAX = 2_147_483_647;
 
 /** An invitee: one ship, by id or by name, never a type. */
 export const inviteeSchema = z.union([z.strictObject({ shipId: idSchema('ship') }), z.strictObject({ name: shipHandleSchema })]);
@@ -32,6 +36,7 @@ export const inviteeSchema = z.union([z.strictObject({ shipId: idSchema('ship') 
  * short title, a short goal, and a future UTC end time.
  */
 export const openMeetingInputSchema = z.object({
+  endAfterCalls: z.int().min(1).max(MEETING_CALL_COUNT_MAX).optional(),
   ships: z.array(inviteeSchema).optional(),
   valueIds: z.array(idSchema('labelValue')).optional(),
   idempotencyKey: idempotencyKeySchema,
@@ -47,7 +52,7 @@ export type OpenMeetingInput = z.infer<typeof openMeetingInputSchema>;
 export const openMeetingOutputSchema = z.object({ meetingId: idSchema('meeting') });
 
 /** Input of `ship.meeting`: the meeting, and a page of its contributions, newest first. */
-export const meetingInputSchema = pageInputOf(idSchema('message')).extend({ meetingId: idSchema('meeting') });
+export const meetingInputSchema = pageInputOf(idSchema('message')).extend({ meetingId: idSchema('meeting'), callId: idSchema('message').optional() });
 
 export type MeetingInput = z.infer<typeof meetingInputSchema>;
 
@@ -123,6 +128,7 @@ export const meetingParticipantSchema = partySchema.extend({ kind: shipKindSchem
 
 /** One contribution as the meeting read shows it. */
 export const contributionSchema = z.object({
+  callId: idSchema('message').nullable(),
   senderLeaseId: idSchema('lease').nullable(),
   messageId: idSchema('message'),
   sender: partySchema,
@@ -139,7 +145,43 @@ export const contributionSchema = z.object({
  * opened and ended (null while open), its participants, its mic, and a page of its
  * contributions, newest first.
  */
+export const meetingCallReadSchema = z.object({
+  callId: idSchema('message'),
+  expectedShipIds: z.array(idSchema('ship')),
+  deadline: isoTime,
+  openedAt: isoTime,
+  closedAt: isoTime.nullable(),
+  answers: z.array(contributionSchema),
+});
+
+/** A call uses its notice's message id; every present participant is expected except the named ships. */
+export const openCallInputSchema = z.object({
+  meetingId: idSchema('meeting'),
+  question: z.string().refine((text) => payloadBytes(text) <= MEETING_CALL_MAX_BYTES, 'A call question is at most 64 KB'),
+  excludedShipIds: z.array(idSchema('ship')).optional(),
+  deadline: isoTime.optional(),
+  idempotencyKey: idempotencyKeySchema,
+  model: modelSchema.optional(),
+});
+export const openCallOutputSchema = z.object({ callId: idSchema('message') });
+export const MEETING_CALL_CONTENT_TYPE = 'application/vnd.aeolus.meeting.call+json';
+export const MEETING_ROUND_CONTENT_TYPE = 'application/vnd.aeolus.meeting.round+json';
+/** The moderator's call notice, delivered even to excluded ships and the moderator. */
+export const meetingCallSchema = z.object({
+  meetingId: idSchema('meeting'), callId: idSchema('message'), goal: z.string().nullable(),
+  question: z.string(), expectedShipIds: z.array(idSchema('ship')), deadline: isoTime,
+});
+/** One collected round, sent only to the moderator after closure. */
+const roundEnvelopeSchema = meetingCallReadSchema.omit({ answers: true }).extend({ meetingId: idSchema('meeting'), goal: z.string().nullable() });
+export const meetingRoundSchema = z.discriminatedUnion('isRoundReference', [
+  roundEnvelopeSchema.extend({ isRoundReference: z.literal(false), answers: z.array(contributionSchema) }),
+  z.strictObject({ meetingId: idSchema('meeting'), callId: idSchema('message'), isRoundReference: z.literal(true), expectedCount: z.int().min(0), answeredCount: z.int().min(0) }),
+]);
+export type MeetingRound = z.infer<typeof meetingRoundSchema>;
+
 export const meetingOutputSchema = z.object({
+  endAfterCalls: z.int().nullable(),
+  call: meetingCallReadSchema.nullable(),
   goal: z.string().nullable(),
   endsAt: isoTime.nullable(),
   meetingId: idSchema('meeting'),

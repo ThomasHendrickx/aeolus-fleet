@@ -89,7 +89,7 @@ export function createPingShip(deps: {
         return sender;
       }
       const sentAt = deps.clock.now();
-      const sent = await sendWithin({ tx, clock: { now: () => sentAt }, ids: deps.ids, held }, { caller: sender.value, request: request.value, actor: actorOf(caller) });
+      const sent = await sendWithin({ tx, clock: { now: () => sentAt }, ids: deps.ids, hasher: deps.hasher, held }, { caller: sender.value, request: request.value, actor: actorOf(caller) });
       return sent.isOk ? ok({ messageId: sent.value.messageId, sentAt, isNew: true }) : sent;
     }));
 }

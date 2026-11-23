@@ -122,6 +122,8 @@ describe('the meeting read', () => {
       title: null,
       goal: null,
       endsAt: null,
+      call: null,
+      endAfterCalls: null,
       owner: chief,
       moderator: chief,
       openedAt: '2026-10-24T09:00:00.000Z',
@@ -185,4 +187,14 @@ it('takes an optional short goal and UTC end time at the open', () => {
   expect(parsed).toEqual({ ...input, goal: 'Agree the release date' });
   expect(openMeetingInputSchema.safeParse({ ...input, goal: 'a'.repeat(201) }).success).toBe(false);
   expect(openMeetingInputSchema.safeParse({ ...input, endsAt: 'tomorrow' }).success).toBe(false);
+});
+
+
+it.each([
+  [1, true], [2_147_483_647, true], [0, false], [-1, false], [1.5, false], [2_147_483_648, false],
+])('accepts call-count %s: %s', (endAfterCalls, isAccepted) => {
+  // Given an otherwise valid meeting open.
+  const input = { ships: [{ name: 'alpha' }], model: 'gpt-6.1-sol', idempotencyKey: 'count-limit' };
+  // When a count is checked, then its individual boundary result holds.
+  expect(openMeetingInputSchema.safeParse({ ...input, endAfterCalls }).success).toBe(isAccepted);
 });

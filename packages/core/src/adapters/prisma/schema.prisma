@@ -862,6 +862,8 @@ model Message {
   resendOfMessageId  String?      @map("resend_of_message_id")
   /// The meeting it was sent to, or the meeting whose added notice it is (decision 0061).
   meetingId          String?      @map("meeting_id")
+  /// The call this answer names, without an individual delivery.
+  callId String? @map("call_id")
   /// The schedule it was sent for, and that send time; none on a live send (decision 0062).
   scheduleId         String?      @map("schedule_id")
   sendTime           DateTime?    @map("send_time") @db.Timestamptz(3)
@@ -904,6 +906,8 @@ model Message {
   @@index([fleetId, scheduleId])
   /// A meeting's contributions page newest first by id (decision 0061).
   @@index([fleetId, meetingId, id])
+  /// A call's answer contributions in message order, bounded by its expected ships.
+  @@index([fleetId, meetingId, callId, id], map: "messages_fleet_id_meeting_id_call_id_id_idx", where: { callId: { not: null } })
   @@index([fleetId, selectorShipId, createdAt, id], map: "messages_pings_idx", where: raw("(content_type = 'application/vnd.aeolus.ping'::text)"))
   @@map("messages")
 }
@@ -935,6 +939,8 @@ enum DeliveryState {
 /// A meeting of ships (decision 0061), id mtg_: one owner and one moderator,
 /// both participants, the opener at first.
 model Meeting {
+  endAfterCalls Int? @map("end_after_calls")
+  calls MeetingCall[]
   id              String     @id
   fleetId         String     @map("fleet_id")
   goal            String?
@@ -1676,4 +1682,24 @@ model CommissionApproval {
   @@unique([fleetId, id])
   @@index([fleetId, commissionerId])
   @@map("commission_approvals")
+}
+
+
+/// The meeting owns its calls; answer contributions name their call through Message.callId.
+model MeetingCall {
+  id String @id
+  fleetId String @map("fleet_id")
+  meetingId String @map("meeting_id")
+  requestHash String @map("request_hash")
+  expectedShipIds String[] @map("expected_ship_ids")
+  deadline DateTime @db.Timestamptz(3)
+  openedAt DateTime @map("opened_at") @db.Timestamptz(3)
+  closedAt DateTime? @map("closed_at") @db.Timestamptz(3)
+  meeting Meeting @relation(fields: [fleetId, meetingId], references: [fleetId, id], onDelete: Cascade)
+
+  @@unique([fleetId, id])
+  @@index([fleetId, meetingId, id])
+  @@unique([fleetId, meetingId], map: "meeting_calls_one_open_idx", where: raw("closed_at IS NULL"))
+  @@index([fleetId, meetingId], map: "meeting_calls_closed_idx", where: raw("closed_at IS NOT NULL"))
+  @@map("meeting_calls")
 }

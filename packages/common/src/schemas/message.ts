@@ -118,6 +118,7 @@ export type SelectorInput = z.infer<typeof selectorSchema>;
 
 /** Input of `ship.send`. The sender is the calling ship, never named in the input. */
 export const sendInputSchema = z.object({
+  callId: idSchema('message').optional(),
   selector: selectorSchema,
   payload: payloadSchema,
   /** Without it, the payload is text/plain. */

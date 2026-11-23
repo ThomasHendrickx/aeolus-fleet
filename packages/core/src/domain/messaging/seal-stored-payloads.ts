@@ -146,7 +146,7 @@ function sealedMessageRow(deps: { hasher: RequestHasher; key: DataKey; seal: Sea
   if (typeof message.payload !== 'string') {
     return [];
   }
-  const requestHash = deps.hasher.hash(sendRequestText({ selector: message.selector, payload: undefined, contentType: message.contentType, inReplyTo: message.inReplyToMessageId ?? undefined, isForced: false }));
+  const requestHash = deps.hasher.hash(sendRequestText({ callId: message.callId ?? undefined, selector: message.selector, payload: undefined, contentType: message.contentType, inReplyTo: message.inReplyToMessageId ?? undefined, isForced: false }));
   return [{ id: message.id, payload: deps.seal({ fleetId: message.fleetId, rowId: message.id }, message.payload), requestHash }];
 }
 

@@ -1,3 +1,4 @@
+import type { MeetingCall } from './meeting-call.js';
 import type { DataKeyId, DeliveryId, FleetId, LeaseId, MeetingId, MessageId, ScheduleId, ScheduleState, ShipId, ShipKind } from '@aeolus-fleet/common';
 
 import type { Page, PageQuery } from '../shared/page.js';
@@ -27,6 +28,12 @@ export interface OpenerKey {
 
 /** Outbound port: meetings and their participants, always within one fleet (decision 0061). */
 export interface MeetingRepository {
+  /** Calls belong to the meeting and are changed only while its row is locked. Answers are derived from contributions on load. */
+  createCall(call: MeetingCall): Promise<void>;
+  saveCall(call: MeetingCall): Promise<void>;
+  findCall(fleetId: FleetId, query: { meetingId: MeetingId; callId: MessageId }): Promise<MeetingCall | undefined>;
+  latestCall(fleetId: FleetId, meetingId: MeetingId): Promise<MeetingCall | undefined>;
+  closedCallCount(fleetId: FleetId, meetingId: MeetingId): Promise<number>;
   /** One due open meeting held for update, skipping meetings held by another server. */
   claimDue(fleetId: FleetId, query: { at: Date; tried: readonly MeetingId[] }): Promise<Meeting | undefined>;
   /** Earliest durable deadline, for the server's timer. */
@@ -154,6 +161,8 @@ export interface MessageRepository {
   /** The message the sender stored with this key, if any. */
   findByIdempotencyKey(key: SenderKey): Promise<Message | undefined>;
   find(fleetId: FleetId, messageId: MessageId): Promise<Message | undefined>;
+  /** A bounded set of stored references, looked up by their fleet-scoped ids. */
+  findMany(fleetId: FleetId, messageIds: readonly MessageId[]): Promise<Message[]>;
   /**
    * The questions the ship asked another ship that is not retired and that
    * are still open (decision 0038): a question or a replacement not answered

@@ -1,3 +1,4 @@
+import { createSealStoredPayloads } from './seal-stored-payloads.js';
 import { MEETING_ADDED_CONTENT_TYPE, MEETING_ENDED_CONTENT_TYPE, MEETING_MIC_CONTENT_TYPE, meetingAddedSchema, type MeetingId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
@@ -117,4 +118,28 @@ describe('a meeting in a sealed fleet (decision 0068, B17)', () => {
     expect(read.title).toBe('Launch');
     expect(read.contributions.items.map(({ messageId: id, sender, payload }) => ({ id, sender: sender.name, payload }))).toEqual([{ id: messageId, sender: 'chief', payload: { kind: 'unreadable' } }]);
   });
+});
+
+
+it.each(['stored payloads', 'call retry', 'answer retry'])('preserves %s when existing plain payloads become sealed', async (outcome) => {
+  // Given a new plain fleet, with a call and one answer before sealing starts.
+  const plain = createInMemoryCore('2026-11-23T10:00:00.000Z');
+  const fleet = await initialiseFleet(plain);
+  const argo = operatorCaller(fleet);
+  const registry = registryUseCases(plain);
+  const chair = await shipWithScopes({ registry, argo }, { name: 'chair', type: 'agent', scopes: ['meetings:open'] });
+  const alpha = await shipWithScopes({ registry, argo }, { name: 'alpha', type: 'agent', scopes: [] });
+  const messaging = messagingUseCases(plain);
+  const { meetingId } = unwrap(await messaging.openMeeting(chair, { ships: [{ shipId: alpha.shipId }], model: SESSION_MODEL, idempotencyKey: newKey() }));
+  const input = { meetingId, question: 'Private day?', model: SESSION_MODEL, idempotencyKey: newKey() };
+  const { callId } = unwrap(await messaging.openCall(chair, input));
+  const reply = { selector: { kind: 'meeting' as const, meetingId }, callId, payload: 'Private Friday', model: SESSION_MODEL, idempotencyKey: newKey() };
+  const original = unwrap(await messaging.sendMessage(alpha, reply));
+  // When existing stored payloads are sealed by the maintenance task.
+  await sealFleet(plain, fleet.fleetId);
+  await createSealStoredPayloads({ uow: plain.uow, sealings: plain.sealings, sealing: plain.sealing, clock: plain.clock, ids: plain.ids, hasher: plain.hasher })();
+  // Then command and answer retries still return their original ids.
+  if (outcome === 'stored payloads') expect(plain.state.messages.every((m) => typeof m.payload !== 'string')).toBe(true);
+  if (outcome === 'call retry') expect(unwrap(await messaging.openCall(chair, input))).toEqual({ callId });
+  if (outcome === 'answer retry') expect(unwrap(await messaging.sendMessage(alpha, reply))).toEqual(original);
 });

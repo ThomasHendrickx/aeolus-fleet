@@ -7,12 +7,15 @@ import type { Page, PageQuery } from '../shared/page.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { listedUnsealed, withDataKeysForList, type DataKeysNeeded, type ListedPayload, type PayloadSealing } from './data-keys.js';
+import { readCall, type CallRead } from './call-round.js';
+import type { MessageRepository } from './ports.js';
 import type { Participant } from './meeting.js';
 import type { MeetingRepository } from './ports.js';
 
 export interface ReadMeetingTx {
-  meetings: Pick<MeetingRepository, 'find' | 'contributions'>;
-  ships: Pick<ShipRepository, 'find'>;
+  meetings: Pick<MeetingRepository, 'find' | 'contributions' | 'latestCall' | 'findCall'>;
+  messages: Pick<MessageRepository, 'findMany'>;
+  ships: Pick<ShipRepository, 'find' | 'findMany'>;
   leases: Pick<LeaseRepository, 'findOpenForShare'>;
 }
 
@@ -39,6 +42,7 @@ function participantState(participant: Participant): ParticipantState {
 
 /** One contribution as the read shows it. */
 export interface ContributionRead {
+  callId: MessageId | null;
   messageId: MessageId;
   sender: MeetingParty;
   senderLeaseId: LeaseId | null;
@@ -57,6 +61,8 @@ export interface MicRead {
 }
 
 export interface MeetingRead {
+  endAfterCalls: number | null;
+  call: CallRead | null;
   meetingId: MeetingId;
   title: string | null;
   goal: string | null;
@@ -70,9 +76,9 @@ export interface MeetingRead {
   contributions: Page<ContributionRead, MessageId>;
 }
 
-export type ReadMeetingRefusal = DomainError<'MEETING_NOT_FOUND' | 'KEY_UNAVAILABLE'>;
+export type ReadMeetingRefusal = DomainError<'MEETING_NOT_FOUND' | 'MESSAGE_NOT_FOUND' | 'KEY_UNAVAILABLE'>;
 
-export type ReadMeeting = (caller: ShipCaller, input: { meetingId: MeetingId } & PageQuery<MessageId>) => Promise<Result<MeetingRead, ReadMeetingRefusal>>;
+export type ReadMeeting = (caller: ShipCaller, input: { meetingId: MeetingId; callId?: MessageId } & PageQuery<MessageId>) => Promise<Result<MeetingRead, ReadMeetingRefusal>>;
 
 /**
  * Use case: a participant reads its meeting (`meeting`, decision 0061): its
@@ -111,14 +117,20 @@ export function createReadMeeting(deps: { uow: UnitOfWork<ReadMeetingTx>; sealin
         if (!payload.isOk) {
           return payload;
         }
-        items.push({ messageId: message.id, sender: await party(message.senderShipId), senderLeaseId: message.senderLeaseId, payload: payload.value, contentType: message.contentType, model: message.model, sentAt: message.createdAt });
+        items.push({ callId: message.callId ?? null, messageId: message.id, sender: await party(message.senderShipId), senderLeaseId: message.senderLeaseId, payload: payload.value, contentType: message.contentType, model: message.model, sentAt: message.createdAt });
       }
       const requests: MicRead['requests'] = [];
       for (const request of meeting.micRequests) {
         requests.push({ ship: await party(request.shipId), requestedAt: request.requestedAt });
       }
       const mic: MicRead = { holder: meeting.micHolderShipId === null ? null : await party(meeting.micHolderShipId), pattern: meeting.micPattern, requests };
+      const latest = input.callId === undefined ? await tx.meetings.latestCall(fleetId, meetingId) : await tx.meetings.findCall(fleetId, { meetingId, callId: input.callId });
+      if (input.callId !== undefined && latest === undefined) return refuse('MESSAGE_NOT_FOUND', 'The call does not exist in this meeting');
+      const call = latest === undefined ? ok(null) : await readCall({ tx, held: keys }, latest);
+      if (!call.isOk) return call;
       return ok({
+        endAfterCalls: meeting.endAfterCalls ?? null,
+        call: call.value,
         meetingId,
         title: meeting.title,
         goal: meeting.goal,

@@ -214,7 +214,7 @@ async function sendTimeWithin(
     sealedRequestHash: deps.hasher.hash(sendRequestText({ selector: send.selector, payload: undefined, contentType: send.contentType, inReplyTo, isForced: send.isForced })),
     scheduledFor: { scheduleId: schedule.id, sendTime },
   };
-  const sent = await sendWithin({ tx, clock, ids, held: deps.held }, { caller, request });
+  const sent = await sendWithin({ tx, clock, ids, hasher: deps.hasher, held: deps.held }, { caller, request });
   if (!sent.isOk) {
     const { error } = sent;
     return isDataKeysNeeded(error) ? err(error) : ok({ ...scheduleRefused(schedule, { code: error.kind, sendTime, at, sentCount }), sentCount });

@@ -34,6 +34,7 @@ const SHIP_TOOLS = [
   'ask',
   'step',
   'withdraw',
+  'openCall',
   'openMeeting',
   'meeting',
   'meetings',
@@ -297,6 +298,7 @@ describe('the ship tools at /mcp', () => {
     expect(inputSchema.required).toEqual(['crewToken', 'selector', 'payload', 'model', 'idempotencyKey']);
     expect(Object.keys(inputSchema.properties)).toEqual([
       'crewToken',
+      'callId',
       'selector',
       'payload',
       'contentType',

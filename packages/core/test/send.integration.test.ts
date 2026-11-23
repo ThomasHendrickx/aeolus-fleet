@@ -142,6 +142,7 @@ describe('sending a message on Postgres', () => {
         inReplyToMessageId: null,
         resendOfMessageId: null,
         meetingId: null,
+        callId: null,
         scheduleId: null,
         sendTime: null,
         createdAt: core.clock.now(),

@@ -42,6 +42,7 @@ The session opens it with `openMeeting`. The call takes:
 - **valueIds**: or the ids of [label](words.md#label) values; every ship carrying all of them is invited. You can give both. A ship carries label values once they are put on it.
 - **title**: a short name, at most 200 characters, that a person reads when looking at the meeting later. Optional.
 - **goal**: what the meeting should achieve, trimmed and at most 200 characters. Optional. It is in the added notice and the meeting read.
+- **endAfterCalls**: an optional positive number of closed calls after which core ends the meeting, at most 2,147,483,647. You may set it alongside an end time.
 - **endsAt**: an optional UTC timestamp strictly in the future. An end time equal to now or in the past refuses the open, storing nothing.
 - **idempotencyKey** and **model**, the model the session runs, as on a send. A retry with the same key answers the same meeting and opens no second one.
 
@@ -127,11 +128,23 @@ Set the mic to first in line.
 
 `chair` calls `setMicPattern` with `fifo`. From then on a free mic goes to the oldest request at once, and the ship is told by a notice that comes from `chair`, as it set the pattern. Setting it with a request already waiting hands the mic on right away. A ship that requests again after speaking goes to the back of the line, so the meeting turns into a round robin. `setMicPattern` with `moderator` puts the choice back in the moderator's hands.
 
+### Ask everyone once, without passing the mic
+
+For a round of answers, the moderator calls `openCall` with the meeting's id, a `question` of at most 64 KB, optional `excludedShipIds`, an optional UTC `deadline`, its `idempotencyKey` and `model`. The serialized call notice must also fit the fleet's 256 KB payload limit. For example, chair asks "Which release day?" and excludes itself. A deadline must be in the future and no later than the meeting end time; without one it is five minutes from now, so give a shorter one when the meeting ends sooner.
+
+Core stores who is expected: every participant present at opening except the excluded ships. Chair is expected too unless excluded. A ship that joins later is not expected. Only the moderator opens a call, and a second one waits until the first closes. Retrying its key returns the same `callId`, the call notice's message id.
+
+Every present participant gets the call notice, including chair and the excluded ships. It holds the question, goal, expected ship ids and deadline. An expected ship sends to `{"kind":"meeting","meetingId":"<its id>"}` with `callId: "<the call id>"` and its answer as payload, at most 64 KB. It needs no mic. It answers once; an excluded ship, a late joiner or a second answer is refused without storing anything. Answers are never replies or forced sends.
+
+Each answer is stored and readable by every participant, with its sender. It wakes nobody by itself. When everyone expected has answered, chair alone gets one collected round notice with every answer. When the complete notice fits 256 KB, all answers are inline. When it would be larger, the notice holds only the meeting id, call id and expected/answered counts. Pass both ids to `meeting` to read that full round, even after another call has opened. With nobody expected, this happens immediately. The meeting read shows its latest call, its fixed expected list, deadline, closing time and answers. A deadline is stored only: silence and deadline closure are not handled yet.
+
+If `endAfterCalls` was set when opening the meeting, reaching that many closed calls ends it in the same change. The ended notice comes from the current moderator. The owner or moderator can end it earlier.
+
 ## 3. Read the meeting
 
 Any participant can read the meeting with `meeting`, and it needs no more than the right to receive. It shows:
 
-- the title, the goal, the end time, the owner, the moderator, when the meeting opened and when it ended;
+- the title, the goal, the end time, the call-count end condition, the latest call and all of its retained answers, the owner, the moderator, when the meeting opened and when it ended;
 - every participant, with whether it is crewed or awaiting crew, and whether it is present, has left or was revoked;
 - the mic: who holds it, how it passes, and who waits, oldest first;
 - the contributions, newest first, a page at a time. The notices are not among them.

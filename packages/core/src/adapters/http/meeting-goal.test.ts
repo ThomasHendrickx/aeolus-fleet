@@ -31,15 +31,15 @@ beforeEach(async () => {
 afterEach(async () => { await client.close(); await held.server.close(); });
 
 type Door = 'tRPC' | 'REST' | 'MCP';
-async function call(door: Door, { name, input }: { name: 'openMeeting' | 'meeting'; input: Record<string, unknown> }) {
+async function call(door: Door, { name, input }: { name: 'openMeeting' | 'meeting' | 'openCall' | 'send'; input: Record<string, unknown> }) {
   if (door === 'MCP') {
     const result = z.object({ structuredContent: z.unknown().optional(), isError: z.boolean().optional(), content: z.array(z.object({ text: z.string() })) }).parse(await client.callTool({ name, arguments: { ...input, crewToken: token } }));
     return result.isError ? { refusal: result.content.map((part) => part.text).join(' ') } : { data: result.structuredContent };
   }
   const response = await held.server.inject(door === 'REST' ? {
     method: 'POST', url: `/api/v1/ship/${name}`, headers: { authorization: `Bearer ${token}` }, payload: input,
-  } : name === 'openMeeting' ? {
-    method: 'POST', url: '/trpc/ship.openMeeting', headers: { authorization: `Bearer ${token}` }, payload: input,
+  } : name !== 'meeting' ? {
+    method: 'POST', url: `/trpc/ship.${name}`, headers: { authorization: `Bearer ${token}` }, payload: input,
   } : { method: 'GET', url: `/trpc/ship.meeting?input=${encodeURIComponent(JSON.stringify(input))}`, headers: { authorization: `Bearer ${token}` } });
   if (response.statusCode !== 200) return { refusal: response.body };
   return { data: door === 'REST' ? z.unknown().parse(response.json()) : z.object({ result: z.object({ data: z.unknown() }) }).parse(response.json()).result.data };
@@ -64,5 +64,46 @@ describe.each<Door>(['tRPC', 'REST', 'MCP'])('%s meeting goal and end time', (do
     expect(result.refusal).toContain('BAD_REQUEST');
     expect(held.core.state.meetings).toEqual([]);
     expect(held.core.state.messages).toEqual([]);
+  });
+});
+
+
+describe.each<Door>(['tRPC', 'REST', 'MCP'])('%s meeting calls', (door) => {
+  async function openedCall() {
+    const { meetingId } = z.object({ meetingId: z.string() }).parse((await call(door, { name: 'openMeeting', input: anOpen() })).data);
+    const opened = await call(door, { name: 'openCall', input: { meetingId, question: 'Friday?', idempotencyKey: 'call-friday', model: SESSION_MODEL, deadline: '2026-11-23T10:00:30.000Z' } });
+    return { meetingId, callId: z.object({ callId: z.string() }).parse(opened.data).callId };
+  }
+  it('opens a moderator call with its fixed expected list', async () => {
+    const { meetingId, callId } = await openedCall();
+    expect(callId).toMatch(/^msg_/);
+    const read = await call(door, { name: 'meeting', input: { meetingId, callId } });
+    expect(read.data).toMatchObject({ call: { callId, deadline: '2026-11-23T10:00:30.000Z', closedAt: null, answers: [] } });
+  });
+  it('accepts an answer and reads it in the named call', async () => {
+    const { meetingId, callId } = await openedCall();
+    const sent = await call(door, { name: 'send', input: { selector: { kind: 'meeting', meetingId }, callId, payload: 'Friday', model: SESSION_MODEL, idempotencyKey: 'chair-answer' } });
+    const { messageId } = z.object({ messageId: z.string() }).parse(sent.data);
+    const read = await call(door, { name: 'meeting', input: { meetingId, callId } });
+    expect(read.data).toMatchObject({ call: { answers: [{ messageId, payload: 'Friday', callId }] } });
+  });
+  it('does not deliver an individual answer', async () => {
+    const { meetingId, callId } = await openedCall();
+    const before = held.core.state.deliveries.length;
+    await call(door, { name: 'send', input: { selector: { kind: 'meeting', meetingId }, callId, payload: 'Friday', model: SESSION_MODEL, idempotencyKey: 'chair-answer' } });
+    expect(held.core.state.deliveries).toHaveLength(before);
+  });
+  it('refuses reading an unknown call', async () => {
+    const { meetingId } = await openedCall();
+    expect((await call(door, { name: 'meeting', input: { meetingId, callId: held.core.ids('message') } })).refusal).toContain('NOT_FOUND');
+  });
+  it.each([
+    ['a deadline past the meeting end', { deadline: '2026-11-23T10:01:00.001Z' }],
+    ['an oversized question', { question: 'a'.repeat(65_537), deadline: '2026-11-23T10:00:30.000Z' }],
+  ])('refuses %s without storing a call', async (_restriction, change) => {
+    const { meetingId } = z.object({ meetingId: z.string() }).parse((await call(door, { name: 'openMeeting', input: anOpen() })).data);
+    const before = held.core.state.messages.length;
+    expect((await call(door, { name: 'openCall', input: { meetingId, question: 'Friday?', idempotencyKey: 'invalid-call', model: SESSION_MODEL, ...change } })).refusal).toContain('BAD_REQUEST');
+    expect(held.core.state.messages).toHaveLength(before);
   });
 });

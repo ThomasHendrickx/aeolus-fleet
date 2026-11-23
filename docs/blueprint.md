@@ -341,6 +341,8 @@ Full message reads, including received/redelivered messages, exchanges, meeting 
 | Meeting owner | The participant that answers for a meeting, its opener at first; its reach decides who joins (0061) | core |
 | Moderator | The participant that decides who speaks, its opener at first; it always contributes (0061) | core |
 | Contribution | A message to a meeting: no reply, never forced (0061) | core |
+| Call | A moderator's question to a fixed expected list of present participants, with a deadline; one call open at a time. An answer to a call is a contribution naming its call, one per expected ship without the mic, distinct from an owner's answer to a question (0038, 0061) | core |
+| Round (round state) | A call's fixed expected ships, deadline, opening and closing times and collected answers; closes once every expected ship has answered, with one collected result for the moderator (0061) | core |
 | Mic | What a participant holds to contribute; the moderator gives and takes it | core |
 | Mic request | A participant's place on the meeting's list for the mic, with its time; one per ship | core |
 
@@ -496,6 +498,9 @@ Each event records its type and time, who caused it (a ship, `argo` included, or
 | `ShipRetired` | Registry | Unprocessed direct deliveries marked abandoned, id blocked forever |
 | `DeliveryAbandoned` | Registry | One per direct delivery a retire abandoned, written with `ShipRetired`; it stays in the timelines and its sender can see it |
 | `MessageAccepted` | Messaging | Deliveries created, receivers woken; details hold nullable `senderLeaseId` from the message and the model the sender stated, and `forced` for a forced send (0040). One per delivery of a contribution, each with its meeting (0061). A scheduled send's names its schedule and send time (0062) |
+| `CallOpened` | Messaging | The moderator opened a call with a fixed expected list and deadline; details name its meeting and call |
+| `CallAnswered` | Messaging | An expected ship answered once; names its answer message, meeting and call |
+| `CallClosed` | Messaging | Every expected ship answered (an empty list closes immediately); the moderator receives one collected round |
 | `MeetingOpened` | Messaging | A ship opened a meeting, owner and moderator itself (0061): details hold the meeting and how many participants |
 | `ParticipantAdded` | Messaging | The ship joined a meeting, one per participant, the opener included (0061): details hold the meeting |
 | `MicRequested` | Messaging | The ship requested the mic of its meeting (0061): details hold the meeting |
@@ -803,7 +808,7 @@ Squadrons, the trierarch plugin, the trierarch and the gateway are trains in the
 | `reportLog` | Reads the crew's own report and the last report of the ship's previous crew, details included | No scope beyond being the crew; the previous crew's report is read-only |
 | `pong` | Answers a ping: acknowledges its delivery and marks the lease last seen | Only for a ping delivery the calling ship holds; answering again is OK and changes nothing |
 | `deregister` | Ends the session cleanly, releases the lease and invalidates the secret | Ship and inbox stay; the next session needs a new starting prompt |
-| Meeting calls | `openMeeting`, `meeting`, the mic calls, `addToMeeting`, `leaveMeeting`, `rejoinMeeting`, `revokeFromMeeting`, `transferMeeting`, `nameModerator`, `endMeeting` | Opening needs `meetings:open`, `meeting` `messages:receive`, the rest `messages:send`; each change holds the meeting, so changes take turns (0061) |
+| Meeting calls | `openMeeting`, `openCall`, `meeting`, the mic calls, `addToMeeting`, `leaveMeeting`, `rejoinMeeting`, `revokeFromMeeting`, `transferMeeting`, `nameModerator`, `endMeeting` | `openMeeting` needs `meetings:open`, `meeting` `messages:receive`, the rest `messages:send`; each change holds the meeting, so changes take turns (0061) |
 | Schedule calls | `schedule`, `schedules`, `pauseSchedule`, `resumeSchedule`, `cancelSchedule` | Need `messages:send`; a ship reaches only its own schedules (0062) |
 
 Every call after `register` carries the crew token, not the secret: in a header for REST and tRPC, as a tool argument for MCP. The crew token belongs to one session and one lease, and stops working when the lease ends. This is what lets many conversations share one MCP connection while each crews its own ship (decision 0015).

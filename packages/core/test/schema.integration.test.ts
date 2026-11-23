@@ -157,6 +157,7 @@ describe('migrations', () => {
       'label_values',
       'labels',
       'leases',
+      'meeting_calls',
       'meeting_mic_requests',
       'meeting_participants',
       'meetings',

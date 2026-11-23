@@ -4,6 +4,7 @@ import {
   checkReach,
   resolveLabelSelection,
   resolveSelector,
+  type ShipRepository,
   type CheckReachTx,
   type NotReachable,
   type ResolveLabelSelectionTx,
@@ -16,6 +17,8 @@ import { refuse, type DomainError } from '../shared/errors.js';
 import { recordEvent, type Actor, type EventLog } from '../shared/events.js';
 import type { Notifier } from '../shared/notifier.js';
 import { err, ok, type Result } from '../shared/result.js';
+import { closeCallWithin } from './call-round.js';
+import { answerCall, type CallRefusal } from './meeting-call.js';
 import { isAnswerToSender } from './answer.js';
 import type { LabelSelector, MeetingSelector, Selector } from '../shared/selector.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
@@ -29,20 +32,21 @@ import { payload } from './payload.js';
 import type { DeliveryRepository, FleetSealingRepository, MeetingRepository, MessageRepository, RequestHasher } from './ports.js';
 import { sealedMessage, unsealed, withDataKeys, type DataKeysNeeded, type HeldDataKeys, type PayloadSealing } from './data-keys.js';
 import type { Message } from './message.js';
-import { checkContribution, type ContributionRefusal } from './meeting.js';
+import { checkContribution, type ContributionRefusal, type Meeting } from './meeting.js';
 import { sendRequestText } from './send-request.js';
 
 export interface SendMessageTx extends Omit<ResolveSelectorTx, 'ships'>, Omit<CheckReachTx, 'ships'>, DailyMessageLimitTx {
-  ships: ResolveSelectorTx['ships'] & CheckReachTx['ships'] & ResolveLabelSelectionTx['ships'];
+  ships: ResolveSelectorTx['ships'] & CheckReachTx['ships'] & ResolveLabelSelectionTx['ships'] & Pick<ShipRepository, 'findMany'>;
   messages: MessageRepository;
   deliveries: DeliveryRepository;
-  meetings: Pick<MeetingRepository, 'findForNoKeyUpdate' | 'contributed'>;
+  meetings: MeetingRepository;
   sealings: Pick<FleetSealingRepository, 'currentDataKeyId'>;
   events: EventLog;
   notifier: Notifier;
 }
 
 export interface MessageToSend {
+  callId?: MessageId;
   selector: Selector;
   payload: string;
   /** Any well-formed media type, passed on untouched; text/plain when the sender gives none. */
@@ -67,8 +71,9 @@ export type SendMessageRefusal =
   | UnresolvableSelector
   | AcceptRefusal
   | NotReachable
+  | CallRefusal
   | ContributionRefusal
-  | DomainError<'MESSAGE_LIMIT_REACHED' | 'KEY_UNAVAILABLE'>;
+  | DomainError<'MESSAGE_LIMIT_REACHED' | 'KEY_UNAVAILABLE' | 'PARTICIPANT_NOT_FOUND' | 'ALREADY_PRESENT' | 'MESSAGE_NOT_FOUND'>;
 
 export type SendMessage = (caller: ShipCaller, input: MessageToSend) => Promise<Result<MessageSent, SendMessageRefusal>>;
 
@@ -140,7 +145,7 @@ export function createSendMessage(deps: {
     }
     const outcome = await withDataKeys({ sealing: deps.sealing, fleetId: caller.fleetId }, (held) =>
       deps.uow.run(async (tx): Promise<Result<MessageSent | { prevented: NotReachable }, SendMessageRefusal | DataKeysNeeded>> => {
-        const sent = await sendWithin({ tx, clock: deps.clock, ids: deps.ids, held }, { caller, request: request.value });
+        const sent = await sendWithin({ tx, clock: deps.clock, ids: deps.ids, hasher: deps.hasher, held }, { caller, request: request.value });
         // A send the network rules refused stored only its refusal's record: committed, then refused.
         return !sent.isOk && sent.error.kind === 'NOT_REACHABLE' ? ok({ prevented: sent.error }) : sent;
       }),
@@ -154,6 +159,7 @@ export function createSendMessage(deps: {
 
 /** A send whose payload, content type and key were checked, with the hash of its request. */
 export interface CheckedSend {
+  callId?: MessageId;
   selector: Selector;
   payload: string;
   contentType: string;
@@ -189,16 +195,18 @@ export function checkedSend(input: MessageToSend, hasher: RequestHasher): Result
   if (key.value.startsWith(SCHEDULE_IDEMPOTENCY_KEY_PREFIX)) {
     return refuse('INVALID_IDEMPOTENCY_KEY', `An idempotency key starting ${SCHEDULE_IDEMPOTENCY_KEY_PREFIX} is reserved for scheduled messages: pick another key`);
   }
-  const { selector, inReplyTo } = input;
+  const { selector, inReplyTo, callId } = input;
+  if (callId !== undefined && selector.kind !== 'meeting') return refuse('MESSAGE_NOT_FOUND', 'An answer names a call in a meeting');
   const isForced = input.isForced === true;
-  const request = { selector, contentType: mediaType.value, inReplyTo, isForced };
+  const request = { callId, selector, contentType: mediaType.value, inReplyTo, isForced };
   const requestHash = hasher.hash(sendRequestText({ ...request, payload: text.value }));
   const sealedRequestHash = hasher.hash(sendRequestText({ ...request, payload: undefined }));
-  return ok({ selector, payload: text.value, contentType: mediaType.value, model: input.model, idempotencyKey: key.value, inReplyTo, isForced, requestHash, sealedRequestHash });
+  return ok({ callId, selector, payload: text.value, contentType: mediaType.value, model: input.model, idempotencyKey: key.value, inReplyTo, isForced, requestHash, sealedRequestHash });
 }
 
 /** What a send runs with inside its unit of work: the data keys it seals and unseals with among them (decision 0068). */
 export interface SendDeps {
+  hasher: RequestHasher;
   tx: SendMessageTx;
   clock: Clock;
   ids: IdGenerator;
@@ -325,9 +333,11 @@ async function contributeWithin(
   const { fleetId, shipId: senderShipId } = send.caller;
   const { meetingId } = send.meeting;
   const meeting = await tx.meetings.findForNoKeyUpdate(fleetId, meetingId);
-  const participants = checkContribution(meeting, { meetingId, senderShipId, inReplyTo: send.request.inReplyTo, isForced: send.request.isForced, at: clock.now() });
-  if (!participants.isOk) {
-    return participants;
+  const participants = checkContribution(meeting, { meetingId, callId: send.request.callId, senderShipId, inReplyTo: send.request.inReplyTo, isForced: send.request.isForced, at: clock.now() });
+  if (!participants.isOk) return participants;
+  if (send.request.callId !== undefined) {
+    if (meeting === undefined) return refuse('MEETING_NOT_FOUND', 'The meeting does not exist');
+    return answerWithin(deps, { ...send, meeting });
   }
   const reached: ShipId[] = [];
   for (const shipId of participants.value) {
@@ -453,4 +463,27 @@ async function sendToLabelWithin(
     await tx.notifier.deliveryPending({ fleetId, deliveryId: delivery.id, recipient: delivery.recipient });
   }
   return ok({ messageId: message.value.id });
+}
+
+
+/** An answer has a stored message and event, but no individual delivery. */
+async function answerWithin(deps: SendDeps, send: { caller: ShipCaller; request: CheckedSend; meeting: Meeting }): Promise<Result<MessageSent, SendMessageRefusal | DataKeysNeeded>> {
+  const { tx, ids } = deps;
+  const { meeting, caller, request } = send;
+  if (request.callId === undefined) return refuse('MESSAGE_NOT_FOUND', 'An answer must name its call');
+  const at = deps.clock.now();
+  const messageId = ids('message');
+  const answered = answerCall(await tx.meetings.findCall(caller.fleetId, { meetingId: meeting.id, callId: request.callId }), { by: caller.shipId, messageId, payload: request.payload, at });
+  if (!answered.isOk) return answered;
+  const limit = await withinDailyMessageLimit(tx, { fleetId: caller.fleetId, time: at });
+  if (!limit.isOk) return limit;
+  const accepted = acceptContribution({ messageId, fleetId: caller.fleetId, senderShipId: caller.shipId, senderKind: caller.kind, senderLeaseId: isCrew(caller) ? caller.leaseId : null, meetingId: meeting.id, deliveries: [], payload: request.payload, contentType: request.contentType, model: request.model, idempotencyKey: request.idempotencyKey, requestHash: request.requestHash, ...(caller.signedInAccountId === undefined ? {} : { signedInAccountId: caller.signedInAccountId }), at });
+  if (!accepted.isOk) return accepted;
+  const message = await sealedMessage(deps, { message: { ...accepted.value.message, callId: request.callId }, sealedRequestHash: request.sealedRequestHash });
+  if (!message.isOk) return message;
+  await tx.messages.create(message.value);
+  await tx.meetings.contributed(caller.fleetId, { meetingId: meeting.id, at });
+  for (const event of answered.value.events) await recordEvent({ events: tx.events, ids }, event);
+  const closed = await closeCallWithin(deps, { meeting, call: answered.value.call, by: caller.shipId, at });
+  return closed.isOk ? ok({ messageId }) : closed;
 }
