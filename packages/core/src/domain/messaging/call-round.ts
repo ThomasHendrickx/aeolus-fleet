@@ -21,6 +21,8 @@ export interface CallReadTx {
 export interface CallRead {
   callId: MeetingCall['id'];
   expectedShipIds: ShipId[];
+  silentShipIds: ShipId[];
+  lateAnswers: ContributionRead[];
   deadline: Date;
   openedAt: Date;
   closedAt: Date | null;
@@ -37,42 +39,43 @@ export async function readCall(deps: { tx: CallReadTx; held: HeldDataKeys }, cal
     const payload = listedUnsealed(held, { row: { fleetId: call.fleetId, rowId: message.id }, payload: message.payload });
     if (!payload.isOk) return payload;
     const ship = rows.ships.get(answer.shipId);
-    answers.push({ callId: call.id, messageId: message.id, sender: { id: answer.shipId, name: ship?.name ?? answer.shipId }, senderLeaseId: message.senderLeaseId, payload: payload.value, contentType: message.contentType, model: message.model, sentAt: message.createdAt });
+    answers.push({ isLate: answer.isLate ?? false, callId: call.id, messageId: message.id, sender: { id: answer.shipId, name: ship?.name ?? answer.shipId }, senderLeaseId: message.senderLeaseId, payload: payload.value, contentType: message.contentType, model: message.model, sentAt: message.createdAt });
   }
-  return ok({ callId: call.id, expectedShipIds: call.expectedShipIds, deadline: call.deadline, openedAt: call.openedAt, closedAt: call.closedAt, answers });
+  return ok({ callId: call.id, expectedShipIds: call.expectedShipIds, silentShipIds: call.silentShipIds, lateAnswers: answers.filter((answer) => answer.isLate), deadline: call.deadline, openedAt: call.openedAt, closedAt: call.closedAt, answers: answers.filter((answer) => !answer.isLate) });
 }
 export interface CallCloseTx extends MeetingNoticeTx, CallReadTx {
   messages: MessageRepository;
   meetings: Pick<MeetingRepository, 'saveCall' | 'closedCallCount' | 'save'>;
 }
 /** One closed call owes one collected result, and may reach the meeting's end condition. */
-export async function closeCallWithin(deps: { tx: CallCloseTx; ids: IdGenerator; hasher: RequestHasher; held: HeldDataKeys }, input: { meeting: Meeting; call: MeetingCall; by: ShipId; at: Date }): Promise<Result<undefined, AcceptRefusal | DataKeysNeeded | DomainError<'KEY_UNAVAILABLE'>>> {
+export async function closeCallWithin(deps: { tx: CallCloseTx; ids: IdGenerator; hasher: RequestHasher; held: HeldDataKeys }, input: { meeting: Meeting; call: MeetingCall; by: ShipId; at: Date }): Promise<Result<{ isMeetingEnded: boolean }, AcceptRefusal | DataKeysNeeded | DomainError<'KEY_UNAVAILABLE'>>> {
   const { tx, ids } = deps;
   const closed = closeAnsweredCall(input.call, { by: input.by, at: input.at });
   await tx.meetings.saveCall(closed.call);
   for (const event of closed.events) await recordEvent({ events: tx.events, ids }, event);
-  if (closed.events.length === 0) return ok(undefined);
+  if (closed.events.length === 0) return ok({ isMeetingEnded: false });
   const { meeting, at } = input;
   const rows = await answerRows(tx, closed.call);
   const answers = [];
-  for (const answer of closed.call.answers) {
+  for (const answer of closed.call.answers.filter((answer) => !answer.isLate)) {
     const message = rows.messages.get(answer.messageId);
     if (message === undefined) continue;
     const payload = unsealed(deps.held, { row: { fleetId: meeting.fleetId, rowId: message.id }, payload: message.payload });
     if (!payload.isOk) return payload;
     const ship = rows.ships.get(answer.shipId);
-    answers.push({ callId: closed.call.id, senderLeaseId: message.senderLeaseId, isPayloadUnreadable: false, messageId: message.id, sender: { id: answer.shipId, name: ship?.name ?? answer.shipId }, payload: payload.value, contentType: message.contentType, model: message.model, sentAt: message.createdAt.toISOString() });
+    answers.push({ isLate: answer.isLate ?? false, callId: closed.call.id, senderLeaseId: message.senderLeaseId, isPayloadUnreadable: false, messageId: message.id, sender: { id: answer.shipId, name: ship?.name ?? answer.shipId }, payload: payload.value, contentType: message.contentType, model: message.model, sentAt: message.createdAt.toISOString() });
   }
-  const envelope = { meetingId: meeting.id, goal: meeting.goal, callId: closed.call.id, expectedShipIds: closed.call.expectedShipIds, openedAt: closed.call.openedAt.toISOString(), deadline: closed.call.deadline.toISOString(), closedAt: at.toISOString() };
+  const envelope = { meetingId: meeting.id, goal: meeting.goal, callId: closed.call.id, expectedShipIds: closed.call.expectedShipIds, silentShipIds: closed.call.silentShipIds, openedAt: closed.call.openedAt.toISOString(), deadline: closed.call.deadline.toISOString(), closedAt: at.toISOString() };
   const payload = roundNoticePayload({ ...envelope, isRoundReference: false, answers });
   const notice = await tellParticipant(deps, { meeting, senderShipId: meeting.moderatorShipId, shipId: meeting.moderatorShipId, contentType: MEETING_ROUND_CONTENT_TYPE, payload, model: undefined, at });
   if (!notice.isOk) return notice;
   const closedCallCount = await tx.meetings.closedCallCount(meeting.fleetId, meeting.id);
   const ended = endAfterCalls(meeting, { closedCallCount, at });
-  if (ended === undefined) return ok(undefined);
+  if (ended === undefined) return ok({ isMeetingEnded: false });
   await tx.meetings.save(ended.meeting);
   for (const event of ended.events) await recordEvent({ events: tx.events, ids }, event);
-  return tellOfChange(deps, { meeting: ended.meeting, micGivenTo: null, endedBy: meeting.moderatorShipId, at });
+  const told = await tellOfChange(deps, { meeting: ended.meeting, micGivenTo: null, endedBy: meeting.moderatorShipId, at });
+  return told.isOk ? ok({ isMeetingEnded: true }) : told;
 }
 
 

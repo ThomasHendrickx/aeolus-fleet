@@ -22,7 +22,8 @@ beforeEach(async () => {
   held = fixture();
   const { fleetId } = await initialiseFleet(held.core);
   const { shipId } = addAgentShip(held.core, { fleetId, name: 'chair', scopes: ['meetings:open', 'messages:send', 'messages:receive'] });
-  addAgentShip(held.core, { fleetId, name: 'alpha' });
+  const alpha = addAgentShip(held.core, { fleetId, name: 'alpha' });
+  crewShip(held.core, { fleetId, shipId: alpha.shipId });
   token = crewShip(held.core, { fleetId, shipId });
   const address = await held.server.listen({ host: '127.0.0.1', port: 0 });
   client = new Client({ name: 'meeting-goal', version: '1.0.0' });
@@ -79,6 +80,18 @@ describe.each<Door>(['tRPC', 'REST', 'MCP'])('%s meeting calls', (door) => {
     expect(callId).toMatch(/^msg_/);
     const read = await call(door, { name: 'meeting', input: { meetingId, callId } });
     expect(read.data).toMatchObject({ call: { callId, deadline: '2026-11-23T10:00:30.000Z', closedAt: null, answers: [] } });
+  });
+  it('reads silent ships and a late answer outside the closed round', async () => {
+    // Given an expected chair that missed the call deadline, before maintenance runs.
+    const { meetingId, callId } = await openedCall();
+    held.core.clock.advance(30_000);
+    // When its answer crosses the public boundary at the deadline.
+    const sent = await call(door, { name: 'send', input: { selector: { kind: 'meeting', meetingId }, callId, payload: 'Late Friday', model: SESSION_MODEL, idempotencyKey: 'late-chair-answer' } });
+    const { messageId } = z.object({ messageId: z.string() }).parse(sent.data);
+    // Then it remains readable, marked late and outside the closed round.
+    const read = await call(door, { name: 'meeting', input: { meetingId, callId } });
+    expect(read.data).toMatchObject({ call: { closedAt: '2026-11-23T10:00:30.000Z', answers: [], lateAnswers: [{ messageId, isLate: true, payload: 'Late Friday' }] }, contributions: { items: [{ messageId, isLate: true }] } });
+    expect(z.object({ call: z.object({ silentShipIds: z.array(z.string()) }) }).parse(read.data).call.silentShipIds).toHaveLength(2);
   });
   it('accepts an answer and reads it in the named call', async () => {
     const { meetingId, callId } = await openedCall();

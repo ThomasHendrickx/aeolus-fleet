@@ -45,8 +45,11 @@ const PARTICIPANTS_AND_REQUESTS = {
 /** Meetings on Postgres (decision 0061): a row per meeting and one per participant. */
 export function createPrismaMeetingRepository(db: Db): MeetingRepository {
   return {
-    createCall: async (call) => { await db.meetingCall.create({ data: callRow.parse(call) }); },
-    saveCall: async (call) => { await db.meetingCall.update({ where: { fleetId_id: { fleetId: call.fleetId, id: call.id } }, data: { closedAt: call.closedAt } }); },
+    createCall: async (call) => {
+      await db.meetingCall.create({ data: callRow.parse(call) });
+      await db.$executeRaw`SELECT pg_notify(${MEETING_DEADLINE_CHANNEL}, ${call.deadline.toISOString()})`;
+    },
+    saveCall: async (call) => { await db.meetingCall.update({ where: { fleetId_id: { fleetId: call.fleetId, id: call.id } }, data: { closedAt: call.closedAt, silentShipIds: call.silentShipIds } }); },
     findCall: async (fleetId, { meetingId, callId }) => {
       const row = await db.meetingCall.findFirst({ where: { fleetId, meetingId, id: callId } });
       return row === null ? undefined : callWithAnswers(db, row);
@@ -59,16 +62,30 @@ export function createPrismaMeetingRepository(db: Db): MeetingRepository {
     claimDue: async (fleetId, { at, tried }) => {
       const excluded = tried.length === 0 ? Prisma.empty : Prisma.sql`AND id NOT IN (${Prisma.join([...tried])})`;
       const rows = await db.$queryRaw<unknown[]>`
+        WITH due AS (
+          SELECT id, ends_at AS at FROM meetings
+          WHERE fleet_id = ${fleetId} AND ended_at IS NULL AND ends_at IS NOT NULL AND ends_at <= ${at}
+          UNION ALL
+          SELECT meeting_id AS id, deadline AS at FROM meeting_calls
+          WHERE fleet_id = ${fleetId} AND closed_at IS NULL AND deadline <= ${at}
+        )
         SELECT id FROM meetings
-        WHERE fleet_id = ${fleetId} AND ended_at IS NULL AND ends_at IS NOT NULL AND ends_at <= ${at} ${excluded}
-        ORDER BY ends_at, id LIMIT 1 FOR UPDATE SKIP LOCKED`;
+        WHERE fleet_id = ${fleetId} AND ended_at IS NULL AND id IN (SELECT id FROM due) ${excluded}
+        ORDER BY id LIMIT 1 FOR UPDATE SKIP LOCKED`;
       const row = z.array(z.object({ id: idSchema('meeting') })).parse(rows)[0];
       if (row === undefined) return undefined;
       const meeting = await db.meeting.findFirst({ where: { fleetId, id: row.id }, include: PARTICIPANTS_AND_REQUESTS });
       return meeting === null ? undefined : toMeeting(meeting);
     },
     nextEndTime: async (fleetId) => {
-      const rows = await db.$queryRaw<unknown[]>`SELECT MIN(ends_at) AS at FROM meetings WHERE fleet_id = ${fleetId} AND ended_at IS NULL AND ends_at IS NOT NULL`;
+      const rows = await db.$queryRaw<unknown[]>`SELECT MIN(at) AS at FROM (
+        SELECT MIN(ends_at) AS at FROM meetings WHERE fleet_id = ${fleetId} AND ended_at IS NULL AND ends_at IS NOT NULL
+        UNION ALL
+        (SELECT c.deadline AS at FROM meeting_calls c
+        WHERE c.fleet_id = ${fleetId} AND c.closed_at IS NULL
+          AND EXISTS (SELECT 1 FROM meetings m WHERE m.fleet_id = c.fleet_id AND m.id = c.meeting_id AND m.ended_at IS NULL)
+        ORDER BY c.deadline, c.meeting_id LIMIT 1)
+      ) deadlines`;
       return z.array(z.object({ at: z.date().nullable() })).parse(rows)[0]?.at ?? undefined;
     },
     listOf: async (fleetId, query) => {
@@ -211,7 +228,7 @@ export const MEETING_DEADLINE_CHANNEL = 'aeolus_meeting_deadline';
 
 const callRow = z.object({
   id: idSchema('message'), fleetId: idSchema('fleet'), meetingId: idSchema('meeting'),
-  requestHash: z.string(), expectedShipIds: z.array(idSchema('ship')), deadline: z.date(), openedAt: z.date(), closedAt: z.date().nullable(),
+  requestHash: z.string(), expectedShipIds: z.array(idSchema('ship')), silentShipIds: z.array(idSchema('ship')), deadline: z.date(), openedAt: z.date(), closedAt: z.date().nullable(),
 });
 
 /** The message envelope is the sole stored relationship between an answer and its call. */
@@ -219,8 +236,8 @@ async function callWithAnswers(db: Db, row: unknown) {
   const call = callRow.parse(row);
   const answers = await db.message.findMany({
     where: { fleetId: call.fleetId, meetingId: call.meetingId, callId: call.id },
-    select: { senderShipId: true, id: true },
+    select: { senderShipId: true, id: true, isLate: true },
     orderBy: { id: 'asc' },
   });
-  return { ...call, answers: answers.map((message) => ({ shipId: idSchema('ship').parse(message.senderShipId), messageId: idSchema('message').parse(message.id) })) };
+  return { ...call, answers: answers.map((message) => ({ shipId: idSchema('ship').parse(message.senderShipId), messageId: idSchema('message').parse(message.id), ...(message.isLate ? { isLate: true } : {}) })) };
 }

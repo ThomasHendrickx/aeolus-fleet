@@ -129,6 +129,7 @@ export const meetingParticipantSchema = partySchema.extend({ kind: shipKindSchem
 /** One contribution as the meeting read shows it. */
 export const contributionSchema = z.object({
   callId: idSchema('message').nullable(),
+  isLate: z.boolean(),
   senderLeaseId: idSchema('lease').nullable(),
   messageId: idSchema('message'),
   sender: partySchema,
@@ -148,6 +149,8 @@ export const contributionSchema = z.object({
 export const meetingCallReadSchema = z.object({
   callId: idSchema('message'),
   expectedShipIds: z.array(idSchema('ship')),
+  silentShipIds: z.array(idSchema('ship')),
+  lateAnswers: z.array(contributionSchema),
   deadline: isoTime,
   openedAt: isoTime,
   closedAt: isoTime.nullable(),
@@ -172,7 +175,7 @@ export const meetingCallSchema = z.object({
   question: z.string(), expectedShipIds: z.array(idSchema('ship')), deadline: isoTime,
 });
 /** One collected round, sent only to the moderator after closure. */
-const roundEnvelopeSchema = meetingCallReadSchema.omit({ answers: true }).extend({ meetingId: idSchema('meeting'), goal: z.string().nullable() });
+const roundEnvelopeSchema = meetingCallReadSchema.omit({ answers: true, lateAnswers: true }).extend({ meetingId: idSchema('meeting'), goal: z.string().nullable() });
 export const meetingRoundSchema = z.discriminatedUnion('isRoundReference', [
   roundEnvelopeSchema.extend({ isRoundReference: z.literal(false), answers: z.array(contributionSchema) }),
   z.strictObject({ meetingId: idSchema('meeting'), callId: idSchema('message'), isRoundReference: z.literal(true), expectedCount: z.int().min(0), answeredCount: z.int().min(0) }),
