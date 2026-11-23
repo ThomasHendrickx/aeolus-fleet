@@ -2,7 +2,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { MeetingId, MessageId } from '@aeolus-fleet/common';
 
-import { initialiseFleet, messagingUseCases, operatorCaller, registryUseCases, SESSION_MODEL } from '../../../test/support/core-fixtures.js';
+import { crewAboard, sealFleet, initialiseFleet, messagingUseCases, operatorCaller, registryUseCases, SESSION_MODEL } from '../../../test/support/core-fixtures.js';
 import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { createInMemoryCore } from '../../../test/support/in-memory.js';
 import { newKey } from '../../testing/keys.js';
@@ -148,4 +148,37 @@ describe('a refused call', () => {
     expect(counts()).toEqual(before);
     unwrap(await answer(alpha, callId, 'a'.repeat(65_536)));
   });
+});
+
+
+it('keeps calls, answers and the collected round sealed, with repeat answers remaining idempotent', async () => {
+  // Given a sealed fleet and an expected participant.
+  await sealFleet(core, chair.fleetId);
+  const input = aCall();
+  const { callId } = unwrap(await messaging.openCall(chair, input));
+  const reply = { selector: { kind: 'meeting' as const, meetingId }, callId, payload: 'Private Friday', model: SESSION_MODEL, idempotencyKey: newKey() };
+  // When alpha retries an answer and beta closes the round.
+  const original = unwrap(await messaging.sendMessage(alpha, reply));
+  expect(unwrap(await messaging.sendMessage(alpha, reply))).toEqual(original);
+  unwrap(await answer(beta, callId));
+  expect(unwrap(await messaging.openCall(chair, input))).toEqual({ callId });
+  // Then every new payload is sealed and the moderator receives the whole round as written.
+  expect(core.state.messages.filter((m) => m.id >= callId).every((m) => typeof m.payload !== 'string')).toBe(true);
+  const deliveries = unwrap(await messaging.receiveDeliveries(crewAboard(core, chair), { max: 10 })).deliveries;
+  expect(deliveries.find((d) => d.contentType === 'application/vnd.aeolus.meeting.round+json')?.payload).toContain('Private Friday');
+});
+
+it('does not bypass meeting restrictions for answers and refuses an unknown call', async () => {
+  // Given an open call.
+  const { callId } = unwrap(await messaging.openCall(chair, aCall()));
+  const input = { selector: { kind: 'meeting' as const, meetingId }, callId, payload: 'Friday', model: SESSION_MODEL, idempotencyKey: newKey() };
+  const before = counts();
+  // When an answer names a reply, an unknown call, or another selector.
+  expect(refusalOf(await messaging.sendMessage(alpha, { ...input, inReplyTo: callId })).kind).toBe('CONTRIBUTION_REPLIES');
+  expect(refusalOf(await messaging.sendMessage(alpha, { ...input, callId: core.ids('message') })).kind).toBe('MESSAGE_NOT_FOUND');
+  expect(refusalOf(await messaging.sendMessage(alpha, { ...input, selector: { kind: 'ship', shipId: chair.shipId } })).kind).toBe('MESSAGE_NOT_FOUND');
+  // Then all refusals store nothing, and an ended meeting still refuses answers.
+  expect(counts()).toEqual(before);
+  unwrap(await messaging.changeMeeting(chair, { meetingId, change: { kind: 'end' } }));
+  expect(refusalOf(await messaging.sendMessage(alpha, input)).kind).toBe('MEETING_ENDED');
 });
