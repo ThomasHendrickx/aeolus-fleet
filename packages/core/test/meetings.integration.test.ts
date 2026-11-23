@@ -7,6 +7,7 @@ import { assertIndexedPlan } from './support/assert-indexed-plan.js';
 import { sha256Hasher } from '../src/adapters/crypto/secrets.js';
 import { listenForPendingDeliveries, type DeliveryListener } from '../src/adapters/prisma/delivery-notices.js';
 import { createPrismaUnitOfWork, type PrismaTx } from '../src/adapters/prisma/unit-of-work.js';
+import { createEndDueMeetings } from '../src/domain/messaging/end-due-meetings.js';
 import { createChangeMeeting } from '../src/domain/messaging/change-meeting.js';
 import { createChangeMic } from '../src/domain/messaging/change-mic.js';
 import { createRetireShip } from '../src/domain/registry/retire-ship.js';
@@ -719,4 +720,55 @@ it('persists the goal and end time and reads them through the Postgres adapter',
   expect(read).toMatchObject({ goal: 'Agree the release date', endsAt: new Date(endsAt) });
   const notice = await core.prisma.message.findFirst({ where: { fleetId, meetingId }, orderBy: { id: 'asc' } });
   expect(JSON.parse(notice?.payload ?? '{}')).toMatchObject({ goal: 'Agree the release date' });
+});
+
+
+function endDueWith(uow: UnitOfWork<PrismaTx>) {
+  return createEndDueMeetings({ uow, fleets: { list: () => Promise.resolve([{ id: fleetId }]) }, clock: core.clock, ids: newId, hasher: sha256Hasher, sealing: unsealedFleetsOnly });
+}
+
+it('ends a due meeting once across concurrent servers, with durable notices and an indexed deadline claim', async () => {
+  // Given a stored deadline and a moderator distinct from its owner.
+  const endsAt = new Date(core.clock.now().getTime() + 60_000).toISOString();
+  const { meetingId } = unwrap(await core.useCases.openMeeting(chief, { ...aMeeting(), endsAt }));
+  unwrap(await core.useCases.changeMeeting(chief, { meetingId, change: { kind: 'nameModerator', shipId: marketingId } }));
+  core.clock.advance(60_000);
+  const statements: { query: string; params: string }[] = [];
+  const client = createPrismaClientTellingStatements(core.databaseUrl, (query, params) => {
+    if (query.includes('meetings') && (query.includes('SKIP LOCKED') || query.includes('MIN(ends_at)'))) statements.push({ query, params });
+  });
+  try {
+    // When two newly built use cases race to close the stored deadline.
+    const endDue = endDueWith(createPrismaUnitOfWork(client));
+    await Promise.all([endDue(), endDue()]);
+    await endDue();
+    // Then one ending, from the moderator, survives reload, and the plans are indexed.
+    await expect(core.prisma.meeting.findFirst({ where: { fleetId, id: meetingId } })).resolves.toMatchObject({ endedAt: new Date(endsAt) });
+    const events = await core.prisma.event.findMany({ where: { fleetId, type: 'MeetingEnded' } });
+    expect(events).toHaveLength(1);
+    const messages = await core.prisma.message.findMany({ where: { fleetId, meetingId, contentType: MEETING_ENDED_CONTENT_TYPE }, orderBy: { selectorShipId: 'asc' } });
+    expect(messages.map(({ senderShipId, selectorShipId }) => ({ senderShipId, selectorShipId }))).toEqual([chief.shipId, productId].sort().map((selectorShipId) => ({ senderShipId: marketingId, selectorShipId })));
+    expect(statements.some(({ query }) => query.includes('SKIP LOCKED'))).toBe(true);
+    expect(statements.some(({ query }) => query.includes('MIN(ends_at)'))).toBe(true);
+    for (const statement of statements) await assertIndexedPlan(core.prisma, statement);
+  } finally { await client.$disconnect(); }
+});
+
+it('rolls back an automatic ending, its notices and events after a failure, then recovers on the next pass', async () => {
+  // Given a due meeting, with a failure after its first ended notice is queued.
+  const endsAt = new Date(core.clock.now().getTime() + 60_000).toISOString();
+  const { meetingId } = unwrap(await core.useCases.openMeeting(chief, { ...aMeeting(), endsAt }));
+  core.clock.advance(60_000);
+  const before = await storedCounts();
+  const broken = unitOfWorkWith((tx) => ({ ...tx, notifier: { deliveryPending: async (notice) => { await tx.notifier.deliveryPending(notice); throw new Error('forced ending failure'); } } }));
+  // When the ending fails and a fresh use case later retries it.
+  const failures: unknown[] = [];
+  await endDueWith(broken)((_fleetId, error) => { failures.push(error); });
+  // Then none of the ending was stored or announced.
+  expect(failures).toHaveLength(1);
+  await expect(storedCounts()).resolves.toEqual(before);
+  await expect(core.prisma.event.count({ where: { fleetId, type: 'MeetingEnded' } })).resolves.toBe(0);
+  await expect(core.prisma.meeting.findFirst({ where: { fleetId, id: meetingId } })).resolves.toMatchObject({ endedAt: null });
+  await endDueWith(createPrismaUnitOfWork(core.prisma))();
+  await expect(core.prisma.event.count({ where: { fleetId, type: 'MeetingEnded' } })).resolves.toBe(1);
 });

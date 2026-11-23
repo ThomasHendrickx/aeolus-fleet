@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { startMaintenancePass } from './maintenance-pass.js';
 
-const TASKS = ['tellOverdueDeliveries', 'closeHealthSnapshots', 'removeDeletedFleets', 'pruneHistory', 'expireJourneyActivity', 'sealStoredPayloads', 'rotateDataKeys', 'sendDueSchedules'];
+const TASKS = ['tellOverdueDeliveries', 'closeHealthSnapshots', 'removeDeletedFleets', 'pruneHistory', 'expireJourneyActivity', 'sealStoredPayloads', 'rotateDataKeys', 'sendDueSchedules', 'endDueMeetings'];
 const START = new Date('2026-11-10T12:00:00Z');
 const NEXT_ATTEMPT = new Date('2026-11-10T12:01:00Z');
 const MARKER = 'harmless-maintenance-marker';
@@ -32,6 +32,7 @@ function aMaintenancePass(failedTask?: string) {
       expireJourneyActivity: () => attempt('expireJourneyActivity'),
       sealStoredPayloads: () => attempt('sealStoredPayloads'),
       rotateDataKeys: () => attempt('rotateDataKeys'),
+      endDueMeetings: async () => { await attempt('endDueMeetings'); return { nextAttemptAt: undefined }; },
       sendDueSchedules: async () => {
         await attempt('sendDueSchedules');
         return { nextAttemptAt: NEXT_ATTEMPT };
@@ -39,6 +40,7 @@ function aMaintenancePass(failedTask?: string) {
     },
     log: { warn: (fields, message) => { logs.push({ fields, message }); } },
     scheduleTimer: { told: (at) => { told.push(at); } },
+    meetingTimer: { told: () => undefined },
     scheduleSendFailed: () => undefined,
     everyMs: 1_000,
   };
