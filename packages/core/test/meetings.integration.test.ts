@@ -8,6 +8,7 @@ import { assertIndexedPlan } from './support/assert-indexed-plan.js';
 import { sha256Hasher } from '../src/adapters/crypto/secrets.js';
 import { listenForPendingDeliveries, type DeliveryListener } from '../src/adapters/prisma/delivery-notices.js';
 import { createPrismaUnitOfWork, type PrismaTx } from '../src/adapters/prisma/unit-of-work.js';
+import { createOpenCall } from '../src/domain/messaging/open-call.js';
 import { createEndDueMeetings } from '../src/domain/messaging/end-due-meetings.js';
 import { createChangeMeeting } from '../src/domain/messaging/change-meeting.js';
 import { createChangeMic } from '../src/domain/messaging/change-mic.js';
@@ -823,4 +824,68 @@ it('announces a new deadline only after the opening commits, for every core time
   unwrap(await core.useCases.openMeeting(chief, { ...aMeeting(), endsAt }));
   // Then the committed opening tells listening core servers when to wake.
   await expect.poll(() => deadlines).toEqual([new Date(endsAt)]);
+});
+
+
+describe('a call on Postgres', () => {
+  const callInput = (meetingId: MeetingId) => ({ meetingId, question: 'Which day?', excludedShipIds: [chief.shipId], model: MODEL, idempotencyKey: newKey() });
+  const answer = (meetingId: MeetingId, callId: MessageId, shipId: ShipId) => core.useCases.sendMessage(agentCaller({ fleetId, shipId }), { selector: { kind: 'meeting', meetingId }, callId, payload: shipId === marketingId ? 'Friday' : 'Monday', model: MODEL, idempotencyKey: newKey() });
+  it('serializes concurrent opens and answers, survives reload, closes once and uses indexed call reads', async () => {
+    // Given a meeting with two expected participants.
+    const { meetingId } = unwrap(await core.useCases.openMeeting(chief, aMeeting()));
+    // When two opens race, then two final answers race.
+    const opens = await Promise.all([core.useCases.openCall(chief, callInput(meetingId)), core.useCases.openCall(chief, callInput(meetingId))]);
+    expect(opens.filter((r) => r.isOk)).toHaveLength(1);
+    const callId = opens.flatMap((r) => r.isOk ? [r.value.callId] : [])[0];
+    if (callId === undefined) throw new Error('No call opened');
+    const answers = await Promise.all([answer(meetingId, callId, marketingId), answer(meetingId, callId, productId)]);
+    expect(answers.every((r) => r.isOk)).toBe(true);
+    // Then a fresh read holds every answer and one round delivery exists.
+    const read = unwrap(await core.useCases.readMeeting(chief, { meetingId, limit: 20 }));
+    expect(read.call).toMatchObject({ callId, closedAt: core.clock.now() });
+    expect(read.call?.answers.map((a) => a.payload).sort()).toEqual(['Friday', 'Monday']);
+    await expect(core.prisma.message.count({ where: { fleetId, meetingId, contentType: 'application/vnd.aeolus.meeting.round+json' } })).resolves.toBe(1);
+    await expect(core.prisma.event.count({ where: { fleetId, type: 'CallClosed' } })).resolves.toBe(1);
+    const statements: { query: string; params: string }[] = [];
+    const client = createPrismaClientTellingStatements(core.databaseUrl, (query, params) => { if (query.includes('meeting_calls')) statements.push({ query, params }); });
+    try {
+      const meetings = createPrismaMeetingRepository(client);
+      await meetings.latestCall(fleetId, meetingId);
+      await meetings.findCall(fleetId, { meetingId, callId });
+      expect(statements.length).toBeGreaterThan(0);
+      for (const statement of statements) await assertIndexedPlan(core.prisma, statement);
+    } finally { await client.$disconnect(); }
+  });
+  it('rolls back a call and its notices and events after a forced failure, then can retry', async () => {
+    // Given a failure after the first call delivery has been queued.
+    const { meetingId } = unwrap(await core.useCases.openMeeting(chief, aMeeting()));
+    const before = await storedCounts();
+    const broken = unitOfWorkWith((tx) => ({ ...tx, notifier: { deliveryPending: async (notice) => { await tx.notifier.deliveryPending(notice); throw new Error('call failure'); } } }));
+    const open = createOpenCall({ uow: broken, clock: core.clock, ids: newId, hasher: sha256Hasher, sealing: unsealedFleetsOnly });
+    const input = callInput(meetingId);
+    // When the opening fails.
+    await expect(open(chief, input)).rejects.toThrow('call failure');
+    // Then no call, message, event or delivery survives; retry opens it.
+    await expect(storedCounts()).resolves.toEqual(before);
+    await expect(core.prisma.event.count({ where: { fleetId, type: 'CallOpened' } })).resolves.toBe(0);
+    expect((await core.useCases.openCall(chief, input)).isOk).toBe(true);
+  });
+  it('rolls back the final answer, close and ending together on a round-notice failure', async () => {
+    // Given a call whose final answer would end the meeting.
+    const { meetingId } = unwrap(await core.useCases.openMeeting(chief, { ...aMeeting(), endAfterCalls: 1 }));
+    const { callId } = unwrap(await core.useCases.openCall(chief, callInput(meetingId)));
+    unwrap(await answer(meetingId, callId, marketingId));
+    const before = await storedCounts();
+    const broken = unitOfWorkWith((tx) => ({ ...tx, notifier: { deliveryPending: async () => { throw new Error('round failure'); } } }));
+    const send = createSendMessage({ uow: broken, clock: core.clock, ids: newId, hasher: sha256Hasher, sealing: unsealedFleetsOnly });
+    // When the final answer's round delivery cannot be queued.
+    await expect(send(agentCaller({ fleetId, shipId: productId }), { selector: { kind: 'meeting', meetingId }, callId, payload: 'Monday', model: MODEL, idempotencyKey: newKey() })).rejects.toThrow('round failure');
+    // Then none of that transaction survives, and a retry ends the meeting once.
+    await expect(storedCounts()).resolves.toEqual(before);
+    const read = unwrap(await core.useCases.readMeeting(chief, { meetingId, limit: 20 }));
+    expect(read.endedAt).toBeNull();
+    expect(read.call?.answers).toHaveLength(1);
+    unwrap(await answer(meetingId, callId, productId));
+    expect(unwrap(await core.useCases.readMeeting(chief, { meetingId, limit: 20 })).endedAt).toEqual(core.clock.now());
+  });
 });

@@ -31,15 +31,15 @@ beforeEach(async () => {
 afterEach(async () => { await client.close(); await held.server.close(); });
 
 type Door = 'tRPC' | 'REST' | 'MCP';
-async function call(door: Door, { name, input }: { name: 'openMeeting' | 'meeting'; input: Record<string, unknown> }) {
+async function call(door: Door, { name, input }: { name: 'openMeeting' | 'meeting' | 'openCall'; input: Record<string, unknown> }) {
   if (door === 'MCP') {
     const result = z.object({ structuredContent: z.unknown().optional(), isError: z.boolean().optional(), content: z.array(z.object({ text: z.string() })) }).parse(await client.callTool({ name, arguments: { ...input, crewToken: token } }));
     return result.isError ? { refusal: result.content.map((part) => part.text).join(' ') } : { data: result.structuredContent };
   }
   const response = await held.server.inject(door === 'REST' ? {
     method: 'POST', url: `/api/v1/ship/${name}`, headers: { authorization: `Bearer ${token}` }, payload: input,
-  } : name === 'openMeeting' ? {
-    method: 'POST', url: '/trpc/ship.openMeeting', headers: { authorization: `Bearer ${token}` }, payload: input,
+  } : name !== 'meeting' ? {
+    method: 'POST', url: `/trpc/ship.${name}`, headers: { authorization: `Bearer ${token}` }, payload: input,
   } : { method: 'GET', url: `/trpc/ship.meeting?input=${encodeURIComponent(JSON.stringify(input))}`, headers: { authorization: `Bearer ${token}` } });
   if (response.statusCode !== 200) return { refusal: response.body };
   return { data: door === 'REST' ? z.unknown().parse(response.json()) : z.object({ result: z.object({ data: z.unknown() }) }).parse(response.json()).result.data };
@@ -64,5 +64,30 @@ describe.each<Door>(['tRPC', 'REST', 'MCP'])('%s meeting goal and end time', (do
     expect(result.refusal).toContain('BAD_REQUEST');
     expect(held.core.state.meetings).toEqual([]);
     expect(held.core.state.messages).toEqual([]);
+  });
+});
+
+
+describe.each<Door>(['tRPC', 'REST', 'MCP'])('%s meeting calls', (door) => {
+  it('opens a moderator call and reads its fixed expected list', async () => {
+    // Given a crewed moderator with one participant.
+    const { meetingId } = z.object({ meetingId: z.string() }).parse((await call(door, { name: 'openMeeting', input: anOpen() })).data);
+    // When it opens a call excluding nobody.
+    const opened = await call(door, { name: 'openCall', input: { meetingId, question: 'Friday?', idempotencyKey: 'call-friday', model: SESSION_MODEL, deadline: '2026-11-23T10:00:30.000Z' } });
+    // Then every API door exposes the call and its stored snapshot.
+    expect(opened.data).toMatchObject({ callId: expect.stringMatching(/^msg_/) });
+    const read = await call(door, { name: 'meeting', input: { meetingId } });
+    expect(read.data).toMatchObject({ call: { expectedShipIds: expect.any(Array), deadline: '2026-11-23T10:00:30.000Z', closedAt: null, answers: [] } });
+  });
+  it('refuses a deadline past the meeting end and an oversized question without storing a call', async () => {
+    // Given a meeting that ends in one minute.
+    const { meetingId } = z.object({ meetingId: z.string() }).parse((await call(door, { name: 'openMeeting', input: anOpen() })).data);
+    const before = held.core.state.messages.length;
+    // When the moderator supplies an invalid deadline or question.
+    for (const change of [{ deadline: '2026-11-23T10:01:00.001Z' }, { question: 'a'.repeat(65_537), deadline: '2026-11-23T10:00:30.000Z' }]) {
+      expect((await call(door, { name: 'openCall', input: { meetingId, question: 'Friday?', idempotencyKey: 'invalid-call', model: SESSION_MODEL, ...change } })).refusal).toContain('BAD_REQUEST');
+    }
+    // Then no call notice was stored.
+    expect(held.core.state.messages).toHaveLength(before);
   });
 });
