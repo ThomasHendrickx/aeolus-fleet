@@ -21,10 +21,9 @@ export interface MeetingCall {
 export type CallRefusal = PresenceRefusal | DomainError<'NOT_MODERATOR' | 'ALREADY_PRESENT' | 'INVALID_MEETING_END_TIME' | 'PAYLOAD_TOO_LARGE' | 'PARTICIPANT_NOT_FOUND' | 'MESSAGE_NOT_FOUND'>;
 
 export function openCall(meeting: Meeting | undefined, input: { meetingId: MeetingId; by: ShipId; requestHash: string; callId: MessageId; question: string; excludedShipIds: readonly ShipId[]; deadline: Date | undefined; previous: MeetingCall | undefined; at: Date }): Result<{ call: MeetingCall; events: NewEvent[] }, CallRefusal> {
-  const present = checkPresent(meeting, { meetingId: input.meetingId, shipId: input.by, ended: 'it takes no more calls' });
+  const present = checkPresent(meeting, { meetingId: input.meetingId, shipId: input.by, ended: 'it takes no more calls', at: input.at });
   if (!present.isOk) return present;
   const held = present.value;
-  if (held.endsAt !== null && held.endsAt <= input.at) return refuse('MEETING_ENDED', 'This meeting has reached its end time');
   if (held.moderatorShipId !== input.by) return refuse('NOT_MODERATOR', 'Only the moderator opens a call');
   if (input.previous?.closedAt === null) return refuse('ALREADY_PRESENT', 'A call is open already: finish it before opening another');
   if (payloadBytes(input.question) > MEETING_CALL_MAX_BYTES) return refuse('PAYLOAD_TOO_LARGE', 'A call question is at most 64 KB');
