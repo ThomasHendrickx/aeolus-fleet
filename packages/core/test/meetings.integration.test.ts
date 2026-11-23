@@ -511,7 +511,7 @@ describe('the mic on Postgres', () => {
     expect(results.map((result) => result.isOk)).toEqual([true, true]);
     expect([mic.holder === null ? [] : [mic.holder.id], mic.requests.map(({ ship }) => ship.id)].flat().sort()).toEqual([marketingId, productId].sort());
     expect([mic.holder === null, mic.requests.length]).toEqual([false, 1]);
-    await expect(micNotices()).resolves.toHaveLength(1);
+    await expect(micNotices()).resolves.toEqual([]);
   });
 
   it('takes the mic back only once a contribution of its holder in flight is stored', async () => {
