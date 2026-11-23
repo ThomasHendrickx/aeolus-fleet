@@ -13,7 +13,7 @@ import type { Participant } from './meeting.js';
 import type { MeetingRepository } from './ports.js';
 
 export interface ReadMeetingTx {
-  meetings: Pick<MeetingRepository, 'find' | 'contributions' | 'latestCall'>;
+  meetings: Pick<MeetingRepository, 'find' | 'contributions' | 'latestCall' | 'findCall'>;
   messages: Pick<MessageRepository, 'findMany'>;
   ships: Pick<ShipRepository, 'find' | 'findMany'>;
   leases: Pick<LeaseRepository, 'findOpenForShare'>;
@@ -76,9 +76,9 @@ export interface MeetingRead {
   contributions: Page<ContributionRead, MessageId>;
 }
 
-export type ReadMeetingRefusal = DomainError<'MEETING_NOT_FOUND' | 'KEY_UNAVAILABLE'>;
+export type ReadMeetingRefusal = DomainError<'MEETING_NOT_FOUND' | 'MESSAGE_NOT_FOUND' | 'KEY_UNAVAILABLE'>;
 
-export type ReadMeeting = (caller: ShipCaller, input: { meetingId: MeetingId } & PageQuery<MessageId>) => Promise<Result<MeetingRead, ReadMeetingRefusal>>;
+export type ReadMeeting = (caller: ShipCaller, input: { meetingId: MeetingId; callId?: MessageId } & PageQuery<MessageId>) => Promise<Result<MeetingRead, ReadMeetingRefusal>>;
 
 /**
  * Use case: a participant reads its meeting (`meeting`, decision 0061): its
@@ -124,7 +124,8 @@ export function createReadMeeting(deps: { uow: UnitOfWork<ReadMeetingTx>; sealin
         requests.push({ ship: await party(request.shipId), requestedAt: request.requestedAt });
       }
       const mic: MicRead = { holder: meeting.micHolderShipId === null ? null : await party(meeting.micHolderShipId), pattern: meeting.micPattern, requests };
-      const latest = await tx.meetings.latestCall(fleetId, meetingId);
+      const latest = input.callId === undefined ? await tx.meetings.latestCall(fleetId, meetingId) : await tx.meetings.findCall(fleetId, { meetingId, callId: input.callId });
+      if (input.callId !== undefined && latest === undefined) return refuse('MESSAGE_NOT_FOUND', 'The call does not exist in this meeting');
       const call = latest === undefined ? ok(null) : await readCall({ tx, held: keys }, latest);
       if (!call.isOk) return call;
       return ok({

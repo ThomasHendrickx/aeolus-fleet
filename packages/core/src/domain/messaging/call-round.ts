@@ -1,5 +1,5 @@
 /** Collects a round from stored messages, and writes its close notice in the same transaction. */
-import { PAYLOAD_MAX_BYTES, payloadBytes, MEETING_ROUND_CONTENT_TYPE, type IdGenerator, type ShipId } from '@aeolus-fleet/common';
+import { PAYLOAD_MAX_BYTES, payloadBytes, MEETING_ROUND_CONTENT_TYPE, type MeetingRound, type IdGenerator, type ShipId } from '@aeolus-fleet/common';
 
 import { recordEvent } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
@@ -64,9 +64,7 @@ export async function closeCallWithin(deps: { tx: CallCloseTx; ids: IdGenerator;
     answers.push({ callId: closed.call.id, senderLeaseId: message.senderLeaseId, isPayloadUnreadable: false, messageId: message.id, sender: { id: answer.shipId, name: ship?.name ?? answer.shipId }, payload: payload.value, contentType: message.contentType, model: message.model, sentAt: message.createdAt.toISOString() });
   }
   const envelope = { meetingId: meeting.id, goal: meeting.goal, callId: closed.call.id, expectedShipIds: closed.call.expectedShipIds, openedAt: closed.call.openedAt.toISOString(), deadline: closed.call.deadline.toISOString(), closedAt: at.toISOString() };
-  const inline = JSON.stringify({ ...envelope, areAnswersReferences: false, answers });
-  // One choice for the whole notice: every answer inline, or every answer as a reference (0006).
-  const payload = payloadBytes(inline) <= PAYLOAD_MAX_BYTES ? inline : JSON.stringify({ ...envelope, areAnswersReferences: true, answers: answers.map(({ messageId, sender, sentAt }) => ({ messageId, sender, sentAt })) });
+  const payload = roundNoticePayload({ ...envelope, isRoundReference: false, answers });
   const notice = await tellParticipant(deps, { meeting, senderShipId: meeting.moderatorShipId, shipId: meeting.moderatorShipId, contentType: MEETING_ROUND_CONTENT_TYPE, payload, model: undefined, at });
   if (!notice.isOk) return notice;
   if (meeting.endAfterCalls == null || await tx.meetings.closedCallCount(meeting.fleetId, meeting.id) < meeting.endAfterCalls) return ok(undefined);
@@ -84,4 +82,18 @@ async function answerRows(tx: CallReadTx, call: MeetingCall) {
     tx.ships.findMany(call.fleetId, call.answers.map((answer) => answer.shipId)),
   ]);
   return { messages: new Map(messages.map((message) => [message.id, message])), ships: new Map(ships.map((ship) => [ship.id, ship])) };
+}
+
+
+/** Bound serialization itself: a large round must never require a giant JSON string just to choose its reference. */
+function roundNoticePayload(round: Extract<MeetingRound, { isRoundReference: false }>): string {
+  const reference = JSON.stringify({ meetingId: round.meetingId, callId: round.callId, isRoundReference: true, expectedCount: round.expectedShipIds.length, answeredCount: round.answers.length });
+  const { answers, ...envelope } = round;
+  let bytes = payloadBytes(JSON.stringify({ ...envelope, answers: [] }));
+  if (bytes > PAYLOAD_MAX_BYTES) return reference;
+  for (const [index, answer] of answers.entries()) {
+    bytes += payloadBytes(JSON.stringify(answer)) + (index === 0 ? 0 : 1);
+    if (bytes > PAYLOAD_MAX_BYTES) return reference;
+  }
+  return JSON.stringify(round);
 }

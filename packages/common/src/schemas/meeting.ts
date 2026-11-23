@@ -52,7 +52,7 @@ export type OpenMeetingInput = z.infer<typeof openMeetingInputSchema>;
 export const openMeetingOutputSchema = z.object({ meetingId: idSchema('meeting') });
 
 /** Input of `ship.meeting`: the meeting, and a page of its contributions, newest first. */
-export const meetingInputSchema = pageInputOf(idSchema('message')).extend({ meetingId: idSchema('meeting') });
+export const meetingInputSchema = pageInputOf(idSchema('message')).extend({ meetingId: idSchema('meeting'), callId: idSchema('message').optional() });
 
 export type MeetingInput = z.infer<typeof meetingInputSchema>;
 
@@ -173,11 +173,11 @@ export const meetingCallSchema = z.object({
 });
 /** One collected round, sent only to the moderator after closure. */
 const roundEnvelopeSchema = meetingCallReadSchema.omit({ answers: true }).extend({ meetingId: idSchema('meeting'), goal: z.string().nullable() });
-export const meetingAnswerReferenceSchema = z.strictObject({ messageId: idSchema('message'), sender: partySchema, sentAt: isoTime });
-export const meetingRoundSchema = z.discriminatedUnion('areAnswersReferences', [
-  roundEnvelopeSchema.extend({ areAnswersReferences: z.literal(false), answers: z.array(contributionSchema) }),
-  roundEnvelopeSchema.extend({ areAnswersReferences: z.literal(true), answers: z.array(meetingAnswerReferenceSchema) }),
+export const meetingRoundSchema = z.discriminatedUnion('isRoundReference', [
+  roundEnvelopeSchema.extend({ isRoundReference: z.literal(false), answers: z.array(contributionSchema) }),
+  z.strictObject({ meetingId: idSchema('meeting'), callId: idSchema('message'), isRoundReference: z.literal(true), expectedCount: z.int().min(0), answeredCount: z.int().min(0) }),
 ]);
+export type MeetingRound = z.infer<typeof meetingRoundSchema>;
 
 export const meetingOutputSchema = z.object({
   endAfterCalls: z.int().nullable(),

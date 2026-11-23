@@ -265,7 +265,7 @@ export const shipRouter = router({
     }),
 
   openCall: scopedProcedure('messages:send')
-    .meta({ description: 'The moderator opens one call, with question, excludedShipIds and a future deadline, five minutes by default. Every participant receives it; expected ships answer once via send with callId, without the mic. One collected round result reaches the moderator when all have answered. Its answers are all inline up to 256 KB, otherwise all references to full answers in meeting. idempotencyKey retries return the same callId; agent crews state model.', requiredOfCrews: ['model'] })
+    .meta({ description: 'The moderator opens one call, with question, excludedShipIds and a future deadline, five minutes by default. Every participant receives it; expected ships answer once via send with callId, without the mic. One collected round result reaches the moderator when all have answered. Its answers are all inline up to 256 KB, otherwise one meeting/call reference with counts for reading the complete round in meeting. idempotencyKey retries return the same callId; agent crews state model.', requiredOfCrews: ['model'] })
     .input(openCallInputSchema)
     .output(openCallOutputSchema)
     .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.openCall(ctx.caller, input))),
@@ -302,7 +302,7 @@ export const shipRouter = router({
       description: [
         'For a meeting you take part in, by its meetingId: its title, goal, endsAt, owner and moderator, when it opened and ended,',
         'each participant with its kind and status (crewed or awaitingCrew), its mic (holder, null while free; pattern; requests oldest first),',
-        'and what was said so far, newest first,',
+        "and what was said so far, newest first. The call is the latest round unless you pass callId to read a particular round, including a delayed notice's reference,",
         'a page at a time: pass the nextCursor it answers as cursor for the page before. A late or rejoined participant reads here what it missed.',
         'A meeting you take no part in is refused as one that does not exist (NOT_FOUND).',
       ].join(' '),
@@ -310,7 +310,7 @@ export const shipRouter = router({
     .input(meetingInputSchema)
     .output(meetingOutputSchema)
     .query(async ({ ctx, input }) => {
-      const read = okOrThrow(await ctx.useCases.readMeeting(ctx.caller, { meetingId: input.meetingId, cursor: input.cursor, limit: input.limit ?? PAGE_SIZE_DEFAULT }));
+      const read = okOrThrow(await ctx.useCases.readMeeting(ctx.caller, { meetingId: input.meetingId, callId: input.callId, cursor: input.cursor, limit: input.limit ?? PAGE_SIZE_DEFAULT }));
       return {
         ...read,
         call: read.call === null ? null : { ...read.call, deadline: read.call.deadline.toISOString(), openedAt: read.call.openedAt.toISOString(), closedAt: read.call.closedAt?.toISOString() ?? null, answers: read.call.answers.map((item) => ({ ...item, ...listedPayloadOutputOf(item.payload), sentAt: item.sentAt.toISOString() })) },
