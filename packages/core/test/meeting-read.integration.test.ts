@@ -3,6 +3,10 @@ import { createIdGenerator, type MeetingId, type MessageId } from '@aeolus-fleet
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createPrismaClient, createPrismaClientTellingStatements } from '../src/adapters/prisma/client.js';
+import { createPrismaExchangeRollups } from '../src/adapters/prisma/exchange-rollups.js';
+import { createPrismaShipHistory } from '../src/adapters/prisma/history.js';
+import { createPrismaHistoryPruner } from '../src/adapters/prisma/history-pruner.js';
+import { readHarbourOf } from '../src/adapters/prisma/harbour.js';
 import { createPrismaDeliveryRepository } from '../src/adapters/prisma/messaging.js';
 import { createPrismaHealthRecords } from '../src/adapters/prisma/health.js';
 import { createPrismaHealthSnapshots } from '../src/adapters/prisma/health-snapshots.js';
@@ -125,6 +129,41 @@ describe('marking meeting contributions read on Postgres', () => {
     expect(folded.fold.deliveries).toHaveLength(1);
   });
 
+  it('shows the bulk acknowledgement in each contribution delivery history and Harbour activity', async () => {
+    // Given an outstanding contribution.
+    const upTo = await contribute();
+    core.clock.advance(1_000);
+
+    // When it is marked read.
+    unwrap(await core.useCases.acknowledgeMeetingUpTo(reader, { meetingId, messageId: upTo }));
+    const page = await createPrismaShipHistory(core.prisma).messageDeliveries(reader.fleetId, { messageId: upTo, limit: 20 });
+    const harbour = await readHarbourOf(core.prisma, { fleetId: reader.fleetId, read: { shipIds: [reader.shipId], reach: { kind: 'every' } } });
+
+    // Then every consumer reports the acknowledgement time rather than the send time.
+    expect(page.items[0]?.steps[0]).toMatchObject({ type: 'DeliveryAcknowledged', occurredAt: core.clock.now() });
+    expect(harbour.ships[0]?.ship.lastActivityAt).toEqual(core.clock.now());
+  });
+
+  it('retention keeps an unfolded bulk acknowledgement and its cutoff while another affected contribution survives', async () => {
+    // Given two contributions, a snapshot before the mark, and one bulk read.
+    const first = await contribute();
+    const upTo = await contribute();
+    const snapshots = createPrismaHealthSnapshots(core.prisma);
+    const hour = core.clock.now();
+    const fold = await snapshots.baseAt(reader.fleetId, hour);
+    await snapshots.write(reader.fleetId, { hours: [{ hour, stuck: [], acknowledged: [] }], fold });
+    core.clock.advance(1_000);
+    unwrap(await core.useCases.acknowledgeMeetingUpTo(reader, { meetingId, messageId: upTo }));
+    core.clock.advance(1_000);
+
+    // When retention considers the affected messages.
+    const candidates = await core.prisma.$transaction((db) => createPrismaHistoryPruner(db).candidates(reader.fleetId, { cutoff: core.clock.now(), after: null, limit: 20 }));
+
+    // Then both wait for the bulk event to be folded; its cutoff also waits while an earlier affected delivery remains.
+    expect(candidates.find((candidate) => candidate.id === first)?.hasUnfoldedEvent).toBe(true);
+    expect(candidates.find((candidate) => candidate.id === upTo)).toMatchObject({ hasUnfoldedEvent: true, isNamedByReadDelivery: true });
+  });
+
   it('uses indexed queries for contribution acknowledgement and its Health readers', async () => {
     // Given a retained contribution and SQL captured from the actual adapters.
     const upTo = await contribute();
@@ -134,13 +173,16 @@ describe('marking meeting contributions read on Postgres', () => {
     try {
       // When the adapters acknowledge and read it.
       await client.$transaction(async (db) => {
-        await createPrismaDeliveryRepository(db).acknowledgeMeetingContributionsUpTo({ fleetId: reader.fleetId, meetingId, shipId: reader.shipId, leaseId: reader.leaseId, upTo, eventId: ids('event') });
+        await createPrismaDeliveryRepository(db, createPrismaExchangeRollups(db)).acknowledgeMeetingContributionsUpTo({ fleetId: reader.fleetId, meetingId, shipId: reader.shipId, leaseId: reader.leaseId, upTo, eventId: ids('event') });
       });
       unwrap(await core.useCases.acknowledgeMeetingUpTo(reader, { meetingId, messageId: upTo }));
       await createPrismaHealthRecords(client).read(reader.fleetId, new Date(0));
       await createPrismaHealthRecords(client).acknowledged(reader.fleetId, new Date(0));
       await createPrismaHealthSnapshots(client).eventsAfter(reader.fleetId, { seq: 0 });
       await createPrismaHealthSnapshots(client).baseAt(reader.fleetId, core.clock.now());
+      await createPrismaShipHistory(client).messageDeliveries(reader.fleetId, { messageId: upTo, limit: 20 });
+      await readHarbourOf(client, { fleetId: reader.fleetId, read: { shipIds: [reader.shipId], reach: { kind: 'every' } } });
+      await client.$transaction((db) => createPrismaHistoryPruner(db).candidates(reader.fleetId, { cutoff: core.clock.now(), after: null, limit: 20 }));
 
       // Then no query scans the message, delivery or event history.
       expect(statements.length).toBeGreaterThan(0);
