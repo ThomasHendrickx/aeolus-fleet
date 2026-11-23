@@ -45,7 +45,7 @@ The squadrons release adopting the complete one-ship start takes the actual core
 
 An agent/app commissioner owns its new agent/app by default (decision 0045), recorded by `OwnerSet` with `how: commissioner`. Named owners and both `ownerOf` ownership choices retain their meaning. Existing ships keep their owner. An app handles its ships' questions and permission asks; escalation is each owner asking its own owner, never core forwarding. Sibling reach still follows the existing network rules.
 
-The per-fleet listing of rules using an `owner` selector term covers applied, draft and declared rules. It names the fleet, rule source, declarer where present, rule position, verb and both selectors, including `owner=*`, `owner=#` and named owners. The installation can collect it across fleets; a fleet manager can read their fleet's rules through `fleet.networkRules` and declared rules through `fleet.declaredNetworkRules`. Built-in direct owner reach is unchanged (0034).
+Release runs the read-only [owner-selector rule listing](owner-selector-rules.sql) for each fleet when shipping the commission default. It covers applied, draft and declared rules. It names the fleet, rule source, declarer where present, rule position, verb and both selectors, including `owner=*`, `owner=#` and named owners. The installation can collect it across fleets; a fleet manager can read their fleet's rules through `fleet.networkRules` and declared rules through `fleet.declaredNetworkRules`. Built-in direct owner reach is unchanged (0034).
 
 ## Authenticated plugin calls
 
