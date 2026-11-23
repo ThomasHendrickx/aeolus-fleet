@@ -159,8 +159,8 @@ describe('a console page whose session ended', () => {
   it('goes to sign in once, however many of its reads are refused for the ended session', async () => {
     const page = await aSquadronsPage();
     let timesLeft = 0;
-    page.on('request', (request) => {
-      if (new URL(request.url()).pathname === '/sign-in') {
+    page.on('framenavigated', (frame) => {
+      if (frame === page.mainFrame() && new URL(frame.url()).pathname === '/sign-in') {
         timesLeft += 1;
       }
     });
