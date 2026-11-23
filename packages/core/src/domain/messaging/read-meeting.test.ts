@@ -159,23 +159,44 @@ it('projects the immutable sending lease on full meeting contributions (#1993)',
 
 
 describe('round progress in one meeting read', () => {
-  it('shows delivered, answered, late and silent expected ships with current crew state', async () => {
-    // Given a call with crewed chief and marketing, and product awaiting crew.
+  async function openedCall() {
     crewAboard(core, chief);
-    crewAboard(core, marketing);
+    const crew = crewAboard(core, marketing);
     const { callId } = unwrap(await messaging.openCall(chief, { meetingId, question: 'Ready?', idempotencyKey: newKey(), model: SESSION_MODEL }));
-    // When the moderator reads before any answer.
-    const initial = unwrap(await messaging.readMeeting(chief, { meetingId, limit: 20 }));
-    // Then delivery state and immediate silence are visible alongside crew state.
-    expect(initial.call).toMatchObject({ progress: { items: [
+    return { callId, crew };
+  }
+  it('shows delivered progress with current crew state', async () => {
+    // Given
+    await openedCall();
+    // When
+    const read = unwrap(await messaging.readMeeting(chief, { meetingId, limit: 20 }));
+    // Then
+    expect(read.call).toMatchObject({ progress: { items: [
       { ship: { id: chief.shipId }, progress: 'delivered', status: 'crewed', turn: null, deliveredAt: new Date(OPENED_AT), acknowledgedAt: null },
       { ship: { id: marketing.shipId }, progress: 'delivered', status: 'crewed', turn: null },
       { ship: { id: product.shipId }, progress: 'silent', status: 'awaitingCrew', turn: null },
     ], nextCursor: null } });
-    unwrap(await messaging.sendMessage(marketing, { selector: { kind: 'meeting', meetingId }, callId, payload: 'Ready', idempotencyKey: newKey(), model: SESSION_MODEL }));
-    unwrap(await messaging.sendMessage(product, { selector: { kind: 'meeting', meetingId }, callId, payload: 'Late', idempotencyKey: newKey(), model: SESSION_MODEL }));
-    expect(unwrap(await messaging.readMeeting(chief, { meetingId, limit: 20 })).call).toMatchObject({ progress: { items: [
-      { progress: 'delivered' }, { progress: 'answered' }, { progress: 'late' },
-    ] } });
+  });
+  it.each([{ who: 'marketing', progress: 'answered' }, { who: 'product', progress: 'late' }])('shows $progress progress for $who', async ({ who, progress }) => {
+    // Given
+    const { callId } = await openedCall();
+    const ship = who === 'marketing' ? marketing : product;
+    // When
+    unwrap(await messaging.sendMessage(ship, { selector: { kind: 'meeting', meetingId }, callId, payload: 'Ready', idempotencyKey: newKey(), model: SESSION_MODEL }));
+    // Then
+    expect(unwrap(await messaging.readMeeting(chief, { meetingId, limit: 20 })).call?.progress.items).toContainEqual(expect.objectContaining({ ship: { id: ship.shipId, name: who }, progress }));
+  });
+  it('keeps acknowledged progress after the crew ends its turn', async () => {
+    // Given
+    const { callId, crew } = await openedCall();
+    const delivery = core.state.deliveries.find((held) => held.messageId === callId && held.recipient.kind === 'ship' && held.recipient.shipId === marketing.shipId);
+    if (delivery === undefined) throw new Error('The call has no marketing delivery');
+    const marketingDeliveryId = delivery.id;
+    unwrap(await messaging.receiveDeliveries(crew, { max: 10 }));
+    unwrap(await messaging.acknowledgeDelivery(crew, { deliveryId: marketingDeliveryId }));
+    // When
+    unwrap(await messaging.reportHandled(crew, { deliveryId: marketingDeliveryId }));
+    // Then
+    expect(unwrap(await messaging.readMeeting(chief, { meetingId, limit: 20 })).call?.progress.items).toContainEqual(expect.objectContaining({ ship: { id: marketing.shipId, name: 'marketing' }, progress: 'acknowledged', acknowledgedAt: new Date(OPENED_AT) }));
   });
 });

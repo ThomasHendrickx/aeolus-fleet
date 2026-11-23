@@ -1037,7 +1037,8 @@ it('uses the indexed call deadlines to recover a due call among closed history',
 });
 
 
-it('pages expected ships in the database and reads acknowledged progress with pushed crew state', async () => {
+/** A call with an acknowledged notice and a pushed marketing crew reporting busy. */
+async function acknowledgedCall() {
   // Given a call whose marketing crew has acknowledged its notice and reported busy.
   const marketing = await crewOf(marketingId);
   await crewOf(productId);
@@ -1048,16 +1049,34 @@ it('pages expected ships in the database and reads acknowledged progress with pu
   unwrap(await core.useCases.receiveDeliveries(marketing, { max: 10 }));
   unwrap(await core.useCases.acknowledgeDelivery(marketing, { deliveryId: idSchema('delivery').parse(delivery.id) }));
   await core.prisma.lease.update({ where: { id: marketing.leaseId }, data: { pushedAt: at, turn: 'busy', turnAt: at } });
-  // When the moderator reads the first expected ship and continues with its own cursor.
+  return { marketing, meetingId, callId, delivery, at };
+}
+
+it('pages expected ships in the database', async () => {
+  const { meetingId, callId } = await acknowledgedCall();
+  // When and Then
   const first = unwrap(await core.useCases.readMeeting(chief, { meetingId, callId, limit: 20, progressLimit: 1 }));
-  expect(first.call).toMatchObject({ progress: { items: [{ ship: { id: marketingId }, progress: 'acknowledged', status: 'crewed', turn: 'busy', deliveredAt: delivery.createdAt, acknowledgedAt: at }], nextCursor: marketingId } });
+  expect(first.call?.progress.nextCursor).toBe(marketingId);
   const second = unwrap(await core.useCases.readMeeting(chief, { meetingId, callId, limit: 20, progressLimit: 1, progressCursor: marketingId }));
-  // Then the second ship is delivered and its unreported plain session has no turn.
   expect(second.call).toMatchObject({ progress: { items: [{ ship: { id: productId }, progress: 'delivered', status: 'crewed', turn: null }], nextCursor: null } });
-  await core.prisma.lease.update({ where: { id: marketing.leaseId }, data: { turn: 'idle' } });
-  expect(unwrap(await core.useCases.readMeeting(chief, { meetingId, callId, limit: 20 })).call).toMatchObject({ progress: { items: [{ turn: 'idle' }, { turn: null }] } });
-  await core.prisma.lease.update({ where: { id: marketing.leaseId }, data: { turn: null } });
-  expect(unwrap(await core.useCases.readMeeting(chief, { meetingId, callId, limit: 20 })).call).toMatchObject({ progress: { items: [{ turn: null }, { turn: null }] } });
+});
+
+it('reads acknowledged progress with pushed busy crew state', async () => {
+  const { meetingId, callId, delivery, at } = await acknowledgedCall();
+  // When and Then
+  expect(unwrap(await core.useCases.readMeeting(chief, { meetingId, callId, limit: 20 })).call).toMatchObject({ progress: { items: [{ ship: { id: marketingId }, progress: 'acknowledged', status: 'crewed', turn: 'busy', deliveredAt: delivery.createdAt, acknowledgedAt: at }, { turn: null }] } });
+});
+
+it('keeps acknowledged progress after the crew ends its turn', async () => {
+  const { marketing, meetingId, callId, delivery, at } = await acknowledgedCall();
+  // When and Then
+  unwrap(await core.useCases.reportHandled(marketing, { deliveryId: idSchema('delivery').parse(delivery.id) }));
+  expect(unwrap(await core.useCases.readMeeting(chief, { meetingId, callId, limit: 20 })).call?.progress.items).toContainEqual(expect.objectContaining({ progress: 'acknowledged', acknowledgedAt: at }));
+});
+
+it('uses indexed plans for round progress and crew facts', async () => {
+  const { callId } = await acknowledgedCall();
+  // When and Then
   const statements: { query: string; params: string }[] = [];
   const client = createPrismaClientTellingStatements(core.databaseUrl, (query, params) => { statements.push({ query, params }); });
   try {
@@ -1067,3 +1086,22 @@ it('pages expected ships in the database and reads acknowledged progress with pu
   } finally { await client.$disconnect(); }
 
 });
+
+it('reads idle turn for a pushed crew', async () => {
+  const { marketing, meetingId, callId, at } = await acknowledgedCall();
+  await core.prisma.lease.update({ where: { id: marketing.leaseId }, data: { turn: 'idle', pushedAt: at } });
+  expect(unwrap(await core.useCases.readMeeting(chief, { meetingId, callId, limit: 20 })).call?.progress.items[0]?.turn).toBe('idle');
+});
+
+it('reads unreported turn for a pushed crew', async () => {
+  const { marketing, meetingId, callId, at } = await acknowledgedCall();
+  await core.prisma.lease.update({ where: { id: marketing.leaseId }, data: { turn: null, pushedAt: at } });
+  expect(unwrap(await core.useCases.readMeeting(chief, { meetingId, callId, limit: 20 })).call?.progress.items[0]?.turn).toBe(null);
+});
+
+it('hides a reported busy turn for a plain crew', async () => {
+  const { marketing, meetingId, callId } = await acknowledgedCall();
+  await core.prisma.lease.update({ where: { id: marketing.leaseId }, data: { turn: 'busy', pushedAt: null } });
+  expect(unwrap(await core.useCases.readMeeting(chief, { meetingId, callId, limit: 20 })).call?.progress.items[0]?.turn).toBe(null);
+});
+
