@@ -80,7 +80,9 @@ describe.each<Door>(['tRPC', 'REST', 'MCP'])('%s meeting calls', (door) => {
     const { callId } = z.object({ callId: z.string() }).parse(opened.data);
     expect((await call(door, { name: 'send', input: { selector: { kind: 'meeting', meetingId }, callId, payload: 'Friday', model: SESSION_MODEL, idempotencyKey: 'chair-answer' } })).data).toHaveProperty('messageId', expect.any(String));
     expect(held.core.state.deliveries).toHaveLength(before);
-    const read = await call(door, { name: 'meeting', input: { meetingId } });
+    const read = await call(door, { name: 'meeting', input: { meetingId, callId } });
+    const unknown = held.core.ids('message');
+    expect((await call(door, { name: 'meeting', input: { meetingId, callId: unknown } })).refusal).toContain('NOT_FOUND');
     expect(read.data).toMatchObject({ call: { deadline: '2026-11-23T10:00:30.000Z', closedAt: null, answers: [{ payload: 'Friday', callId }] } });
   });
   it('refuses a deadline past the meeting end and an oversized question without storing a call', async () => {

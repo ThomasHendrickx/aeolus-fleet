@@ -227,3 +227,16 @@ it('refuses a call notice whose serialized question exceeds 256 KB, storing noth
   expect(refusalOf(result).kind).toBe('PAYLOAD_TOO_LARGE');
   expect(counts()).toEqual(before);
 });
+
+it('reads the round named by a delayed notice after a newer call opens', async () => {
+  // Given a completed round, followed by a new open call.
+  const { callId } = unwrap(await messaging.openCall(chair, aCall()));
+  unwrap(await answer(alpha, { callId }));
+  unwrap(await answer(beta, { callId, payload: 'Monday' }));
+  unwrap(await messaging.openCall(chair, aCall()));
+  // When a participant follows the earlier notice's meeting and call reference.
+  const read = unwrap(await messaging.readMeeting(beta, { meetingId, callId, limit: 20 }));
+  // Then that round's fixed list, close and full answers remain readable.
+  expect(read.call).toMatchObject({ callId, expectedShipIds: [alpha.shipId, beta.shipId], closedAt: core.clock.now() });
+  expect(read.call?.answers.map((item) => item.payload)).toEqual(['Friday', 'Monday']);
+});
