@@ -49,7 +49,7 @@ export function changeMeeting(meeting: Meeting | undefined, input: { meetingId: 
   if (change.kind === 'rejoin') {
     return rejoined(meeting, { meetingId, by, at });
   }
-  const present = checkPresent(meeting, { meetingId, shipId: by, ended: ENDED });
+  const present = checkPresent(meeting, { meetingId, shipId: by, ended: ENDED, at });
   if (!present.isOk) {
     return present;
   }
@@ -88,7 +88,7 @@ export function addToMeeting(
   input: { meetingId: MeetingId; by: ShipId; shipIds: readonly ShipId[]; at: Date },
 ): Result<{ meeting: Meeting; events: NewEvent[]; added: ShipId[] }, PresenceRefusal | DomainError<'NOT_OWNER'>> {
   const { by, at } = input;
-  const present = checkPresent(meeting, { meetingId: input.meetingId, shipId: by, ended: ENDED });
+  const present = checkPresent(meeting, { meetingId: input.meetingId, shipId: by, ended: ENDED, at });
   if (!present.isOk) {
     return present;
   }
@@ -125,7 +125,7 @@ export function withRetiredShip(meeting: Meeting, input: { shipId: ShipId; actor
 
 function rejoined(meeting: Meeting | undefined, input: { meetingId: MeetingId; by: ShipId; at: Date }): Result<MeetingChanged, MeetingChangeRefusal> {
   const { by, at } = input;
-  const left = checkPresent(meeting, { meetingId: input.meetingId, shipId: by, ended: ENDED });
+  const left = checkPresent(meeting, { meetingId: input.meetingId, shipId: by, ended: ENDED, at });
   if (left.isOk) {
     return refuse('ALREADY_PRESENT', `You take part in meeting ${input.meetingId} already`);
   }

@@ -54,7 +54,7 @@ export interface MicChanged {
  * free mic goes to the oldest request in the same change, by the moderator.
  */
 export function changeMic(meeting: Meeting | undefined, input: { meetingId: MeetingId; by: ShipId; change: MicChange; at: Date }): Result<MicChanged, MicRefusal> {
-  const present = checkPresent(meeting, { meetingId: input.meetingId, shipId: input.by, ended: 'its mic no longer changes' });
+  const present = checkPresent(meeting, { meetingId: input.meetingId, shipId: input.by, ended: 'its mic no longer changes', at: input.at });
   if (!present.isOk) {
     return present;
   }

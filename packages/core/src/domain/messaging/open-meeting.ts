@@ -94,7 +94,8 @@ export function createOpenMeeting(deps: { uow: UnitOfWork<OpenMeetingTx>; clock:
     const ships = input.ships ?? [];
     const valueIds = input.valueIds ?? [];
     const title = input.title ?? null;
-    const goal = input.goal?.trim() ?? null;
+    const trimmedGoal = input.goal?.trim();
+    const goal = trimmedGoal === '' ? null : trimmedGoal ?? null;
     const endsAt = input.endsAt ?? null;
     const requestHash = deps.hasher.hash(JSON.stringify([ships.map(inviteeText), valueIds, title, goal, endsAt]));
     const open = { caller, ships, valueIds, title, goal, endsAt, idempotencyKey: key.value, requestHash, model: input.model };

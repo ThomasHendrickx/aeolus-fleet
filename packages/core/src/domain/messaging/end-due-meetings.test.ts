@@ -77,3 +77,44 @@ it('leaves meetings without deadlines open and never sends a second ended notice
   expect(core.state.messages).toHaveLength(before);
   expect(core.state.meetings.find(({ id }) => id === untimed)?.endedAt).toBeNull();
 });
+
+it('refuses meeting changes at the deadline before the ending pass', async () => {
+  // Given a participant who left before the deadline.
+  const { core, messaging, chief, alpha, beta, meetingId } = scene;
+  unwrap(await messaging.changeMeeting(beta, { meetingId, change: { kind: 'leave' } }));
+  core.clock.advance(60_000);
+  const before = structuredClone(core.state.meetings);
+  // When participants attempt each meeting change.
+  const added = await messaging.addToMeeting(chief, { meetingId, ships: [{ shipId: beta.shipId }], model: SESSION_MODEL });
+  const results = await Promise.all([
+    messaging.changeMeeting(alpha, { meetingId, change: { kind: 'leave' } }),
+    messaging.changeMeeting(beta, { meetingId, change: { kind: 'rejoin' } }),
+    messaging.changeMeeting(chief, { meetingId, change: { kind: 'revoke', shipId: alpha.shipId } }),
+    messaging.changeMeeting(chief, { meetingId, change: { kind: 'transfer', shipId: alpha.shipId } }),
+    messaging.changeMeeting(chief, { meetingId, change: { kind: 'nameModerator', shipId: alpha.shipId } }),
+    messaging.changeMeeting(chief, { meetingId, change: { kind: 'end' } }),
+  ]);
+  // Then each sees the same refusal as an ended meeting, without a change.
+  expect(refusalOf(added).kind).toBe('MEETING_ENDED');
+  expect(results.map((result) => refusalOf(result).kind)).toEqual(Array(6).fill('MEETING_ENDED'));
+  expect(core.state.meetings).toEqual(before);
+});
+
+it('refuses every mic change after the deadline before the ending pass', async () => {
+  // Given a meeting past its deadline.
+  const { core, messaging, chief, alpha, meetingId } = scene;
+  core.clock.advance(60_001);
+  const before = structuredClone(core.state.meetings);
+  // When participants attempt each mic call.
+  const results = await Promise.all([
+    messaging.changeMic(alpha, { meetingId, change: { kind: 'request' } }),
+    messaging.changeMic(alpha, { meetingId, change: { kind: 'withdraw' } }),
+    messaging.changeMic(alpha, { meetingId, change: { kind: 'release' } }),
+    messaging.changeMic(chief, { meetingId, change: { kind: 'give', shipId: alpha.shipId } }),
+    messaging.changeMic(chief, { meetingId, change: { kind: 'take' } }),
+    messaging.changeMic(chief, { meetingId, change: { kind: 'setPattern', pattern: 'fifo' } }),
+  ]);
+  // Then each sees the ended refusal and nothing changes.
+  expect(results.map((result) => refusalOf(result).kind)).toEqual(Array(6).fill('MEETING_ENDED'));
+  expect(core.state.meetings).toEqual(before);
+});

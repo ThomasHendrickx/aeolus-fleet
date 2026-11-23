@@ -63,13 +63,13 @@ export type PresenceRefusal = DomainError<'MEETING_NOT_FOUND' | 'MEETING_ENDED' 
  * stranger learns nothing of it; then an ended meeting, said in `ended`; then
  * a ship whose right was revoked, and one that left.
  */
-export function checkPresent(meeting: Meeting | undefined, input: { meetingId: MeetingId; shipId: ShipId; ended: string }): Result<Meeting, PresenceRefusal> {
+export function checkPresent(meeting: Meeting | undefined, input: { meetingId: MeetingId; shipId: ShipId; ended: string; at: Date }): Result<Meeting, PresenceRefusal> {
   const { meetingId, shipId } = input;
   const participant = meeting?.participants.find((held) => held.shipId === shipId);
   if (meeting === undefined || participant === undefined) {
     return refuse('MEETING_NOT_FOUND', `Meeting ${meetingId} does not exist or you are not one of its participants`);
   }
-  if (meeting.endedAt !== null) {
+  if (meeting.endedAt !== null || (meeting.endsAt !== null && meeting.endsAt <= input.at)) {
     return refuse('MEETING_ENDED', `Meeting ${meetingId} ended: ${input.ended}`);
   }
   if (participant.isRevoked) {
@@ -171,7 +171,7 @@ export function checkContribution(
   contribution: { meetingId: MeetingId; senderShipId: ShipId; inReplyTo: MessageId | undefined; isForced: boolean; at: Date },
 ): Result<ShipId[], ContributionRefusal> {
   const { meetingId, senderShipId } = contribution;
-  const present = checkPresent(meeting, { meetingId, shipId: senderShipId, ended: 'it takes no more contributions' });
+  const present = checkPresent(meeting, { meetingId, shipId: senderShipId, ended: 'it takes no more contributions', at: contribution.at });
   if (!present.isOk) {
     return present;
   }
