@@ -192,7 +192,7 @@ function lastRoundPayload(): string {
   return typeof payload === 'string' ? payload : '';
 }
 
-it.each([262_144, 262_145])('keeps an inline round of exactly 256 KB, and switches every answer to a reference one byte over: %s bytes', async (bytes) => {
+it.each([262_144, 262_145])('keeps an inline round of exactly 256 KB, and sends only a meeting and call reference one byte over: %s bytes', async (bytes) => {
   // Given the overhead of this meeting's two-answer round, and JSON-escaped UTF-8 answers.
   const probe = unwrap(await messaging.openCall(chair, aCall()));
   unwrap(await answer(alpha, { callId: probe.callId, payload: '' }));
@@ -202,22 +202,18 @@ it.each([262_144, 262_145])('keeps an inline round of exactly 256 KB, and switch
   const secondPayload = 'é'.repeat(Math.floor((bytes - overhead - 240_000) / 2)) + 'x'.repeat((bytes - overhead - 240_000) % 2);
   const { callId } = unwrap(await messaging.openCall(chair, aCall()));
   // When both expected ships answer, making the complete inline JSON reach the boundary.
-  const first = unwrap(await answer(alpha, { callId, payload: firstPayload }));
-  const second = unwrap(await answer(beta, { callId, payload: secondPayload }));
+  unwrap(await answer(alpha, { callId, payload: firstPayload }));
+  unwrap(await answer(beta, { callId, payload: secondPayload }));
   // Then there is one notice within the universal limit, and the meeting keeps both full answers.
   const notice = lastRoundPayload();
   const round = meetingRoundSchema.parse(JSON.parse(notice));
   expect(new TextEncoder().encode(notice).byteLength).toBeLessThanOrEqual(262_144);
   if (bytes === 262_144) {
     expect(new TextEncoder().encode(notice).byteLength).toBe(262_144);
-    expect(round.areAnswersReferences).toBe(false);
-    expect(round.answers.map((item) => 'payload' in item ? item.payload : undefined)).toEqual([firstPayload, secondPayload]);
+    expect(round).toHaveProperty('isRoundReference', false);
+    expect(round).toMatchObject({ answers: [{ payload: firstPayload }, { payload: secondPayload }] });
   } else {
-    expect(round.areAnswersReferences).toBe(true);
-    expect(round.answers).toEqual([
-      { messageId: first.messageId, sender: { id: alpha.shipId, name: 'alpha' }, sentAt: '2026-11-23T10:00:00.000Z' },
-      { messageId: second.messageId, sender: { id: beta.shipId, name: 'beta' }, sentAt: '2026-11-23T10:00:00.000Z' },
-    ]);
+    expect(round).toEqual({ meetingId, callId, isRoundReference: true, expectedCount: 2, answeredCount: 2 });
   }
   expect(unwrap(await messaging.readMeeting(beta, { meetingId, limit: 20 })).call?.answers.map((item) => item.payload)).toEqual([firstPayload, secondPayload]);
 });
