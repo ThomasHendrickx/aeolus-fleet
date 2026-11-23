@@ -48,7 +48,7 @@ export interface FakeAccountApp {
   /** How many account tokens it issued. */
   tokensIssued(): number;
   /** How many times an app's server asked for the apps list (GET /api/apps). */
-  appsListsAsked(): number;
+  appsListsAsked(signIn?: string): number;
   close(): Promise<void>;
 }
 
@@ -86,6 +86,7 @@ export async function startFakeAccountApp(options: { argoTickets?: ArgoTickets; 
   let isDown = false;
   let issued = 0;
   let appsListsAsked = 0;
+  const appsListsBySignIn = new Map<string, number>();
   const sessions = new Map<string, FakeAccount>();
   const codes = new Map<string, { session: string; challenge: string; redirectUri: string }>();
   const revoked: string[] = [];
@@ -171,7 +172,9 @@ export async function startFakeAccountApp(options: { argoTickets?: ArgoTickets; 
       }
       if (url.pathname === '/api/apps') {
         appsListsAsked += 1;
-        const holder = sessions.get(String(request.headers['aeolus-sign-in']));
+        const signIn = String(request.headers['aeolus-sign-in']);
+        appsListsBySignIn.set(signIn, (appsListsBySignIn.get(signIn) ?? 0) + 1);
+        const holder = sessions.get(signIn);
         if (holder === undefined) {
           json(response, { status: 401, body: { error: 'invalid_grant' } });
           return;
@@ -241,7 +244,7 @@ export async function startFakeAccountApp(options: { argoTickets?: ArgoTickets; 
       isDown = isNowDown;
     },
     tokensIssued: () => issued,
-    appsListsAsked: () => appsListsAsked,
+    appsListsAsked: (signIn) => signIn === undefined ? appsListsAsked : (appsListsBySignIn.get(signIn) ?? 0),
     close: () =>
       new Promise((closed) => {
         server.close(() => {
