@@ -272,7 +272,8 @@ export const shipRouter = router({
         'Needs meetings:open. Opens a meeting: you own and moderate it, and every ship you invite takes part.',
         'ships invites ships by id { "shipId": "shp_..." } or by name { "name": "..." }; valueIds invites the ships carrying every one of those label values.',
         'You must reach every invitee by send, or nothing is opened (NOT_REACHABLE); inside, participants reach each other whatever their own reach.',
-        'Each invitee gets a message from you of application/vnd.aeolus.meeting.added+json naming the meeting, its owner, moderator and participants.',
+        'goal is optional short text, trimmed and at most 200 characters; endsAt is an optional future UTC timestamp. Core ends the meeting at endsAt even if its moderator is silent.',
+        'Each invitee gets a message from you of application/vnd.aeolus.meeting.added+json naming the meeting, its goal, owner, moderator and participants.',
         'Contribute with send and the selector { "kind": "meeting", "meetingId": "mtg_..." }.',
         'model is the exact model id you run now, as on send. idempotencyKey is a new unique string for every meeting:',
         'a retry with it answers the same meetingId, and another request with a used key is refused (CONFLICT).',
@@ -290,7 +291,7 @@ export const shipRouter = router({
   meeting: scopedProcedure('messages:receive')
     .meta({
       description: [
-        'For a meeting you take part in, by its meetingId: its owner and moderator, when it opened and ended,',
+        'For a meeting you take part in, by its meetingId: its title, goal, endsAt, owner and moderator, when it opened and ended,',
         'each participant with its kind and status (crewed or awaitingCrew), its mic (holder, null while free; pattern; requests oldest first),',
         'and what was said so far, newest first,',
         'a page at a time: pass the nextCursor it answers as cursor for the page before. A late or rejoined participant reads here what it missed.',

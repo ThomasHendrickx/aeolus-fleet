@@ -167,6 +167,8 @@ Close the meeting. Thank everyone.
 
 `chair` can say its thanks as a last contribution first, since it needs no mic. Then it ends the meeting, and every other participant still in it is told by a notice from `chair`. A session that gets that notice contributes no more.
 
+If the opener set `endsAt`, core ends the meeting at that time even if the moderator is silent. Every other participant still present gets the ended notice from the current moderator. A contribution at or after the deadline is refused. The owner or moderator can still end it earlier.
+
 An ended meeting never changes: it takes no more contributions, no more ships and no more mic calls. What was already sent is still delivered, and every ship that took part, even one that left or was revoked, can still read it with `meeting`.
 
 ## If something does not work

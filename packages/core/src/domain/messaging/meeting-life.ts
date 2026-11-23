@@ -1,7 +1,7 @@
 import type { MeetingId, ShipId } from '@aeolus-fleet/common';
 
 import { refuse, type DomainError } from '../shared/errors.js';
-import { shipActor, type Actor, type NewEvent } from '../shared/events.js';
+import { SYSTEM, shipActor, type Actor, type NewEvent } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
 import { checkPresent, isPresent, type Meeting, type Participant, type PresenceRefusal } from './meeting.js';
 import { offTheMic } from './mic.js';
@@ -182,4 +182,11 @@ function byOwnerNever(meeting: Meeting, shipId: ShipId): Result<never, DomainErr
 
 function presentOnly(meeting: Meeting, shipId: ShipId): Result<never, DomainError<'PARTICIPANT_NOT_FOUND'>> | undefined {
   return isPresent(meeting, shipId) ? undefined : refuse('PARTICIPANT_NOT_FOUND', `Ship ${shipId} is not one of the participants of meeting ${meeting.id}`);
+}
+
+
+/** A deadline is enforced by core even while its moderator has no crew. */
+export function endAtDeadline(meeting: Meeting, now: Date): MeetingChanged | undefined {
+  if (meeting.endedAt !== null || meeting.endsAt === null || meeting.endsAt > now) return undefined;
+  return ended(meeting, { by: meeting.moderatorShipId, actor: SYSTEM, at: meeting.endsAt });
 }

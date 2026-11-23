@@ -29,7 +29,7 @@ export const inviteeSchema = z.union([z.strictObject({ shipId: idSchema('ship') 
  * label selection (value ids, exact and AND), folded into one list with the
  * opener, which owns and moderates it; the opener's idempotency key; and the
  * model its session runs, which the added notices state; and an optional
- * short title.
+ * short title, a short goal, and a future UTC end time.
  */
 export const openMeetingInputSchema = z.object({
   ships: z.array(inviteeSchema).optional(),
@@ -135,7 +135,7 @@ export const contributionSchema = z.object({
 });
 
 /**
- * Output of `ship.meeting`: the meeting, its title (null without one), its owner and moderator, when it
+ * Output of `ship.meeting`: the meeting, its title and goal (null without them), its end time, its owner and moderator, when it
  * opened and ended (null while open), its participants, its mic, and a page of its
  * contributions, newest first.
  */
@@ -158,7 +158,7 @@ export type MeetingOutput = z.infer<typeof meetingOutputSchema>;
 /** The content type of the notice the owner sends each ship it added to a meeting. */
 export const MEETING_ADDED_CONTENT_TYPE = 'application/vnd.aeolus.meeting.added+json';
 
-/** The payload of the added notice: the meeting, its title (null without one), its owner, its moderator and its participants, by id and name. */
+/** The payload of the added notice: the meeting, its title and goal (null without them), its owner, its moderator and its participants, by id and name. */
 export const meetingAddedSchema = z.object({
   goal: z.string().nullable(),
   meetingId: idSchema('meeting'),

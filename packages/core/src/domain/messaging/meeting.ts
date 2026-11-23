@@ -17,7 +17,9 @@ export interface Meeting {
   fleetId: FleetId;
   /** A short name a person reads when auditing later; none when it was opened without one. */
   title: string | null;
+  /** What the participants should achieve; none without a stated goal. */
   goal: string | null;
+  /** When core must end it; none without a deadline. */
   endsAt: Date | null;
   ownerShipId: ShipId;
   moderatorShipId: ShipId;
@@ -166,12 +168,15 @@ export type ContributionRefusal = PresenceRefusal | DomainError<'CONTRIBUTION_RE
  */
 export function checkContribution(
   meeting: Meeting | undefined,
-  contribution: { meetingId: MeetingId; senderShipId: ShipId; inReplyTo: MessageId | undefined; isForced: boolean },
+  contribution: { meetingId: MeetingId; senderShipId: ShipId; inReplyTo: MessageId | undefined; isForced: boolean; at: Date },
 ): Result<ShipId[], ContributionRefusal> {
   const { meetingId, senderShipId } = contribution;
   const present = checkPresent(meeting, { meetingId, shipId: senderShipId, ended: 'it takes no more contributions' });
   if (!present.isOk) {
     return present;
+  }
+  if (present.value.endsAt !== null && present.value.endsAt <= contribution.at) {
+    return refuse('MEETING_ENDED', `Meeting ${meetingId} ended: it takes no more contributions`);
   }
   if (contribution.inReplyTo !== undefined) {
     return refuse('CONTRIBUTION_REPLIES', 'A contribution replies to no message: send it to the meeting without inReplyTo');

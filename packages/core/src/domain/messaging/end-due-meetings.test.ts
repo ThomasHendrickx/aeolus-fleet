@@ -20,7 +20,7 @@ async function fixture() {
   const messaging = messagingUseCases(core);
   const input = { ships: [{ shipId: alpha.shipId }, { shipId: beta.shipId }], idempotencyKey: newKey(), model: SESSION_MODEL, endsAt: '2026-11-23T10:01:00.000Z' };
   const { meetingId } = unwrap(await messaging.openMeeting(chief, input));
-  const endDueMeetings = createEndDueMeetings({ uow: core.uow, fleets: core.fleets, clock: core.clock, ids: core.ids, hasher: core.hasher, sealing: core.sealing });
+  const endDueMeetings = createEndDueMeetings({ uow: core.uow, fleets: core.fleets, meetings: core.meetings, clock: core.clock, ids: core.ids, hasher: core.hasher, sealing: core.sealing });
   return { core, messaging, chief, alpha, beta, meetingId, input, endDueMeetings };
 }
 let scene: Awaited<ReturnType<typeof fixture>>;

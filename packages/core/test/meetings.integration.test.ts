@@ -1,6 +1,7 @@
 import { createIdGenerator, MEETING_ADDED_CONTENT_TYPE, MEETING_ENDED_CONTENT_TYPE, MEETING_MIC_CONTENT_TYPE, type FleetId, type MeetingId, type MessageId, type ShipId } from '@aeolus-fleet/common';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { createApp } from '../src/app.js';
 import { createPrismaClientTellingStatements } from '../src/adapters/prisma/client.js';
 import { createPrismaMeetingRepository } from '../src/adapters/prisma/meetings.js';
 import { assertIndexedPlan } from './support/assert-indexed-plan.js';
@@ -42,6 +43,7 @@ let marketingId: ShipId;
 let productId: ShipId;
 let listener: DeliveryListener;
 let notices: DeliveryNotice[];
+let deadlines: Date[];
 
 async function commissioned(name: string, type: string): Promise<ShipId> {
   return unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name, type })).shipId;
@@ -100,8 +102,10 @@ beforeEach(async () => {
   productId = await commissioned('product', 'head');
   core.clock.advance(60_000);
   notices = [];
+  deadlines = [];
   listener = listenForPendingDeliveries({
     databaseUrl: core.databaseUrl,
+    onMeetingDeadline: (at) => { deadlines.push(at); },
     onNotice: (notice) => {
       notices.push(notice);
     },
@@ -235,13 +239,14 @@ describe('an open that fails', () => {
   ])('$label leaves no meeting, message, delivery or event, and wakes nobody', async ({ wrap }) => {
     const openMeeting = openMeetingWith(unitOfWorkWith(wrap));
 
-    await expect(openMeeting(chief, aMeeting())).rejects.toThrow('disk full');
+    await expect(openMeeting(chief, { ...aMeeting(), endsAt: new Date(core.clock.now().getTime() + 60_000).toISOString() })).rejects.toThrow('disk full');
 
     await expect(storedCounts()).resolves.toEqual({ meetings: 0, participants: 0, messages: 0, deliveries: 0, events: 0 });
     // A send after it is heard: had the failed open's notice gone out, it would be heard first.
     const { messageId } = unwrap(await core.useCases.sendMessage(chief, { selector: { kind: 'ship', name: 'argo' }, payload: 'probe', idempotencyKey: newKey(), model: MODEL }));
     const probe = await core.prisma.delivery.findFirstOrThrow({ where: { messageId } });
     await expect.poll(() => notices.map((notice) => notice.deliveryId)).toEqual([probe.id]);
+    expect(deadlines).toEqual([]);
   });
 });
 
@@ -724,7 +729,7 @@ it('persists the goal and end time and reads them through the Postgres adapter',
 
 
 function endDueWith(uow: UnitOfWork<PrismaTx>) {
-  return createEndDueMeetings({ uow, fleets: { list: () => Promise.resolve([{ id: fleetId }]) }, clock: core.clock, ids: newId, hasher: sha256Hasher, sealing: unsealedFleetsOnly });
+  return createEndDueMeetings({ uow, fleets: { list: () => Promise.resolve([{ id: fleetId }]) }, meetings: createPrismaMeetingRepository(core.prisma), clock: core.clock, ids: newId, hasher: sha256Hasher, sealing: unsealedFleetsOnly });
 }
 
 it('ends a due meeting once across concurrent servers, with durable notices and an indexed deadline claim', async () => {
@@ -733,15 +738,28 @@ it('ends a due meeting once across concurrent servers, with durable notices and 
   const { meetingId } = unwrap(await core.useCases.openMeeting(chief, { ...aMeeting(), endsAt }));
   unwrap(await core.useCases.changeMeeting(chief, { meetingId, change: { kind: 'nameModerator', shipId: marketingId } }));
   core.clock.advance(60_000);
+  await core.prisma.meeting.createMany({ data: Array.from({ length: 5000 }, (_, serial) => ({
+    id: newId('meeting'), fleetId, ownerShipId: chief.shipId, moderatorShipId: chief.shipId,
+    openedByShipId: chief.shipId, idempotencyKey: `untimed-${String(serial)}`, requestHash: 'hash', openedAt: core.clock.now(),
+  })) });
+  await core.prisma.$executeRaw`ANALYZE meetings`;
   const statements: { query: string; params: string }[] = [];
   const client = createPrismaClientTellingStatements(core.databaseUrl, (query, params) => {
     if (query.includes('meetings') && (query.includes('SKIP LOCKED') || query.includes('MIN(ends_at)'))) statements.push({ query, params });
   });
   try {
     // When two newly built use cases race to close the stored deadline.
-    const endDue = endDueWith(createPrismaUnitOfWork(client));
+    const racing = racingUnitOfWork({ prisma: client, transactions: 2 }, (tx, allArrived) => ({
+      ...tx, meetings: { ...tx.meetings, claimDue: async (scope, query) => {
+        const meeting = await tx.meetings.claimDue(scope, query);
+        await allArrived();
+        return meeting;
+      } },
+    }));
+    const endDue = endDueWith(racing);
     await Promise.all([endDue(), endDue()]);
     await endDue();
+    await createPrismaMeetingRepository(client).nextEndTime(fleetId);
     // Then one ending, from the moderator, survives reload, and the plans are indexed.
     await expect(core.prisma.meeting.findFirst({ where: { fleetId, id: meetingId } })).resolves.toMatchObject({ endedAt: new Date(endsAt) });
     const events = await core.prisma.event.findMany({ where: { fleetId, type: 'MeetingEnded' } });
@@ -750,7 +768,10 @@ it('ends a due meeting once across concurrent servers, with durable notices and 
     expect(messages.map(({ senderShipId, selectorShipId }) => ({ senderShipId, selectorShipId }))).toEqual([chief.shipId, productId].sort().map((selectorShipId) => ({ senderShipId: marketingId, selectorShipId })));
     expect(statements.some(({ query }) => query.includes('SKIP LOCKED'))).toBe(true);
     expect(statements.some(({ query }) => query.includes('MIN(ends_at)'))).toBe(true);
-    for (const statement of statements) await assertIndexedPlan(core.prisma, statement);
+    for (const statement of statements) {
+      const plan = await assertIndexedPlan(core.prisma, statement);
+      expect(plan).toContain('meetings_due_idx');
+    }
   } finally { await client.$disconnect(); }
 });
 
@@ -759,6 +780,8 @@ it('rolls back an automatic ending, its notices and events after a failure, then
   const endsAt = new Date(core.clock.now().getTime() + 60_000).toISOString();
   const { meetingId } = unwrap(await core.useCases.openMeeting(chief, { ...aMeeting(), endsAt }));
   core.clock.advance(60_000);
+  await expect.poll(() => notices.length).toBe(2);
+  notices.length = 0;
   const before = await storedCounts();
   const broken = unitOfWorkWith((tx) => ({ ...tx, notifier: { deliveryPending: async (notice) => { await tx.notifier.deliveryPending(notice); throw new Error('forced ending failure'); } } }));
   // When the ending fails and a fresh use case later retries it.
@@ -769,6 +792,35 @@ it('rolls back an automatic ending, its notices and events after a failure, then
   await expect(storedCounts()).resolves.toEqual(before);
   await expect(core.prisma.event.count({ where: { fleetId, type: 'MeetingEnded' } })).resolves.toBe(0);
   await expect(core.prisma.meeting.findFirst({ where: { fleetId, id: meetingId } })).resolves.toMatchObject({ endedAt: null });
+  const { messageId } = unwrap(await core.useCases.sendMessage(chief, { selector: { kind: 'ship', name: 'argo' }, payload: 'probe', idempotencyKey: newKey(), model: MODEL }));
+  const probe = await core.prisma.delivery.findFirstOrThrow({ where: { messageId } });
+  await expect.poll(() => notices.map((notice) => notice.deliveryId)).toEqual([probe.id]);
   await endDueWith(createPrismaUnitOfWork(core.prisma))();
   await expect(core.prisma.event.count({ where: { fleetId, type: 'MeetingEnded' } })).resolves.toBe(1);
+});
+
+
+it('core automatically recovers a due meeting after a restart without its moderator', async () => {
+  // Given an opening persisted before this server started, whose deadline is due.
+  const endsAt = new Date(core.clock.now().getTime() + 60_000).toISOString();
+  const { meetingId } = unwrap(await core.useCases.openMeeting(chief, { ...aMeeting(), endsAt }));
+  core.clock.advance(60_000);
+  // When core starts, without a maintenance pass or any participant action.
+  const app = createApp({ databaseUrl: core.databaseUrl, publicUrl: 'http://localhost', clock: core.clock, logger: false, hasMaintenancePass: false });
+  try {
+    await app.ready();
+    // Then its deadline timer recovers the stored ending and delivers its notices.
+    await expect.poll(() => core.prisma.meeting.findFirst({ where: { fleetId, id: meetingId } })).toMatchObject({ endedAt: new Date(endsAt) });
+    await expect(core.prisma.message.count({ where: { fleetId, meetingId, contentType: MEETING_ENDED_CONTENT_TYPE } })).resolves.toBe(2);
+  } finally { await app.close(); }
+});
+
+
+it('announces a new deadline only after the opening commits, for every core timer', async () => {
+  // Given a core listener and a future deadline.
+  const endsAt = new Date(core.clock.now().getTime() + 60_000).toISOString();
+  // When an opener stores the meeting.
+  unwrap(await core.useCases.openMeeting(chief, { ...aMeeting(), endsAt }));
+  // Then the committed opening tells listening core servers when to wake.
+  await expect.poll(() => deadlines).toEqual([new Date(endsAt)]);
 });

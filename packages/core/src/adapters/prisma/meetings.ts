@@ -44,6 +44,21 @@ const PARTICIPANTS_AND_REQUESTS = {
 /** Meetings on Postgres (decision 0061): a row per meeting and one per participant. */
 export function createPrismaMeetingRepository(db: Db): MeetingRepository {
   return {
+    claimDue: async (fleetId, { at, tried }) => {
+      const excluded = tried.length === 0 ? Prisma.empty : Prisma.sql`AND id NOT IN (${Prisma.join([...tried])})`;
+      const rows = await db.$queryRaw<unknown[]>`
+        SELECT id FROM meetings
+        WHERE fleet_id = ${fleetId} AND ended_at IS NULL AND ends_at IS NOT NULL AND ends_at <= ${at} ${excluded}
+        ORDER BY ends_at, id LIMIT 1 FOR UPDATE SKIP LOCKED`;
+      const row = z.array(z.object({ id: idSchema('meeting') })).parse(rows)[0];
+      if (row === undefined) return undefined;
+      const meeting = await db.meeting.findFirst({ where: { fleetId, id: row.id }, include: PARTICIPANTS_AND_REQUESTS });
+      return meeting === null ? undefined : toMeeting(meeting);
+    },
+    nextEndTime: async (fleetId) => {
+      const rows = await db.$queryRaw<unknown[]>`SELECT MIN(ends_at) AS at FROM meetings WHERE fleet_id = ${fleetId} AND ended_at IS NULL AND ends_at IS NOT NULL`;
+      return z.array(z.object({ at: z.date().nullable() })).parse(rows)[0]?.at ?? undefined;
+    },
     listOf: async (fleetId, query) => {
       const rows = await db.$queryRaw<unknown[]>(meetingListStatement(fleetId, query));
       return pageOf(z.array(listedMeetingRow).parse(rows), { limit: query.limit, cursorOf: meetingListCursor });
@@ -51,6 +66,9 @@ export function createPrismaMeetingRepository(db: Db): MeetingRepository {
     create: async (meeting) => {
       const { participants, micRequests, ...rest } = meeting;
       await db.meeting.create({ data: rest });
+      if (meeting.endsAt !== null) {
+        await db.$executeRaw`SELECT pg_notify(${MEETING_DEADLINE_CHANNEL}, ${meeting.endsAt.toISOString()})`;
+      }
       await db.meetingParticipant.createMany({ data: participants.map((participant, place) => ({ fleetId: meeting.fleetId, meetingId: meeting.id, ...participant, place, meetingOpenedAt: meeting.openedAt, isMeetingEnded: meeting.endedAt !== null })) });
       await saveRequests(db, { fleetId: meeting.fleetId, meetingId: meeting.id, requests: micRequests });
     },
@@ -173,3 +191,7 @@ export function meetingListStatement(fleetId: FleetId, query: { shipId: ShipId }
     LEFT JOIN ships h ON h.fleet_id = m.fleet_id AND h.id = m.mic_holder_ship_id
     ORDER BY page.is_meeting_ended, page.meeting_opened_at DESC, page.meeting_id DESC`;
 }
+
+
+/** A committed opening tells every core server to arm its deadline timer. */
+export const MEETING_DEADLINE_CHANNEL = 'aeolus_meeting_deadline';

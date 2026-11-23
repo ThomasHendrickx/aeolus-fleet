@@ -134,6 +134,15 @@ export function createApp(options: AppOptions): FastifyInstance {
     },
   });
 
+  const meetingTimer = startScheduleTimer({
+    send: () => useCases.endDueMeetings((fleetId, error) => {
+      server.log.warn({ ...failureForLog(error), fleetId }, 'a meeting deadline failed: ending it again next pass');
+    }),
+    now: () => clock.now().getTime(),
+    onError: (error) => {
+      server.log.warn(failureForLog(error), 'the meeting timer failed: the next pass ends what is due');
+    },
+  });
   const listener = listenForPendingDeliveries({
     databaseUrl: options.databaseUrl,
     onNotice: (notice) => {
@@ -145,7 +154,9 @@ export function createApp(options: AppOptions): FastifyInstance {
     onScheduleDue: (notice) => {
       scheduleTimer.told(notice.attemptAt);
     },
+    onMeetingDeadline: (at) => { meetingTimer.told(at); },
     onListening: () => {
+      meetingTimer.told(clock.now());
       wakeStreams.wakeAll();
       fleetEvents.wakeAll();
     },
@@ -158,6 +169,7 @@ export function createApp(options: AppOptions): FastifyInstance {
     useCases,
     log: server.log,
     scheduleTimer,
+    meetingTimer,
     scheduleSendFailed,
     everyMs: options.overduePassMs ?? OVERDUE_PASS_MS,
   });
@@ -245,6 +257,7 @@ export function createApp(options: AppOptions): FastifyInstance {
     await plainPayloadIndex?.stop();
     await overduePasses?.stop();
     await scheduleTimer.stop();
+    await meetingTimer.stop();
     await listener.close();
     await prisma.$disconnect();
   });

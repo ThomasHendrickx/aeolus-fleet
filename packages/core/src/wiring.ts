@@ -1,3 +1,5 @@
+import { createPrismaMeetingRepository } from './adapters/prisma/meetings.js';
+import { createEndDueMeetings, type EndDueMeetings } from './domain/messaging/end-due-meetings.js';
 import { type Lookup, createLookup } from './domain/registry/lookup.js';
 import { createExpireJourneyActivity } from './domain/shared/expire-journey-activity.js';
 import { createReadInstallationJourneys } from './domain/registry/read-installation-journeys.js';
@@ -235,6 +237,7 @@ import { createReadShipMessages, type ReadShipMessages } from './domain/shared/r
 import { createReadShipTimeline, type ReadShipTimeline } from './domain/shared/read-ship-timeline.js';
 
 export interface UseCases {
+  endDueMeetings: EndDueMeetings;
   expireJourneyActivity: () => Promise<void>;
   installationJourneys: ReturnType<typeof createReadInstallationJourneys>;
   ping: Ping;
@@ -635,6 +638,7 @@ export function createUseCases(options: {
     sendDueSchedules: createSendDueSchedules({ fleets: createPrismaFleetRepository(prisma), scheduleAttempts: createPrismaScheduleAttempts(prisma), uow, clock, ids, hasher: sha256Hasher, sealing }),
     closeHealthSnapshots: createCloseHealthSnapshots({ fleets: createPrismaFleetRepository(prisma), uow: createPrismaSnapshotUnitOfWork(prisma, clock), clock }),
     removeDeletedFleets: createRemoveDeletedFleets({ fleets: createPrismaFleetRepository(prisma), uow: bulkUow, clock }),
+    endDueMeetings: createEndDueMeetings({ uow, fleets: createPrismaFleetRepository(prisma), meetings: createPrismaMeetingRepository(prisma), clock, ids, hasher: sha256Hasher, sealing }),
     expireJourneyActivity: createExpireJourneyActivity({ uow, clock }),
     installationJourneys: createReadInstallationJourneys({ reads: createPrismaInstallationJourneyReads(prisma), clock }),
     pruneHistory: createPruneHistory({ fleets: createPrismaFleetRepository(prisma), uow: bulkUow, clock, ids, budgetMs: options.pruneBudgetMs }),

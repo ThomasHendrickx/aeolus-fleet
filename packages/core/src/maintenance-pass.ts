@@ -6,7 +6,7 @@ import type { ScheduleTimer } from './schedule-timer.js';
 import type { UseCases } from './wiring.js';
 
 type MaintenanceUseCases = Pick<UseCases,
-  'tellOverdueDeliveries' | 'closeHealthSnapshots' | 'removeDeletedFleets' | 'pruneHistory' | 'expireJourneyActivity' | 'sealStoredPayloads' | 'rotateDataKeys' | 'sendDueSchedules'
+  'tellOverdueDeliveries' | 'closeHealthSnapshots' | 'removeDeletedFleets' | 'pruneHistory' | 'expireJourneyActivity' | 'sealStoredPayloads' | 'rotateDataKeys' | 'sendDueSchedules' | 'endDueMeetings'
 >;
 
 /** The app's periodic maintenance, with the same task boundaries in memory and in production. */
@@ -14,6 +14,7 @@ export function startMaintenancePass(options: {
   useCases: MaintenanceUseCases;
   log: { warn(fields: LoggedFailure & { fleetId?: FleetId; task?: string }, message: string): void };
   scheduleTimer: Pick<ScheduleTimer, 'told'>;
+  meetingTimer: Pick<ScheduleTimer, 'told'>;
   scheduleSendFailed: (fleetId: FleetId, error: unknown) => void;
   everyMs: number;
 }): RepeatingPass {
@@ -49,6 +50,12 @@ export function startMaintenancePass(options: {
           if (nextAttemptAt) {
             scheduleTimer.told(nextAttemptAt);
           }
+        },
+        endDueMeetings: async () => {
+          const { nextAttemptAt } = await useCases.endDueMeetings((fleetId, error) => {
+            options.log.warn({ ...failureForLog(error), fleetId }, 'a meeting deadline failed: ending it again next pass');
+          });
+          if (nextAttemptAt) options.meetingTimer.told(nextAttemptAt);
         },
       };
       for (const [task, run] of Object.entries(tasks)) {

@@ -325,7 +325,7 @@ async function contributeWithin(
   const { fleetId, shipId: senderShipId } = send.caller;
   const { meetingId } = send.meeting;
   const meeting = await tx.meetings.findForNoKeyUpdate(fleetId, meetingId);
-  const participants = checkContribution(meeting, { meetingId, senderShipId, inReplyTo: send.request.inReplyTo, isForced: send.request.isForced });
+  const participants = checkContribution(meeting, { meetingId, senderShipId, inReplyTo: send.request.inReplyTo, isForced: send.request.isForced, at: clock.now() });
   if (!participants.isOk) {
     return participants;
   }

@@ -27,6 +27,10 @@ export interface OpenerKey {
 
 /** Outbound port: meetings and their participants, always within one fleet (decision 0061). */
 export interface MeetingRepository {
+  /** One due open meeting held for update, skipping meetings held by another server. */
+  claimDue(fleetId: FleetId, query: { at: Date; tried: readonly MeetingId[] }): Promise<Meeting | undefined>;
+  /** Earliest durable deadline, for the server's timer. */
+  nextEndTime(fleetId: FleetId): Promise<Date | undefined>;
   /** The ship's readable meetings, open first, newest opening then id descending, bounded by the indexed page. */
   listOf(fleetId: FleetId, query: { shipId: ShipId } & PageQuery<string>): Promise<Page<ListedMeeting, string>>;
   /** Stores the meeting with its participants. */

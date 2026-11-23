@@ -45,7 +45,9 @@ export interface MeetingToOpen {
   model?: string;
   /** A short name a person reads when auditing later. */
   title?: string;
+  /** What the meeting should achieve: trimmed, at most 200 characters. */
   goal?: string;
+  /** A UTC instant strictly in the future, when core ends the meeting. */
   endsAt?: string;
 }
 
