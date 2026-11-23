@@ -156,7 +156,7 @@ export function createApp(options: AppOptions): FastifyInstance {
     },
     onMeetingDeadline: (at) => { meetingTimer.told(at); },
     onListening: () => {
-      meetingTimer.told(clock.now());
+      // Maintenance recovers missed deadlines; listening itself takes no query connection.
       wakeStreams.wakeAll();
       fleetEvents.wakeAll();
     },
