@@ -55,7 +55,8 @@ describe('marking meeting contributions read up to a contribution', () => {
     expect(result).toEqual({ acknowledged: 2 });
     expect([first, upTo, after].map((id) => deliveryOf(id)?.state)).toEqual(['acknowledged', 'acknowledged', 'pending']);
     expect(deliveryOf(first, other)?.state).toBe('pending');
-    expect(core.state.events.slice(events)).toEqual([expect.objectContaining({ shipId: reader.shipId, messageId: upTo, details: expect.objectContaining({ meetingId, acknowledged: 2 }) })]);
+    expect(core.state.events.slice(events)).toHaveLength(1);
+    expect(core.state.events.slice(events)[0]).toMatchObject({ type: 'MeetingReadUpTo', shipId: reader.shipId, messageId: upTo, details: { meetingId, acknowledged: 2 } });
     expect(deliveryOf(upTo)).toMatchObject({ claimedByShipId: reader.shipId, claimedByLeaseId: reader.leaseId, attempts: 0, handOverNumber: null });
   });
 
@@ -104,13 +105,13 @@ describe('marking meeting contributions read up to a contribution', () => {
   it('includes received and handed contributions without adding attempts or replacing their claims', async () => {
     // Given the added notice is acknowledged and two contributions were received and handed.
     const added = unwrap(await messaging.receiveDeliveries(reader, {})).deliveries[0];
-    if (added === undefined) throw new Error('Expected added notice');
-    unwrap(await messaging.acknowledgeDelivery(reader, { deliveryId: added.deliveryId }));
+    expect(added).toBeDefined();
+    unwrap(await messaging.acknowledgeDelivery(reader, { deliveryId: added?.deliveryId ?? core.ids('delivery') }));
     const handed = await contribute();
     unwrap(await messaging.pushReceiveDeliveries(reader, {}));
     const handedDelivery = deliveryOf(handed);
-    if (handedDelivery === undefined) throw new Error('Expected handed contribution');
-    unwrap(await messaging.handOverDelivery(reader, { deliveryId: handedDelivery.id, handOverNumber: 1 }));
+    expect(handedDelivery).toBeDefined();
+    unwrap(await messaging.handOverDelivery(reader, { deliveryId: handedDelivery?.id ?? core.ids('delivery'), handOverNumber: 1 }));
     const received = await contribute();
     unwrap(await messaging.pushReceiveDeliveries(reader, { max: 10 }));
     const pending = await contribute();

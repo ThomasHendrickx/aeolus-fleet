@@ -74,7 +74,7 @@ export function harbourPageStatement(fleetId: FleetId, read: HarbourRead): Prism
     -- The ship's newest send or acknowledgement, one step back along its own events (events_fleet_id_actor_ship_id_seq_idx), for the page's ships only.
     LEFT JOIN LATERAL (
       SELECT e.occurred_at FROM events e
-      WHERE e.fleet_id = s.fleet_id AND e.actor_ship_id = s.id AND e.type IN ('MessageAccepted', 'DeliveryAcknowledged')
+      WHERE e.fleet_id = s.fleet_id AND e.actor_ship_id = s.id AND e.type IN ('MessageAccepted', 'DeliveryAcknowledged', 'MeetingReadUpTo')
       ORDER BY e.seq DESC
       LIMIT 1
     ) sent_or_acked ON true

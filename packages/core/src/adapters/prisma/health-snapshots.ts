@@ -227,7 +227,13 @@ export function createPrismaHealthSnapshots(db: Db): HealthSnapshotWriter {
               CROSS JOIN LATERAL (SELECT * FROM deliveries d WHERE d.fleet_id = ${fleetId} AND d.id = c.id LIMIT 1) d
               CROSS JOIN LATERAL (SELECT m.sender_ship_id FROM messages m WHERE m.fleet_id = ${fleetId} AND m.id = d.message_id LIMIT 1) m`,
       );
-      return { events, sent: sent.map((row) => deliveryRecordOf(row, [])) };
+      const bulkIds = events.filter((event) => event.type === 'MeetingReadUpTo').map((event) => event.id);
+      const bulk = bulkIds.length === 0 ? [] : await db.delivery.findMany({ where: { fleetId, acknowledgedByEventId: { in: bulkIds } }, select: { id: true, acknowledgedByEventId: true } });
+      // Project each bulk event into its exact delivery steps only for the fold; the log still holds one event.
+      const steps = events.flatMap((event) => event.type === 'MeetingReadUpTo'
+        ? bulk.filter((delivery) => delivery.acknowledgedByEventId === event.id).map((delivery) => ({ ...event, type: 'DeliveryAcknowledged' as const, deliveryId: idSchema('delivery').parse(delivery.id) }))
+        : [event]);
+      return { events: steps, sent: sent.map((row) => deliveryRecordOf(row, [])) };
     },
 
     crews: (fleetId, since) => readCrews(db, { fleetId, since }),

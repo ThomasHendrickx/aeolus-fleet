@@ -42,7 +42,7 @@ beforeEach(async () => {
 afterEach(async () => { await client.close(); await held.server.close(); });
 
 type Door = 'tRPC' | 'REST' | 'MCP';
-async function call(door: Door, body: Record<string, unknown> = input, credential = token) {
+async function call(door: Door, { body = input, credential = token }: { body?: Record<string, unknown>; credential?: string } = {}) {
   if (door === 'MCP') {
     const result = z.object({ structuredContent: z.unknown().optional(), isError: z.boolean().optional(), content: z.array(z.object({ text: z.string() })) }).parse(await client.callTool({ name: 'ackMeetingUpTo', arguments: { ...body, crewToken: credential } }));
     return result.isError ? { refusal: result.content.map((part) => part.text).join(' ') } : { data: result.structuredContent };
@@ -66,7 +66,7 @@ describe.each<Door>(['tRPC', 'REST', 'MCP'])('%s meeting read acknowledgement', 
   it('refuses a non-participant despite participant identity supplied in input', async () => {
     // Given a valid token for a ship outside the meeting.
     // When it supplies another ship identity in the request.
-    const result = await call(door, { ...input, shipId: held.core.state.ships.find((ship) => ship.name === 'reader')?.id }, strangerToken);
+    const result = await call(door, { body: { ...input, shipId: held.core.state.ships.find((ship) => ship.name === 'reader')?.id }, credential: strangerToken });
     // Then it is refused without acknowledging anything.
     expect(result.refusal).toContain('NOT_FOUND');
     expect(held.core.state.deliveries.every((delivery) => delivery.state === 'pending')).toBe(true);
@@ -75,7 +75,7 @@ describe.each<Door>(['tRPC', 'REST', 'MCP'])('%s meeting read acknowledgement', 
     // Given the stored reader ship has no receive scope.
     for (const ship of held.core.state.ships) if (ship.name === 'reader') ship.scopes = [];
     // When its crew attempts the mark and later its lease ends.
-    const forbidden = await call(door, { ...input, scopes: ['messages:receive'] });
+    const forbidden = await call(door, { body: { ...input, scopes: ['messages:receive'] } });
     for (const lease of held.core.state.leases) lease.endedAt = held.core.clock.now();
     const ended = await call(door);
     // Then server facts decide both refusals and no delivery changes.

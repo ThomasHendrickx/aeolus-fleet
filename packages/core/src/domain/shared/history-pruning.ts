@@ -45,6 +45,8 @@ export interface PruneCandidate {
   meeting: 'none' | 'open' | 'ended';
   /** Whether a schedule names it, as its in-reply-to or its last sent message: a kept row names it. */
   isNamedBySchedule: boolean;
+  /** The cutoff named by a bulk read of another retained contribution: its event is still needed. */
+  isNamedByReadDelivery?: boolean;
   /** Whether the message or one of its deliveries was locked by another transaction and skipped. */
   isLocked: boolean;
   /** Whether an event of the message or of one of its deliveries is one the newest snapshot has not folded yet (R7). */
@@ -85,7 +87,7 @@ export function isFinalDelivery(delivery: CandidateDelivery, of: { contentType: 
  * event the snapshot has not folded yet (R7), waits for the next pass.
  */
 export function isFinished(candidate: PruneCandidate): boolean {
-  if (candidate.isLocked || candidate.hasUnfoldedEvent || candidate.isNamedBySchedule || candidate.meeting === 'open') {
+  if (candidate.isLocked || candidate.hasUnfoldedEvent || candidate.isNamedBySchedule || candidate.isNamedByReadDelivery === true || candidate.meeting === 'open') {
     return false;
   }
   if (candidate.contentType === QUESTION_CONTENT_TYPE && !candidate.isAnswered) {

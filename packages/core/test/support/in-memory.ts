@@ -1764,6 +1764,19 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
           .slice(0, limit);
         return Promise.resolve(toward === 'older' ? rows : rows.toReversed());
       },
+      acknowledgeMeetingContributionsUpTo: ({ fleetId, meetingId, shipId, leaseId, upTo, eventId }) => {
+        let count = 0;
+        for (const delivery of state.deliveries) {
+          if (delivery.fleetId !== fleetId || delivery.recipient.kind !== 'ship' || delivery.recipient.shipId !== shipId || !['pending', 'received', 'handed'].includes(delivery.state)) continue;
+          const message = state.messages.find((held) => held.fleetId === fleetId && held.id === delivery.messageId);
+          if (message?.meetingId !== meetingId || message.id > upTo || message.selector.kind !== 'meeting' || message.contentType === 'application/vnd.aeolus.meeting.call+json') continue;
+          if (delivery.state === 'pending') { delivery.claimedByShipId = shipId; delivery.claimedByLeaseId = leaseId; }
+          delivery.state = 'acknowledged';
+          delivery.acknowledgedByEventId = eventId;
+          count += 1;
+        }
+        return Promise.resolve(count);
+      },
       findUnacknowledgedUpToForUpdate: ({ fleetId, shipId, otherShipId, upTo }) => {
         const rows = state.deliveries
           .filter(
@@ -2182,7 +2195,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
                     state: harbourStateOf({ status: listed.status, reportState: listed.report?.state ?? null, hasOpenAlert: listed.openAlertCount > 0 }),
                     note: listed.report?.note ?? null,
                     lastActivityAt: latestOf([
-                      ...state.events.filter((event) => event.fleetId === fleetId && event.actor.kind === 'ship' && event.actor.shipId === listed.id && ['MessageAccepted', 'DeliveryAcknowledged'].includes(event.type)).map((event) => event.occurredAt),
+                      ...state.events.filter((event) => event.fleetId === fleetId && event.actor.kind === 'ship' && event.actor.shipId === listed.id && ['MessageAccepted', 'DeliveryAcknowledged', 'MeetingReadUpTo'].includes(event.type)).map((event) => event.occurredAt),
                       ...state.leaseActivities.filter((held) => state.leases.some((lease) => lease.id === held.leaseId && lease.shipId === listed.id && lease.endedAt === null)).map((held) => held.activity.at),
                     ]),
                   },
@@ -2453,6 +2466,9 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
   };
   const newestFirst = (first: Message, second: Message) =>
     second.createdAt.getTime() - first.createdAt.getTime() || second.id.localeCompare(first.id);
+  const deliveryEvents = (fleetId: FleetId) => numbered(fleetId).flatMap((event) => event.type === 'MeetingReadUpTo'
+    ? state.deliveries.filter((delivery) => delivery.fleetId === fleetId && delivery.acknowledgedByEventId === event.id).map((delivery) => ({ ...event, type: 'DeliveryAcknowledged' as const, deliveryId: delivery.id, messageId: delivery.messageId }))
+    : [event]);
   const history: ShipHistory = {
     timeline: (fleetId, { shipId, cursor, limit }) => {
       if (!ship(fleetId, shipId)) {
@@ -2499,7 +2515,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       }
       const delivery = deliveryOfMessage(message);
       const leases = wayLeases(fleetId);
-      const changes = numbered(fleetId)
+      const changes = deliveryEvents(fleetId)
         .filter((event) => event.deliveryId === delivery.id)
         .reverse()
         .flatMap((event) => deliveryStepOf(event, { party: (id) => partyOf(fleetId, id), leases }));
@@ -2534,7 +2550,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
             ship: shipId === null ? null : partyOf(fleetId, shipId),
             state: held.state,
             report: state.leaseReports.find((report) => report.fleetId === fleetId && state.leases.some((lease) => lease.id === report.leaseId && lease.shipId === shipId && lease.endedAt === null))?.report ?? null,
-            steps: numbered(fleetId)
+            steps: deliveryEvents(fleetId)
               .filter((event) => event.deliveryId === held.id)
               .reverse()
               .flatMap((event) => deliveryStepOf(event, { party: (id) => partyOf(fleetId, id), leases })),

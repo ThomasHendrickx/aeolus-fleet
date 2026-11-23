@@ -1145,6 +1145,8 @@ model MeetingParticipant {
 }
 
 model Delivery {
+  /// The single bulk read event, when this delivery was acknowledged by ackMeetingUpTo.
+  acknowledgedByEventId String? @map("acknowledged_by_event_id")
   journeyQualifying Boolean?      @map("journey_qualifying")
   journeyBothCrewed Boolean?      @map("journey_both_crewed")
   id                String        @id
@@ -1182,6 +1184,7 @@ model Delivery {
   /// One row per recipient.
   @@unique([messageId, recipientShipId])
   @@unique([messageId, recipientType])
+  @@index([fleetId, acknowledgedByEventId, id], map: "deliveries_acknowledged_by_event_idx", where: raw("acknowledged_by_event_id IS NOT NULL"))
   @@index([fleetId, recipientShipId, state])
   /// A ship's inbox pages newest first by id.
   @@index([fleetId, recipientShipId, id])

@@ -296,6 +296,7 @@ export const EVENT_TYPES = [
   'OwnershipTransferred',
   'ModeratorNamed',
   'MeetingEnded',
+  'MeetingReadUpTo',
   'ScheduleCreated',
   'ScheduleCancelled',
   'ScheduledSendRefused',

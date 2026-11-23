@@ -31,6 +31,7 @@ const candidateRows = z.array(
     isAnswered: z.boolean(),
     meeting: z.enum(['none', 'open', 'ended']),
     isNamedBySchedule: z.boolean(),
+    isNamedByReadDelivery: z.boolean(),
     hasUnfoldedEvent: z.boolean(),
     deliveries: z.int(),
   }),
@@ -109,6 +110,11 @@ export function createPrismaHistoryPruner(db: Db): HistoryPruner {
               EXISTS (SELECT 1 FROM schedules s WHERE s.fleet_id = ${fleetId} AND s.in_reply_to_message_id = m.id)
               OR EXISTS (SELECT 1 FROM schedules s WHERE s.fleet_id = ${fleetId} AND s.last_message_id = m.id)
             ) AS "isNamedBySchedule",
+            EXISTS (
+              SELECT 1 FROM events e
+              JOIN deliveries d ON d.fleet_id = e.fleet_id AND d.acknowledged_by_event_id = e.id
+              WHERE e.fleet_id = ${fleetId} AND e.message_id = m.id AND e.type = 'MeetingReadUpTo' AND d.message_id <> m.id
+            ) AS "isNamedByReadDelivery",
             -- An event numbered after the newest snapshot's fold, of the
             -- message or of one of its deliveries (R7). Events take their
             -- numbers in commit order and this reads after the deliveries are
@@ -118,6 +124,10 @@ export function createPrismaHistoryPruner(db: Db): HistoryPruner {
               EXISTS (SELECT 1 FROM events e WHERE e.fleet_id = ${fleetId} AND e.message_id = m.id AND e.seq > folded.seq)
               OR EXISTS (
                 SELECT 1 FROM deliveries d JOIN events e ON e.fleet_id = d.fleet_id AND e.delivery_id = d.id
+                WHERE d.fleet_id = ${fleetId} AND d.message_id = m.id AND e.seq > folded.seq
+              )
+              OR EXISTS (
+                SELECT 1 FROM deliveries d JOIN events e ON e.fleet_id = d.fleet_id AND e.id = d.acknowledged_by_event_id
                 WHERE d.fleet_id = ${fleetId} AND d.message_id = m.id AND e.seq > folded.seq
               )
             ) AS "hasUnfoldedEvent",

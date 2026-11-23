@@ -137,7 +137,7 @@ describe('marking meeting contributions read on Postgres', () => {
     // When it is marked read.
     unwrap(await core.useCases.acknowledgeMeetingUpTo(reader, { meetingId, messageId: upTo }));
     const page = await createPrismaShipHistory(core.prisma).messageDeliveries(reader.fleetId, { messageId: upTo, limit: 20 });
-    const harbour = await readHarbourOf(core.prisma, { fleetId: reader.fleetId, read: { shipIds: [reader.shipId], reach: { kind: 'every' } } });
+    const harbour = await readHarbourOf(core.prisma, { fleetId: reader.fleetId, read: { shipIds: [reader.shipId], filter: {}, reach: { kind: 'every' } } });
 
     // Then every consumer reports the acknowledgement time rather than the send time.
     expect(page.items[0]?.steps[0]).toMatchObject({ type: 'DeliveryAcknowledged', occurredAt: core.clock.now() });
@@ -181,7 +181,7 @@ describe('marking meeting contributions read on Postgres', () => {
       await createPrismaHealthSnapshots(client).eventsAfter(reader.fleetId, { seq: 0 });
       await createPrismaHealthSnapshots(client).baseAt(reader.fleetId, core.clock.now());
       await createPrismaShipHistory(client).messageDeliveries(reader.fleetId, { messageId: upTo, limit: 20 });
-      await readHarbourOf(client, { fleetId: reader.fleetId, read: { shipIds: [reader.shipId], reach: { kind: 'every' } } });
+      await readHarbourOf(client, { fleetId: reader.fleetId, read: { shipIds: [reader.shipId], filter: {}, reach: { kind: 'every' } } });
       await client.$transaction((db) => createPrismaHistoryPruner(db).candidates(reader.fleetId, { cutoff: core.clock.now(), after: null, limit: 20 }));
 
       // Then no query scans the message, delivery or event history.

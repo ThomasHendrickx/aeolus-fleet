@@ -95,9 +95,11 @@ export function createInMemoryHistoryPruner(state: InMemoryState): HistoryPruner
   /** Whether an event of the message or its deliveries comes after the newest snapshot's fold. */
   const hasUnfoldedEvent = (message: Message): boolean => {
     const foldedSeq = foldedSeqOf(message.fleetId);
-    const deliveryIds = state.deliveries.filter((delivery) => delivery.fleetId === message.fleetId && delivery.messageId === message.id).map((delivery) => delivery.id);
+    const deliveries = state.deliveries.filter((delivery) => delivery.fleetId === message.fleetId && delivery.messageId === message.id);
+    const deliveryIds = deliveries.map((delivery) => delivery.id);
+    const readEventIds = deliveries.map((delivery) => delivery.acknowledgedByEventId);
     return numberedEvents(state, message.fleetId).some(
-      (event) => event.seq > foldedSeq && (event.messageId === message.id || (event.deliveryId !== undefined && deliveryIds.includes(event.deliveryId))),
+      (event) => event.seq > foldedSeq && (readEventIds.includes(event.id) || event.messageId === message.id || (event.deliveryId !== undefined && deliveryIds.includes(event.deliveryId))),
     );
   };
 
@@ -105,6 +107,8 @@ export function createInMemoryHistoryPruner(state: InMemoryState): HistoryPruner
     const meeting = message.meetingId === null ? undefined : state.meetings.find((held) => held.fleetId === message.fleetId && held.id === message.meetingId);
     return {
       id: message.id,
+      isNamedByReadDelivery: state.events.some((event) => event.fleetId === message.fleetId && event.messageId === message.id && event.type === 'MeetingReadUpTo'
+        && state.deliveries.some((delivery) => delivery.fleetId === message.fleetId && delivery.acknowledgedByEventId === event.id && delivery.messageId !== message.id)),
       createdAt: message.createdAt,
       contentType: message.contentType,
       isAnswered: state.messages.some((reply) => reply.fleetId === message.fleetId && reply.inReplyToMessageId === message.id && reply.contentType === ANSWER_CONTENT_TYPE),
