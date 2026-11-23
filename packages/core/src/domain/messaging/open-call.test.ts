@@ -334,7 +334,7 @@ describe('silence and the deadline', () => {
     const uow: typeof core.uow = { run: (work) => core.uow.run((tx) => work({ ...tx, meetings: { ...tx.meetings, closedCallCount: async (...args) => { counts += 1; return tx.meetings.closedCallCount(...args); } } })) };
     core.clock.advance(60_000);
     // When maintenance closes the call.
-    await createEndDueMeetings({ uow, fleets: core.fleets, meetings: core.meetings, clock: core.clock, ids: core.ids, hasher: core.hasher, sealing: core.sealing })((_fleetId, error) => { throw error; });
+    await createEndDueMeetings({ uow, fleets: core.fleets, meetings: core.meetings, clock: core.clock, ids: core.ids, hasher: core.hasher, sealing: core.sealing })();
     // Then the meeting ends using one count.
     expect(counts).toBe(1);
     expect(core.state.meetings.find((meeting) => meeting.id === meetingId)?.endedAt).toEqual(core.clock.now());

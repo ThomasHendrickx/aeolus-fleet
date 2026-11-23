@@ -44,8 +44,7 @@ export function createEndDueMeetings(deps: {
             if (call?.closedAt === null && call.deadline <= deps.clock.now()) {
               const closed = await closeCallWithin({ tx, ids: deps.ids, hasher: deps.hasher, held }, { meeting, call, by: meeting.moderatorShipId, at: deps.clock.now() });
               if (!closed.isOk) return closed;
-              // A call-count ending takes precedence over the end-time ending in this transaction.
-              if (meeting.endAfterCalls !== null && meeting.endAfterCalls !== undefined && await tx.meetings.closedCallCount(fleetId, meeting.id) >= meeting.endAfterCalls) return ok(meeting.id);
+              if (closed.value.isMeetingEnded) return ok(meeting.id);
             }
             const changed = endAtDeadline(meeting, deps.clock.now());
             if (changed === undefined) return ok(undefined);

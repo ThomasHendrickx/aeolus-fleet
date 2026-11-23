@@ -48,12 +48,12 @@ export interface CallCloseTx extends MeetingNoticeTx, CallReadTx {
   meetings: Pick<MeetingRepository, 'saveCall' | 'closedCallCount' | 'save'>;
 }
 /** One closed call owes one collected result, and may reach the meeting's end condition. */
-export async function closeCallWithin(deps: { tx: CallCloseTx; ids: IdGenerator; hasher: RequestHasher; held: HeldDataKeys }, input: { meeting: Meeting; call: MeetingCall; by: ShipId; at: Date }): Promise<Result<undefined, AcceptRefusal | DataKeysNeeded | DomainError<'KEY_UNAVAILABLE'>>> {
+export async function closeCallWithin(deps: { tx: CallCloseTx; ids: IdGenerator; hasher: RequestHasher; held: HeldDataKeys }, input: { meeting: Meeting; call: MeetingCall; by: ShipId; at: Date }): Promise<Result<{ isMeetingEnded: boolean }, AcceptRefusal | DataKeysNeeded | DomainError<'KEY_UNAVAILABLE'>>> {
   const { tx, ids } = deps;
   const closed = closeAnsweredCall(input.call, { by: input.by, at: input.at });
   await tx.meetings.saveCall(closed.call);
   for (const event of closed.events) await recordEvent({ events: tx.events, ids }, event);
-  if (closed.events.length === 0) return ok(undefined);
+  if (closed.events.length === 0) return ok({ isMeetingEnded: false });
   const { meeting, at } = input;
   const rows = await answerRows(tx, closed.call);
   const answers = [];
@@ -71,10 +71,11 @@ export async function closeCallWithin(deps: { tx: CallCloseTx; ids: IdGenerator;
   if (!notice.isOk) return notice;
   const closedCallCount = await tx.meetings.closedCallCount(meeting.fleetId, meeting.id);
   const ended = endAfterCalls(meeting, { closedCallCount, at });
-  if (ended === undefined) return ok(undefined);
+  if (ended === undefined) return ok({ isMeetingEnded: false });
   await tx.meetings.save(ended.meeting);
   for (const event of ended.events) await recordEvent({ events: tx.events, ids }, event);
-  return tellOfChange(deps, { meeting: ended.meeting, micGivenTo: null, endedBy: meeting.moderatorShipId, at });
+  const told = await tellOfChange(deps, { meeting: ended.meeting, micGivenTo: null, endedBy: meeting.moderatorShipId, at });
+  return told.isOk ? ok({ isMeetingEnded: true }) : told;
 }
 
 
