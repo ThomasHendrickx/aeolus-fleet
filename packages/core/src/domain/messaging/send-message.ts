@@ -19,7 +19,6 @@ import type { Notifier } from '../shared/notifier.js';
 import { err, ok, type Result } from '../shared/result.js';
 import { closeCallWithin } from './call-round.js';
 import { answerCall, type CallRefusal } from './meeting-call.js';
-import { MEETING_CALL_MAX_BYTES, payloadBytes } from '@aeolus-fleet/common';
 import { isAnswerToSender } from './answer.js';
 import type { LabelSelector, MeetingSelector, Selector } from '../shared/selector.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
@@ -334,14 +333,11 @@ async function contributeWithin(
   const { fleetId, shipId: senderShipId } = send.caller;
   const { meetingId } = send.meeting;
   const meeting = await tx.meetings.findForNoKeyUpdate(fleetId, meetingId);
-  const participants = checkContribution(meeting, { meetingId, senderShipId, inReplyTo: send.request.inReplyTo, isForced: send.request.isForced, at: clock.now() });
+  const participants = checkContribution(meeting, { meetingId, callId: send.request.callId, senderShipId, inReplyTo: send.request.inReplyTo, isForced: send.request.isForced, at: clock.now() });
+  if (!participants.isOk) return participants;
   if (send.request.callId !== undefined) {
-    if (!participants.isOk && participants.error.kind !== 'MIC_NOT_HELD') return participants;
     if (meeting === undefined) return refuse('MEETING_NOT_FOUND', 'The meeting does not exist');
     return answerWithin(deps, { ...send, meeting });
-  }
-  if (!participants.isOk) {
-    return participants;
   }
   const reached: ShipId[] = [];
   for (const shipId of participants.value) {
@@ -475,10 +471,9 @@ async function answerWithin(deps: SendDeps, send: { caller: ShipCaller; request:
   const { tx, ids } = deps;
   const { meeting, caller, request } = send;
   if (request.callId === undefined) return refuse('MESSAGE_NOT_FOUND', 'An answer must name its call');
-  if (payloadBytes(request.payload) > MEETING_CALL_MAX_BYTES) return refuse('PAYLOAD_TOO_LARGE', 'A call answer is at most 64 KB');
   const at = deps.clock.now();
   const messageId = ids('message');
-  const answered = answerCall(await tx.meetings.findCall(caller.fleetId, { meetingId: meeting.id, callId: request.callId }), { by: caller.shipId, messageId, at });
+  const answered = answerCall(await tx.meetings.findCall(caller.fleetId, { meetingId: meeting.id, callId: request.callId }), { by: caller.shipId, messageId, payload: request.payload, at });
   if (!answered.isOk) return answered;
   const limit = await withinDailyMessageLimit(tx, { fleetId: caller.fleetId, time: at });
   if (!limit.isOk) return limit;

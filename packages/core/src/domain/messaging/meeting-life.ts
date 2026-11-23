@@ -190,3 +190,10 @@ export function endAtDeadline(meeting: Meeting, now: Date): MeetingChanged | und
   if (meeting.endedAt !== null || meeting.endsAt === null || meeting.endsAt > now) return undefined;
   return ended(meeting, { by: meeting.moderatorShipId, actor: SYSTEM, at: meeting.endsAt });
 }
+
+/** The configured number of closed calls ends the meeting in the closing transaction. */
+export function endAfterCalls(meeting: Meeting, input: { closedCallCount: number; at: Date }): MeetingChanged | undefined {
+  if (meeting.endAfterCalls == null || input.closedCallCount < meeting.endAfterCalls) return undefined;
+  const changed = changeMeeting(meeting, { meetingId: meeting.id, by: meeting.moderatorShipId, change: { kind: 'end' }, at: input.at });
+  return changed.isOk ? changed.value : undefined;
+}

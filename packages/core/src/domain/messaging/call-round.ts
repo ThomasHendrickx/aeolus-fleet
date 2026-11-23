@@ -7,7 +7,7 @@ import { listedUnsealed, unsealed, type DataKeysNeeded, type HeldDataKeys } from
 import type { DomainError } from '../shared/errors.js';
 import type { Meeting } from './meeting.js';
 import { closeAnsweredCall, type MeetingCall } from './meeting-call.js';
-import { changeMeeting } from './meeting-life.js';
+import { endAfterCalls } from './meeting-life.js';
 import { tellOfChange, tellParticipant, type MeetingNoticeTx } from './meeting-notice.js';
 import type { AcceptRefusal } from './message.js';
 import type { MeetingRepository, MessageRepository, RequestHasher } from './ports.js';
@@ -67,12 +67,12 @@ export async function closeCallWithin(deps: { tx: CallCloseTx; ids: IdGenerator;
   const payload = roundNoticePayload({ ...envelope, isRoundReference: false, answers });
   const notice = await tellParticipant(deps, { meeting, senderShipId: meeting.moderatorShipId, shipId: meeting.moderatorShipId, contentType: MEETING_ROUND_CONTENT_TYPE, payload, model: undefined, at });
   if (!notice.isOk) return notice;
-  if (meeting.endAfterCalls == null || await tx.meetings.closedCallCount(meeting.fleetId, meeting.id) < meeting.endAfterCalls) return ok(undefined);
-  const ended = changeMeeting(meeting, { meetingId: meeting.id, by: meeting.moderatorShipId, change: { kind: 'end' }, at });
-  if (!ended.isOk) return ok(undefined);
-  await tx.meetings.save(ended.value.meeting);
-  for (const event of ended.value.events) await recordEvent({ events: tx.events, ids }, event);
-  return tellOfChange(deps, { meeting: ended.value.meeting, micGivenTo: null, endedBy: meeting.moderatorShipId, at });
+  const closedCallCount = await tx.meetings.closedCallCount(meeting.fleetId, meeting.id);
+  const ended = endAfterCalls(meeting, { closedCallCount, at });
+  if (ended === undefined) return ok(undefined);
+  await tx.meetings.save(ended.meeting);
+  for (const event of ended.events) await recordEvent({ events: tx.events, ids }, event);
+  return tellOfChange(deps, { meeting: ended.meeting, micGivenTo: null, endedBy: meeting.moderatorShipId, at });
 }
 
 

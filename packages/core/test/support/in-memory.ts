@@ -162,7 +162,7 @@ export interface InMemoryState {
   messages: Message[];
   deliveries: Delivery[];
   /** The meetings with their participants (decision 0061). */
-  meetings: (Meeting & { lastContributionAt?: Date; calls?: MeetingCall[] })[];
+  meetings: (Meeting & { lastContributionAt?: Date; calls?: Omit<MeetingCall, 'answers'>[] })[];
   /** The ships' schedules (decision 0062). */
   schedules: Schedule[];
   /** The notices a unit of work sent for the servers' schedule timers: gone again when it rolls back, as a NOTIFY. */
@@ -1476,10 +1476,10 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       },
     },
     meetings: {
-      createCall: (call) => { const meeting = state.meetings.find((m) => m.fleetId === call.fleetId && m.id === call.meetingId); if (meeting !== undefined) meeting.calls = [...(meeting.calls ?? []), structuredClone(call)]; return Promise.resolve(); },
-      saveCall: (call) => { const meeting = state.meetings.find((m) => m.fleetId === call.fleetId && m.id === call.meetingId); if (meeting?.calls !== undefined) meeting.calls = meeting.calls.map((c) => c.id === call.id ? structuredClone(call) : c); return Promise.resolve(); },
-      findCall: (fleetId, { meetingId, callId }) => Promise.resolve(structuredClone(state.meetings.flatMap((m) => m.calls ?? []).find((c) => c.fleetId === fleetId && c.meetingId === meetingId && c.id === callId))),
-      latestCall: (fleetId, meetingId) => Promise.resolve(structuredClone(state.meetings.flatMap((m) => m.calls ?? []).filter((c) => c.fleetId === fleetId && c.meetingId === meetingId).sort((a, b) => b.id.localeCompare(a.id))[0])),
+      createCall: (call) => { const meeting = state.meetings.find((m) => m.fleetId === call.fleetId && m.id === call.meetingId); if (meeting !== undefined) meeting.calls = [...(meeting.calls ?? []), storedCall(call)]; return Promise.resolve(); },
+      saveCall: (call) => { const meeting = state.meetings.find((m) => m.fleetId === call.fleetId && m.id === call.meetingId); if (meeting?.calls !== undefined) meeting.calls = meeting.calls.map((c) => c.id === call.id ? { ...c, closedAt: call.closedAt } : c); return Promise.resolve(); },
+      findCall: (fleetId, { meetingId, callId }) => Promise.resolve(callWithAnswers(state, state.meetings.flatMap((m) => m.calls ?? []).find((c) => c.fleetId === fleetId && c.meetingId === meetingId && c.id === callId))),
+      latestCall: (fleetId, meetingId) => Promise.resolve(callWithAnswers(state, state.meetings.flatMap((m) => m.calls ?? []).filter((c) => c.fleetId === fleetId && c.meetingId === meetingId).sort((a, b) => b.id.localeCompare(a.id))[0])),
       closedCallCount: (fleetId, meetingId) => Promise.resolve(state.meetings.flatMap((m) => m.calls ?? []).filter((c) => c.fleetId === fleetId && c.meetingId === meetingId && c.closedAt !== null).length),
       claimDue: (fleetId, { at, tried }) => Promise.resolve(structuredClone(state.meetings.filter((meeting) => meeting.fleetId === fleetId && meeting.endedAt === null && meeting.endsAt !== null && meeting.endsAt <= at && !tried.includes(meeting.id)).sort((a, b) => (a.endsAt?.getTime() ?? 0) - (b.endsAt?.getTime() ?? 0) || a.id.localeCompare(b.id))[0])),
       nextEndTime: (fleetId) => Promise.resolve(state.meetings.filter((meeting) => meeting.fleetId === fleetId && meeting.endedAt === null).flatMap((meeting) => meeting.endsAt === null ? [] : [meeting.endsAt]).sort((a, b) => a.getTime() - b.getTime())[0]),
@@ -2938,4 +2938,14 @@ function inMemoryWakeStreams(): InMemoryWakeStreams {
       };
     },
   };
+}
+
+function storedCall(call: MeetingCall): Omit<MeetingCall, 'answers'> {
+  return structuredClone({ id: call.id, requestHash: call.requestHash, fleetId: call.fleetId, meetingId: call.meetingId, expectedShipIds: call.expectedShipIds, deadline: call.deadline, openedAt: call.openedAt, closedAt: call.closedAt });
+}
+
+function callWithAnswers(state: InMemoryState, call: Omit<MeetingCall, 'answers'> | undefined): MeetingCall | undefined {
+  if (call === undefined) return undefined;
+  const answers = state.messages.filter((m) => m.fleetId === call.fleetId && m.meetingId === call.meetingId && m.callId === call.id).sort((a, b) => a.id.localeCompare(b.id)).map((m) => ({ shipId: m.senderShipId, messageId: m.id }));
+  return structuredClone({ ...call, answers });
 }

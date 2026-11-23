@@ -168,11 +168,11 @@ export type ContributionRefusal = PresenceRefusal | DomainError<'CONTRIBUTION_RE
  * the participants its contribution goes to: every present one but itself.
  * The ship is present in the open meeting (`checkPresent`); a contribution
  * replies to no message (M18) and is never forced; and only the moderator
- * and the mic's holder contribute (M7).
+ * and the mic's holder contribute (M7), except an answer naming a call.
  */
 export function checkContribution(
   meeting: Meeting | undefined,
-  contribution: { meetingId: MeetingId; senderShipId: ShipId; inReplyTo: MessageId | undefined; isForced: boolean; at: Date },
+  contribution: { meetingId: MeetingId; callId?: MessageId; senderShipId: ShipId; inReplyTo: MessageId | undefined; isForced: boolean; at: Date },
 ): Result<ShipId[], ContributionRefusal> {
   const { meetingId, senderShipId } = contribution;
   const present = checkPresent(meeting, { meetingId, shipId: senderShipId, ended: 'it takes no more contributions' });
@@ -188,7 +188,7 @@ export function checkContribution(
   if (contribution.isForced) {
     return refuse('CONTRIBUTION_FORCED', 'A contribution is never forced: send it to the meeting without isForced');
   }
-  if (senderShipId !== present.value.moderatorShipId && senderShipId !== present.value.micHolderShipId) {
+  if (contribution.callId === undefined && senderShipId !== present.value.moderatorShipId && senderShipId !== present.value.micHolderShipId) {
     return refuse('MIC_NOT_HELD', `You do not hold the mic of meeting ${meetingId}: request the mic, and contribute once it is given to you`);
   }
   return ok(participantsBut(present.value, senderShipId));

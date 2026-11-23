@@ -45,15 +45,15 @@ const PARTICIPANTS_AND_REQUESTS = {
 /** Meetings on Postgres (decision 0061): a row per meeting and one per participant. */
 export function createPrismaMeetingRepository(db: Db): MeetingRepository {
   return {
-    createCall: async (call) => { await db.meetingCall.create({ data: { ...call, answers: call.answers } }); },
-    saveCall: async (call) => { await db.meetingCall.update({ where: { fleetId_id: { fleetId: call.fleetId, id: call.id } }, data: { closedAt: call.closedAt, answers: call.answers } }); },
+    createCall: async (call) => { await db.meetingCall.create({ data: callRow.parse(call) }); },
+    saveCall: async (call) => { await db.meetingCall.update({ where: { fleetId_id: { fleetId: call.fleetId, id: call.id } }, data: { closedAt: call.closedAt } }); },
     findCall: async (fleetId, { meetingId, callId }) => {
       const row = await db.meetingCall.findFirst({ where: { fleetId, meetingId, id: callId } });
-      return row === null ? undefined : callRow.parse(row);
+      return row === null ? undefined : callWithAnswers(db, row);
     },
     latestCall: async (fleetId, meetingId) => {
       const row = await db.meetingCall.findFirst({ where: { fleetId, meetingId }, orderBy: { id: 'desc' } });
-      return row === null ? undefined : callRow.parse(row);
+      return row === null ? undefined : callWithAnswers(db, row);
     },
     closedCallCount: (fleetId, meetingId) => db.meetingCall.count({ where: { fleetId, meetingId, closedAt: { not: null } } }),
     claimDue: async (fleetId, { at, tried }) => {
@@ -212,5 +212,15 @@ export const MEETING_DEADLINE_CHANNEL = 'aeolus_meeting_deadline';
 const callRow = z.object({
   id: idSchema('message'), fleetId: idSchema('fleet'), meetingId: idSchema('meeting'),
   requestHash: z.string(), expectedShipIds: z.array(idSchema('ship')), deadline: z.date(), openedAt: z.date(), closedAt: z.date().nullable(),
-  answers: z.array(z.object({ shipId: idSchema('ship'), messageId: idSchema('message') })),
 });
+
+/** The message envelope is the sole stored relationship between an answer and its call. */
+async function callWithAnswers(db: Db, row: unknown) {
+  const call = callRow.parse(row);
+  const answers = await db.message.findMany({
+    where: { fleetId: call.fleetId, meetingId: call.meetingId, callId: call.id },
+    select: { senderShipId: true, id: true },
+    orderBy: { id: 'asc' },
+  });
+  return { ...call, answers: answers.map((message) => ({ shipId: idSchema('ship').parse(message.senderShipId), messageId: idSchema('message').parse(message.id) })) };
+}

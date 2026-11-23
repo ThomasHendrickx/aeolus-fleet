@@ -906,6 +906,8 @@ model Message {
   @@index([fleetId, scheduleId])
   /// A meeting's contributions page newest first by id (decision 0061).
   @@index([fleetId, meetingId, id])
+  /// A call's answer contributions in message order, bounded by its expected ships.
+  @@index([fleetId, meetingId, callId, id], map: "messages_fleet_id_meeting_id_call_id_id_idx", where: { callId: { not: null } })
   @@index([fleetId, selectorShipId, createdAt, id], map: "messages_pings_idx", where: raw("(content_type = 'application/vnd.aeolus.ping'::text)"))
   @@map("messages")
 }
@@ -1683,7 +1685,7 @@ model CommissionApproval {
 }
 
 
-/// The meeting owns its calls; the answers hold message references, never copied payloads.
+/// The meeting owns its calls; answer contributions name their call through Message.callId.
 model MeetingCall {
   id String @id
   fleetId String @map("fleet_id")
@@ -1693,7 +1695,6 @@ model MeetingCall {
   deadline DateTime @db.Timestamptz(3)
   openedAt DateTime @map("opened_at") @db.Timestamptz(3)
   closedAt DateTime? @map("closed_at") @db.Timestamptz(3)
-  answers Json @default("[]")
   meeting Meeting @relation(fields: [fleetId, meetingId], references: [fleetId, id], onDelete: Cascade)
 
   @@unique([fleetId, id])

@@ -28,7 +28,7 @@ export interface OpenerKey {
 
 /** Outbound port: meetings and their participants, always within one fleet (decision 0061). */
 export interface MeetingRepository {
-  /** Calls belong to the meeting and are changed only while its row is locked. */
+  /** Calls belong to the meeting and are changed only while its row is locked. Answers are derived from contributions on load. */
   createCall(call: MeetingCall): Promise<void>;
   saveCall(call: MeetingCall): Promise<void>;
   findCall(fleetId: FleetId, query: { meetingId: MeetingId; callId: MessageId }): Promise<MeetingCall | undefined>;

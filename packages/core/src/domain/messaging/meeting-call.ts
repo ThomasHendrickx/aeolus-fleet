@@ -15,6 +15,7 @@ export interface MeetingCall {
   deadline: Date;
   openedAt: Date;
   closedAt: Date | null;
+  /** Derived from answer contributions; never stored on the call. */
   answers: { shipId: ShipId; messageId: MessageId }[];
 }
 export type CallRefusal = PresenceRefusal | DomainError<'NOT_MODERATOR' | 'ALREADY_PRESENT' | 'INVALID_MEETING_END_TIME' | 'PAYLOAD_TOO_LARGE' | 'PARTICIPANT_NOT_FOUND' | 'MESSAGE_NOT_FOUND'>;
@@ -33,7 +34,8 @@ export function openCall(meeting: Meeting | undefined, input: { meetingId: Meeti
   return ok({ call, events: [callEvent(call, { type: 'CallOpened', by: input.by, at: input.at })] });
 }
 
-export function answerCall(call: MeetingCall | undefined, input: { by: ShipId; messageId: MessageId; at: Date }): Result<{ call: MeetingCall; events: NewEvent[] }, CallRefusal> {
+export function answerCall(call: MeetingCall | undefined, input: { by: ShipId; messageId: MessageId; payload: string; at: Date }): Result<{ call: MeetingCall; events: NewEvent[] }, CallRefusal> {
+  if (payloadBytes(input.payload) > MEETING_CALL_MAX_BYTES) return refuse('PAYLOAD_TOO_LARGE', 'A call answer is at most 64 KB');
   if (call === undefined) return refuse('MESSAGE_NOT_FOUND', 'The call does not exist in this meeting');
   if (!call.expectedShipIds.includes(input.by)) return refuse('PARTICIPANT_NOT_FOUND', 'This call does not expect an answer from you');
   if (call.answers.some((a) => a.shipId === input.by)) return refuse('ALREADY_PRESENT', 'Your answer to this call is stored already');
