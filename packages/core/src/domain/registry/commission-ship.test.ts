@@ -708,12 +708,12 @@ describe('an app ship commissioned by the gateway, with the owner argo picked (d
     expect(ownerSetOf(shipId)).toEqual([{ ownerShipId: argoId, how: 'named' }]);
   });
 
-  it("gives an app ship with no owner named the gateway's own owner, argo, inherited", async () => {
+  it("gives an app ship with no owner named to its agent commissioner", async () => {
     const gateway = await theGateway();
 
     const { shipId } = unwrap(await commissionShip(gateway, { idempotencyKey: newKey(), name: 'crm', type: 'crm', kind: 'app' }));
 
-    expect(ownerSetOf(shipId)).toEqual([{ ownerShipId: argoId, how: 'inherited' }]);
+    expect(ownerSetOf(shipId)).toEqual([{ ownerShipId: gateway.shipId, how: 'commissioner' }]);
   });
 
   it('refuses an app ship from a ship with fleet:commission but without fleet:on-behalf, storing nothing', async () => {
