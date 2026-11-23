@@ -12,7 +12,7 @@ import { newKey } from '../packages/core/src/testing/keys.js';
 import { unwrap } from '../packages/core/src/testing/result.js';
 import { createUseCases, type UseCases } from '../packages/core/src/wiring.js';
 import { FLEET_URL, OPERATOR, operatorCaller } from '../packages/core/test/support/core-fixtures.js';
-import { startFakeAccountApp, type FakeAccount, type FakeAccountApp } from './support/fake-account-app.js';
+import { sharedSignInOf, startFakeAccountApp, type FakeAccount, type FakeAccountApp } from './support/fake-account-app.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 import { afterFrames, pageClasses, visible } from './support/browser.js';
 import { formPostHeld, holdFormPosts, letFormPostsGo, openSettings } from './support/console.js';
@@ -111,21 +111,28 @@ describe('an account signing in to the console', () => {
   it("asks the account app for the account's apps list once per page load: the header and the avatar menu share it", async () => {
     accountApp.signInAs(mathilde());
     const page = await newPage();
+    const firstList = page.waitForResponse((response) => response.url().includes('/api/reads/apps-list'));
+    const firstPalette = page.waitForResponse((response) => response.url().includes('/api/reads/palette-across-apps'));
     await page.goto('/');
     await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
     await page.getByText('Live', { exact: true }).filter({ visible: true }).first().waitFor();
-    // The page's own ask is made once the console has answered its first read: wait for it, not for the network to go quiet.
-    await expect.poll(() => accountApp.appsListsAsked()).toBeGreaterThan(0);
-    const asked = accountApp.appsListsAsked();
+    await Promise.all([firstList, firstPalette]);
+    const signIn = sharedSignInOf(await page.context().cookies());
+    if (signIn === undefined) throw new Error('The account has no shared sign-in');
+    await afterFrames(page);
+    // Sign-in also reads the list to choose the fleet, before the page reads it.
+    expect(accountApp.appsListsAsked(signIn)).toBe(2);
 
+    const reloadedList = page.waitForResponse((response) => response.url().includes('/api/reads/apps-list'));
+    const reloadedPalette = page.waitForResponse((response) => response.url().includes('/api/reads/palette-across-apps'));
     await page.reload();
     await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
     // Live: the page has connected, and the reads it makes once connected are made.
     await page.getByText('Live', { exact: true }).filter({ visible: true }).first().waitFor();
-    await expect.poll(() => accountApp.appsListsAsked() - asked).toBe(1);
+    await Promise.all([reloadedList, reloadedPalette]);
     await afterFrames(page);
 
-    expect(accountApp.appsListsAsked() - asked).toBe(1);
+    expect(accountApp.appsListsAsked(signIn)).toBe(3);
   });
 
   it("asks the account app for the apps list no more when the account comes back to the page's tab", async () => {
