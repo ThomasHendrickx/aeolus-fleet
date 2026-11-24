@@ -49,7 +49,7 @@ export function createPrismaMeetingRepository(db: Db): MeetingRepository {
       await db.meetingCall.create({ data: callRow.parse(call) });
       await db.$executeRaw`SELECT pg_notify(${MEETING_DEADLINE_CHANNEL}, ${call.deadline.toISOString()})`;
     },
-    saveCall: async (call) => { await db.meetingCall.update({ where: { fleetId_id: { fleetId: call.fleetId, id: call.id } }, data: { closedAt: call.closedAt, silentShipIds: call.silentShipIds } }); },
+    saveCall: async (call) => { await db.meetingCall.update({ where: { fleetId_id: { fleetId: call.fleetId, id: call.id } }, data: { closedAt: call.closedAt, silentShipIds: call.silentShipIds, notAskedShipIds: call.notAskedShipIds } }); },
     findCall: async (fleetId, { meetingId, callId }) => {
       const row = await db.meetingCall.findFirst({ where: { fleetId, meetingId, id: callId } });
       return row === null ? undefined : callWithAnswers(db, row);
@@ -230,7 +230,7 @@ export const MEETING_DEADLINE_CHANNEL = 'aeolus_meeting_deadline';
 
 const callRow = z.object({
   id: idSchema('message'), fleetId: idSchema('fleet'), meetingId: idSchema('meeting'),
-  requestHash: z.string(), expectedShipIds: z.array(idSchema('ship')), silentShipIds: z.array(idSchema('ship')), deadline: z.date(), openedAt: z.date(), closedAt: z.date().nullable(),
+  requestHash: z.string(), expectedShipIds: z.array(idSchema('ship')), silentShipIds: z.array(idSchema('ship')), notAskedShipIds: z.array(idSchema('ship')), deadline: z.date(), openedAt: z.date(), closedAt: z.date().nullable(),
 });
 
 /** The message envelope is the sole stored relationship between an answer and its call. */

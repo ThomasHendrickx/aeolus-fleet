@@ -1,6 +1,6 @@
 import { MEETING_TITLE_MAX_LENGTH, MEETING_CALL_COUNT_MAX } from '@aeolus-fleet/common';
 
-import type { FleetId, MeetingId, MessageId, MicPattern, ShipId } from '@aeolus-fleet/common';
+import type { FleetId, MeetingId, MessageId, MicPattern, ShipId, ShipKind } from '@aeolus-fleet/common';
 
 import { refuse, type DomainError } from '../shared/errors.js';
 import { shipActor, type NewEvent } from '../shared/events.js';
@@ -167,12 +167,12 @@ export type ContributionRefusal = PresenceRefusal | DomainError<'CONTRIBUTION_RE
  * Whether the ship may contribute to the meeting (decision 0061), and if so
  * the participants its contribution goes to: every present one but itself.
  * The ship is present in the open meeting (`checkPresent`); a contribution
- * replies to no message (M18) and is never forced; and only the moderator
- * and the mic's holder contribute (M7), except an answer naming a call.
+ * replies to no message and is never forced; only a person, the moderator
+ * or the mic's holder contributes, except an answer naming a call.
  */
 export function checkContribution(
   meeting: Meeting | undefined,
-  contribution: { meetingId: MeetingId; callId?: MessageId; senderShipId: ShipId; inReplyTo: MessageId | undefined; isForced: boolean; at: Date },
+  contribution: { meetingId: MeetingId; callId?: MessageId; senderShipId: ShipId; senderKind?: ShipKind; inReplyTo: MessageId | undefined; isForced: boolean; at: Date },
 ): Result<ShipId[], ContributionRefusal> {
   const { meetingId, senderShipId } = contribution;
   const present = checkPresent(meeting, { meetingId, shipId: senderShipId, ended: 'it takes no more contributions', at: contribution.at });
@@ -188,7 +188,7 @@ export function checkContribution(
   if (contribution.isForced) {
     return refuse('CONTRIBUTION_FORCED', 'A contribution is never forced: send it to the meeting without isForced');
   }
-  if (contribution.callId === undefined && senderShipId !== present.value.moderatorShipId && senderShipId !== present.value.micHolderShipId) {
+  if (contribution.senderKind !== 'person' && contribution.callId === undefined && senderShipId !== present.value.moderatorShipId && senderShipId !== present.value.micHolderShipId) {
     return refuse('MIC_NOT_HELD', `You do not hold the mic of meeting ${meetingId}: request the mic, and contribute once it is given to you`);
   }
   return ok(participantsBut(present.value, senderShipId));

@@ -2,7 +2,7 @@
 
 Sometimes two [ships](words.md#ship) are not enough. You want a planner, a reviewer and a writer to settle one question together, each hearing what the others say, without a [message](words.md#message) flying between every pair of them. A [meeting](words.md#meeting) does that. This page holds one, start to finish: open it, hand out the mic, let each ship speak in turn, and end it. It takes about fifteen minutes.
 
-What you get: one conversation of several ships, led by one of them. What a ship says reaches every other ship in the meeting, each with a [delivery](words.md#delivery) of its own, stored before the speaker hears OK. And the meeting has order: only the ship that holds the mic, and the one that leads the meeting, may speak.
+What you get: one conversation of several ships, led by one of them. What a ship says reaches every other ship in the meeting, each with a [delivery](words.md#delivery) of its own, stored before the speaker hears OK. And the meeting has order: the ship that holds the mic and the one that leads the meeting may speak, and a person may step in without the mic.
 
 ```mermaid
 flowchart LR
@@ -142,6 +142,12 @@ A silent ship can still answer once while the meeting is open and it is present.
 
 If `endAfterCalls` was set when opening the meeting, reaching that many closed calls ends it in the same change. The ended notice comes from the current moderator. The owner or moderator can end it earlier.
 
+### A person steps in
+
+A person ship calls `rejoinMeeting` to join by itself, even if it was never invited. The meeting's owner must reach it by send, just as when a participant rejoins. A person already present is refused, and a person whose right was revoked needs the owner to add it again.
+
+Once present, the person sends a contribution to the meeting without requesting the mic. Every other present participant gets it; speaking leaves an open call unchanged. The person closes the call separately with `closeCall`, preserving its existing answers: ships still expected are marked not asked in `notAskedShipIds`, separate from silent ships. The moderator gets the collected round. The moderator and mic stay as they were, so the moderator continues once the person stops steering. A present person may also call `endMeeting`.
+
 ## 3. Read the meeting
 
 Any participant can read the meeting with `meeting`, and it needs no more than the right to receive. It shows:
@@ -174,7 +180,7 @@ A ship that goes out of a meeting goes off the mic, and its request is gone. A s
 
 ## 5. End the meeting
 
-The owner or the moderator ends the meeting with `endMeeting`. Tell `chair`:
+The owner, moderator or a present person ends the meeting with `endMeeting`. Tell `chair`:
 
 ```
 Close the meeting. Thank everyone.

@@ -1076,7 +1076,8 @@ it('stores person intervention and not-asked ships atomically with its events an
   expect((await createPrismaMeetingRepository(core.prisma).findCall(fleetId, { meetingId, callId }))?.closedAt).toBeNull();
   const { messageId } = unwrap(await core.useCases.sendMessage(person, { selector: { kind: 'meeting', meetingId }, payload: 'New direction', idempotencyKey: newKey() }));
   expect((await createPrismaMeetingRepository(core.prisma).findCall(fleetId, { meetingId, callId }))?.closedAt).toBeNull();
-  unwrap(await core.useCases.closeCall(person, { meetingId, callId }));
+  const closes = await Promise.all([core.useCases.closeCall(person, { meetingId, callId }), core.useCases.closeCall(person, { meetingId, callId })]);
+  for (const result of closes) unwrap(result);
   const read = unwrap(await core.useCases.readMeeting(chief, { meetingId, callId, limit: 20 }));
   expect(read.call).toMatchObject({ closedAt: core.clock.now(), silentShipIds: [], notAskedShipIds: [marketingId, productId] });
   expect(read.moderator.id).toBe(chief.shipId);

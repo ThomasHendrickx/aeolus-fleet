@@ -22,20 +22,19 @@ export type ChangeMeetingFailure = MeetingChangeRefusal | NotReachable | AcceptR
 export type ChangeMeeting = (caller: ShipCaller, input: { meetingId: MeetingId; change: MeetingChange }) => Promise<Result<undefined, ChangeMeetingFailure>>;
 
 /**
- * Changes a meeting the caller takes part in (decision 0061): it leaves or
- * rejoins, or, as its owner, revokes a ship, transfers the meeting or names
- * its moderator, or, as its owner or moderator, ends it. A rejoin is checked
- * on the owner's reach of the ship, as when it was added (M5), a refusal
- * recorded. One unit of work with its events and notices, the meeting held
- * for update. In a sealed fleet its notices are sealed with data keys
- * unwrapped before the unit of work (decision 0068, B17).
+ * A participant leaves or rejoins; a person also joins for the first time.
+ * The owner revokes ships, transfers the meeting and names its moderator.
+ * The owner, moderator or a present person ends it. Joining checks the
+ * owner's reach, recording a refusal as a send does. Changes, notices and
+ * events commit together under the meeting lock, with data keys held before
+ * the transaction in a sealed fleet.
  */
 export function createChangeMeeting(deps: { uow: UnitOfWork<ChangeMeetingTx>; clock: Clock; ids: IdGenerator; hasher: RequestHasher; sealing: PayloadSealing }): ChangeMeeting {
   return (caller, input) =>
     withDataKeys({ sealing: deps.sealing, fleetId: caller.fleetId }, (held) => keepingReachRefusal(deps.uow, async (tx): Promise<Result<undefined, ChangeMeetingFailure | DataKeysNeeded>> => {
       const { fleetId } = caller;
       const at = deps.clock.now();
-      const changed = changeMeeting(await tx.meetings.findForUpdate(fleetId, input.meetingId), { meetingId: input.meetingId, by: caller.shipId, change: input.change, at });
+      const changed = changeMeeting(await tx.meetings.findForUpdate(fleetId, input.meetingId), { meetingId: input.meetingId, by: caller.shipId, byKind: caller.kind, change: input.change, at });
       if (!changed.isOk) {
         return changed;
       }

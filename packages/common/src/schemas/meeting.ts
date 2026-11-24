@@ -150,6 +150,7 @@ export const meetingCallReadSchema = z.object({
   callId: idSchema('message'),
   expectedShipIds: z.array(idSchema('ship')),
   silentShipIds: z.array(idSchema('ship')),
+  notAskedShipIds: z.array(idSchema('ship')),
   lateAnswers: z.array(contributionSchema),
   deadline: isoTime,
   openedAt: isoTime,
@@ -166,6 +167,7 @@ export const openCallInputSchema = z.object({
   idempotencyKey: idempotencyKeySchema,
   model: modelSchema.optional(),
 });
+export const closeCallInputSchema = z.object({ meetingId: idSchema('meeting'), callId: idSchema('message') });
 export const openCallOutputSchema = z.object({ callId: idSchema('message') });
 export const MEETING_CALL_CONTENT_TYPE = 'application/vnd.aeolus.meeting.call+json';
 export const MEETING_ROUND_CONTENT_TYPE = 'application/vnd.aeolus.meeting.round+json';

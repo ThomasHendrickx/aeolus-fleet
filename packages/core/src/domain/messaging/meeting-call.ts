@@ -1,5 +1,5 @@
 /** A fixed list of ships asked once, changed under the meeting lock (decision 0061). */
-import { MEETING_CALL_DEFAULT_MS, MEETING_CALL_MAX_BYTES, payloadBytes, type FleetId, type MeetingId, type MessageId, type ShipId } from '@aeolus-fleet/common';
+import { MEETING_CALL_DEFAULT_MS, MEETING_CALL_MAX_BYTES, payloadBytes, type FleetId, type MeetingId, type MessageId, type ShipId, type ShipKind } from '@aeolus-fleet/common';
 
 import { refuse, type DomainError } from '../shared/errors.js';
 import { shipActor, type NewEvent } from '../shared/events.js';
@@ -13,6 +13,7 @@ export interface MeetingCall {
   meetingId: MeetingId;
   expectedShipIds: ShipId[];
   silentShipIds: ShipId[];
+  notAskedShipIds: ShipId[];
   deadline: Date;
   openedAt: Date;
   closedAt: Date | null;
@@ -30,7 +31,7 @@ export function openCall(meeting: Meeting | undefined, input: { meetingId: Meeti
   if (payloadBytes(input.question) > MEETING_CALL_MAX_BYTES) return refuse('PAYLOAD_TOO_LARGE', 'A call question is at most 64 KB');
   const deadline = input.deadline ?? new Date(input.at.getTime() + MEETING_CALL_DEFAULT_MS);
   if (!Number.isFinite(deadline.getTime()) || deadline <= input.at || (held.endsAt !== null && deadline > held.endsAt)) return refuse('INVALID_MEETING_END_TIME', 'A call deadline is in the future and no later than the meeting end time');
-  const call: MeetingCall = { id: input.callId, requestHash: input.requestHash, fleetId: held.fleetId, meetingId: held.id, expectedShipIds: held.participants.filter((p) => p.leftAt === null && !input.excludedShipIds.includes(p.shipId)).map((p) => p.shipId), silentShipIds: held.participants.filter((p) => p.leftAt === null && !input.excludedShipIds.includes(p.shipId) && input.awaitingCrewShipIds.includes(p.shipId)).map((p) => p.shipId), deadline, openedAt: input.at, closedAt: null, answers: [] };
+  const call: MeetingCall = { id: input.callId, requestHash: input.requestHash, fleetId: held.fleetId, meetingId: held.id, expectedShipIds: held.participants.filter((p) => p.leftAt === null && !input.excludedShipIds.includes(p.shipId)).map((p) => p.shipId), silentShipIds: held.participants.filter((p) => p.leftAt === null && !input.excludedShipIds.includes(p.shipId) && input.awaitingCrewShipIds.includes(p.shipId)).map((p) => p.shipId), notAskedShipIds: [], deadline, openedAt: input.at, closedAt: null, answers: [] };
   return ok({ call, events: [callEvent(call, { type: 'CallOpened', by: input.by, at: input.at })] });
 }
 
@@ -43,13 +44,28 @@ export function answerCall(call: MeetingCall | undefined, input: { by: ShipId; m
 }
 
 /** Silence settles an expected ship just as an on-time answer does. */
-export function closeAnsweredCall(call: MeetingCall, input: { by: ShipId; at: Date }): { call: MeetingCall; events: NewEvent[] } {
+export function closeAnsweredCall(call: MeetingCall, input: { by: ShipId; at: Date; isInterrupted?: boolean }): { call: MeetingCall; events: NewEvent[] } {
   if (call.closedAt !== null) return { call, events: [] };
   const answered = call.answers.filter((answer) => !answer.isLate).map((answer) => answer.shipId);
+  if (input.isInterrupted === true) {
+    const notAskedShipIds = call.expectedShipIds.filter((shipId) => !answered.includes(shipId) && !call.silentShipIds.includes(shipId));
+    return { call: { ...call, notAskedShipIds, closedAt: input.at }, events: [callEvent(call, { type: 'CallClosed', ...input })] };
+  }
   const silentShipIds = input.at >= call.deadline ? call.expectedShipIds.filter((shipId) => !answered.includes(shipId)) : call.silentShipIds;
   if (!call.expectedShipIds.every((shipId) => answered.includes(shipId) || silentShipIds.includes(shipId))) return { call, events: [] };
   return { call: { ...call, silentShipIds, closedAt: input.at }, events: [callEvent(call, { type: 'CallClosed', ...input })] };
 }
 function callEvent(call: MeetingCall, input: { type: NewEvent['type']; by: ShipId; at: Date; messageId?: MessageId }): NewEvent {
   return { fleetId: call.fleetId, type: input.type, occurredAt: input.at, actor: shipActor(input.by), shipId: input.by, messageId: input.messageId ?? call.id, details: { meetingId: call.meetingId, callId: call.id } };
+}
+
+
+/** A person closes a call only while present in its open meeting. */
+export function checkCallClose(state: Readonly<{ meeting: Meeting | undefined; call: MeetingCall | undefined }>, input: Readonly<{ meetingId: MeetingId; by: ShipId; byKind: ShipKind; at: Date }>): Result<{ meeting: Meeting; call: MeetingCall }, PresenceRefusal | DomainError<'NOT_PERSON' | 'MESSAGE_NOT_FOUND'>> {
+  const { meeting, call } = state;
+  const present = checkPresent(meeting, { meetingId: input.meetingId, shipId: input.by, ended: 'it takes no more changes', at: input.at });
+  if (!present.isOk) return present;
+  if (input.byKind !== 'person') return refuse('NOT_PERSON', 'Only a present person closes a call');
+  if (call === undefined) return refuse('MESSAGE_NOT_FOUND', 'The call does not exist in this meeting');
+  return ok({ meeting: present.value, call });
 }
