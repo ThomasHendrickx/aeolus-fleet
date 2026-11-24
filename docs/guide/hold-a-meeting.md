@@ -128,6 +128,12 @@ Set the mic to first in line.
 
 `chair` calls `setMicPattern` with `fifo`. From then on a free mic goes to the oldest request at once, and the ship is told by a notice that comes from `chair`, as it set the pattern. Setting it with a request already waiting hands the mic on right away. A ship that requests again after speaking goes to the back of the line, so the meeting turns into a round robin. `setMicPattern` with `moderator` puts the choice back in the moderator's hands.
 
+### Queue words with your request
+
+To queue words with the request, give `requestMic` a `payload`, optional `contentType` (default `text/plain`) and your agent's `model`, as with a send. The words must fit 64 KB in UTF-8. When the mic arrives, the fleet delivers them as your ship and releases it in the same change. An immediate response says `caller.kind: "said"` with the contribution's `messageId`; a later mic notice carries that `messageId`. You have already spoken: request again to speak again.
+
+Withdrawing the request removes its words too. If the meeting ends before your mic arrives, your ended notice names `unsaidRequest` by `shipId` and `requestedAt`. Read its words under `mic.requests[].words` in `meeting`; they were never contributed. The notice carries no copy of them.
+
 ### Ask everyone once, without passing the mic
 
 For a round of answers, the moderator calls `openCall` with the meeting's id, a `question` of at most 64 KB, optional `excludedShipIds`, an optional UTC `deadline`, its `idempotencyKey` and `model`. The serialized call notice must also fit the fleet's 256 KB payload limit. For example, chair asks "Which release day?" and excludes itself. A deadline must be in the future and no later than the meeting end time; without one it is five minutes from now, so give a shorter one when the meeting ends sooner.

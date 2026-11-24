@@ -46,7 +46,7 @@ export async function readCall(deps: { tx: CallReadTx; held: HeldDataKeys }, cal
 }
 export interface CallCloseTx extends MeetingNoticeTx, CallReadTx {
   messages: MessageRepository;
-  meetings: Pick<MeetingRepository, 'saveCall' | 'closedCallCount' | 'save'>;
+  meetings: Pick<MeetingRepository, 'saveCall' | 'closedCallCount' | 'save' | 'contributed'>;
 }
 /** One closed call owes one collected result, and may reach the meeting's end condition. */
 export async function closeCallWithin(deps: { tx: CallCloseTx; ids: IdGenerator; hasher: RequestHasher; held: HeldDataKeys }, input: { meeting: Meeting; call: MeetingCall; by: ShipId; at: Date; isInterrupted?: boolean }): Promise<Result<{ isMeetingEnded: boolean }, AcceptRefusal | DataKeysNeeded | DomainError<'KEY_UNAVAILABLE'>>> {

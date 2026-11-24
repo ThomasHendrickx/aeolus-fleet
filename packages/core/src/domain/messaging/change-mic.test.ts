@@ -1,7 +1,7 @@
 import { MEETING_MIC_CONTENT_TYPE, meetingMicSchema, type MeetingId, type ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { initialiseFleet, plainPayloadOf, messagingUseCases, operatorCaller, registryUseCases, SESSION_MODEL } from '../../../test/support/core-fixtures.js';
+import { crewAboard, initialiseFleet, plainPayloadOf, messagingUseCases, operatorCaller, registryUseCases, SESSION_MODEL } from '../../../test/support/core-fixtures.js';
 import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { newKey } from '../../testing/keys.js';
@@ -409,4 +409,126 @@ describe('the mic events', () => {
 
     expect([core.state.events, core.state.messages.length, core.state.notices]).toEqual([[], before, []]);
   });
+});
+
+describe('words queued with a mic request', () => {
+  it('says the words as their ship and releases the mic when fifo grants immediately', async () => {
+    // Given a free mic passing first in line.
+    await done(chief, { kind: 'setPattern', pattern: 'fifo' });
+
+    // When a participant requests it with words.
+    const response = unwrap(await changed(product, { kind: 'request', payload: 'Ship it', model: SESSION_MODEL }));
+
+    // Then the contribution and release are committed together, and the response says so.
+    const said = core.state.messages.find(({ selector }) => selector.kind === 'meeting');
+    expect(said).toMatchObject({ senderShipId: product.shipId, payload: 'Ship it', contentType: 'text/plain', model: SESSION_MODEL, meetingId });
+    expect(response?.caller).toEqual({ kind: 'said', messageId: said?.id });
+    expect(micState()).toEqual({ holder: null, waiting: [] });
+    expect(micNotices()).toEqual([]);
+    expect(core.state.events.map(({ type }) => type)).toContain('MicReleased');
+  });
+
+  it('delivers successive queued contributions when the mic arrives and tells each ship what was said', async () => {
+    // Given two ships waiting with words behind a holder.
+    await done(chief, { kind: 'setPattern', pattern: 'fifo' });
+    await done(design, { kind: 'request' });
+    await done(product, { kind: 'request', payload: 'First', contentType: 'text/markdown', model: SESSION_MODEL });
+    await done(marketing, { kind: 'request', payload: 'Second', model: SESSION_MODEL });
+
+    // When the holder releases the mic.
+    await done(design, { kind: 'release' });
+
+    // Then both ships spoke in order, and neither holds the mic.
+    const said = core.state.messages.filter(({ selector }) => selector.kind === 'meeting');
+    expect(said.map(({ senderShipId, payload, contentType }) => ({ senderShipId, payload, contentType }))).toEqual([
+      { senderShipId: product.shipId, payload: 'First', contentType: 'text/markdown' },
+      { senderShipId: marketing.shipId, payload: 'Second', contentType: 'text/plain' },
+    ]);
+    expect(micNotices().map(({ payload }) => payload)).toEqual(said.map(({ id }) => ({ meetingId, messageId: id })));
+    expect(micState()).toEqual({ holder: null, waiting: [] });
+  });
+
+  it('withdraws queued words with the request', async () => {
+    // Given a participant waiting with words.
+    await done(product, { kind: 'request', payload: 'Withdraw me', model: SESSION_MODEL });
+
+    // When it withdraws and the moderator gives it the mic later.
+    await done(product, { kind: 'withdraw' });
+    await done(chief, { kind: 'give', shipId: product.shipId });
+
+    // Then nothing was said and no words remain queued.
+    expect(core.state.messages.filter(({ selector }) => selector.kind === 'meeting')).toEqual([]);
+    expect(theMeeting()?.micRequests).toEqual([]);
+  });
+
+  it('retains unsaid words in an ended meeting and names that request in its ended notice', async () => {
+    // Given a ship waiting with words.
+    await done(product, { kind: 'request', payload: 'Still unsaid', model: SESSION_MODEL });
+    const requestedAt = core.clock.now();
+
+    // When the moderator ends the meeting before granting the mic.
+    unwrap(await messaging.changeMeeting(chief, { meetingId, change: { kind: 'end' } }));
+
+    // Then the words stay in the request and the notice identifies it without copying them.
+    const read = unwrap(await messaging.readMeeting(product, { meetingId, limit: 20, cursor: undefined }));
+    expect(read.mic.requests).toMatchObject([{ ship: { id: product.shipId }, requestedAt, words: { payload: 'Still unsaid' } }]);
+    const ended = core.state.messages.find(({ contentType, selector }) => contentType === 'application/vnd.aeolus.meeting.ended+json' && selector.kind === 'ship' && selector.shipId === product.shipId);
+    expect(JSON.parse(plainPayloadOf(ended ?? { payload: '' }))).toEqual({ meetingId, unsaidRequest: { shipId: product.shipId, requestedAt: requestedAt.toISOString() } });
+    expect(read.contributions.items).toEqual([]);
+  });
+
+  it('accepts exactly 64 KB of UTF-8 words and refuses one byte more without storing a request', async () => {
+    // Given participants of an open meeting.
+    const boundary = 'é'.repeat(32_768);
+
+    // When they request with exactly the limit and one byte more.
+    unwrap(await changed(product, { kind: 'request', payload: boundary, model: SESSION_MODEL }));
+    const refused = refusalOf(await changed(marketing, { kind: 'request', payload: `${boundary}a`, model: SESSION_MODEL }));
+
+    // Then only the valid request exists.
+    expect(refused.kind).toBe('PAYLOAD_TOO_LARGE');
+    expect(micState().waiting).toEqual([product.shipId]);
+  });
+
+  it('checks the sending model when the words are requested', async () => {
+    // Given an agent participant.
+    // When it queues words without its model.
+    const refused = refusalOf(await changed(product, { kind: 'request', payload: 'No model' }));
+    // Then it is refused before it queues anything.
+    expect(refused.kind).toBe('MODEL_REQUIRED');
+    expect(micState().waiting).toEqual([]);
+  });
+});
+
+
+it('keeps the requesting crew and model when another crew is present as its words arrive', async () => {
+  // Given words queued by one authenticated crew.
+  const requestingCrew = crewAboard(core, product);
+  await done(requestingCrew, { kind: 'request', payload: 'My words', model: 'requesting-model' });
+  const laterCrew = crewAboard(core, product);
+  expect(laterCrew.leaseId).not.toBe(requestingCrew.leaseId);
+
+  // When the moderator grants the mic after the crew changed.
+  await done(chief, { kind: 'give', shipId: product.shipId });
+
+  // Then the contribution names its original crew and model.
+  const contribution = core.state.messages.find(({ selector }) => selector.kind === 'meeting');
+  expect(contribution).toMatchObject({ senderShipId: product.shipId, senderLeaseId: requestingCrew.leaseId, model: 'requesting-model', payload: 'My words' });
+});
+
+it.each(['leave', 'revoke', 'nameModerator', 'retire'])('says queued words when the mic is freed by %s', async (change) => {
+  // Given a holder and a ship waiting with words under fifo.
+  await done(chief, { kind: 'setPattern', pattern: 'fifo' });
+  await done(design, { kind: 'request' });
+  await done(product, { kind: 'request', payload: 'Next words', model: SESSION_MODEL });
+
+  // When the holder goes off the mic through a meeting life change.
+  if (change === 'leave') unwrap(await messaging.changeMeeting(design, { meetingId, change: { kind: 'leave' } }));
+  if (change === 'revoke') unwrap(await messaging.changeMeeting(chief, { meetingId, change: { kind: 'revoke', shipId: design.shipId } }));
+  if (change === 'nameModerator') unwrap(await messaging.changeMeeting(chief, { meetingId, change: { kind: 'nameModerator', shipId: design.shipId } }));
+  if (change === 'retire') unwrap(await registry.retireShip(argo, { shipId: design.shipId }));
+
+  // Then the waiting ship's words are contributed and the mic released.
+  expect(core.state.messages.filter(({ selector }) => selector.kind === 'meeting')).toMatchObject([{ senderShipId: product.shipId, payload: 'Next words' }]);
+  expect(micState()).toEqual({ holder: null, waiting: [] });
 });

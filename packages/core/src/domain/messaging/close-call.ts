@@ -14,7 +14,7 @@ import type { AcceptRefusal } from './message.js';
 import type { MeetingRepository, RequestHasher } from './ports.js';
 
 export interface CloseCallTx extends CallCloseTx {
-  meetings: Pick<MeetingRepository, 'findForUpdate' | 'findCall' | 'saveCall' | 'closedCallCount' | 'save'>;
+  meetings: Pick<MeetingRepository, 'findForUpdate' | 'findCall' | 'saveCall' | 'closedCallCount' | 'save' | 'contributed'>;
 }
 export type CloseCallRefusal = PresenceRefusal | AcceptRefusal | DomainError<'NOT_PERSON' | 'MESSAGE_NOT_FOUND' | 'KEY_UNAVAILABLE'>;
 export type CloseCall = (caller: ShipCaller, input: Readonly<{ meetingId: MeetingId; callId: MessageId }>) => Promise<Result<undefined, CloseCallRefusal>>;
