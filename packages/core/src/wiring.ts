@@ -607,7 +607,7 @@ export function createUseCases(options: {
     closeCall: createCloseCall({ uow, clock, ids, hasher: sha256Hasher, sealing }),
     openCall: createOpenCall({ uow, clock, ids, hasher: sha256Hasher, sealing }),
     openMeeting: createOpenMeeting({ uow, clock, ids, hasher: sha256Hasher, sealing }),
-    readMeeting: createReadMeeting({ uow, sealing }),
+    readMeeting: createReadMeeting({ uow, sealing, clock, ids }),
     listMeetings: createListMeetings({ uow }),
     changeMic: createChangeMic({ uow, clock, ids, hasher: sha256Hasher, sealing }),
     changeMeeting: createChangeMeeting({ uow, clock, ids, hasher: sha256Hasher, sealing }),

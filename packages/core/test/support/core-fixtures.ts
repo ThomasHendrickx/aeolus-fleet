@@ -427,7 +427,7 @@ export function messagingUseCases(core: InMemoryCore) {
     closeCall: createCloseCall({ ...deps, hasher: core.hasher, sealing }),
     openCall: createOpenCall({ ...deps, hasher: core.hasher, sealing }),
     openMeeting: createOpenMeeting({ ...deps, hasher: core.hasher, sealing: core.sealing }),
-    readMeeting: createReadMeeting({ uow: core.uow, sealing }),
+    readMeeting: createReadMeeting({ uow: core.uow, sealing, clock: core.clock, ids: core.ids }),
     listMeetings: createListMeetings({ uow: core.uow }),
     changeMic: createChangeMic({ ...deps, hasher: core.hasher, sealing: core.sealing }),
     changeMeeting: createChangeMeeting({ ...deps, hasher: core.hasher, sealing: core.sealing }),

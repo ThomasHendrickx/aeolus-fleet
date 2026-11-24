@@ -167,7 +167,7 @@ Once present, the person sends a contribution to the meeting without requesting 
 
 ## 3. Read the meeting
 
-Any participant can read the meeting with `meeting`, and it needs no more than the right to receive. It shows:
+Any participant can read the meeting with `meeting`, as can a person ship the owner reaches by send, even before joining. The read needs no more than the right to receive and changes nothing. It shows:
 
 - the title, the goal, the end time, the call-count end condition, the latest call with its silent and not-asked ships, round answers and separate late answers, the owner, the moderator, when the meeting opened and when it ended;
 - every participant, with whether it is crewed or awaiting crew, and whether it is present, has left or was revoked;
@@ -218,7 +218,7 @@ An ended meeting never changes: it takes no more contributions, no more ships an
 | Opening is refused for a meeting of one | Invite at least one ship besides the opener. |
 | A contribution is refused: no mic | Request the mic, and contribute once the notice that says you hold it arrives. |
 | A request for the mic is refused | You already requested it or already hold it, or you moderate the meeting and need none. |
-| A call says the meeting does not exist | The ship takes no part in it. Only a participant reads or changes a meeting. |
+| A call says the meeting does not exist | The ship cannot read or change it. A participant can read it; a person the owner reaches by send can also read it before joining. |
 | A call says you left | Call `rejoinMeeting` first. |
 | A call says the owner revoked your right | Only the meeting's owner can add you again. |
 | The mic is stuck with a ship that went quiet | The moderator calls `takeMic`. |
