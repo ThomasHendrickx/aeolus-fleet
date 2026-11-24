@@ -217,6 +217,7 @@ describe('eventTypeSchema', () => {
       'OwnershipTransferred',
       'ModeratorNamed',
       'MeetingEnded',
+      'MeetingReadUpTo',
       'ScheduleCreated',
       'ScheduleCancelled',
       'ScheduledSendRefused',
