@@ -538,7 +538,7 @@ export const GuardReadPending: Story = {
 
 function GuardRecoveryCommission(props: ComponentProps<typeof CommissionDialog>) {
   const [hasGuardReadFailed, setHasGuardReadFailed] = useState(true);
-  return <><button type="button" onClick={() => { setHasGuardReadFailed(false); }}>Catalogue read succeeded</button><CommissionDialog {...props} crewRequest={{ offers: OFFERS, guardChoices: { names: ['no-push'], floor: ['base'] }, hasGuardReadFailed, onSettingsChange: () => undefined }} /></>;
+  return <><button type="button" data-testid="commission-guard-recovery" onClick={() => { setHasGuardReadFailed(false); }}>Catalogue read succeeded</button><CommissionDialog {...props} crewRequest={{ offers: OFFERS, guardChoices: { names: ['no-push'], floor: ['base'] }, hasGuardReadFailed, onSettingsChange: () => undefined }} /></>;
 }
 
 export const GuardReadRecovery: Story = {
@@ -548,7 +548,7 @@ export const GuardReadRecovery: Story = {
     await userEvent.type(screen.getByTestId('crew-settings-first-prompt'), 'Keep this prompt');
     await expect(screen.getByTestId('commission-submit')).toBeDisabled();
     // A successful retry updates props without remounting or discarding input.
-    screen.getByRole('button', { name: 'Catalogue read succeeded' }).click();
+    screen.getByTestId('commission-guard-recovery').click();
     await waitFor(async () => { await expect(screen.getByTestId('commission-submit')).toBeEnabled(); });
     await expect(screen.getByTestId('commission-name')).toHaveValue('reviewer-03');
     await expect(screen.getByTestId('crew-settings-first-prompt')).toHaveValue('Keep this prompt');

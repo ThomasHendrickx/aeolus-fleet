@@ -129,6 +129,8 @@ export function CommissionShip({ isOpen, onOpenChange }: { isOpen: boolean; onOp
               crewRequest: {
                 offers,
                 guardChoices: guard.data,
+                hasGuardReadFailed: guard.isError,
+                isGuardReading: guard.data === undefined && !guard.isError,
                 squadrons: squadronsConnection === 'connected' ? (squadrons.data ?? []).filter((squadron) => squadron.state !== 'disbanded').map((squadron) => squadron.id) : undefined,
                 ...(machineLabels === undefined ? {} : { machineLabels }),
                 check: check.data,
@@ -137,6 +139,7 @@ export function CommissionShip({ isOpen, onOpenChange }: { isOpen: boolean; onOp
             }
           : {})}
         onSubmit={async (ship, request) => {
+          if (hasTrierarchs && (guard.isError || guard.data === undefined)) return { isOk: false, error: { kind: 'crewRefused', message: 'Rule sets could not be read. Try again later.' } };
           // A new key for every submission: the server's guard against a retried request, not a way to resubmit.
           const commissioned = { ...ship, idempotencyKey: crypto.randomUUID() };
           if (!hasTrierarchs || request === undefined) {

@@ -58,6 +58,8 @@ interface CommissionDialogProps {
    */
   crewRequest?: {
     guardChoices?: GuardChoices;
+    hasGuardReadFailed?: boolean;
+    isGuardReading?: boolean;
     offers: readonly HarnessOffer[];
     squadrons?: readonly string[];
     /** The fleet's labels and machines, for the request's machine labels (#357); the field waits for them. */
@@ -131,7 +133,8 @@ function CommissionDialogBody({ types, taken, onTypedChange, isPending: isReques
   const isTypeValid = isShipHandle(trimmedType);
   const isTypeProblem = trimmedType !== '' && !isTypeValid;
   const isOwnerReady = owner === undefined || ownerShipId !== undefined;
-  const canCommission = check.kind === 'available' && isTypeValid && shipLimit === undefined && isCrewReady && isOwnerReady;
+  const isGuardUnavailable = crewRequest?.hasGuardReadFailed === true || crewRequest?.isGuardReading === true;
+  const canCommission = !isGuardUnavailable && check.kind === 'available' && isTypeValid && shipLimit === undefined && isCrewReady && isOwnerReady;
   const missing = [check.kind === 'available' ? null : 'name', isTypeValid ? null : 'type', isOwnerReady ? null : 'owner', isCrewReady ? null : 'crew settings'].filter((item) => item !== null);
   const missingRequirements = shipLimit !== undefined ? 'The fleet is at its ship limit.' : missing.length === 2 && missing[0] === 'name' && missing[1] === 'type' ? 'Enter a name and type.' : missing.length === 2 && missing[0] === 'owner' && missing[1] === 'crew settings' ? 'Pick an owner and complete crew settings.' : `Complete ${missing.join(', ')}.`;
   const missingHelp = missing.length === 2 && missing[0] === 'name' && missing[1] === 'type' && shipLimit === undefined ? 'Complete the two fields above to commission this ship.' : shipLimit !== undefined ? 'View the limits or retire a ship before commissioning another.' : [check.kind === 'available' ? null : name === '' ? 'Enter a free ship name.' : check.message, isTypeValid ? null : 'Enter a type.', isOwnerReady ? null : owner.choices?.length === 0 ? 'Commission the person’s ship first.' : 'Pick the person who answers for this ship.', isCrewReady ? null : crewRequest.offers.length === 0 ? 'Connect a computer offering a harness, or turn off Request a crew.' : workspaceNote ?? 'Complete the crew settings, or turn off Request a crew.'].filter((item) => item !== null).join(' ');
@@ -332,12 +335,13 @@ function CommissionDialogBody({ types, taken, onTypedChange, isPending: isReques
           />
         ) : null}
       </div>
+      {crewRequest?.hasGuardReadFailed === true ? <InlineError title="Rule sets could not be read. Try again later." /> : null}
       {(submitError ?? error) === undefined ? null : <InlineError title="Not commissioned" description={submitError ?? error ?? ''} />}
       {isWaitingForMachine ? <p className="text-meta text-muted-foreground" data-testid="commission-crew-note">The request will wait for a machine with these labels.</p> : null}
       <DialogFooter className="items-center max-sm:fixed max-sm:inset-x-0 max-sm:bottom-0 max-sm:z-10 max-sm:flex-col max-sm:items-stretch max-sm:border-t max-sm:border-border max-sm:bg-popover max-sm:p-4 max-sm:[&_button]:w-full max-sm:[&_button]:h-(--size-control-touch)">
         {!canCommission ? <div className="mr-auto flex min-w-0 flex-1 flex-col gap-1 text-meta max-sm:order-first max-sm:mb-2" role="status" data-testid="commission-disabled-reason">
-          <span>{missingRequirements}</span>
-          <span className="text-muted-foreground">{missingHelp}</span>
+          <span>{crewRequest?.hasGuardReadFailed === true ? null : isGuardUnavailable ? 'Waiting for the trierarch plugin.' : missingRequirements}</span>
+          <span className="text-muted-foreground">{isGuardUnavailable ? null : missingHelp}</span>
         </div> : !isCrewRequested ? null : <span className="mr-auto text-meta text-muted-foreground" >{isWaitingForMachine ? 'The request will wait for a machine with these labels.' : crewRequest?.check?.kind === 'noRoom' ? 'The request will wait for room.' : 'Turn off Request a crew to get the starting prompt instead.'}</span>}
         <DialogClose render={<Button type="button" className="max-sm:order-last" disabled={isPending} />}>Cancel</DialogClose>
         <Button type="submit" variant="primary" isLoading={isPending} disabled={!canCommission} data-testid="commission-submit">

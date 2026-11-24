@@ -66,6 +66,8 @@ export function FormSquadron({ blueprints, templates, isOpen, onOpenChange, init
               state: crew.isError || machines.isError ? 'error' : crew.data === undefined || machines.data === undefined || isReadingModels ? 'loading' : 'ready',
               members: crew.data ?? [],
               guardChoices: guard.data,
+              hasGuardReadFailed: guard.isError,
+              isGuardReading: guard.data === undefined && !guard.isError,
               offers: offersOf(machines.data ?? [], enabledModels.data ?? []),
               ...(context === undefined ? {} : { context }),
               ...(machineLabels === undefined ? {} : { machineLabels }),
@@ -80,6 +82,7 @@ export function FormSquadron({ blueprints, templates, isOpen, onOpenChange, init
           }
         : {})}
       onSubmit={(blueprint, members) => {
+        if (hasTrierarchs && (guard.isError || guard.data === undefined)) return;
         form.mutate(
           { blueprint, ...(members === undefined ? {} : { members: formMembersOf(members, context) }) },
           {

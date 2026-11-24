@@ -42,6 +42,8 @@ interface FormSquadronDialogProps {
 /** What step 2 fills each member from. */
 export interface FormCrew {
   guardChoices?: GuardChoices;
+  hasGuardReadFailed?: boolean;
+  isGuardReading?: boolean;
   state: 'loading' | 'error' | 'ready';
   members: readonly MemberDraft[];
   offers: readonly HarnessOffer[];
@@ -67,7 +69,7 @@ function MemberForm({ drafts, crew, isPending, error, onBack, onSubmit }: { draf
   const offered = offeredWorkspacesOf(crew.offers);
   const workspaces = workspaceItemsOf(offered, undefined);
   const { ready, total } = readyCount(members, offered.repositories);
-  const isReady = ready === total;
+  const isReady = ready === total && crew.hasGuardReadFailed !== true && crew.isGuardReading !== true;
   const errorSlot = error === undefined ? undefined : labelErrorSlot(error, { members, context: crew.context });
   const isWorkspaceMissing = members.some((member) => member.workspace === undefined);
 
@@ -133,6 +135,7 @@ function MemberForm({ drafts, crew, isPending, error, onBack, onSubmit }: { draf
           />
         ))}
       </div>
+      {crew.hasGuardReadFailed === true ? <InlineError title="Rule sets could not be read. Try again later." /> : null}
       {error !== undefined && errorSlot === undefined ? <InlineError variant="field" title="Couldn’t form the squadron" description={error} /> : null}
       <DialogFooter className="items-center border-t border-border pt-3">
         <span className="mr-auto text-meta tabular-nums" data-testid="form-squadron-ready" aria-live="polite">
@@ -147,7 +150,7 @@ function MemberForm({ drafts, crew, isPending, error, onBack, onSubmit }: { draf
           disabled={!isReady}
           data-testid="form-squadron-submit"
           onClick={() => {
-            onSubmit(members);
+            if (isReady) onSubmit(members);
           }}
         >
           {isPending ? 'Forming' : 'Form squadron'}

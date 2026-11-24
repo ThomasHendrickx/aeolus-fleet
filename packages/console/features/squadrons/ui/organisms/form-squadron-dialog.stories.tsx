@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
-import { expect, userEvent, within } from 'storybook/test';
+import { useState, type ComponentProps } from 'react';
+import { expect, userEvent, waitFor, within } from 'storybook/test';
 
 import type { MemberDraft } from '../../../../lib/forming-members';
 import { blueprintChoices } from '../../../../lib/squadrons-view';
@@ -136,21 +137,41 @@ export const MembersPhone: Story = { args: { crew: CREW }, play: toMembers, glob
 
 /** Catalogue failure reuses the approved line and blocks creation with cached choices too. */
 export const GuardReadFailed: Story = {
-  args: { crew: { ...MembersAllReady.args?.crew as FormCrew, guardChoices: { names: ['no-push'], floor: ['base'] }, hasGuardReadFailed: true } },
+  args: { crew: { ...CREW, ...MembersAllReady.args?.crew, guardChoices: { names: ['no-push'], floor: ['base'] }, hasGuardReadFailed: true } },
   play: async (context) => {
     await toMembers(context);
     const body = within(context.canvasElement.ownerDocument.body);
-    await expect(body.getByText('Rule sets could not be read. Try again later.')).toBeVisible();
+    await waitFor(async () => { await expect(body.getByText('Rule sets could not be read. Try again later.')).toBeVisible(); });
     await expect(body.getByTestId('form-squadron-ready')).toHaveTextContent('3 of 3 members ready');
     await expect(body.getByTestId('form-squadron-submit')).toBeDisabled();
   },
 };
 
 export const GuardReadPending: Story = {
-  args: { crew: { ...MembersAllReady.args?.crew as FormCrew, isGuardReading: true } },
+  args: { crew: { ...CREW, ...MembersAllReady.args?.crew, isGuardReading: true } },
   play: async (context) => {
     await toMembers(context);
     const body = within(context.canvasElement.ownerDocument.body);
     await expect(body.getByTestId('form-squadron-submit')).toBeDisabled();
+  },
+};
+
+
+function GuardRecoverySquadron(props: ComponentProps<typeof FormSquadronDialog>) {
+  const [hasGuardReadFailed, setHasGuardReadFailed] = useState(true);
+  return <><button type="button" data-testid="squadron-guard-recovery" onClick={() => { setHasGuardReadFailed(false); }}>Catalogue read succeeded</button><FormSquadronDialog {...props} crew={{ ...CREW, ...MembersAllReady.args?.crew, hasGuardReadFailed }} /></>;
+}
+
+export const GuardReadRecovery: Story = {
+  render: (args) => <GuardRecoverySquadron {...args} />,
+  play: async (context) => {
+    await toMembers(context);
+    const body = within(context.canvasElement.ownerDocument.body);
+    await expect(body.getByTestId('form-squadron-submit')).toBeDisabled();
+    // A catalogue refresh keeps the member form mounted with its settings.
+    body.getByTestId('squadron-guard-recovery').click();
+    await waitFor(async () => { await expect(body.getByTestId('form-squadron-submit')).toBeEnabled(); });
+    await expect(body.getByTestId('form-squadron-ready')).toHaveTextContent('3 of 3 members ready');
+    await expect(body.queryByText('Rule sets could not be read. Try again later.')).not.toBeInTheDocument();
   },
 };
