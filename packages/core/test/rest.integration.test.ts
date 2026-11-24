@@ -139,6 +139,7 @@ describe('the ship calls at /api/v1', () => {
     expect(response.status).toBe(200);
     expect(JSON.stringify(paths['/ship/meeting'])).toContain('closedCalls');
     expect(JSON.stringify(paths['/ship/meeting'])).toContain('question');
+    expect(JSON.stringify(paths['/ship/meeting'])).toContain('question is null');
     expect(JSON.stringify(paths['/ship/meeting'])).toContain('number');
     expect(Object.keys(paths)).toEqual([
       '/ship/register',

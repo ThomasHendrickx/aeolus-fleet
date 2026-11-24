@@ -269,6 +269,7 @@ it('reads an ended meeting after retention prunes its opening call contribution'
   const { callId } = unwrap(await core.useCases.openCall(chief, { meetingId, question: 'Keep this question?', model: MODEL, idempotencyKey: newKey() }));
   unwrap(await core.useCases.changeMeeting(chief, { meetingId, change: { kind: 'end' } }));
   await core.prisma.$executeRaw`UPDATE fleets SET retention_set = true, retention_days = 1 WHERE id = ${chief.fleetId}`;
+  await core.prisma.delivery.updateMany({ where: { messageId: callId }, data: { state: 'handled' } });
   core.clock.advance(2 * 24 * 60 * 60 * 1_000);
 
   // When the real retention pass removes the contributions.
@@ -287,7 +288,12 @@ it.each(['retained', 'pruned', 'malformed'])('backfills an old call with a %s op
   // Given a call from before question storage, with or without its valid opening payload.
   const { callId } = unwrap(await core.useCases.openCall(chief, { meetingId, question: 'Original question?', model: MODEL, idempotencyKey: newKey() }));
   unwrap(await core.useCases.changeMeeting(chief, { meetingId, change: { kind: 'end' } }));
-  if (opening === 'pruned') await core.prisma.message.delete({ where: { id: callId } });
+  if (opening === 'pruned') await core.prisma.$transaction(async (db) => {
+    await db.$queryRaw`SELECT set_config('aeolus.pruning_fleet', ${chief.fleetId}, true)`;
+    await db.event.deleteMany({ where: { messageId: callId } });
+    await db.delivery.deleteMany({ where: { messageId: callId } });
+    await db.message.delete({ where: { id: callId } });
+  });
   if (opening === 'malformed') await core.prisma.message.update({ where: { id: callId }, data: { payload: 'invalid JSON' } });
   await core.prisma.$executeRaw`ALTER TABLE meeting_calls DROP COLUMN IF EXISTS question`;
 

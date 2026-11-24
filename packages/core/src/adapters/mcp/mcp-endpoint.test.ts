@@ -372,6 +372,7 @@ describe('the ship tools at /mcp', () => {
     await start();
     const meeting = await tool('meeting');
     expect(meeting.description).toContain('closedCalls');
+    expect(meeting.description).toContain('question is null');
     expect(meeting.description).toContain('question and number (1 for the first call)');
     expect(JSON.stringify(meeting.outputSchema)).toContain('closedCalls');
     expect(JSON.stringify(meeting.outputSchema)).toContain('question');

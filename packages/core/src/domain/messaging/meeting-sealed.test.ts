@@ -188,6 +188,7 @@ it('seals unsaid request words when a plain fleet turns sealing on', async () =>
 it('reads a call with an unavailable opening key and marks its contribution unreadable', async () => {
   // Given a sealed call whose company key is no longer available.
   const { callId } = unwrap(await messaging.openCall(chief, { meetingId, question: 'Ready?', idempotencyKey: newKey(), model: SESSION_MODEL }));
+  const { messageId } = unwrap(await messaging.sendMessage(chief, { selector: { kind: 'meeting', meetingId }, payload: CONTRIBUTION, idempotencyKey: newKey(), model: SESSION_MODEL }));
   await core.keyVault.disable(companyKey);
   core.clock.advance(DATA_KEY_CACHE_MS);
 
@@ -196,5 +197,5 @@ it('reads a call with an unavailable opening key and marks its contribution unre
 
   // Then the call is readable and its contribution degrades as other contributions do.
   expect(read.call).toMatchObject({ callId, question: 'Ready?' });
-  expect(read.contributions.items).toContainEqual(expect.objectContaining({ messageId: callId, payload: { kind: 'unreadable' } }));
+  expect(read.contributions.items).toContainEqual(expect.objectContaining({ messageId, payload: { kind: 'unreadable' } }));
 });
