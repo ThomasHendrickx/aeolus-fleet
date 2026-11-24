@@ -87,6 +87,20 @@ export async function checkReach(
   return refuse('NOT_REACHABLE', NOT_REACHABLE_MESSAGE);
 }
 
+/** Whether one ship can reach another by send, without recording a refusal. */
+export async function canReachShip(
+  tx: Pick<CheckReachTx, 'networkSettings' | 'ships' | 'labels' | 'declaredNetworkRules'>,
+  input: { fleetId: FleetId; senderShipId: ShipId; recipientShipId: ShipId },
+): Promise<boolean> {
+  const settings = await tx.networkSettings.findForShare(input.fleetId);
+  const inForce = await rulesInForceOf(tx, settings);
+  const sender = await tx.ships.find(input.fleetId, input.senderShipId);
+  if (inForce.isOpen || !sender || sender.kind === 'operator') return true;
+  const recipient = await tx.ships.find(input.fleetId, input.recipientShipId);
+  if (!recipient) return true;
+  return allowsReach(inForce, { verb: 'send', sender: reaching(await shipAsItIs(tx, sender)), recipient: reaching(await shipAsItIs(tx, recipient)), isAnswerToSender: false });
+}
+
 const NOT_REACHABLE_MESSAGE = 'The network rules do not allow this send';
 
 /** The ports a read's reach check reads and writes, inside the read's unit of work. */

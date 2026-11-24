@@ -173,8 +173,11 @@ describe('reading a meeting', () => {
     const before = structuredClone(core.state);
     let refusalWrites = 0;
     const readMeeting = createReadMeeting({
-      uow: { run: (work) => core.uow.run((tx) => work({ ...tx, reachRefusals: { ...tx.reachRefusals, record: async (refusal) => { refusalWrites += 1; await tx.reachRefusals.record(refusal); } } })) },
-      sealing: core.sealing, clock: core.clock, ids: core.ids,
+      uow: { run: (work) => core.uow.run((tx) => {
+        const observed = { ...tx, reachRefusals: { ...tx.reachRefusals, record: async (refusal: Parameters<typeof tx.reachRefusals.record>[0]) => { refusalWrites += 1; await tx.reachRefusals.record(refusal); } } };
+        return work(observed);
+      }) },
+      sealing: core.sealing,
     });
 
     // When the person reads the meeting.
