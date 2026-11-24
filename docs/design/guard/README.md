@@ -132,6 +132,7 @@ Answer: approved by Thomas, option 1. Decision: the resolved sets and commits ar
 Context: the plugin owns this data; trusted repositories propose a plugin scope of their own.
 Options: 1 a plugin scope `trierarch:guard` to add and remove repositories and mark the floor, read by fleet:read; choosing a set on a request stays fleet:manage like any crew setting; 2 fleet:manage for all.
 Pick: 1. Weakening the floor is a different right from asking for a crew; with fleet:manage alone any requester could remove the floor.
+Answer: approved by Thomas, option 1. Decision: a plugin scope `trierarch:guard` adds and removes rule set repositories and marks the floor; fleet:read reads them; choosing a set on a crew request stays fleet:manage, like any crew setting.
 
 ### Q15. Where the console shows it
 
