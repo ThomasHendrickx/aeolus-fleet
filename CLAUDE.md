@@ -61,7 +61,7 @@ The `aeolus-fleet-*` skills live here. The others come from ThomasHendrickx/skil
 
 ## Quality
 
-- npm run typecheck, npm run lint and npm test green before every commit, except a test-driven red commit that only adds the failing test and is labelled `(red)`. Push only a green head. Zero lint errors, no eslint-disable without a comment explaining why.
+- `npm run check:push` green before every commit, except a test-driven red commit that only adds the failing test and is labelled `(red)`. Push only a green head. Zero lint errors, no eslint-disable without a comment explaining why.
 - Every use case has unit tests with in-memory ports. Every adapter that touches Postgres has a Testcontainers test.
 - Delivery guarantees are proven by tests: concurrency, rollback, restart. A guarantee without a test does not exist.
 - Report a test as passing only after you saw it run by name.

@@ -25,7 +25,8 @@
     "test:integration": "vitest run --project '*:integration'",
     "test:e2e": "vitest run --project '*:e2e'",
     "test:stories": "vitest run --project '*:stories'",
-    "set-version": "node scripts/set-version.ts"
+    "set-version": "node scripts/set-version.ts",
+    "check:push": "node scripts/check-push.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
