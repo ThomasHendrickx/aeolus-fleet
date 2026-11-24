@@ -392,7 +392,7 @@ export const fleetRouter = router({
     .meta({
       description: [
         'Needs fleet:manage. Asks that a ship be kept crewed, with settings: one JSON object of at most 16 KB (harness, workspace, options,',
-        'an optional first prompt, squadron and machine labels), refused with the reason unless they are crew settings whose machine labels are label',
+        'an optional first prompt, squadron, machine labels, MCP server names and ruleSet name), refused with the reason unless they are crew settings whose machine labels are label',
         'value ids of the fleet. Replaces the settings of a request the ship holds.',
         'Never argo, the viewer or a retired ship. Answers the settings version, one more on every request.',
         'It answers so even for settings no trierarch takes (harness, workspace, options): read the crew request status and reason on fleet_ship afterwards.',
@@ -449,6 +449,7 @@ export const fleetRouter = router({
     .meta({
       description: [
         "Needs crew:run, for a ship whose crew request is assigned to yours. Says how its crew stands: crewing, running, restarting, crashed or releasing.",
+        'Reports guard sets at their applied commits, a refusal count and at most twenty recent refusals. Omitted guard means unknown; settings, assignment and release changes clear it.',
         'Once the request is releasing, only releasing: stop its session, end its lease, then call confirmCrewRelease.',
       ].join(' '),
     })
@@ -463,7 +464,7 @@ export const fleetRouter = router({
   reportActivity: scopedProcedure('crew:run')
     .meta({
       description: [
-        "Needs crew:run. Writes, for each crewed ship whose crew request is assigned to yours, its session's latest event: when, its kind (text, tool, result or error) and for a tool call the tool's name, never content.",
+        "Needs crew:run. Writes, for each crewed ship whose crew request is assigned to yours, its session's latest event: when, its kind (text, tool, result, error or refused) and for a tool call or refusal the tool's name, never content.",
         'State the interval you write at, in seconds: activity reads unknown once your write is older than twice it. Up to 100 ships per call;',
         'an entry for a ship not assigned to yours, without a crew request or not crewed is refused for that entry, with its code, and the rest are taken.',
       ].join(' '),

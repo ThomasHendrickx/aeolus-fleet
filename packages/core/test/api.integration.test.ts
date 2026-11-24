@@ -324,6 +324,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_mic_request_words$/),
       expect.stringMatching(/^\d{14}_person_meeting_intervention$/),
       expect.stringMatching(/^\d{14}_meeting_call_question$/),
+      expect.stringMatching(/^\d{14}_guard_status$/),
     ]);
   });
 });
@@ -2937,4 +2938,21 @@ it('tRPC commission selects requester ownership and rejects ownership without a 
   expect(refused).toBe('BAD_REQUEST');
   await expect(database.ship.findUniqueOrThrow({ where: { id: first.shipId } })).resolves.toMatchObject({ ownerShipId: requester.shipId });
   await expect(database.ship.count({ where: { fleetId, name: 'trpc-invalid-owner-mode' } })).resolves.toBe(0);
+});
+
+
+it('carries ruleSet, applied guard and refused activity through tRPC (#2070)', async () => {
+  const manager = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'fleet:manage', 'fleet:read', 'crew:assign', 'crew:run'])}` });
+  const target = await agentShip();
+  const { shipId: trierarchShipId } = await manager.ship.whoami.query();
+  const settings = { workspace: { kind: 'folder', name: 'notes' }, options: {}, ruleSet: 'no-push' };
+  const guard = { sets: [{ name: 'no-push', repository: 'company/rules', commit: '8d41e07', floor: false }], refusals: 1, recent: [{ at: '2026-09-29T12:00:00.000Z', tool: 'Bash', rule: 'git.deny push', set: 'no-push', commit: '8d41e07' }] };
+  await manager.fleet.crewRequest.mutate({ shipId: target.shipId, settings });
+  await manager.fleet.assignCrew.mutate({ shipId: target.shipId, trierarchShipId });
+  await client().ship.register.mutate({ ...target, location: { kind: 'SERVER' } });
+
+  await manager.fleet.reportCrewStatus.mutate({ shipId: target.shipId, status: 'running', guard });
+  await manager.fleet.reportActivity.mutate({ intervalSeconds: 30, activities: [{ shipId: target.shipId, kind: 'refused', tool: 'Bash', at: guard.recent[0]?.at ?? '' }] });
+
+  await expect(manager.fleet.ship.query({ shipId: target.shipId })).resolves.toMatchObject({ crewRequest: { settings, guard }, activity: { kind: 'refused', tool: 'Bash' } });
 });

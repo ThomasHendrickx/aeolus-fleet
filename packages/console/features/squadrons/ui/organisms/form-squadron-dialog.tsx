@@ -6,6 +6,7 @@ import { useId, useState } from 'react';
 import { workspaceFromItem, workspaceItemsOf, type HarnessOffer } from '../../../../lib/crew-settings-form';
 import { labelErrorSlot, membersOf, missingOf, offeredWorkspacesOf, readyCount, withWorkspaceForAll, type MemberDraft, type MemberValues } from '../../../../lib/forming-members';
 import type { LabelContext } from '../../../../lib/labels';
+import type { GuardChoices } from '../../../../lib/guard-choices';
 import type { MachineLabelsInput } from '../../../../lib/machine-labels';
 import type { TemplateVersion } from '../../../../lib/squadrons-schemas';
 import { checkInText, memberCount, rolePreviews, type BlueprintChoice } from '../../../../lib/squadrons-view';
@@ -40,6 +41,7 @@ interface FormSquadronDialogProps {
 
 /** What step 2 fills each member from. */
 export interface FormCrew {
+  guardChoices?: GuardChoices;
   state: 'loading' | 'error' | 'ready';
   members: readonly MemberDraft[];
   offers: readonly HarnessOffer[];
@@ -109,6 +111,7 @@ function MemberForm({ drafts, crew, isPending, error, onBack, onSubmit }: { draf
             key={member.slot}
             member={member}
             offers={crew.offers}
+            guardChoices={crew.guardChoices}
             {...(crew.machineLabels === undefined ? {} : { machineLabels: crew.machineLabels })}
             isOpen={openSlots.has(member.slot) || errorSlot === member.slot}
             onOpenChange={(isOpen) => {

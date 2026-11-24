@@ -917,3 +917,21 @@ it('REST commission selects requester ownership and rejects ownership without a 
   await expect(database.ship.findUniqueOrThrow({ where: { id: first.shipId } })).resolves.toMatchObject({ ownerShipId: requester.shipId });
   await expect(database.ship.count({ where: { fleetId: argo.fleetId, name: 'invalid-owner-mode' } })).resolves.toBe(0);
 });
+
+
+it('carries ruleSet and guard through REST and publishes guard and refused in OpenAPI (#2070)', async () => {
+  const manager = await crewedWithFleetScopes(['fleet:manage', 'fleet:read', 'crew:assign', 'crew:run']);
+  const scout = await commissioned();
+  const settings = aCrewSettings({ ruleSet: 'no-push' });
+  const guard = { sets: [{ name: 'no-push', repository: 'company/rules', commit: '8d41e07', floor: false }], refusals: 0, recent: [] };
+  await ok(request('fleet/crewRequest', { crewToken: manager.crewToken, body: { shipId: scout.shipId, settings } }), z.object({ settingsVersion: z.literal(1) }));
+  await ok(request('fleet/assignCrew', { crewToken: manager.crewToken, body: { shipId: scout.shipId, trierarchShipId: manager.shipId } }), z.strictObject({}));
+
+  await ok(request('fleet/reportCrewStatus', { crewToken: manager.crewToken, body: { shipId: scout.shipId, status: 'running', guard } }), z.strictObject({}));
+
+  const read = await request('fleet/ship', { crewToken: manager.crewToken, body: { shipId: scout.shipId } });
+  expect(read).toMatchObject({ status: 200, body: { crewRequest: { settings, guard } } });
+  const { paths } = z.object({ paths: z.record(z.string(), z.unknown()) }).parse(await (await fetch(`${address}/api/v1/openapi.json`)).json());
+  expect(JSON.stringify(paths['/fleet/reportCrewStatus'])).toContain('guard');
+  expect(JSON.stringify(paths['/fleet/reportActivity'])).toContain('refused');
+});

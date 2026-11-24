@@ -4,6 +4,8 @@ import { ChevronDown, ChevronRight, CircleCheck, CircleDashed } from 'lucide-rea
 import { useId, type ReactNode } from 'react';
 
 import { classNames, Input, Label, InlineError } from '@aeolus-fleet/ui';
+import type { GuardChoices } from '../../../../lib/guard-choices';
+import { RuleSetField } from '../../../../components/molecules/rule-set-field';
 import type { HarnessOffer } from '../../../../lib/crew-settings-form';
 import { missingOf, offeredWorkspacesOf, workspaceNoteOf, type MemberValues } from '../../../../lib/forming-members';
 import { harnessWord } from '../../../../lib/harness';
@@ -15,6 +17,7 @@ import { McpServersField } from '../../../../components/molecules/mcp-servers-fi
 import { WorkspaceFields } from '../../../../components/molecules/workspace-fields';
 
 interface MemberCrewSectionProps {
+  guardChoices?: GuardChoices;
   member: MemberValues;
   /** What the answering machines offer, harness by harness. */
   offers: readonly HarnessOffer[];
@@ -81,7 +84,7 @@ function optionText(value: unknown): string {
  * prompt, machine labels, MCP servers and the parameters its role left to fill
  * (required). Starts from its files; every change is the form's, nearest wins.
  */
-export function MemberCrewSection({ member, offers, machineLabels, isOpen, onOpenChange, isDisabled, error, onChange }: MemberCrewSectionProps) {
+export function MemberCrewSection({ member, offers, machineLabels, guardChoices, isOpen, onOpenChange, isDisabled, error, onChange }: MemberCrewSectionProps) {
   const ids = { harness: useId(), options: useId(), firstPrompt: useId(), parameters: useId() };
   const missing = missingOf(member);
   const offered = offeredWorkspacesOf(offers);
@@ -211,6 +214,9 @@ export function MemberCrewSection({ member, offers, machineLabels, isOpen, onOpe
               onChange({ ...member, mcpServers: member.mcpServers.filter((each) => each !== server) });
             }}
           />
+          {guardChoices === undefined ? null : <RuleSetField shipName={member.slot} choices={guardChoices}
+            value={member.ruleSet ?? ''} isDisabled={isDisabled}
+            onChange={(ruleSet) => { onChange({ ...member, ruleSet }); }} />}
           <Field id={ids.firstPrompt} label="First prompt" hint="The session starts with it, on its first start only.">
             <Textarea
               id={ids.firstPrompt}

@@ -4,6 +4,7 @@ import type { CrewSettings } from '@aeolus-fleet/common';
 import { Plus } from 'lucide-react';
 import { useState } from 'react';
 
+import { useGuardChoices } from '../../../lib/use-guard-choices';
 import { lazyDialog } from '../../../lib/lazy-dialog';
 import { useConsoleConstants } from '../../../lib/console-constants';
 import { defaultValues, offersOf, settingsOf } from '../../../lib/crew-settings-form';
@@ -43,6 +44,7 @@ export function CommissionShip({ isOpen, onOpenChange }: { isOpen: boolean; onOp
   // Only a connected plugin can place a request: until then, a request is crewed by hand.
   const hasTrierarchs = useTrierarchPluginConnection() === 'connected';
   const machines = useMachines();
+  const guard = useGuardChoices(isOpen);
   const enabledModels = useEnabledModels();
   const squadronsConnection = useSquadronsConnection();
   const squadrons = useSquadrons();
@@ -126,6 +128,7 @@ export function CommissionShip({ isOpen, onOpenChange }: { isOpen: boolean; onOp
           ? {
               crewRequest: {
                 offers,
+                guardChoices: guard.data,
                 squadrons: squadronsConnection === 'connected' ? (squadrons.data ?? []).filter((squadron) => squadron.state !== 'disbanded').map((squadron) => squadron.id) : undefined,
                 ...(machineLabels === undefined ? {} : { machineLabels }),
                 check: check.data,

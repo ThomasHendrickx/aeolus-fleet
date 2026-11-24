@@ -63,7 +63,7 @@ describe('reading the stuck deliveries by cause and place', () => {
       status: 'crewing',
       reason: null,
       attempt: 0,
-      sessionStartedAt: null,
+      sessionStartedAt: null, guard: null,
       isFinal: false,
       givenBack: [],
     });

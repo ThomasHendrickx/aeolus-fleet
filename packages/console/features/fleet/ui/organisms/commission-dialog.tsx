@@ -8,6 +8,7 @@ import { useId, useState } from 'react';
 import { Button, classNames, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, dialogSurface, DialogTitle, Input, Label, Switch, InlineError } from '@aeolus-fleet/ui';
 import { useConsoleConstants } from '../../../../lib/console-constants';
 import { promptBytes, settingsOf, withDefaultsFilled, workspaceProblems, type CrewSettingsValues, type HarnessOffer } from '../../../../lib/crew-settings-form';
+import type { GuardChoices } from '../../../../lib/guard-choices';
 import type { MachineLabelsInput } from '../../../../lib/machine-labels';
 import type { SettingsCheck } from '../../../../lib/trierarch-plugin-schemas';
 import { asHandle, checkShipName } from '../../../../lib/ship-name';
@@ -56,6 +57,7 @@ interface CommissionDialogProps {
    * puts the ship on Needs crew, to crew by hand.
    */
   crewRequest?: {
+    guardChoices?: GuardChoices;
     offers: readonly HarnessOffer[];
     squadrons?: readonly string[];
     /** The fleet's labels and machines, for the request's machine labels (#357); the field waits for them. */
@@ -316,6 +318,7 @@ function CommissionDialogBody({ types, taken, onTypedChange, isPending: isReques
             isCommission
             shipName={name.trim() === '' ? 'this ship' : name.trim()}
             offers={crewRequest.offers}
+            guardChoices={crewRequest.guardChoices}
             values={crewValues}
             firstPromptMaxBytes={firstPromptMaxBytes}
             onChange={(next) => {

@@ -1,4 +1,4 @@
-import type { Party } from '@aeolus-fleet/common';
+import type { GuardStatus, Party } from '@aeolus-fleet/common';
 import { CircleX, Clock, KeyRound, ListChecks, LoaderCircle, Pen, Power, RotateCcw, ShipWheel } from 'lucide-react';
 import Link from 'next/link';
 import { Fragment, type ReactNode } from 'react';
@@ -19,6 +19,7 @@ import { LabelChip } from '../../../../components/molecules/label-chip';
 export type CrewRequestBusy = 'request' | 'remove' | 'restart' | undefined;
 
 interface CrewRequestCardProps {
+  guard?: GuardStatus | null;
   stage: CrewRequestStage;
   /** Who asked for it, as recorded on the request; null while unknown. */
   requestedBy: Party | null;
@@ -204,7 +205,7 @@ function RepositoriesRow({ label, repositories }: { label: string; repositories:
 }
 
 /** A request's settings, as a grid of label and value (canvas CrewRequest, with the plugin). */
-function SettingsGrid({ rows, machineLabels = [] }: { rows: readonly SettingsRow[]; machineLabels?: readonly LabelChipData[] }) {
+function SettingsGrid({ rows, machineLabels = [], guard }: { rows: readonly SettingsRow[]; machineLabels?: readonly LabelChipData[]; guard?: GuardStatus | null }) {
   return (
     <dl data-testid="crew-request-settings" className="grid grid-cols-[repeat(auto-fill,minmax(8.5rem,1fr))] gap-x-5 gap-y-3 border-t border-border pt-3">
       {rows.map((row) =>
@@ -224,6 +225,25 @@ function SettingsGrid({ rows, machineLabels = [] }: { rows: readonly SettingsRow
           <RepositoriesRow key={row.label} label={row.label} repositories={row.repositories} />
         ),
       )}
+      {guard === undefined || guard === null ? null : <>
+        <div className="col-span-full flex min-w-0 flex-col gap-0.5" data-testid="crew-request-guard">
+          <dt className="text-caption font-medium text-muted-foreground">Guard</dt>
+          <dd className="flex min-w-0 flex-wrap items-center gap-1.5">
+            {guard.sets.length === 0 ? <span className="text-body text-muted-foreground">None</span> : guard.sets.map((set) => (
+              <span key={`${set.repository}:${set.name}`} title={`${set.repository} @ ${set.commit}`}
+                className="inline-flex max-w-full items-center gap-1 rounded border border-input bg-secondary px-1.5 font-mono text-id text-foreground">
+                <span className="min-w-0 break-all">{set.name}</span>
+                <span className="shrink-0 text-muted-foreground"> @ {set.commit.slice(0, 7)}</span>
+                {set.floor ? <span className="rounded border border-input px-1 font-sans text-caption">Floor</span> : null}
+              </span>
+            ))}
+          </dd>
+        </div>
+        <div className="col-span-full flex flex-col gap-0.5" data-testid="crew-request-refusals">
+          <dt className="text-caption font-medium text-muted-foreground">Refusals</dt>
+          <dd className="text-body tabular-nums">{guard.refusals}{guard.refusals === 0 ? null : <span className="text-meta text-muted-foreground">, see session activity</span>}</dd>
+        </div>
+      </>}
       {machineLabels.length === 0 ? null : (
         <div className="col-span-full flex min-w-0 flex-col gap-0.5" data-testid="crew-request-machine-labels">
           <dt className="text-caption font-medium text-muted-foreground">Machine labels</dt>
@@ -430,7 +450,7 @@ export function CrewRequestCard(props: CrewRequestCardProps) {
         )
       ) : null}
       {failed}
-      {props.settingsRows === undefined ? null : <SettingsGrid rows={props.settingsRows} machineLabels={props.machineLabels} />}
+      {props.settingsRows === undefined ? null : <SettingsGrid rows={props.settingsRows} machineLabels={props.machineLabels} guard={props.guard} />}
       {stage.kind === 'assigned' && props.login?.spentOnKeyUsd !== undefined ? <SpentOnKey amount={props.login.spentOnKeyUsd} /> : null}
       <p className="text-meta text-muted-foreground">
         {stage.kind === 'needsCrew' && !props.hasTrierarchs

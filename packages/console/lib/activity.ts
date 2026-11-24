@@ -5,10 +5,10 @@ import { relativeTime } from './relative-time';
 import { reportAge } from './report';
 
 /** An activity kind as a row words it, short: "tool 2 min". */
-const ROW_WORDS: Record<ActivityKind, string> = { text: 'text', tool: 'tool', result: 'result', error: 'error' };
+const ROW_WORDS: Record<ActivityKind, string> = { text: 'text', tool: 'tool', result: 'result', error: 'error', refused: 'refused' };
 
 /** An activity kind as the ship page words it: "Tool call 2 min ago". */
-const LINE_WORDS: Record<ActivityKind, string> = { text: 'Text', tool: 'Tool call', result: 'Tool result', error: 'Error' };
+const LINE_WORDS: Record<ActivityKind, string> = { text: 'Text', tool: 'Tool call', result: 'Tool result', error: 'Error', refused: 'Refused' };
 
 /** What the console shows of a ship's activity, and whether it reads unknown (the trierarch is likely down, never stopped work). */
 export interface ActivityText {

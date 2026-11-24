@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { guardStatusSchema } from './guard.js';
+
 import { idSchema } from '../ids/index.js';
 
 /**
@@ -93,6 +95,8 @@ export const listedCrewRequestSchema = z.object({
   attempt: z.int().min(0),
   /** When the session its trierarch runs now started, with the status; null while none runs. */
   startedAt: z.iso.datetime().nullable(),
+  /** The guard applied to these settings; null until reported, cleared when settings or assignment change. */
+  guard: guardStatusSchema.nullable(),
   /** The trierarchs that gave it back before their crew was final, oldest first (#382): placement leaves them out. Cleared on every new settings version. */
   givenBack: z.array(
     z.object({ trierarch: z.object({ id: idSchema('ship'), name: z.string() }), settingsVersion: z.int().min(1), reason: z.string(), givenBackAt: z.iso.datetime() }),
@@ -116,6 +120,8 @@ export const reportCrewStatusInputSchema = z.object({
   attempt: z.int().min(0).optional(),
   /** When the session it runs now started (ISO 8601 in UTC); null while none runs. Left out, null. */
   startedAt: z.iso.datetime().nullable().optional(),
+  /** Omitted means unknown, never the last reported guard. */
+  guard: guardStatusSchema.optional(),
 });
 
 /** Output of `fleet.reportCrewStatus`: nothing; the OK is the answer. */

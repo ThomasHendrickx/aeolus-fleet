@@ -3,6 +3,7 @@
 import type { CrewSettings, ShipId } from '@aeolus-fleet/common';
 import { useState, type ReactNode } from 'react';
 
+import { useGuardChoices } from '../../../lib/use-guard-choices';
 import { lazyDialog } from '../../../lib/lazy-dialog';
 import { useConsoleConstants } from '../../../lib/console-constants';
 import { defaultValues, offersOf, settingsOf, valuesOf } from '../../../lib/crew-settings-form';
@@ -37,12 +38,13 @@ export function useRequestCrewFlow(of: RequestCrewFor | undefined): { open: (mod
   const enabledModels = useEnabledModels();
   // A plugin that cannot answer them leaves the forms as without a rule: placement and its check still apply it.
   const enabled = enabledModels.data ?? [];
-  const isReading = machines.data === undefined || (enabledModels.data === undefined && !enabledModels.isError);
   const squadronsConnection = useSquadronsConnection();
   const squadrons = useSquadrons();
   const requestCrew = useRequestCrew();
   const labelContext = useLabelContext(machines.data?.map((machine) => machine.shipId));
   const [mode, setMode] = useState<'request' | 'edit'>();
+  const guard = useGuardChoices(mode !== undefined);
+  const isReading = machines.data === undefined || (enabledModels.data === undefined && !enabledModels.isError) || guard.data === undefined;
   // Null until the form changes: the check then asks for the settings the form starts with.
   const [edited, setEdited] = useState<CrewSettings | undefined | null>(null);
   const [refusedAt, setRefusedAt] = useState<Date>();
@@ -102,6 +104,7 @@ export function useRequestCrewFlow(of: RequestCrewFor | undefined): { open: (mod
           state={machines.isError ? 'unreachable' : isReading ? 'loading' : 'ready'}
           offers={offers}
           enabledModels={enabled}
+          guardChoices={guard.data}
           heldSettings={held}
           squadrons={squadronsConnection === 'connected' ? (squadrons.data ?? []).filter((squadron) => squadron.state !== 'disbanded').map((squadron) => squadron.id) : undefined}
           {...(machineLabels === undefined ? {} : { machineLabels })}
@@ -123,6 +126,7 @@ export function useRequestCrewFlow(of: RequestCrewFor | undefined): { open: (mod
           onRetry={() => {
             void machines.refetch();
             void enabledModels.refetch();
+            void guard.refetch();
           }}
         />
       ),

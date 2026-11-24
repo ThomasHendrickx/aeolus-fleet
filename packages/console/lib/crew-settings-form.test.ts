@@ -261,6 +261,7 @@ describe('settingsRows', () => {
       { label: 'MCP servers', value: null, isMono: true },
       { label: 'First prompt', value: '112 B' },
       { label: 'Squadron', value: null, isMono: true },
+      { label: 'Rule set', value: null, isMono: true },
     ]);
   });
 
@@ -303,12 +304,12 @@ describe('settingsRows', () => {
 
 
 it('keeps a chosen rule set when editing and changing harness, and omits None (#2070)', () => {
-  const offers = offersOf([aMachine('gd01')], NO_RULE);
+  const offers = [...offersOf([aMachine('gd01')], NO_RULE), { harness: 'codex', repositories: ['aeolus-fleet'], folders: [], options: [], mcpServers: [] }];
   const picked = { ...defaultValues(offers), ruleSet: 'no-push' };
 
-  const settings = settingsOf(withHarness(picked, { harness: picked.harness, offers }));
+  const settings = settingsOf(withHarness(picked, { harness: 'codex', offers }));
 
-  expect(settings).toMatchObject({ ruleSet: 'no-push' });
+  expect(settings).toMatchObject({ harness: 'codex', ruleSet: 'no-push' });
   expect(valuesOf(settings, { offers, enabledModels: NO_RULE })).toMatchObject({ ruleSet: 'no-push' });
   expect(settingsOf({ ...picked, ruleSet: '' })).not.toHaveProperty('ruleSet');
   expect(settingsRows(settings)).toContainEqual({ label: 'Rule set', value: 'no-push', isMono: true });

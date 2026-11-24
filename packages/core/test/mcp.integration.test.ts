@@ -583,3 +583,23 @@ it('MCP commission selects requester ownership and rejects ownership without a r
   await expect(database.ship.findUniqueOrThrow({ where: { id: first.shipId } })).resolves.toMatchObject({ ownerShipId: requester.shipId });
   await expect(database.ship.count({ where: { fleetId: argo.fleetId, name: 'mcp-invalid-owner-mode' } })).resolves.toBe(0);
 });
+
+
+it('carries ruleSet and guard through MCP and publishes guard and refused in tools/list (#2070)', async () => {
+  const manager = await commissionedWithFleetScopes(['fleet:manage', 'fleet:read', 'crew:assign', 'crew:run']);
+  const scout = await commissioned();
+  const session = await connect();
+  const crewToken = await register(session, manager);
+  const settings = { workspace: { kind: 'folder', name: 'notes' }, options: {}, ruleSet: 'no-push' };
+  const guard = { sets: [{ name: 'no-push', repository: 'company/rules', commit: '8d41e07', floor: false }], refusals: 0, recent: [] };
+  await call(session, { tool: { name: 'fleet_crewRequest', answers: z.object({ settingsVersion: z.literal(1) }) }, arguments: { crewToken, shipId: scout.shipId, settings } });
+  await call(session, { tool: { name: 'fleet_assignCrew', answers: z.strictObject({}) }, arguments: { crewToken, shipId: scout.shipId, trierarchShipId: manager.shipId } });
+
+  await call(session, { tool: { name: 'fleet_reportCrewStatus', answers: z.strictObject({}) }, arguments: { crewToken, shipId: scout.shipId, status: 'running', guard } });
+
+  const read = await call(session, { tool: { name: 'fleet_ship', answers: z.object({ crewRequest: z.unknown() }) }, arguments: { crewToken, shipId: scout.shipId } });
+  expect(read.crewRequest).toMatchObject({ settings, guard });
+  const listed = await session.listTools();
+  expect(JSON.stringify(listed.tools.find((tool) => tool.name === 'fleet_reportCrewStatus')?.inputSchema)).toContain('guard');
+  expect(JSON.stringify(listed.tools.find((tool) => tool.name === 'fleet_reportActivity')?.inputSchema)).toContain('refused');
+});

@@ -29,6 +29,7 @@ export interface MemberDraft {
     options: Record<string, OptionValue>;
     machineLabels?: { key: string; value: string }[];
     mcpServers?: string[];
+    ruleSet?: string;
   };
   parameters: { name: string; description: string; value: string | null }[];
 }
@@ -50,6 +51,7 @@ export interface MemberValues {
   unknownLabels: string[];
   /** The MCP servers the session starts with, by name. */
   mcpServers: string[];
+  ruleSet?: string;
   parameters: { name: string; description: string; value: string }[];
 }
 
@@ -73,6 +75,7 @@ export function membersOf(drafts: readonly MemberDraft[], context: LabelContext 
       machineLabels: labels.flatMap((label) => valueIdOf(label, context) ?? []),
       unknownLabels: labels.filter((label) => valueIdOf(label, context) === undefined).map((label) => `${label.key}=${label.value}`),
       mcpServers: [...(draft.crew.mcpServers ?? [])],
+      ...(draft.crew.ruleSet === undefined ? {} : { ruleSet: draft.crew.ruleSet }),
       parameters: draft.parameters.map((parameter) => ({ name: parameter.name, description: parameter.description, value: parameter.value ?? '' })),
     };
   });
@@ -118,7 +121,7 @@ export function formMembersOf(
   context: LabelContext | undefined,
 ): Record<
   string,
-  { crew: { harness?: string; workspace?: MemberWorkspace; firstPrompt?: string; options: Record<string, OptionValue>; machineLabels: { key: string; value: string }[]; mcpServers?: string[] }; parameters: Record<string, string> }
+  { crew: { harness?: string; workspace?: MemberWorkspace; firstPrompt?: string; options: Record<string, OptionValue>; machineLabels: { key: string; value: string }[]; mcpServers?: string[]; ruleSet?: string }; parameters: Record<string, string> }
 > {
   return Object.fromEntries(
     members.map((member) => [
@@ -130,6 +133,7 @@ export function formMembersOf(
           ...(member.firstPrompt.trim() === '' ? {} : { firstPrompt: member.firstPrompt }),
           options: member.options,
           machineLabels: labelNamesOf(member, context),
+          ...(member.ruleSet === undefined || member.ruleSet === '' ? {} : { ruleSet: member.ruleSet }),
           ...(member.mcpServers.length === 0 ? {} : { mcpServers: member.mcpServers }),
         },
         parameters: Object.fromEntries(member.parameters.map((parameter) => [parameter.name, parameter.value])),

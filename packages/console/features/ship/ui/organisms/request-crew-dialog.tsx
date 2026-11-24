@@ -6,6 +6,7 @@ import { useState, type ReactNode } from 'react';
 
 import { useConsoleConstants } from '../../../../lib/console-constants';
 import { promptBytes, settingsOf, valuesOf, withDefaultsFilled, workspaceProblems, type CrewSettingsValues, type HarnessOffer } from '../../../../lib/crew-settings-form';
+import type { GuardChoices } from '../../../../lib/guard-choices';
 import type { MachineLabelsInput } from '../../../../lib/machine-labels';
 import { secondsTime } from '../../../../lib/relative-time';
 import type { SettingsCheck } from '../../../../lib/trierarch-plugin-schemas';
@@ -16,6 +17,7 @@ import { CrewSettingsFields } from '../../../../components/molecules/crew-settin
 export type RequestCrewDialogState = 'loading' | 'unreachable' | 'ready';
 
 interface RequestCrewDialogProps {
+  guardChoices?: GuardChoices;
   shipName: string;
   /** Request a crew, or Edit the settings of the request held (decision 3). */
   mode: 'request' | 'edit';
@@ -129,6 +131,7 @@ function RequestCrewForm(props: Omit<RequestCrewDialogProps, 'isOpen' | 'onOpenC
       {offers.length === 0 ? null : <CrewSettingsFields
           shipName={shipName}
           offers={offers}
+          guardChoices={props.guardChoices}
           values={values}
           firstPromptMaxBytes={firstPromptMaxBytes}
           onChange={change}

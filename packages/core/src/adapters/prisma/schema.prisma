@@ -286,6 +286,7 @@ enum ActivityKind {
   tool
   result
   error
+  refused
 
   @@map("activity_kind")
 }
@@ -400,6 +401,7 @@ model CrewRequest {
   /// How many times its trierarch restarted the session within its restart window, with the status: 0 on its first start.
   attempt          Int         @default(0)
   /// When the session its trierarch runs now started, with the status; null while none runs.
+  guard            Json?
   sessionStartedAt DateTime?   @map("session_started_at") @db.Timestamptz(3)
   /// Whether its crew is final: set by its trierarch's first running, restarting or crashed, kept whatever status follows, cleared on every new settings version.
   isFinal          Boolean     @default(false) @map("is_final")

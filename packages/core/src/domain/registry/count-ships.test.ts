@@ -41,7 +41,7 @@ function requestCrew(shipId: ShipId, assigned?: { to: ShipId; status: CrewStatus
     status: assigned?.status ?? null,
     reason: null,
     attempt: 0,
-    sessionStartedAt: null,
+    sessionStartedAt: null, guard: null,
     isFinal: false,
     givenBack: [],
   });

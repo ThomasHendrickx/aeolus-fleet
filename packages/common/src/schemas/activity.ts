@@ -4,10 +4,10 @@ import { idSchema } from '../ids/index.js';
 
 /**
  * The kind of a session's latest event as its trierarch observes it
- * (headless design, H14): text, a tool call, a tool result or an error. No
+ * (headless design, H14): text, a tool call, a tool result, an error or a refusal. No
  * content: the fleet holds none of a transcript.
  */
-export const ACTIVITY_KINDS = ['text', 'tool', 'result', 'error'] as const;
+export const ACTIVITY_KINDS = ['text', 'tool', 'result', 'error', 'refused'] as const;
 export const activityKindSchema = z.enum(ACTIVITY_KINDS);
 export type ActivityKind = z.infer<typeof activityKindSchema>;
 

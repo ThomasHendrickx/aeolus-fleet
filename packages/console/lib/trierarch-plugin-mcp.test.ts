@@ -183,7 +183,7 @@ describe('the console route forwards mcp.get and mcp.replace to the trierarch pl
 
 it('reads the offered guard sets and floor through the console route, projecting tokens away (#2070)', async () => {
   const data = { version: 1, repositories: [{ repository: 'company/rules', folder: 'rules', access: 'private', token: 'not-returned' }], sets: [{ name: 'no-push', repository: 'company/rules', commit: '8d41e07', file: 'rules/no-push.yaml' }], errors: [], conflicts: [], floor: ['base'] };
-  const plugin = aPlugin(async () => Response.json({ result: { data } }));
+  const plugin = aPlugin(() => Promise.resolve(Response.json({ result: { data } })));
 
   const response = await forwardMcpCall(aRequest('/api/trierarch-plugin/guard.get', { headers: { cookie: COOKIE, origin: CONSOLE_ORIGIN } }), { procedure: 'guard.get', environment: ENVIRONMENT, fetchImplementation: plugin.fetch });
 

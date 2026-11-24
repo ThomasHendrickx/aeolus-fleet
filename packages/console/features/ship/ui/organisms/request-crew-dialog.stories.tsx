@@ -140,28 +140,52 @@ export const EditedBeforeOffersArrive: Story = {
 
 /** Guard design, settings boards 1-4. */
 export const RuleSetNone: Story = {
-  args: { guardChoices: { names: ['base', 'no-push'], floor: ['base'] } },
+  args: { ...Edit.args, machineLabels: undefined, squadrons: undefined, guardChoices: { names: ['base', 'no-push'], floor: ['base'] } },
   play: async () => {
     await expect(screen.getByTestId('crew-settings-rule-set')).toHaveTextContent('None');
-    await expect(screen.getByText(/The floor applies to every request: base/)).toBeVisible();
+    await waitFor(async () => { await expect(screen.getByText(/The floor applies to every request: base/)).toBeVisible(); });
     await userEvent.click(screen.getByTestId('crew-settings-rule-set'));
-    await userEvent.click(screen.getByRole('option', { name: 'no-push', exact: true }));
+    await userEvent.click(await screen.findByRole('option', { name: 'no-push' }));
     await expect(screen.getByTestId('crew-settings-rule-set')).toHaveTextContent('no-push');
+    await checkGuardLayout(screen.getByTestId('request-crew-dialog'));
   },
 };
 export const RuleSetChosen: Story = {
-  args: { ...Edit.args, heldSettings: { ...SETTINGS, ruleSet: 'no-push' }, guardChoices: { names: ['base', 'no-push'], floor: ['base'] } },
-  play: async () => { await expect(screen.getByTestId('crew-settings-rule-set')).toHaveTextContent('no-push'); },
+  args: { ...Edit.args, machineLabels: undefined, squadrons: undefined, heldSettings: { ...SETTINGS, ruleSet: 'no-push' }, guardChoices: { names: ['base', 'no-push'], floor: ['base'] } },
+  play: async () => { await expect(screen.getByTestId('crew-settings-rule-set')).toHaveTextContent('no-push'); await checkGuardLayout(screen.getByTestId('request-crew-dialog')); },
 };
 export const RuleSetsEmpty: Story = {
-  args: { guardChoices: { names: [], floor: ['base'] } },
+  args: { ...Edit.args, machineLabels: undefined, squadrons: undefined, guardChoices: { names: [], floor: ['base'] } },
   play: async () => {
     await expect(screen.getByTestId('crew-settings-rule-set')).toBeDisabled();
-    await expect(screen.getByText(/No rule sets are connected/)).toBeVisible();
-    await expect(screen.getByText(/The floor applies to every request: base/)).toBeVisible();
+    await waitFor(async () => { await expect(screen.getByText(/No rule sets are connected/)).toBeVisible(); });
+    await waitFor(async () => { await expect(screen.getByText(/The floor applies to every request: base/)).toBeVisible(); });
+    await checkGuardLayout(screen.getByTestId('request-crew-dialog'));
   },
 };
 export const RuleSetNoFloor: Story = {
-  args: { guardChoices: { names: ['no-push'], floor: [] } },
-  play: async () => { await expect(screen.getByText(/None: no rules apply/)).toBeVisible(); },
+  args: { ...Edit.args, machineLabels: undefined, squadrons: undefined, guardChoices: { names: ['no-push'], floor: [] } },
+  play: async () => { await waitFor(async () => { await expect(screen.getByText(/None: no rules apply/)).toBeVisible(); }); await checkGuardLayout(screen.getByTestId('request-crew-dialog')); },
 };
+
+
+async function checkGuardLayout(element: HTMLElement) {
+  if (!('__vitest_browser__' in window)) return;
+  const { page } = await import('vitest/browser');
+  const original = { width: window.innerWidth, height: window.innerHeight, isDark: document.documentElement.classList.contains('dark') };
+  try {
+    for (const width of [375, 1440, 1920]) {
+      await page.viewport(width, 1200);
+      for (const isDark of [false, true]) {
+        document.documentElement.classList.toggle('dark', isDark);
+        await waitFor(async () => {
+          await expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(width);
+          await expect(element.getBoundingClientRect().right).toBeLessThanOrEqual(width);
+        });
+      }
+    }
+  } finally {
+    document.documentElement.classList.toggle('dark', original.isDark);
+    await page.viewport(original.width, original.height);
+  }
+}

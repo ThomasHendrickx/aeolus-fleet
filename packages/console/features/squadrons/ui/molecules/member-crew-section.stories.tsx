@@ -168,3 +168,13 @@ export const Disabled: Story = {
     await expect(canvas.getByTestId('crew-settings-branch')).toBeDisabled();
   },
 };
+
+
+export const GuardRuleSet: Story = {
+  args: { isOpen: true, member: { ...READY, ruleSet: 'no-push' }, guardChoices: { names: ['no-push'], floor: ['base'] } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByTestId('crew-settings-rule-set')).toHaveTextContent('no-push');
+    await expect(canvas.getByText(/The floor applies to every request: base/)).toBeVisible();
+  },
+};

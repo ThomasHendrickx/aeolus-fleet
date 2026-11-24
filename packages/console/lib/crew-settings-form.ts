@@ -234,6 +234,7 @@ function namesRepository(text: string, repository: string): boolean {
 
 /** The form's values: always strings, so a field is never uncontrolled; empty means not given. */
 export interface CrewSettingsValues {
+  ruleSet?: string;
   harness: string;
   workspace: WorkspaceChoice | undefined;
   options: Record<string, string>;
@@ -313,6 +314,7 @@ export function valuesOf(settings: CrewSettings | null | undefined, offered: { o
     squadron: squadron ?? '',
     machineLabels: [...(machineLabels ?? [])],
     mcpServers: [...(mcpServers ?? [])],
+    ...(settings.ruleSet === undefined ? {} : { ruleSet: settings.ruleSet }),
   };
 }
 
@@ -328,6 +330,7 @@ export function settingsOf(values: CrewSettingsValues): CrewSettings | undefined
     ...(values.firstPrompt === '' ? {} : { firstPrompt: values.firstPrompt }),
     ...(values.squadron === '' ? {} : { squadron: values.squadron }),
     ...(values.machineLabels.length === 0 ? {} : { machineLabels: values.machineLabels }),
+    ...(values.ruleSet === undefined || values.ruleSet === '' ? {} : { ruleSet: values.ruleSet }),
     ...(values.mcpServers.length === 0 ? {} : { mcpServers: values.mcpServers }),
   };
 }
@@ -374,5 +377,6 @@ export function settingsRows(settings: CrewSettings | null | undefined): Setting
     { label: 'MCP servers', value: mcpServers.length === 0 ? null : mcpServers.join(', '), isMono: true },
     { label: 'First prompt', value: firstPrompt === undefined ? null : byteSize(promptBytes(firstPrompt)) },
     { label: 'Squadron', value: squadron ?? null, isMono: true },
+    { label: 'Rule set', value: settings.ruleSet ?? null, isMono: true },
   ];
 }
