@@ -189,3 +189,64 @@ async function checkGuardLayout(element: HTMLElement) {
     await page.viewport(original.width, original.height);
   }
 }
+
+
+/** A failed catalogue read blocks creation until it succeeds (Thomas, card 08c8c0be). */
+export const RuleSetsReadFailed: Story = {
+  args: { hasGuardReadFailed: true },
+  play: async () => {
+    await waitFor(async () => { await expect(screen.getByText('Rule sets could not be read. Try again later.')).toBeVisible(); });
+    await expect(screen.getByTestId('request-crew-submit')).toBeDisabled();
+    await checkGuardLayout(screen.getByTestId('request-crew-dialog'));
+  },
+};
+export const RuleSetsRefreshFailed: Story = {
+  args: { ...RuleSetChosen.args, hasGuardReadFailed: true },
+  play: async () => {
+    await expect(screen.getByTestId('crew-settings-rule-set')).toHaveTextContent('no-push');
+    await waitFor(async () => { await expect(screen.getByText('Rule sets could not be read. Try again later.')).toBeVisible(); });
+    await expect(screen.getByTestId('request-crew-submit')).toBeDisabled();
+  },
+};
+export const RuleSetsAndPluginReadFailed: Story = {
+  args: { state: 'unreachable', hasGuardReadFailed: true },
+  play: async () => {
+    await waitFor(async () => { await expect(screen.getByText('Rule sets could not be read. Try again later.')).toBeVisible(); });
+    await expect(screen.getByRole('button', { name: 'Request crew' })).toBeDisabled();
+  },
+};
+
+function RequestWithGuardRecovery(args: ComponentProps<typeof RequestCrewDialog>) {
+  const [hasFailed, setHasFailed] = useState(true);
+  useEffect(() => {
+    const read = () => { setHasFailed(false); };
+    window.addEventListener('guard-catalogue-read', read);
+    return () => { window.removeEventListener('guard-catalogue-read', read); };
+  }, []);
+  return <RequestCrewDialog {...args} hasGuardReadFailed={hasFailed}
+    guardChoices={hasFailed ? undefined : { names: ['no-push'], floor: ['base'] }} />;
+}
+
+export const RuleSetsReadRecovers: Story = {
+  render: (args) => <RequestWithGuardRecovery {...args} />,
+  play: async () => {
+    await expect(screen.getByTestId('request-crew-submit')).toBeDisabled();
+    await userEvent.type(screen.getByTestId('crew-settings-first-prompt'), 'Keep this prompt');
+
+    window.dispatchEvent(new Event('guard-catalogue-read'));
+
+    await waitFor(async () => { await expect(screen.getByTestId('request-crew-submit')).toBeEnabled(); });
+    await expect(screen.queryByText('Rule sets could not be read. Try again later.')).not.toBeInTheDocument();
+    await expect(screen.getByTestId('crew-settings-first-prompt')).toHaveValue('Keep this prompt');
+    await expect(screen.getByTestId('crew-settings-rule-set')).toHaveTextContent('None');
+  },
+};
+
+
+export const RuleSetsReading: Story = {
+  args: { isGuardReading: true },
+  play: async () => {
+    await expect(screen.getByTestId('request-crew-submit')).toBeDisabled();
+    await expect(screen.getByTestId('request-crew-note')).toHaveTextContent('Waiting for the trierarch plugin.');
+  },
+};
