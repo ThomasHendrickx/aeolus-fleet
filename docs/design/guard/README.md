@@ -111,6 +111,7 @@ Answer: approved by Thomas, option 1. Decision: the resolved rules are pinned fo
 Context: on the host a session can edit the harness's settings and the guard's files; in a container it cannot reach them.
 Options: 1 the guard always refuses writes to its own files, its rules and the harness's settings, as part of the mechanism, and the docs state that only a container session cannot reach them at all; 2 guard only in containers; 3 host best effort, unstated.
 Pick: 1. It protects the mechanism, not a policy (0016), and says plainly where the guarantee is complete.
+Answer: approved by Thomas, option 1. Decision: the guard always refuses writes to its own files, its rules and the harness's settings, as part of the mechanism; the docs state that only a container session cannot reach them at all.
 
 ### Q12. Harnesses without a guard
 
