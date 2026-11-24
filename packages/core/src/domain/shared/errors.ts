@@ -85,6 +85,7 @@ export type DomainErrorKind =
   | 'MIC_NOT_HELD'
   | 'MIC_FREE'
   | 'NOT_MODERATOR'
+  | 'NOT_PERSON'
   | 'PARTICIPANT_NOT_FOUND'
   | 'PARTICIPANT_LEFT'
   | 'PARTICIPANT_REVOKED'

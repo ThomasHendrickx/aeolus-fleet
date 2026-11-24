@@ -1482,7 +1482,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     },
     meetings: {
       createCall: (call) => { const meeting = state.meetings.find((m) => m.fleetId === call.fleetId && m.id === call.meetingId); if (meeting !== undefined) meeting.calls = [...(meeting.calls ?? []), storedCall(call)]; return Promise.resolve(); },
-      saveCall: (call) => { const meeting = state.meetings.find((m) => m.fleetId === call.fleetId && m.id === call.meetingId); if (meeting?.calls !== undefined) meeting.calls = meeting.calls.map((c) => c.id === call.id ? { ...c, closedAt: call.closedAt, silentShipIds: call.silentShipIds } : c); return Promise.resolve(); },
+      saveCall: (call) => { const meeting = state.meetings.find((m) => m.fleetId === call.fleetId && m.id === call.meetingId); if (meeting?.calls !== undefined) meeting.calls = meeting.calls.map((c) => c.id === call.id ? { ...c, closedAt: call.closedAt, silentShipIds: call.silentShipIds, notAskedShipIds: call.notAskedShipIds } : c); return Promise.resolve(); },
       findCall: (fleetId, { meetingId, callId }) => Promise.resolve(callWithAnswers(state, state.meetings.flatMap((m) => m.calls ?? []).find((c) => c.fleetId === fleetId && c.meetingId === meetingId && c.id === callId))),
       latestCall: (fleetId, meetingId) => Promise.resolve(callWithAnswers(state, state.meetings.flatMap((m) => m.calls ?? []).filter((c) => c.fleetId === fleetId && c.meetingId === meetingId).sort((a, b) => b.id.localeCompare(a.id))[0])),
       closedCallCount: (fleetId, meetingId) => Promise.resolve(state.meetings.flatMap((m) => m.calls ?? []).filter((c) => c.fleetId === fleetId && c.meetingId === meetingId && c.closedAt !== null).length),
@@ -1540,7 +1540,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       save: (meeting) => {
         const at = state.meetings.findIndex((held) => held.fleetId === meeting.fleetId && held.id === meeting.id);
         if (at >= 0) {
-          state.meetings[at] = { ...state.meetings[at], ...structuredClone(meeting) };
+          state.meetings[at] = { ...state.meetings[at], ...structuredClone(meeting), calls: state.meetings[at]?.calls };
           if (meeting.endedAt !== null) state.meetings[at].calls = state.meetings[at].calls?.map((call) => call.closedAt === null ? { ...call, closedAt: meeting.endedAt } : call);
         }
         return Promise.resolve();
@@ -2963,7 +2963,7 @@ function inMemoryWakeStreams(): InMemoryWakeStreams {
 }
 
 function storedCall(call: MeetingCall): Omit<MeetingCall, 'answers'> {
-  return structuredClone({ id: call.id, requestHash: call.requestHash, fleetId: call.fleetId, meetingId: call.meetingId, expectedShipIds: call.expectedShipIds, silentShipIds: call.silentShipIds, deadline: call.deadline, openedAt: call.openedAt, closedAt: call.closedAt });
+  return structuredClone({ id: call.id, requestHash: call.requestHash, fleetId: call.fleetId, meetingId: call.meetingId, expectedShipIds: call.expectedShipIds, silentShipIds: call.silentShipIds, notAskedShipIds: call.notAskedShipIds, deadline: call.deadline, openedAt: call.openedAt, closedAt: call.closedAt });
 }
 
 function callWithAnswers(state: InMemoryState, call: Omit<MeetingCall, 'answers'> | undefined): MeetingCall | undefined {

@@ -217,7 +217,6 @@ describe('eventTypeSchema', () => {
       'OwnershipTransferred',
       'ModeratorNamed',
       'MeetingEnded',
-      'MeetingReadUpTo',
       'ScheduleCreated',
       'ScheduleCancelled',
       'ScheduledSendRefused',
@@ -239,6 +238,7 @@ describe('eventTypeSchema', () => {
       'AlertRaised',
       'AlertCleared',
       'ExpectationsSet',
+      'MeetingReadUpTo',
     ]);
   });
 });

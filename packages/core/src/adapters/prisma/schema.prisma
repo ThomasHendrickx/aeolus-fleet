@@ -1712,6 +1712,7 @@ model MeetingCall {
   requestHash String @map("request_hash")
   expectedShipIds String[] @map("expected_ship_ids")
   silentShipIds String[] @default([]) @map("silent_ship_ids")
+  notAskedShipIds String[] @default([]) @map("not_asked_ship_ids")
   deadline DateTime @db.Timestamptz(3)
   openedAt DateTime @map("opened_at") @db.Timestamptz(3)
   closedAt DateTime? @map("closed_at") @db.Timestamptz(3)

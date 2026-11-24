@@ -6,7 +6,7 @@ import { ok, type Result } from '../shared/result.js';
 import { listedUnsealed, unsealed, type DataKeysNeeded, type HeldDataKeys } from './data-keys.js';
 import type { DomainError } from '../shared/errors.js';
 import type { Meeting } from './meeting.js';
-import { closeAnsweredCall, type MeetingCall } from './meeting-call.js';
+import { closeAnsweredCall, closeCallByPerson, type MeetingCall } from './meeting-call.js';
 import { endAfterCalls } from './meeting-life.js';
 import { tellOfChange, tellParticipant, type MeetingNoticeTx } from './meeting-notice.js';
 import type { AcceptRefusal } from './message.js';
@@ -22,6 +22,7 @@ export interface CallRead {
   callId: MeetingCall['id'];
   expectedShipIds: ShipId[];
   silentShipIds: ShipId[];
+  notAskedShipIds: ShipId[];
   lateAnswers: ContributionRead[];
   deadline: Date;
   openedAt: Date;
@@ -41,16 +42,29 @@ export async function readCall(deps: { tx: CallReadTx; held: HeldDataKeys }, cal
     const ship = rows.ships.get(answer.shipId);
     answers.push({ isLate: answer.isLate ?? false, callId: call.id, messageId: message.id, sender: { id: answer.shipId, name: ship?.name ?? answer.shipId }, senderLeaseId: message.senderLeaseId, payload: payload.value, contentType: message.contentType, model: message.model, sentAt: message.createdAt });
   }
-  return ok({ callId: call.id, expectedShipIds: call.expectedShipIds, silentShipIds: call.silentShipIds, lateAnswers: answers.filter((answer) => answer.isLate), deadline: call.deadline, openedAt: call.openedAt, closedAt: call.closedAt, answers: answers.filter((answer) => !answer.isLate) });
+  return ok({ callId: call.id, expectedShipIds: call.expectedShipIds, silentShipIds: call.silentShipIds, notAskedShipIds: call.notAskedShipIds, lateAnswers: answers.filter((answer) => answer.isLate), deadline: call.deadline, openedAt: call.openedAt, closedAt: call.closedAt, answers: answers.filter((answer) => !answer.isLate) });
 }
 export interface CallCloseTx extends MeetingNoticeTx, CallReadTx {
   messages: MessageRepository;
   meetings: Pick<MeetingRepository, 'saveCall' | 'closedCallCount' | 'save' | 'contributed'>;
 }
-/** One closed call owes one collected result, and may reach the meeting's end condition. */
-export async function closeCallWithin(deps: { tx: CallCloseTx; ids: IdGenerator; hasher: RequestHasher; held: HeldDataKeys }, input: { meeting: Meeting; call: MeetingCall; by: ShipId; at: Date }): Promise<Result<{ isMeetingEnded: boolean }, AcceptRefusal | DataKeysNeeded | DomainError<'KEY_UNAVAILABLE'>>> {
+interface CallCloseDeps { tx: CallCloseTx; ids: IdGenerator; hasher: RequestHasher; held: HeldDataKeys }
+interface CallCloseInput { meeting: Meeting; call: MeetingCall; by: ShipId; at: Date }
+type CallCloseResult = Result<{ isMeetingEnded: boolean }, AcceptRefusal | DataKeysNeeded | DomainError<'KEY_UNAVAILABLE'>>;
+
+/** One settled call owes one collected result. */
+export async function closeCallWithin(deps: CallCloseDeps, input: CallCloseInput): Promise<CallCloseResult> {
+  return storeClosedCall(deps, { ...input, closed: closeAnsweredCall(input.call, input) });
+}
+
+/** A person's close collects the round with the remaining ships not asked. */
+export async function closeCallByPersonWithin(deps: CallCloseDeps, input: CallCloseInput): Promise<CallCloseResult> {
+  return storeClosedCall(deps, { ...input, closed: closeCallByPerson(input.call, input) });
+}
+
+async function storeClosedCall(deps: CallCloseDeps, input: CallCloseInput & { closed: ReturnType<typeof closeAnsweredCall> }): Promise<CallCloseResult> {
   const { tx, ids } = deps;
-  const closed = closeAnsweredCall(input.call, { by: input.by, at: input.at });
+  const { closed } = input;
   await tx.meetings.saveCall(closed.call);
   for (const event of closed.events) await recordEvent({ events: tx.events, ids }, event);
   if (closed.events.length === 0) return ok({ isMeetingEnded: false });
@@ -65,7 +79,7 @@ export async function closeCallWithin(deps: { tx: CallCloseTx; ids: IdGenerator;
     const ship = rows.ships.get(answer.shipId);
     answers.push({ isLate: answer.isLate ?? false, callId: closed.call.id, senderLeaseId: message.senderLeaseId, isPayloadUnreadable: false, messageId: message.id, sender: { id: answer.shipId, name: ship?.name ?? answer.shipId }, payload: payload.value, contentType: message.contentType, model: message.model, sentAt: message.createdAt.toISOString() });
   }
-  const envelope = { meetingId: meeting.id, goal: meeting.goal, callId: closed.call.id, expectedShipIds: closed.call.expectedShipIds, silentShipIds: closed.call.silentShipIds, openedAt: closed.call.openedAt.toISOString(), deadline: closed.call.deadline.toISOString(), closedAt: at.toISOString() };
+  const envelope = { meetingId: meeting.id, goal: meeting.goal, callId: closed.call.id, expectedShipIds: closed.call.expectedShipIds, silentShipIds: closed.call.silentShipIds, notAskedShipIds: closed.call.notAskedShipIds, openedAt: closed.call.openedAt.toISOString(), deadline: closed.call.deadline.toISOString(), closedAt: at.toISOString() };
   const payload = roundNoticePayload({ ...envelope, isRoundReference: false, answers });
   const notice = await tellParticipant(deps, { meeting, senderShipId: meeting.moderatorShipId, shipId: meeting.moderatorShipId, contentType: MEETING_ROUND_CONTENT_TYPE, payload, model: undefined, at });
   if (!notice.isOk) return notice;
