@@ -4,7 +4,7 @@ import { refuse, type DomainError } from '../shared/errors.js';
 import { SYSTEM, shipActor, type Actor, type NewEvent } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
 import { checkPresent, isPresent, type Meeting, type Participant, type PresenceRefusal } from './meeting.js';
-import { offTheMic } from './mic.js';
+import { offTheMic, type MicRequest } from './mic.js';
 
 /**
  * A meeting's life after it opened (decision 0061, M2, M3, M13, M15, M17):
@@ -35,6 +35,7 @@ export interface MeetingChanged {
   events: NewEvent[];
   micGivenTo: ShipId | null;
   hasEnded: boolean;
+  said?: MicRequest[];
 }
 
 const ENDED = 'it no longer changes';
@@ -147,7 +148,7 @@ function gone(meeting: Meeting, input: { shipId: ShipId; actor: Actor; at: Date;
     events.push(lifeEvent(meeting, { type: 'ModeratorNamed', shipId: meeting.ownerShipId, actor, at }));
   }
   const offMic = offTheMic(changed, { shipId, actor, at });
-  return { meeting: offMic.meeting, events: [...events, ...offMic.events], micGivenTo: offMic.givenTo, hasEnded: false };
+  return { meeting: offMic.meeting, events: [...events, ...offMic.events], micGivenTo: offMic.givenTo, said: offMic.said, hasEnded: false };
 }
 
 /** The owner or the moderator handed to another present participant; a new moderator goes off the mic, as it needs none. */
@@ -161,7 +162,7 @@ function roleChanged(meeting: Meeting, input: { role: 'owner' | 'moderator'; shi
   }
   const named = lifeEvent(meeting, { type: 'ModeratorNamed', shipId, actor, at });
   const offMic = offTheMic({ ...meeting, moderatorShipId: shipId }, { shipId, actor, at });
-  return { meeting: offMic.meeting, events: [named, ...offMic.events], micGivenTo: offMic.givenTo, hasEnded: false };
+  return { meeting: offMic.meeting, events: [named, ...offMic.events], micGivenTo: offMic.givenTo, said: offMic.said, hasEnded: false };
 }
 
 function ended(meeting: Meeting, input: { by: ShipId; actor: Actor; at: Date }): MeetingChanged {

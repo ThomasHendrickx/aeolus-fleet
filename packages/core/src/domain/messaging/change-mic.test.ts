@@ -1,7 +1,7 @@
 import { MEETING_MIC_CONTENT_TYPE, meetingMicSchema, type MeetingId, type ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { initialiseFleet, plainPayloadOf, messagingUseCases, operatorCaller, registryUseCases, SESSION_MODEL } from '../../../test/support/core-fixtures.js';
+import { crewAboard, initialiseFleet, plainPayloadOf, messagingUseCases, operatorCaller, registryUseCases, SESSION_MODEL } from '../../../test/support/core-fixtures.js';
 import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { newKey } from '../../testing/keys.js';
@@ -498,4 +498,37 @@ describe('words queued with a mic request', () => {
     expect(refused.kind).toBe('MODEL_REQUIRED');
     expect(micState().waiting).toEqual([]);
   });
+});
+
+
+it('keeps the requesting crew and model when another crew is present as its words arrive', async () => {
+  // Given words queued by one authenticated crew.
+  const requestingCrew = crewAboard(core, product);
+  await done(requestingCrew, { kind: 'request', payload: 'My words', model: 'requesting-model' });
+  const laterCrew = crewAboard(core, product);
+  expect(laterCrew.leaseId).not.toBe(requestingCrew.leaseId);
+
+  // When the moderator grants the mic after the crew changed.
+  await done(chief, { kind: 'give', shipId: product.shipId });
+
+  // Then the contribution names its original crew and model.
+  const contribution = core.state.messages.find(({ selector }) => selector.kind === 'meeting');
+  expect(contribution).toMatchObject({ senderShipId: product.shipId, senderLeaseId: requestingCrew.leaseId, model: 'requesting-model', payload: 'My words' });
+});
+
+it.each(['leave', 'revoke', 'nameModerator', 'retire'])('says queued words when the mic is freed by %s', async (change) => {
+  // Given a holder and a ship waiting with words under fifo.
+  await done(chief, { kind: 'setPattern', pattern: 'fifo' });
+  await done(design, { kind: 'request' });
+  await done(product, { kind: 'request', payload: 'Next words', model: SESSION_MODEL });
+
+  // When the holder goes off the mic through a meeting life change.
+  if (change === 'leave') unwrap(await messaging.changeMeeting(design, { meetingId, change: { kind: 'leave' } }));
+  if (change === 'revoke') unwrap(await messaging.changeMeeting(chief, { meetingId, change: { kind: 'revoke', shipId: design.shipId } }));
+  if (change === 'nameModerator') unwrap(await messaging.changeMeeting(chief, { meetingId, change: { kind: 'nameModerator', shipId: design.shipId } }));
+  if (change === 'retire') unwrap(await registry.retireShip(argo, { shipId: design.shipId }));
+
+  // Then the waiting ship's words are contributed and the mic released.
+  expect(core.state.messages.filter(({ selector }) => selector.kind === 'meeting')).toMatchObject([{ senderShipId: product.shipId, payload: 'Next words' }]);
+  expect(micState()).toEqual({ holder: null, waiting: [] });
 });

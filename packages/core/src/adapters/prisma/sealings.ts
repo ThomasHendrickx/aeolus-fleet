@@ -85,25 +85,27 @@ export function createPrismaFleetSealingRepository(db: Db): FleetSealingReposito
       // The oldest plain message, through the plain payloads' partial index:
       // its order leaves the plan no scan of the fleet's messages, whatever
       // its statistics say of how many are still plain.
-      const [messages, schedule] = await Promise.all([
+      const [messages, schedule, queuedWords] = await Promise.all([
         db.$queryRaw<unknown[]>`
           SELECT id FROM messages
           WHERE fleet_id = ${fleetId} AND payload IS NOT NULL
           ORDER BY created_at, id
           LIMIT 1`,
         db.schedule.findFirst({ where: { fleetId, payload: { not: null } }, select: { id: true } }),
+        db.meetingMicRequest.findFirst({ where: { fleetId, payload: { not: null } }, select: { wordsMessageId: true } }),
       ]);
-      return messages.length > 0 || schedule !== null;
+      return messages.length > 0 || schedule !== null || queuedWords !== null;
     },
     payloadsToSeal: async (fleetId) => {
       // Before sealing is on every payload is plain: the messages the fleet
       // stored by UTC day, pruned ones too, read from message_days and never
       // from messages (#1855), and its plain schedules.
-      const [messages, schedules] = await Promise.all([
+      const [messages, schedules, queuedWords] = await Promise.all([
         db.messageDay.aggregate({ where: { fleetId }, _sum: { messages: true } }),
         db.schedule.count({ where: { fleetId, payload: { not: null } } }),
+        db.meetingMicRequest.count({ where: { fleetId, payload: { not: null } } }),
       ]);
-      return (messages._sum.messages ?? 0) + schedules;
+      return (messages._sum.messages ?? 0) + schedules + queuedWords;
     },
     turnOn: async (sealing, firstKey) => {
       const { keyAvailability } = sealing;
@@ -173,6 +175,11 @@ export function createPrismaFleetSealingRepository(db: Db): FleetSealingReposito
     plainPayloads: async (fleetId, { after, limit }) => {
       // The oldest plain messages after the cursor, through the (fleet_id,
       // created_at) index, so a batch never reads again the ones sealed before it.
+      const queuedWords = z.array(z.object({ id: idSchema('message'), payload: z.string() })).parse(await db.$queryRaw`
+        SELECT r.words_message_id AS id, r.payload FROM meeting_mic_requests r
+        JOIN meetings m ON m.fleet_id = r.fleet_id AND m.id = r.meeting_id
+        WHERE r.fleet_id = ${fleetId} AND r.payload IS NOT NULL
+        ORDER BY r.words_message_id LIMIT ${limit} FOR UPDATE OF m SKIP LOCKED`);
       const messageIds = z.array(z.object({ id: idSchema('message') })).parse(
         await db.$queryRaw`
           SELECT id FROM messages
@@ -194,9 +201,12 @@ export function createPrismaFleetSealingRepository(db: Db): FleetSealingReposito
         db.message.findMany({ where: { fleetId, id: { in: messageIds.map((row) => row.id) } }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] }),
         db.schedule.findMany({ where: { fleetId, id: { in: scheduleIds.map((row) => row.id) } }, orderBy: { id: 'asc' } }),
       ]);
-      return { messages: messages.map(toMessage), schedules: schedules.map(toSchedule) };
+      return { messages: messages.map(toMessage), schedules: schedules.map(toSchedule), ...(queuedWords.length === 0 ? {} : { queuedWords }) };
     },
     sealPayloads: async (fleetId, sealed) => {
+      for (const { id, payload } of sealed.queuedWords ?? []) {
+        await db.meetingMicRequest.updateMany({ where: { fleetId, wordsMessageId: id }, data: payloadColumnsOf(payload) });
+      }
       // The metadata pass may not have reached these plain messages yet.
       // Preserve their uuids before replacing the payload, in this transaction.
       if (sealed.messages.length > 0) {

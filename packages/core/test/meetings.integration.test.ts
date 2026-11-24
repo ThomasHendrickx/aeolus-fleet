@@ -5,6 +5,7 @@ import { createApp } from '../src/app.js';
 import { createPrismaClientTellingStatements } from '../src/adapters/prisma/client.js';
 import { createPrismaMessageRepository } from '../src/adapters/prisma/messaging.js';
 import { toMessage } from '../src/adapters/prisma/rows.js';
+import { createPrismaFleetSealingRepository } from '../src/adapters/prisma/sealings.js';
 import { createPrismaMeetingRepository } from '../src/adapters/prisma/meetings.js';
 import { assertIndexedPlan } from './support/assert-indexed-plan.js';
 import { sha256Hasher } from '../src/adapters/crypto/secrets.js';
@@ -489,6 +490,15 @@ describe('the mic on Postgres', () => {
       const queued = unwrap(await core.useCases.readMeeting(chief, { meetingId, cursor: undefined, limit: 20 }));
       expect(queued.mic.requests).toMatchObject([{ words: { payload: 'Ready for launch' } }]);
 
+      const statements: { query: string; params: string }[] = [];
+      const client = createPrismaClientTellingStatements(core.databaseUrl, (query, params) => { if (query.includes('FROM meeting_mic_requests r')) statements.push({ query, params }); });
+      try {
+        const plain = await client.$transaction((db) => createPrismaFleetSealingRepository(db).plainPayloads(fleetId, { after: null, limit: 20 }));
+        expect(plain.queuedWords).toMatchObject([{ payload: 'Ready for launch' }]);
+        expect(statements).toHaveLength(1);
+        for (const statement of statements) await assertIndexedPlan(core.prisma, statement);
+      } finally { await client.$disconnect(); }
+
       // When two moderator grants race for that request.
       await Promise.all([1, 2].map(() => core.useCases.changeMic(chief, { meetingId, change: { kind: 'give', shipId: marketingId } })));
 
@@ -508,7 +518,7 @@ describe('the mic on Postgres', () => {
     // Given words waiting for a moderator grant.
     unwrap(await core.useCases.changeMic(marketing, { meetingId, change: { kind: 'request', payload: 'Keep me queued', model: MODEL } }));
     const before = await storedCounts();
-    const changeMic = changeMicWith(unitOfWorkWith((tx) => ({ ...tx, deliveries: { ...tx.deliveries, create: async () => { throw new Error('disk full'); } } })));
+    const changeMic = changeMicWith(unitOfWorkWith((tx) => ({ ...tx, deliveries: { ...tx.deliveries, create: () => Promise.reject(new Error('disk full')) } })));
 
     // When storing its delivery fails halfway through the change.
     await expect(changeMic(chief, { meetingId, change: { kind: 'give', shipId: marketingId } })).rejects.toThrow('disk full');

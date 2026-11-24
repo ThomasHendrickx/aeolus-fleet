@@ -40,6 +40,7 @@ import {
   meetingIdInputSchema,
   meetingChangedOutputSchema,
   requestMicOutputSchema,
+  requestMicInputSchema,
   notHandledInputSchema,
   openCallInputSchema,
   openCallOutputSchema,
@@ -317,7 +318,7 @@ export const shipRouter = router({
         openedAt: read.openedAt.toISOString(),
         endedAt: read.endedAt?.toISOString() ?? null,
         endsAt: read.endsAt?.toISOString() ?? null,
-        mic: { ...read.mic, requests: read.mic.requests.map((request) => ({ ...request, requestedAt: request.requestedAt.toISOString() })) },
+        mic: { ...read.mic, requests: read.mic.requests.map((request) => ({ ...request, requestedAt: request.requestedAt.toISOString(), words: request.words === undefined ? undefined : { ...request.words, ...listedPayloadOutputOf(request.words.payload) } })) },
         contributions: { ...read.contributions, items: read.contributions.items.map((item) => ({ ...item, ...listedPayloadOutputOf(item.payload), sentAt: item.sentAt.toISOString() })) },
       };
     }),
@@ -342,17 +343,20 @@ export const shipRouter = router({
         'Requests the mic of a meeting you take part in: only the moderator and the holder of the mic contribute.',
         'You join the back of the list with the time of your request; one request per ship (CONFLICT for a second, or while you hold it).',
         'The moderator gives the mic, or it goes to the oldest request when the moderator set fifo.',
+        'Optional payload (at most 64 KB), contentType (default text/plain) and model queue words checked now as a contribution, keeping this crew as their sender.',
+        'When the mic arrives those words are contributed and the mic released together: caller.kind said with messageId now, or a mic notice with messageId later.',
+        'Withdraw removes the words; if the meeting ends first, its notice identifies your unsaidRequest and the meeting read keeps the words.',
         'When you get it, the moderator sends you a message of application/vnd.aeolus.meeting.mic+json naming the meeting. The moderator needs no mic (BAD_REQUEST).',
       ].join(' '),
     })
-    .input(meetingIdInputSchema)
+    .input(requestMicInputSchema)
     .output(requestMicOutputSchema)
     .mutation(async ({ ctx, input }) => {
-      const response = okOrThrow(await ctx.useCases.changeMic(ctx.caller, { meetingId: input.meetingId, change: { kind: 'request' } }));
+      const response = okOrThrow(await ctx.useCases.changeMic(ctx.caller, { meetingId: input.meetingId, change: { kind: 'request', payload: input.payload, contentType: input.contentType, model: input.model } }));
       if (response === undefined) {
         throw new Error('A mic request did not return its queue');
       }
-      return { ...response, mic: { ...response.mic, requests: response.mic.requests.map((request) => ({ ...request, requestedAt: request.requestedAt.toISOString() })) } };
+      return { ...response, mic: { ...response.mic, requests: response.mic.requests.map((request) => ({ ...request, requestedAt: request.requestedAt.toISOString(), words: request.words === undefined ? undefined : { ...request.words, ...listedPayloadOutputOf(request.words.payload) } })) } };
     }),
 
   /** Takes the caller's request off its meeting's mic list (decision 0061, M8). */

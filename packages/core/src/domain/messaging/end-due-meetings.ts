@@ -14,7 +14,7 @@ import type { AcceptRefusal } from './message.js';
 import type { MeetingRepository, RequestHasher } from './ports.js';
 
 export interface EndDueMeetingsTx extends CallCloseTx {
-  meetings: Pick<MeetingRepository, 'claimDue' | 'save' | 'latestCall' | 'saveCall' | 'closedCallCount'>;
+  meetings: Pick<MeetingRepository, 'claimDue' | 'save' | 'latestCall' | 'saveCall' | 'closedCallCount' | 'contributed'>;
 }
 export type EndMeetingFailed = (fleetId: FleetId, error: unknown) => void;
 export type EndDueMeetings = (onError?: EndMeetingFailed) => Promise<{ nextAttemptAt: Date | undefined }>;

@@ -1,13 +1,16 @@
-import { MEETING_ENDED_CONTENT_TYPE, MEETING_MIC_CONTENT_TYPE, type AccountId, type IdGenerator, type MeetingAdded, type MeetingEnded, type MeetingMic, type ShipId, type ShipKind } from '@aeolus-fleet/common';
+import { MEETING_ENDED_CONTENT_TYPE, MEETING_MIC_CONTENT_TYPE, type AccountId, type IdGenerator, type MeetingAdded, type MeetingEnded, type MeetingMic, type MessageId, type ShipId, type ShipKind } from '@aeolus-fleet/common';
 
 import { recordEvent, type EventLog } from '../shared/events.js';
 import type { Notifier } from '../shared/notifier.js';
 import { ok, type Result } from '../shared/result.js';
 import type { ShipRepository } from '../registry/public.js';
 import { participantsBut, type Meeting } from './meeting.js';
-import { acceptMessage, type AcceptRefusal } from './message.js';
+import { acceptContribution, acceptMessage, type AcceptRefusal } from './message.js';
 import type { DeliveryRepository, FleetSealingRepository, MessageRepository, RequestHasher } from './ports.js';
-import { sealedMessage, type DataKeysNeeded, type HeldDataKeys } from './data-keys.js';
+import { sealedMessage, unsealed, type DataKeysNeeded, type HeldDataKeys } from './data-keys.js';
+import type { MicRequest } from './mic.js';
+import type { DomainError } from '../shared/errors.js';
+import type { MeetingRepository } from './ports.js';
 import { sendRequestText } from './send-request.js';
 
 export interface MeetingNoticeTx {
@@ -112,18 +115,28 @@ export async function addedNoticeOf(tx: { ships: Pick<ShipRepository, 'find'> },
  * may be another ship's, as a release under first in line or a retire.
  */
 export async function tellOfChange(
-  deps: MeetingNoticeDeps,
-  change: { meeting: Meeting; micGivenTo: ShipId | null; endedBy: ShipId | null; at: Date },
-): Promise<Result<undefined, AcceptRefusal | DataKeysNeeded>> {
+  deps: MeetingChangeNoticeDeps,
+  change: { meeting: Meeting; micGivenTo: ShipId | null; said?: MicRequest[]; saidByResponse?: ShipId; endedBy: ShipId | null; at: Date },
+): Promise<Result<{ said: { shipId: ShipId; messageId: MessageId }[] }, AcceptRefusal | DataKeysNeeded | DomainError<'KEY_UNAVAILABLE'>>> {
   const { meeting, at } = change;
   const notices: MeetingNotice[] = [];
+  const saidMessages: { shipId: ShipId; messageId: MessageId }[] = [];
+  for (const request of change.said ?? []) {
+    const said = await deliverWords(deps, { meeting, request, at });
+    if (!said.isOk) return said;
+    if (said.value !== undefined) saidMessages.push({ shipId: request.shipId, messageId: said.value });
+    if (request.shipId !== change.saidByResponse && request.words !== undefined) {
+      notices.push({ meeting, senderShipId: meeting.moderatorShipId, shipId: request.shipId, contentType: MEETING_MIC_CONTENT_TYPE, payload: JSON.stringify({ meetingId: meeting.id, messageId: said.value }), model: undefined, at });
+    }
+  }
   if (change.micGivenTo !== null) {
     const payload: MeetingMic = { meetingId: meeting.id };
     notices.push({ meeting, senderShipId: meeting.moderatorShipId, shipId: change.micGivenTo, contentType: MEETING_MIC_CONTENT_TYPE, payload: JSON.stringify(payload), model: undefined, at });
   }
   if (change.endedBy !== null) {
-    const payload: MeetingEnded = { meetingId: meeting.id };
     for (const shipId of participantsBut(meeting, change.endedBy)) {
+      const request = meeting.micRequests.find((waiting) => waiting.shipId === shipId && waiting.words !== undefined);
+      const payload: MeetingEnded = { meetingId: meeting.id, ...(request === undefined ? {} : { unsaidRequest: { shipId, requestedAt: request.requestedAt.toISOString() } }) };
       notices.push({ meeting, senderShipId: change.endedBy, shipId, contentType: MEETING_ENDED_CONTENT_TYPE, payload: JSON.stringify(payload), model: undefined, at });
     }
   }
@@ -133,5 +146,30 @@ export async function tellOfChange(
       return told;
     }
   }
-  return ok(undefined);
+  return ok({ said: saidMessages });
+}
+
+type MeetingChangeNoticeDeps = MeetingNoticeDeps & { tx: MeetingNoticeTx & { meetings: Pick<MeetingRepository, 'contributed'> } };
+
+/** Delivers words already spoken by the requesting ship, under the meeting lock and in the granting transaction. */
+async function deliverWords(deps: MeetingChangeNoticeDeps, input: { meeting: Meeting; request: MicRequest; at: Date }): Promise<Result<MessageId | undefined, AcceptRefusal | DataKeysNeeded | DomainError<'KEY_UNAVAILABLE'>>> {
+  const { meeting, request, at } = input;
+  const { words } = request;
+  if (words === undefined) return ok(undefined);
+  const plain = unsealed(deps.held, { row: { fleetId: meeting.fleetId, rowId: words.messageId }, payload: words.payload });
+  if (!plain.isOk) return plain;
+  const accepted = acceptContribution({ messageId: deps.ids('message'), fleetId: meeting.fleetId, senderShipId: request.shipId,
+    senderKind: words.senderKind, senderLeaseId: words.senderLeaseId, signedInAccountId: words.signedInAccountId,
+    meetingId: meeting.id, deliveries: participantsBut(meeting, request.shipId).map((shipId) => ({ deliveryId: deps.ids('delivery'), shipId })),
+    payload: plain.value, contentType: words.contentType, model: words.model, idempotencyKey: `meeting-words-${words.messageId}`, requestHash: '', at });
+  if (!accepted.isOk) return accepted;
+  const text = { selector: accepted.value.message.selector, contentType: words.contentType, inReplyTo: undefined, isForced: false };
+  const message = await sealedMessage(deps, { message: { ...accepted.value.message, requestHash: deps.hasher.hash(sendRequestText({ ...text, payload: plain.value })) }, sealedRequestHash: deps.hasher.hash(sendRequestText({ ...text, payload: undefined })) });
+  if (!message.isOk) return message;
+  await deps.tx.messages.create(message.value);
+  for (const delivery of accepted.value.deliveries) await deps.tx.deliveries.create(delivery, message.value);
+  await deps.tx.meetings.contributed(meeting.fleetId, { meetingId: meeting.id, at });
+  for (const event of accepted.value.events) await recordEvent({ events: deps.tx.events, ids: deps.ids }, event);
+  for (const delivery of accepted.value.deliveries) await deps.tx.notifier.deliveryPending({ fleetId: meeting.fleetId, deliveryId: delivery.id, recipient: delivery.recipient });
+  return ok(message.value.id);
 }
