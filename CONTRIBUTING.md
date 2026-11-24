@@ -11,3 +11,5 @@ How to help now:
 Everyone taking part follows the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 How the project works: product and language in [docs/blueprint.md](docs/blueprint.md), code structure in [docs/architecture.md](docs/architecture.md), every decision in [docs/decisions](docs/decisions/README.md). Every change is test-driven.
+
+Install the pre-push hook with `git config core.hooksPath .githooks`. If you already use a hooks path, chain `.githooks/pre-push` from its pre-push hook instead.
