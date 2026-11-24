@@ -13,10 +13,12 @@ import { createPrismaHealthRecords } from '../src/adapters/prisma/health.js';
 import { createPrismaHealthSnapshots } from '../src/adapters/prisma/health-snapshots.js';
 import { createPrismaUnitOfWork } from '../src/adapters/prisma/unit-of-work.js';
 import { createAcknowledgeMeetingUpTo } from '../src/domain/messaging/acknowledge-meeting-up-to.js';
+import { createReadMeeting } from '../src/domain/messaging/read-meeting.js';
 import { createUseCases } from '../src/wiring.js';
 import { newKey } from '../src/testing/keys.js';
 import { unwrap } from '../src/testing/result.js';
 import type { Crew, ShipCaller } from '../src/domain/shared/caller.js';
+import { createInMemoryCore } from './support/in-memory.js';
 import { operatorCaller, secretOf } from './support/core-fixtures.js';
 import { assertIndexedPlan } from './support/assert-indexed-plan.js';
 import { withOperatorLogin } from './support/operator-login.js';
@@ -251,5 +253,9 @@ it('reads call counts through indexed meeting call ranges', async () => {
       expect(plan).toContain('Index');
       expect(plan).not.toContain('messages');
     }
+    statements.length = 0;
+    const read = createReadMeeting({ uow: createPrismaUnitOfWork(client), sealing: createInMemoryCore().sealing });
+    expect(unwrap(await read(reader, { meetingId, limit: 1 }))).toMatchObject({ call: { question: 'Indexed?' } });
+    for (const statement of statements) await assertIndexedPlan(core.prisma, statement);
   } finally { await client.$disconnect(); }
 });
