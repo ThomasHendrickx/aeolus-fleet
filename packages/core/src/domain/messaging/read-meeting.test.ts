@@ -1,4 +1,4 @@
-import type { MeetingId, MessageId } from '@aeolus-fleet/common';
+import { idSchema, type MeetingId, type MessageId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { crewAboard, initialiseFleet, messagingUseCases, operatorCaller, registryUseCases, SESSION_MODEL } from '../../../test/support/core-fixtures.js';
@@ -155,4 +155,51 @@ it('projects the immutable sending lease on full meeting contributions (#1993)',
 
   // Then
   expect(read.contributions.items).toContainEqual(expect.objectContaining({ messageId, senderLeaseId: crew.leaseId }));
+});
+
+
+describe('round progress in one meeting read', () => {
+  async function openedCall() {
+    crewAboard(core, chief);
+    const crew = crewAboard(core, marketing);
+    const { callId } = unwrap(await messaging.openCall(chief, { meetingId, question: 'Ready?', idempotencyKey: newKey(), model: SESSION_MODEL }));
+    return { callId, crew };
+  }
+  it('shows delivered progress with current crew state', async () => {
+    // Given
+    await openedCall();
+    // When
+    const read = unwrap(await messaging.readMeeting(chief, { meetingId, limit: 20 }));
+    // Then
+    expect(read.call?.progress.items).toContainEqual({ ship: { id: marketing.shipId, name: 'marketing' }, progress: 'delivered', status: 'crewed', turn: null, deliveredAt: new Date(OPENED_AT), acknowledgedAt: null });
+  });
+  it('shows immediate silence for an expected ship awaiting crew', async () => {
+    // Given
+    await openedCall();
+    // When
+    const read = unwrap(await messaging.readMeeting(chief, { meetingId, limit: 20 }));
+    // Then
+    expect(read.call?.progress.items).toContainEqual(expect.objectContaining({ ship: { id: product.shipId, name: 'product' }, progress: 'silent', status: 'awaitingCrew', turn: null }));
+  });
+  it.each([{ who: 'marketing', progress: 'answered' }, { who: 'product', progress: 'late' }])('shows $progress progress for $who', async ({ who, progress }) => {
+    // Given
+    const { callId } = await openedCall();
+    const ship = who === 'marketing' ? marketing : product;
+    // When
+    unwrap(await messaging.sendMessage(ship, { selector: { kind: 'meeting', meetingId }, callId, payload: 'Ready', idempotencyKey: newKey(), model: SESSION_MODEL }));
+    // Then
+    expect(unwrap(await messaging.readMeeting(chief, { meetingId, limit: 20 })).call?.progress.items).toContainEqual(expect.objectContaining({ ship: { id: ship.shipId, name: who }, progress }));
+  });
+  it('keeps acknowledged progress after the crew ends its turn', async () => {
+    // Given
+    const { callId, crew } = await openedCall();
+    const delivery = core.state.deliveries.find((held) => held.messageId === callId && held.recipient.kind === 'ship' && held.recipient.shipId === marketing.shipId);
+    const marketingDeliveryId = idSchema('delivery').parse(delivery?.id);
+    unwrap(await messaging.receiveDeliveries(crew, { max: 10 }));
+    unwrap(await messaging.acknowledgeDelivery(crew, { deliveryId: marketingDeliveryId }));
+    // When
+    unwrap(await messaging.reportHandled(crew, { deliveryId: marketingDeliveryId }));
+    // Then
+    expect(unwrap(await messaging.readMeeting(chief, { meetingId, limit: 20 })).call?.progress.items).toContainEqual(expect.objectContaining({ ship: { id: marketing.shipId, name: 'marketing' }, progress: 'acknowledged', acknowledgedAt: new Date(OPENED_AT) }));
+  });
 });

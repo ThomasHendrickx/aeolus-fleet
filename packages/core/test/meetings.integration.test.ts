@@ -1,10 +1,11 @@
-import { createIdGenerator, MEETING_ADDED_CONTENT_TYPE, MEETING_ENDED_CONTENT_TYPE, MEETING_MIC_CONTENT_TYPE, type FleetId, type MeetingId, type MessageId, type ShipId } from '@aeolus-fleet/common';
+import { idSchema, createIdGenerator, MEETING_ADDED_CONTENT_TYPE, MEETING_ENDED_CONTENT_TYPE, MEETING_MIC_CONTENT_TYPE, type FleetId, type MeetingId, type MessageId, type ShipId } from '@aeolus-fleet/common';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createApp } from '../src/app.js';
 import { createPrismaClientTellingStatements } from '../src/adapters/prisma/client.js';
 import { createPrismaMessageRepository } from '../src/adapters/prisma/messaging.js';
 import { toMessage } from '../src/adapters/prisma/rows.js';
+import { createPrismaLeaseRepository } from '../src/adapters/prisma/registry.js';
 import { createPrismaFleetSealingRepository } from '../src/adapters/prisma/sealings.js';
 import { createPrismaMeetingRepository } from '../src/adapters/prisma/meetings.js';
 import { assertIndexedPlan } from './support/assert-indexed-plan.js';
@@ -1086,6 +1087,75 @@ it('uses the indexed call deadlines to recover a due call among closed history',
     }
     expect((await meetings.findCall(fleetId, { meetingId, callId }))?.closedAt).toBeNull();
   } finally { await client.$disconnect(); }
+});
+
+
+/** A call with an acknowledged notice and a pushed marketing crew reporting busy. */
+async function acknowledgedCall() {
+  // Given a call whose marketing crew has acknowledged its notice and reported busy.
+  const marketing = await crewOf(marketingId);
+  await crewOf(productId);
+  const { meetingId } = unwrap(await core.useCases.openMeeting(chief, aMeeting()));
+  const { callId } = unwrap(await core.useCases.openCall(chief, { meetingId, question: 'Ready?', excludedShipIds: [chief.shipId], model: MODEL, idempotencyKey: newKey() }));
+  const delivery = await core.prisma.delivery.findFirstOrThrow({ where: { fleetId, messageId: callId, recipientShipId: marketingId } });
+  const at = core.clock.now();
+  unwrap(await core.useCases.receiveDeliveries(marketing, { max: 10 }));
+  unwrap(await core.useCases.acknowledgeDelivery(marketing, { deliveryId: idSchema('delivery').parse(delivery.id) }));
+  await core.prisma.lease.update({ where: { id: marketing.leaseId }, data: { pushedAt: at, turn: 'busy', turnAt: at } });
+  return { marketing, meetingId, callId, delivery, at };
+}
+
+it('pages expected ships in the database', async () => {
+  const { meetingId, callId } = await acknowledgedCall();
+  // When and Then
+  const first = unwrap(await core.useCases.readMeeting(chief, { meetingId, callId, limit: 20, progressLimit: 1 }));
+  expect(first.call?.progress.nextCursor).toBe(marketingId);
+  const second = unwrap(await core.useCases.readMeeting(chief, { meetingId, callId, limit: 20, progressLimit: 1, progressCursor: marketingId }));
+  expect(second.call).toMatchObject({ progress: { items: [{ ship: { id: productId }, progress: 'delivered', status: 'crewed', turn: null }], nextCursor: null } });
+});
+
+it('reads acknowledged progress with pushed busy crew state', async () => {
+  const { meetingId, callId, delivery, at } = await acknowledgedCall();
+  // When and Then
+  expect(unwrap(await core.useCases.readMeeting(chief, { meetingId, callId, limit: 20 })).call).toMatchObject({ progress: { items: [{ ship: { id: marketingId }, progress: 'acknowledged', status: 'crewed', turn: 'busy', deliveredAt: delivery.createdAt, acknowledgedAt: at }, { turn: null }] } });
+});
+
+it('keeps acknowledged progress after the crew ends its turn', async () => {
+  const { marketing, meetingId, callId, delivery, at } = await acknowledgedCall();
+  // When and Then
+  unwrap(await core.useCases.reportHandled(marketing, { deliveryId: idSchema('delivery').parse(delivery.id) }));
+  expect(unwrap(await core.useCases.readMeeting(chief, { meetingId, callId, limit: 20 })).call?.progress.items).toContainEqual(expect.objectContaining({ progress: 'acknowledged', acknowledgedAt: at }));
+});
+
+it('uses indexed plans for round progress and crew facts', async () => {
+  const { callId } = await acknowledgedCall();
+  // When and Then
+  const statements: { query: string; params: string }[] = [];
+  const client = createPrismaClientTellingStatements(core.databaseUrl, (query, params) => { statements.push({ query, params }); });
+  try {
+    await createPrismaMeetingRepository(client).progressPage(fleetId, { callId, limit: 20 });
+    await createPrismaLeaseRepository(client).readCrews(fleetId, [marketingId, productId]);
+    for (const statement of statements) await assertIndexedPlan(core.prisma, statement);
+  } finally { await client.$disconnect(); }
+
+});
+
+it('reads idle turn for a pushed crew', async () => {
+  const { marketing, meetingId, callId, at } = await acknowledgedCall();
+  await core.prisma.lease.update({ where: { id: marketing.leaseId }, data: { turn: 'idle', pushedAt: at } });
+  expect(unwrap(await core.useCases.readMeeting(chief, { meetingId, callId, limit: 20 })).call?.progress.items[0]?.turn).toBe('idle');
+});
+
+it('reads unreported turn for a pushed crew', async () => {
+  const { marketing, meetingId, callId, at } = await acknowledgedCall();
+  await core.prisma.lease.update({ where: { id: marketing.leaseId }, data: { turn: null, pushedAt: at } });
+  expect(unwrap(await core.useCases.readMeeting(chief, { meetingId, callId, limit: 20 })).call?.progress.items[0]?.turn).toBe(null);
+});
+
+it('hides a reported busy turn for a plain crew', async () => {
+  const { marketing, meetingId, callId } = await acknowledgedCall();
+  await core.prisma.lease.update({ where: { id: marketing.leaseId }, data: { turn: 'busy', pushedAt: null } });
+  expect(unwrap(await core.useCases.readMeeting(chief, { meetingId, callId, limit: 20 })).call?.progress.items[0]?.turn).toBe(null);
 });
 
 it('claims the earliest due meeting before an earlier id', async () => {

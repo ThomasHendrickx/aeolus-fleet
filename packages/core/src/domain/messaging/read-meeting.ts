@@ -1,3 +1,4 @@
+import { MEETINGS_PAGE_SIZE_DEFAULT } from '@aeolus-fleet/common';
 import type { LeaseId, MeetingId, MessageId, MicPattern, ParticipantState, ShipId, ShipKind, ShipStatus } from '@aeolus-fleet/common';
 
 import { shipStatus, type LeaseRepository, type ShipRepository } from '../registry/public.js';
@@ -7,16 +8,17 @@ import type { Page, PageQuery } from '../shared/page.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { listedUnsealed, withDataKeysForList, type DataKeysNeeded, type ListedPayload, type PayloadSealing } from './data-keys.js';
+import { readCallProgress, type CallProgressRead } from './read-call-progress.js';
 import { readCall, type CallRead } from './call-round.js';
 import type { MessageRepository } from './ports.js';
 import type { Participant } from './meeting.js';
 import type { MeetingRepository } from './ports.js';
 
 export interface ReadMeetingTx {
-  meetings: Pick<MeetingRepository, 'find' | 'contributions' | 'latestCall' | 'findCall'>;
+  meetings: Pick<MeetingRepository, 'find' | 'contributions' | 'latestCall' | 'findCall' | 'progressPage'>;
   messages: Pick<MessageRepository, 'findMany'>;
   ships: Pick<ShipRepository, 'find' | 'findMany'>;
-  leases: Pick<LeaseRepository, 'findOpenForShare'>;
+  leases: Pick<LeaseRepository, 'readCrews'>;
 }
 
 /** A ship of the meeting by id and name. */
@@ -63,7 +65,7 @@ export interface MicRead {
 
 export interface MeetingRead {
   endAfterCalls: number | null;
-  call: CallRead | null;
+  call: (CallRead & { progress: Page<CallProgressRead, ShipId> }) | null;
   meetingId: MeetingId;
   title: string | null;
   goal: string | null;
@@ -79,7 +81,7 @@ export interface MeetingRead {
 
 export type ReadMeetingRefusal = DomainError<'MEETING_NOT_FOUND' | 'MESSAGE_NOT_FOUND' | 'KEY_UNAVAILABLE'>;
 
-export type ReadMeeting = (caller: ShipCaller, input: { meetingId: MeetingId; callId?: MessageId } & PageQuery<MessageId>) => Promise<Result<MeetingRead, ReadMeetingRefusal>>;
+export type ReadMeeting = (caller: ShipCaller, input: { meetingId: MeetingId; callId?: MessageId; progressCursor?: ShipId; progressLimit?: number } & PageQuery<MessageId>) => Promise<Result<MeetingRead, ReadMeetingRefusal>>;
 
 /**
  * Use case: a participant reads its meeting (`meeting`, decision 0061): its
@@ -101,12 +103,15 @@ export function createReadMeeting(deps: { uow: UnitOfWork<ReadMeetingTx>; sealin
       if (!meeting?.participants.some((participant) => participant.shipId === caller.shipId)) {
         return refuse('MEETING_NOT_FOUND', `Meeting ${meetingId} does not exist or you are not one of its participants`);
       }
+      const participantIds = meeting.participants.map((participant) => participant.shipId);
+      const [participantShips, participantCrews] = await Promise.all([tx.ships.findMany(fleetId, participantIds), tx.leases.readCrews(fleetId, participantIds)]);
+      const shipsById = new Map(participantShips.map((ship) => [ship.id, ship]));
+      const crewedIds = new Set(participantCrews.map((crew) => crew.shipId));
       const participants: MeetingParticipantRead[] = [];
       for (const participant of meeting.participants) {
-        const ship = await tx.ships.find(fleetId, participant.shipId);
+        const ship = shipsById.get(participant.shipId);
         if (ship) {
-          const lease = await tx.leases.findOpenForShare(fleetId, participant.shipId);
-          participants.push({ id: ship.id, name: ship.name, kind: ship.kind, status: shipStatus(ship, { isCrewed: lease !== undefined }), state: participantState(participant) });
+          participants.push({ id: ship.id, name: ship.name, kind: ship.kind, status: shipStatus(ship, { isCrewed: crewedIds.has(ship.id) }), state: participantState(participant) });
         }
       }
       const names = new Map(participants.map((participant) => [participant.id, participant.name]));
@@ -138,7 +143,7 @@ export function createReadMeeting(deps: { uow: UnitOfWork<ReadMeetingTx>; sealin
       if (!call.isOk) return call;
       return ok({
         endAfterCalls: meeting.endAfterCalls ?? null,
-        call: call.value,
+        call: call.value === null || latest === undefined ? null : { ...call.value, progress: await readCallProgress(tx, { call: latest, cursor: input.progressCursor, limit: input.progressLimit ?? MEETINGS_PAGE_SIZE_DEFAULT }) },
         meetingId,
         title: meeting.title,
         goal: meeting.goal,

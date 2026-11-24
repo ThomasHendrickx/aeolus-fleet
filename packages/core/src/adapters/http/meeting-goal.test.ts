@@ -81,6 +81,28 @@ describe.each<Door>(['tRPC', 'REST', 'MCP'])('%s meeting calls', (door) => {
     const read = await call(door, { name: 'meeting', input: { meetingId, callId } });
     expect(read.data).toMatchObject({ call: { callId, deadline: '2026-11-23T10:00:30.000Z', closedAt: null, answers: [] } });
   });
+  it('reads delivered round progress', async () => {
+    const { meetingId, callId } = await openedCall();
+    const read = await call(door, { name: 'meeting', input: { meetingId, callId } });
+    expect(read.data).toMatchObject({ call: { progress: { items: [ { progress: 'delivered', status: 'crewed', turn: null, deliveredAt: '2026-11-23T10:00:00.000Z', acknowledgedAt: null }, { progress: 'delivered', status: 'crewed', turn: null } ], nextCursor: null } } });
+  });
+  it('pages round progress independently of contributions', async () => {
+    const { meetingId, callId } = await openedCall();
+    const first = await call(door, { name: 'meeting', input: { meetingId, callId, progressLimit: 1 } });
+    const page = z.object({ call: z.object({ progress: z.object({ items: z.array(z.unknown()), nextCursor: z.string() }) }) }).parse(first.data).call.progress;
+    expect(page.items).toHaveLength(1);
+    const second = await call(door, { name: 'meeting', input: { meetingId, callId, progressLimit: 1, progressCursor: page.nextCursor } });
+    expect(second.data).toMatchObject({ call: { progress: { items: [{ progress: 'delivered' }], nextCursor: null } } });
+
+  });
+  it.each([{ progressLimit: 0 }, { progressLimit: 101 }, { progressCursor: 'forged' }])('refuses invalid progress paging as BAD_REQUEST: %j', async (input) => {
+    const { meetingId } = await openedCall();
+    expect((await call(door, { name: 'meeting', input: { meetingId, ...input } })).refusal).toContain('BAD_REQUEST');
+  });
+  it('accepts the maximum progress limit of 100', async () => {
+    const { meetingId } = await openedCall();
+    expect((await call(door, { name: 'meeting', input: { meetingId, progressLimit: 100 } })).data).toMatchObject({ call: { progress: { nextCursor: null } } });
+  });
   it('reads silent ships and a late answer outside the closed round', async () => {
     // Given an expected chair that missed the call deadline, before maintenance runs.
     const { meetingId, callId } = await openedCall();

@@ -1,4 +1,4 @@
-import { accountIdSchema, shipKindSchema, idSchema, meetingListEntrySchema, micPatternSchema, readMeetingsCursor, type FleetId, type MeetingId, type ShipId } from '@aeolus-fleet/common';
+import { accountIdSchema, shipKindSchema, idSchema, meetingListEntrySchema, micPatternSchema, readMeetingsCursor, type FleetId, type MeetingId, type MessageId, type ShipId } from '@aeolus-fleet/common';
 import { z } from 'zod';
 
 import { meetingListCursor } from '../../domain/messaging/meeting-list.js';
@@ -45,6 +45,11 @@ const PARTICIPANTS_AND_REQUESTS = {
 /** Meetings on Postgres (decision 0061): a row per meeting and one per participant. */
 export function createPrismaMeetingRepository(db: Db): MeetingRepository {
   return {
+    progressPage: async (fleetId, query) => {
+      const rows = await db.$queryRaw<unknown[]>(callProgressStatement(fleetId, query));
+      const facts = z.array(z.object({ shipId: idSchema('ship'), deliveredAt: z.date().nullable(), acknowledgedAt: z.date().nullable(), isAcknowledged: z.boolean() })).parse(rows);
+      return pageOf(facts, { limit: query.limit, cursorOf: (row) => row.shipId });
+    },
     createCall: async (call) => {
       await db.meetingCall.create({ data: callRow.parse(call) });
       await db.$executeRaw`SELECT pg_notify(${MEETING_DEADLINE_CHANNEL}, ${call.deadline.toISOString()})`;
@@ -244,6 +249,29 @@ async function callWithAnswers(db: Db, row: unknown) {
     orderBy: { id: 'asc' },
   });
   return { ...call, answers: answers.map((message) => ({ shipId: idSchema('ship').parse(message.senderShipId), messageId: idSchema('message').parse(message.id), ...(message.isLate ? { isLate: true } : {}) })) };
+}
+
+
+/** Page the fixed expected list before looking up its unique deliveries and indexed acknowledgement events. */
+export function callProgressStatement(fleetId: FleetId, query: { callId: MessageId } & PageQuery<ShipId>): Prisma.Sql {
+  return Prisma.sql`
+    WITH page AS MATERIALIZED (
+      SELECT expected.ship_id FROM meeting_calls c
+      CROSS JOIN LATERAL unnest(c.expected_ship_ids) expected(ship_id)
+      WHERE c.fleet_id = ${fleetId} AND c.id = ${query.callId}
+        AND expected.ship_id > ${query.cursor ?? ''}
+      ORDER BY expected.ship_id LIMIT ${query.limit + 1}
+    )
+    SELECT page.ship_id AS "shipId", d.created_at AS "deliveredAt",
+      ack.occurred_at AS "acknowledgedAt", (ack.occurred_at IS NOT NULL) AS "isAcknowledged"
+    FROM page
+    LEFT JOIN deliveries d ON d.fleet_id = ${fleetId} AND d.message_id = ${query.callId} AND d.recipient_ship_id = page.ship_id
+    LEFT JOIN LATERAL (
+      SELECT occurred_at FROM events e
+      WHERE e.fleet_id = ${fleetId} AND e.delivery_id = d.id AND e.type = 'DeliveryAcknowledged'
+      ORDER BY e.seq LIMIT 1
+    ) ack ON true
+    ORDER BY page.ship_id`;
 }
 
 const requestRow = z.object({ shipId: idSchema('ship'), requestedAt: z.date(), wordsMessageId: idSchema('message').nullable() });

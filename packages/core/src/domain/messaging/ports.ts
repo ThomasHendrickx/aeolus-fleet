@@ -27,7 +27,16 @@ export interface OpenerKey {
 }
 
 /** Outbound port: meetings and their participants, always within one fleet (decision 0061). */
+export interface CallProgressFact {
+  shipId: ShipId;
+  deliveredAt: Date | null;
+  acknowledgedAt: Date | null;
+  isAcknowledged: boolean;
+}
+
 export interface MeetingRepository {
+  /** Expected ships by id, paged in storage before reading their delivery facts. */
+  progressPage(fleetId: FleetId, query: { callId: MessageId } & PageQuery<ShipId>): Promise<Page<CallProgressFact, ShipId>>;
   /** Calls belong to the meeting and are changed only while its row is locked. Answers are derived from contributions on load. */
   createCall(call: MeetingCall): Promise<void>;
   saveCall(call: MeetingCall): Promise<void>;
