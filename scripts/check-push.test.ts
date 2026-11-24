@@ -34,3 +34,23 @@ it('fails before checks when the branch conflicts with origin/main', () => {
     rmSync(repository, { recursive: true, force: true });
   }
 });
+
+it('clears Git hook variables before running the checks', () => {
+  // Given Git has supplied its repository variables to the hook.
+  const directory = mkdtempSync(join(tmpdir(), 'push-hook-'));
+  try {
+    const npm = join(directory, 'npm');
+    writeFileSync(npm, '#!/bin/sh\ntest -z "$GIT_DIR" && test -z "$GIT_WORK_TREE"\n', { mode: 0o755 });
+
+    // When the pre-push hook runs the checks.
+    const result = spawnSync('sh', [resolve('.githooks/pre-push')], {
+      env: { ...process.env, PATH: `${directory}:${process.env.PATH ?? ''}`, GIT_DIR: '/fake-git-dir', GIT_WORK_TREE: '/fake-work-tree' },
+      encoding: 'utf8',
+    });
+
+    // Then the checks do not inherit the repository variables.
+    expect(result.status).toBe(0);
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
