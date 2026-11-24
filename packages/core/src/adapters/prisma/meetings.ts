@@ -65,7 +65,7 @@ export function createPrismaMeetingRepository(db: Db): MeetingRepository {
     },
     closedCallCount: (fleetId, meetingId) => db.meetingCall.count({ where: { fleetId, meetingId, closedAt: { not: null } } }),
     claimDue: async (fleetId, { at, tried }) => {
-      const excluded = tried.length === 0 ? Prisma.empty : Prisma.sql`AND id NOT IN (${Prisma.join([...tried])})`;
+      const excluded = tried.length === 0 ? Prisma.empty : Prisma.sql`AND m.id NOT IN (${Prisma.join([...tried])})`;
       const rows = await db.$queryRaw<unknown[]>`
         WITH due AS (
           SELECT id, ends_at AS at FROM meetings
@@ -74,9 +74,10 @@ export function createPrismaMeetingRepository(db: Db): MeetingRepository {
           SELECT meeting_id AS id, deadline AS at FROM meeting_calls
           WHERE fleet_id = ${fleetId} AND closed_at IS NULL AND deadline <= ${at}
         )
-        SELECT id FROM meetings
-        WHERE fleet_id = ${fleetId} AND ended_at IS NULL AND id IN (SELECT id FROM due) ${excluded}
-        ORDER BY id LIMIT 1 FOR UPDATE SKIP LOCKED`;
+        SELECT m.id FROM meetings m
+        JOIN due d ON d.id = m.id
+        WHERE m.fleet_id = ${fleetId} AND m.ended_at IS NULL ${excluded}
+        ORDER BY d.at, m.id LIMIT 1 FOR UPDATE OF m SKIP LOCKED`;
       const row = z.array(z.object({ id: idSchema('meeting') })).parse(rows)[0];
       if (row === undefined) return undefined;
       const meeting = await db.meeting.findFirst({ where: { fleetId, id: row.id }, include: PARTICIPANTS_AND_REQUESTS });
@@ -114,6 +115,7 @@ export function createPrismaMeetingRepository(db: Db): MeetingRepository {
     },
     save: async ({ fleetId, id, ownerShipId, moderatorShipId, openedAt, endedAt, micHolderShipId, micPattern, participants, micRequests }) => {
       await db.meeting.update({ where: { fleetId_id: { fleetId, id } }, data: { ownerShipId, moderatorShipId, endedAt, micHolderShipId, micPattern } });
+      if (endedAt !== null) await db.meetingCall.updateMany({ where: { fleetId, meetingId: id, closedAt: null }, data: { closedAt: endedAt } });
       await db.meetingMicRequest.deleteMany({ where: { fleetId, meetingId: id } });
       for (const [place, { shipId, joinedAt, leftAt, isRevoked }] of participants.entries()) {
         await db.meetingParticipant.upsert({

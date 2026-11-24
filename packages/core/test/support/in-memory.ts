@@ -1491,7 +1491,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       findCall: (fleetId, { meetingId, callId }) => Promise.resolve(callWithAnswers(state, state.meetings.flatMap((m) => m.calls ?? []).find((c) => c.fleetId === fleetId && c.meetingId === meetingId && c.id === callId))),
       latestCall: (fleetId, meetingId) => Promise.resolve(callWithAnswers(state, state.meetings.flatMap((m) => m.calls ?? []).filter((c) => c.fleetId === fleetId && c.meetingId === meetingId).sort((a, b) => b.id.localeCompare(a.id))[0])),
       closedCallCount: (fleetId, meetingId) => Promise.resolve(state.meetings.flatMap((m) => m.calls ?? []).filter((c) => c.fleetId === fleetId && c.meetingId === meetingId && c.closedAt !== null).length),
-      claimDue: (fleetId, { at, tried }) => Promise.resolve(structuredClone(state.meetings.filter((meeting) => meeting.fleetId === fleetId && meeting.endedAt === null && (meeting.endsAt !== null && meeting.endsAt <= at || (meeting.calls ?? []).some((call) => call.closedAt === null && call.deadline <= at)) && !tried.includes(meeting.id)).sort((a, b) => (a.endsAt?.getTime() ?? 0) - (b.endsAt?.getTime() ?? 0) || a.id.localeCompare(b.id))[0])),
+      claimDue: (fleetId, { at, tried }) => Promise.resolve(structuredClone(state.meetings.filter((meeting) => meeting.fleetId === fleetId && meeting.endedAt === null && (meeting.endsAt !== null && meeting.endsAt <= at || (meeting.calls ?? []).some((call) => call.closedAt === null && call.deadline <= at)) && !tried.includes(meeting.id)).sort((a, b) => Math.min(a.endsAt?.getTime() ?? Infinity, ...(a.calls ?? []).filter((call) => call.closedAt === null).map((call) => call.deadline.getTime())) - Math.min(b.endsAt?.getTime() ?? Infinity, ...(b.calls ?? []).filter((call) => call.closedAt === null).map((call) => call.deadline.getTime())) || a.id.localeCompare(b.id))[0])),
       nextEndTime: (fleetId) => Promise.resolve(state.meetings.filter((meeting) => meeting.fleetId === fleetId && meeting.endedAt === null).flatMap((meeting) => [...(meeting.endsAt === null ? [] : [meeting.endsAt]), ...(meeting.calls ?? []).filter((call) => call.closedAt === null).map((call) => call.deadline)]).sort((a, b) => a.getTime() - b.getTime())[0]),
       listOf: (fleetId, { shipId, cursor, limit }) => {
         const position = cursor === undefined ? undefined : readMeetingsCursor(cursor);
@@ -1546,6 +1546,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         const at = state.meetings.findIndex((held) => held.fleetId === meeting.fleetId && held.id === meeting.id);
         if (at >= 0) {
           state.meetings[at] = { ...state.meetings[at], ...structuredClone(meeting) };
+          if (meeting.endedAt !== null) state.meetings[at].calls = state.meetings[at].calls?.map((call) => call.closedAt === null ? { ...call, closedAt: meeting.endedAt } : call);
         }
         return Promise.resolve();
       },

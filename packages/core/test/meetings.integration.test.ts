@@ -1104,3 +1104,26 @@ it('hides a reported busy turn for a plain crew', async () => {
   await core.prisma.lease.update({ where: { id: marketing.leaseId }, data: { turn: 'busy', pushedAt: null } });
   expect(unwrap(await core.useCases.readMeeting(chief, { meetingId, callId, limit: 20 })).call?.progress.items[0]?.turn).toBe(null);
 });
+
+it('claims the earliest due meeting before an earlier id', async () => {
+  // Given two meetings whose deadlines are opposite their creation order.
+  const later = unwrap(await core.useCases.openMeeting(chief, aMeeting({ endsAt: new Date(core.clock.now().getTime() + 60_000).toISOString() }))).meetingId;
+  const earlier = unwrap(await core.useCases.openMeeting(chief, aMeeting({ endsAt: new Date(core.clock.now().getTime() + 30_000).toISOString() }))).meetingId;
+  core.clock.advance(60_000);
+  // When maintenance claims a meeting.
+  const claimed = await core.prisma.$transaction((tx) => createPrismaMeetingRepository(tx).claimDue(fleetId, { at: core.clock.now(), tried: [] }));
+  // Then the earliest deadline wins.
+  expect(claimed?.id).toBe(earlier);
+  expect(claimed?.id).not.toBe(later);
+});
+
+it('closes an open call when its meeting ends', async () => {
+  // Given an open call with a crewed participant.
+  await crewOf(marketingId);
+  const { meetingId } = unwrap(await core.useCases.openMeeting(chief, aMeeting()));
+  const { callId } = unwrap(await core.useCases.openCall(chief, { meetingId, question: 'Ready?', excludedShipIds: [chief.shipId], model: MODEL, idempotencyKey: newKey() }));
+  // When the moderator ends the meeting.
+  unwrap(await core.useCases.changeMeeting(chief, { meetingId, change: { kind: 'end' } }));
+  // Then the call no longer occupies the open deadline index.
+  expect((await createPrismaMeetingRepository(core.prisma).findCall(fleetId, { meetingId, callId }))?.closedAt).toEqual(core.clock.now());
+});
