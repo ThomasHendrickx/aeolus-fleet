@@ -10,6 +10,7 @@ import { assertIndexedPlan } from './support/assert-indexed-plan.js';
 import { sha256Hasher } from '../src/adapters/crypto/secrets.js';
 import { listenForPendingDeliveries, type DeliveryListener } from '../src/adapters/prisma/delivery-notices.js';
 import { createPrismaUnitOfWork, type PrismaTx } from '../src/adapters/prisma/unit-of-work.js';
+import { createCloseCall } from '../src/domain/messaging/close-call.js';
 import { createOpenCall } from '../src/domain/messaging/open-call.js';
 import { createEndDueMeetings } from '../src/domain/messaging/end-due-meetings.js';
 import { createChangeMeeting } from '../src/domain/messaging/change-meeting.js';
@@ -1069,17 +1070,21 @@ it('stores person intervention and not-asked ships atomically with its events an
   unwrap(await core.useCases.changeMeeting(person, { meetingId, change: { kind: 'rejoin' } }));
   // When fan-out fails after the call closure would be stored.
   const failing = unitOfWorkWith((tx) => ({ ...tx, deliveries: { ...tx.deliveries, create: () => Promise.reject(new Error('person delivery failed')) } }));
-  const send = createSendMessage({ uow: failing, clock: core.clock, ids: newId, hasher: sha256Hasher, sealing: unsealedFleetsOnly });
-  await expect(send(person, { selector: { kind: 'meeting', meetingId }, payload: 'New direction', idempotencyKey: newKey() })).rejects.toThrow('person delivery failed');
+  const close = createCloseCall({ uow: failing, clock: core.clock, ids: newId, hasher: sha256Hasher, sealing: unsealedFleetsOnly });
+  await expect(close(person, { meetingId, callId })).rejects.toThrow('person delivery failed');
   // Then rollback leaves the call open, and a successful retry stores the whole intervention.
   expect((await createPrismaMeetingRepository(core.prisma).findCall(fleetId, { meetingId, callId }))?.closedAt).toBeNull();
   const { messageId } = unwrap(await core.useCases.sendMessage(person, { selector: { kind: 'meeting', meetingId }, payload: 'New direction', idempotencyKey: newKey() }));
+  expect((await createPrismaMeetingRepository(core.prisma).findCall(fleetId, { meetingId, callId }))?.closedAt).toBeNull();
+  unwrap(await core.useCases.closeCall(person, { meetingId, callId }));
   const read = unwrap(await core.useCases.readMeeting(chief, { meetingId, callId, limit: 20 }));
   expect(read.call).toMatchObject({ closedAt: core.clock.now(), silentShipIds: [], notAskedShipIds: [marketingId, productId] });
   expect(read.moderator.id).toBe(chief.shipId);
   await expect(core.prisma.delivery.count({ where: { fleetId, messageId } })).resolves.toBe(3);
   await expect(core.prisma.event.count({ where: { fleetId, type: 'CallClosed' } })).resolves.toBe(1);
   await contributionPlans(meetingId);
+  const next = unwrap(await core.useCases.openCall(chief, { meetingId, question: 'Continue?', excludedShipIds: [chief.shipId, person.shipId], model: MODEL, idempotencyKey: newKey() }));
   unwrap(await core.useCases.changeMeeting(person, { meetingId, change: { kind: 'end' } }));
+  expect(unwrap(await core.useCases.readMeeting(chief, { meetingId, callId: next.callId, limit: 20 })).call).toMatchObject({ notAskedShipIds: [], silentShipIds: [], closedAt: core.clock.now() });
   await expect(core.prisma.meeting.findUnique({ where: { fleetId_id: { fleetId, id: meetingId } } })).resolves.toMatchObject({ endedAt: core.clock.now() });
 });

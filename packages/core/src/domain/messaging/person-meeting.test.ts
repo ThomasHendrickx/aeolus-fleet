@@ -1,6 +1,6 @@
 /** A person joins on owner reach and steers without taking the moderator's place. */
 import { beforeEach, expect, it } from 'vitest';
-import { type MeetingId } from '@aeolus-fleet/common';
+import type { MeetingId } from '@aeolus-fleet/common';
 
 import { applyNetworkRules, crewAboard, initialiseFleet, messagingUseCases, operatorCaller, registryUseCases, SESSION_MODEL } from '../../../test/support/core-fixtures.js';
 import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
@@ -77,14 +77,16 @@ it('delivers person speech without the mic to every other participant and keeps 
   expect((await messaging.sendMessage(chair, { selector: { kind: 'meeting', meetingId }, payload: 'Continuing', model: SESSION_MODEL, idempotencyKey: newKey() })).isOk).toBe(true);
 });
 
-it('closes the open call on person speech with pending ships not asked rather than silent', async () => {
+it('keeps the call open on person speech and marks pending ships not asked only on explicit close', async () => {
   // Given one answer and another expected ship still pending.
   const { callId } = unwrap(await messaging.openCall(chair, { meetingId, question: 'Ready?', excludedShipIds: [chair.shipId], model: SESSION_MODEL, idempotencyKey: newKey() }));
   unwrap(await messaging.sendMessage(alpha, { selector: { kind: 'meeting', meetingId }, callId, payload: 'Yes', model: SESSION_MODEL, idempotencyKey: newKey() }));
   unwrap(await join());
   // When the person steers by speaking.
   unwrap(await speak());
-  // Then the original answer remains and the remaining ship is not asked.
+  // Then speaking leaves the call open, and explicit close preserves answers.
+  expect(unwrap(await messaging.readMeeting(chair, { meetingId, callId, limit: 20 })).call?.closedAt).toBeNull();
+  unwrap(await messaging.closeCall(person, { meetingId, callId }));
   expect(unwrap(await messaging.readMeeting(chair, { meetingId, callId, limit: 20 })).call).toMatchObject({ closedAt: core.clock.now(), silentShipIds: [], notAskedShipIds: [beta.shipId], answers: [{ sender: { id: alpha.shipId } }] });
   expect(core.state.events.filter((e) => e.type === 'CallClosed')).toHaveLength(1);
 });
@@ -98,4 +100,46 @@ it('lets a present person end the meeting and tells every other participant', as
   expect(core.state.meetings[0]?.endedAt).toEqual(core.clock.now());
   expect(core.state.events).toContainEqual(expect.objectContaining({ type: 'MeetingEnded', shipId: person.shipId }));
   expect(core.state.messages.filter((m) => m.contentType === 'application/vnd.aeolus.meeting.ended+json').map((m) => m.selector)).toEqual([chair, alpha, beta].map((s) => ({ kind: 'ship', shipId: s.shipId })));
+});
+
+it('leaves a call open on joining and uses the ordinary meeting end when the person ends it', async () => {
+  // Given an open call and a person about to join.
+  const { callId } = unwrap(await messaging.openCall(chair, { meetingId, question: 'Ready?', excludedShipIds: [chair.shipId], model: SESSION_MODEL, idempotencyKey: newKey() }));
+  unwrap(await join());
+  expect(unwrap(await messaging.readMeeting(chair, { meetingId, limit: 20 })).call?.closedAt).toBeNull();
+  // When the person ends rather than contributes.
+  unwrap(await messaging.changeMeeting(person, { meetingId, change: { kind: 'end' } }));
+  // Then the call closes as it does for an owner or moderator ending.
+  expect(unwrap(await messaging.readMeeting(chair, { meetingId, callId, limit: 20 })).call).toMatchObject({ closedAt: core.clock.now(), notAskedShipIds: [], silentShipIds: [] });
+  expect(core.state.events.filter((e) => e.type === 'CallClosed')).toHaveLength(0);
+  expect(core.state.events.filter((e) => e.type === 'MeetingEnded')).toHaveLength(1);
+});
+
+
+it('refuses close for an agent, a stranger, a left person and an unknown call without changes', async () => {
+  // Given an open call and a person not yet participating.
+  const { callId } = unwrap(await messaging.openCall(chair, { meetingId, question: 'Ready?', excludedShipIds: [chair.shipId], model: SESSION_MODEL, idempotencyKey: newKey() }));
+  // When callers lacking the right try to close it.
+  expect(refusalOf(await messaging.closeCall(person, { meetingId, callId })).kind).toBe('MEETING_NOT_FOUND');
+  unwrap(await join());
+  expect(refusalOf(await messaging.closeCall(chair, { meetingId, callId })).kind).toBe('NOT_PERSON');
+  expect(refusalOf(await messaging.closeCall(person, { meetingId, callId: core.ids('message') })).kind).toBe('MESSAGE_NOT_FOUND');
+  unwrap(await messaging.changeMeeting(person, { meetingId, change: { kind: 'leave' } }));
+  // Then none closes the call.
+  expect(refusalOf(await messaging.closeCall(person, { meetingId, callId })).kind).toBe('PARTICIPANT_LEFT');
+  expect(unwrap(await messaging.readMeeting(chair, { meetingId, callId, limit: 20 })).call?.closedAt).toBeNull();
+});
+
+it('repeats an explicit close without another round or event and refuses a close after the meeting ends', async () => {
+  // Given a joined person and a call.
+  unwrap(await join());
+  const { callId } = unwrap(await messaging.openCall(chair, { meetingId, question: 'Ready?', excludedShipIds: [chair.shipId, person.shipId], model: SESSION_MODEL, idempotencyKey: newKey() }));
+  // When the same call is closed twice.
+  unwrap(await messaging.closeCall(person, { meetingId, callId }));
+  const before = [core.state.messages.length, core.state.events.length];
+  unwrap(await messaging.closeCall(person, { meetingId, callId }));
+  // Then closing is repeatable and an ended meeting still refuses changes.
+  expect([core.state.messages.length, core.state.events.length]).toEqual(before);
+  unwrap(await messaging.changeMeeting(person, { meetingId, change: { kind: 'end' } }));
+  expect(refusalOf(await messaging.closeCall(person, { meetingId, callId })).kind).toBe('MEETING_ENDED');
 });
