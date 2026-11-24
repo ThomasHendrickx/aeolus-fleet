@@ -403,3 +403,19 @@ describe('trierarchReportDetailsSchema', () => {
     });
   });
 });
+
+
+describe('guarded harness reports', () => {
+  it.each([{ guardedHarnesses: ['claude-code'] }, { guardedHarnesses: [] }])('keeps an explicit guarded harness list %j for placement', ({ guardedHarnesses }) => {
+    // Given a trierarch explicitly reporting which harnesses enforce the guard
+    const details = { ...trierarchReportDetailsSchema.parse(documentedDetails()), guardedHarnesses };
+
+    // When the shared report contract is read, then placement keeps that fact
+    expect(trierarchReportDetailsSchema.parse(details)).toEqual(details);
+  });
+
+  it('refuses an unknown guarded harness', () => {
+    const details = { ...trierarchReportDetailsSchema.parse(documentedDetails()), guardedHarnesses: ['unknown-harness'] };
+    expect(trierarchReportDetailsSchema.safeParse(details).success).toBe(false);
+  });
+});
