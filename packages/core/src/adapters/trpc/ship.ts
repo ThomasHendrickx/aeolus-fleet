@@ -317,6 +317,7 @@ export const shipRouter = router({
         'each participant with its kind and status (crewed or awaitingCrew), its mic (holder, null while free; pattern; requests oldest first),',
         "and what was said so far, newest first. The call is the latest round unless you pass callId to read a particular round, including a delayed notice's reference,",
         'a page at a time: pass the nextCursor it answers as cursor for the page before. A late or rejoined participant reads here what it missed.',
+        'The meeting includes closedCalls, the number of its closed calls. The call includes its question and number (1 for the first call), independently of the contribution page.',
         'The call includes a progress page of expected ships with delivered, acknowledged, answered, late or silent progress, delivery and acknowledgement times, current crew status and a reported busy or idle turn for a pushed session. Pass progressCursor and progressLimit independently of contributions, 20 by default and at most 100. Keep callId when continuing a round.',
         'A meeting you take no part in is refused as one that does not exist (NOT_FOUND).',
       ].join(' '),

@@ -1,4 +1,4 @@
-import { MEETINGS_PAGE_SIZE_DEFAULT } from '@aeolus-fleet/common';
+import { MEETINGS_PAGE_SIZE_DEFAULT, meetingCallSchema } from '@aeolus-fleet/common';
 import type { LeaseId, MeetingId, MessageId, MicPattern, ParticipantState, ShipId, ShipKind, ShipStatus } from '@aeolus-fleet/common';
 
 import { canReachShip, shipStatus, type CheckReachTx, type LeaseRepository, type ShipRepository } from '../registry/public.js';
@@ -7,7 +7,7 @@ import { refuse, type DomainError } from '../shared/errors.js';
 import type { Page, PageQuery } from '../shared/page.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
-import { listedUnsealed, withDataKeysForList, type DataKeysNeeded, type ListedPayload, type PayloadSealing } from './data-keys.js';
+import { listedUnsealed, unsealed, withDataKeysForList, type DataKeysNeeded, type ListedPayload, type PayloadSealing } from './data-keys.js';
 import { readCallProgress, type CallProgressRead } from './read-call-progress.js';
 import { readCall, type CallRead } from './call-round.js';
 import type { MessageRepository } from './ports.js';
@@ -15,7 +15,7 @@ import type { Participant } from './meeting.js';
 import type { MeetingRepository } from './ports.js';
 
 export interface ReadMeetingTx extends Omit<CheckReachTx, 'reachRefusals'> {
-  meetings: Pick<MeetingRepository, 'find' | 'contributions' | 'latestCall' | 'findCall' | 'progressPage'>;
+  meetings: Pick<MeetingRepository, 'find' | 'contributions' | 'latestCall' | 'findCall' | 'progressPage' | 'closedCallCount' | 'callNumber'>;
   messages: Pick<MessageRepository, 'findMany'>;
   ships: Pick<ShipRepository, 'find' | 'findMany' | 'listActiveOfType'>;
   leases: Pick<LeaseRepository, 'readCrews'>;
@@ -65,7 +65,8 @@ export interface MicRead {
 
 export interface MeetingRead {
   endAfterCalls: number | null;
-  call: (CallRead & { progress: Page<CallProgressRead, ShipId> }) | null;
+  closedCalls: number;
+  call: (CallRead & { question: string; number: number; progress: Page<CallProgressRead, ShipId> }) | null;
   meetingId: MeetingId;
   title: string | null;
   goal: string | null;
@@ -144,9 +145,19 @@ export function createReadMeeting(deps: { uow: UnitOfWork<ReadMeetingTx>; sealin
       if (input.callId !== undefined && latest === undefined) return refuse('MESSAGE_NOT_FOUND', 'The call does not exist in this meeting');
       const call = latest === undefined ? ok(null) : await readCall({ tx, held: keys }, latest);
       if (!call.isOk) return call;
+      let question = '';
+      if (latest !== undefined) {
+        // The opening contribution is looked up by id, independently of the contribution page.
+        const [message] = await tx.messages.findMany(fleetId, [latest.id]);
+        if (message === undefined) return refuse('MESSAGE_NOT_FOUND', 'The call contribution is no longer retained');
+        const payload = unsealed(keys, { row: { fleetId, rowId: message.id }, payload: message.payload });
+        if (!payload.isOk) return payload;
+        question = meetingCallSchema.parse(JSON.parse(payload.value)).question;
+      }
       return ok({
+        closedCalls: await tx.meetings.closedCallCount(fleetId, meetingId),
         endAfterCalls: meeting.endAfterCalls ?? null,
-        call: call.value === null || latest === undefined ? null : { ...call.value, progress: await readCallProgress(tx, { call: latest, cursor: input.progressCursor, limit: input.progressLimit ?? MEETINGS_PAGE_SIZE_DEFAULT }) },
+        call: call.value === null || latest === undefined ? null : { ...call.value, question, number: await tx.meetings.callNumber(fleetId, { meetingId, callId: latest.id }), progress: await readCallProgress(tx, { call: latest, cursor: input.progressCursor, limit: input.progressLimit ?? MEETINGS_PAGE_SIZE_DEFAULT }) },
         meetingId,
         title: meeting.title,
         goal: meeting.goal,

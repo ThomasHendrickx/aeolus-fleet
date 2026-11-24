@@ -212,7 +212,8 @@ describe('marking meeting contributions read on Postgres', () => {
 
 describe('meeting call details on Postgres (#2068)', () => {
   it('reads the first question without contributions, numbers later calls and counts closed calls', async () => {
-    // Given a meeting without calls.
+    // Given a meeting that ends after three calls, without any calls yet.
+    ({ meetingId } = unwrap(await core.useCases.openMeeting(chief, { ships: [{ shipId: reader.shipId }], endAfterCalls: 3, idempotencyKey: newKey(), model: MODEL })));
     expect(unwrap(await core.useCases.readMeeting(reader, { meetingId, limit: 1 }))).toMatchObject({ closedCalls: 0, call: null });
     const first = unwrap(await core.useCases.openCall(chief, { meetingId, question: 'First question?', model: MODEL, idempotencyKey: newKey() }));
     await contribute();
@@ -225,7 +226,7 @@ describe('meeting call details on Postgres (#2068)', () => {
     expect(read.contributions.items.map((item) => item.messageId)).not.toContain(first.callId);
     for (const by of [chief, reader]) unwrap(await core.useCases.sendMessage(by, { selector: { kind: 'meeting', meetingId }, callId: first.callId, payload: 'Ready', model: MODEL, idempotencyKey: newKey() }));
     const second = unwrap(await core.useCases.openCall(chief, { meetingId, question: 'Second question?', model: MODEL, idempotencyKey: newKey() }));
-    expect(unwrap(await core.useCases.readMeeting(reader, { meetingId, limit: 1 }))).toMatchObject({ closedCalls: 1, call: { callId: second.callId, question: 'Second question?', number: 2 } });
+    expect(unwrap(await core.useCases.readMeeting(reader, { meetingId, limit: 1 }))).toMatchObject({ closedCalls: 1, endAfterCalls: 3, call: { callId: second.callId, question: 'Second question?', number: 2 } });
     expect(unwrap(await core.useCases.readMeeting(reader, { meetingId, callId: first.callId, limit: 1 }))).toMatchObject({ closedCalls: 1, call: { question: 'First question?', number: 1 } });
     for (const by of [chief, reader]) unwrap(await core.useCases.sendMessage(by, { selector: { kind: 'meeting', meetingId }, callId: second.callId, payload: 'Done', model: MODEL, idempotencyKey: newKey() }));
     expect(unwrap(await core.useCases.readMeeting(reader, { meetingId, limit: 1 }))).toMatchObject({ closedCalls: 2, call: { question: 'Second question?', number: 2 } });

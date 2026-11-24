@@ -63,6 +63,7 @@ export function createPrismaMeetingRepository(db: Db): MeetingRepository {
       const row = await db.meetingCall.findFirst({ where: { fleetId, meetingId }, orderBy: { id: 'desc' } });
       return row === null ? undefined : callWithAnswers(db, row);
     },
+    callNumber: (fleetId, { meetingId, callId }) => db.meetingCall.count({ where: { fleetId, meetingId, id: { lte: callId } } }),
     closedCallCount: (fleetId, meetingId) => db.meetingCall.count({ where: { fleetId, meetingId, closedAt: { not: null } } }),
     claimDue: async (fleetId, { at, tried }) => {
       const excluded = tried.length === 0 ? Prisma.empty : Prisma.sql`AND m.id NOT IN (${Prisma.join([...tried])})`;
