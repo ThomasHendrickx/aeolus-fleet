@@ -104,6 +104,7 @@ Answer: approved by Thomas, option 1. Decision: the plugin sends the full resolv
 Context: the issue wants the same version on restart and move.
 Options: 1 pinned for the crew request's settings version: a new request version resolves the latest commit again; 2 applied live at each new commit.
 Pick: 1. What guards a session is then a fact of its request, as its model is under 0063; a live change mid-task surprises the session and the person.
+Answer: approved by Thomas, option 1. Decision: the resolved rules are pinned for the crew request's settings version, across restarts and moves; a new settings version resolves the latest commit again.
 
 ### Q11. A session cannot change its own guard
 
