@@ -96,6 +96,7 @@ import {
   crewRequestOutputSchema,
   reportActivityInputSchema,
   reportActivityOutputSchema,
+  GUARD_RECENT_REFUSALS_MAX,
   reportCrewStatusInputSchema,
   reportCrewStatusOutputSchema,
   removeCrewRequestInputSchema,
@@ -449,7 +450,7 @@ export const fleetRouter = router({
     .meta({
       description: [
         "Needs crew:run, for a ship whose crew request is assigned to yours. Says how its crew stands: crewing, running, restarting, crashed or releasing.",
-        'Reports guard sets at their applied commits, a refusal count and at most twenty recent refusals. Omitted guard means unknown; settings, assignment and release changes clear it.',
+        `Reports guard sets at their applied commits, a refusal count and at most ${GUARD_RECENT_REFUSALS_MAX} recent refusals. Omitted guard means unknown; settings, assignment and release changes clear it.`,
         'Once the request is releasing, only releasing: stop its session, end its lease, then call confirmCrewRelease.',
       ].join(' '),
     })
