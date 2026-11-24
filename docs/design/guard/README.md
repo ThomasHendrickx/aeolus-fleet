@@ -1,6 +1,6 @@
 # The guard: every tool call of a crewed session checked against a rule set
 
-Stage 1 for [#2069](https://github.com/ThomasHendrickx/aeolus-fleet/issues/2069): purpose and all fifteen questions answered by Thomas. Next: the detailed design and the console mockups. No detailed decision is taken here; the contracts, the rule set format and the console mockups follow once the purpose and the picks are agreed. Children: [#2070](https://github.com/ThomasHendrickx/aeolus-fleet/issues/2070) (the crew request setting), [aeolus-fleet-trierarch#617](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/issues/617) (the hook), [aeolus-fleet-trierarch-plugin#105](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch-plugin/issues/105) (rule set repositories and the floor).
+Design for [#2069](https://github.com/ThomasHendrickx/aeolus-fleet/issues/2069). Purpose and all fifteen questions answered by Thomas; the detailed design (section 4) and the console mockups (section 5) are proposed for his approval. Design only. Children: [#2070](https://github.com/ThomasHendrickx/aeolus-fleet/issues/2070) (the crew request setting), [aeolus-fleet-trierarch#617](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/issues/617) (the hook), [aeolus-fleet-trierarch-plugin#105](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch-plugin/issues/105) (rule set repositories and the floor).
 
 ## 1. Purpose
 
@@ -141,36 +141,244 @@ Options: 1 the plugin's own page lists the rule set repositories, their sets, er
 Pick: 1. The plugin owns its pages (0043); core shows only the setting and the request's status.
 Answer: approved by Thomas, option 1. Decision: the trierarch plugin's own page lists the rule set repositories, their sets, errors and the floor; the crew request form gets a rule set choice, None meaning the floor only; the ship page shows the resolved sets and refusals. Before and after mockups follow in the detailed design.
 
-## 4. The flow these picks give
+## 4. Detailed design
 
-The picks as answered; the detailed design draws it per harness (Q2).
+The decisions below follow from the answers to Q1 to Q15. They are proposed for Thomas's approval with the mockups in section 5. Each part names the child that builds it: core ([#2070](https://github.com/ThomasHendrickx/aeolus-fleet/issues/2070)), the trierarch plugin ([plugin #105](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch-plugin/issues/105)) and the trierarch ([trierarch #617](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/issues/617)).
+
+### 4.1 The rule set file (plugin #105, schema in common)
+
+A rule set is one YAML file, `<name>.yaml`, in a connected repository's folder. Its JSON Schema lives in common (`common/src/trierarch/guard-rules.ts`, exported as JSON Schema too), so the plugin, the trierarch and an editor check the same thing. Unknown fields are refused. There is no version field: the commit is the version (Q10), and before 1.0.0 the schema changes with the release (0013).
+
+```yaml
+name: no-push            # the file name without .yaml; a trierarch name (lowercase letters, digits, . - _)
+description: Never push, never skip hooks.
+rules:
+  commands:
+    deny:                # each: a command name, optionally its first arguments, literal
+      - { command: npm, args: [publish] }
+      - { command: curl }
+    allow: []            # when not empty: only these commands run (shell builtins too must be named)
+  git:
+    deny: [push, force-push, skip-hooks, rewrite-history, delete-branch, change-remote, change-config]
+  writePaths:            # globs relative to the ship's repositories (Q6); never absolute, never ..
+    allow: ["docs/**"]   # when not empty: writes only here, inside the boundary
+    deny: ["**/.github/**"]
+  tools:
+    deny: [web, "mcp:linear/*"]
+    allow: []            # when not empty: only these tools
+```
+
+- Four rule types (Q5): `commands`, `git`, `writePaths`, `tools`. Each is optional; an empty file with only `name` is valid and refuses nothing beyond the mechanism (4.6).
+- Git actions are a closed list, matched on the parsed `git` command after its global options (`-C`, `-c`, `--git-dir`) are read: `push` (any push), `force-push` (`--force`, `-f`, `--force-with-lease`, `+refspec`), `skip-hooks` (`--no-verify`, `-n` on commit, `-c core.hooksPath=`, `config core.hooksPath`), `rewrite-history` (`rebase`, `reset --hard`, `commit --amend`, `filter-branch`, `filter-repo`), `delete-branch` (`branch -d/-D`, `push --delete`, `push :ref`), `change-remote` (`remote add/set-url/remove`), `change-config` (any `git config` write).
+- Tools are harness-neutral kinds, each harness's guard mapping its own tools onto them: `shell`, `file-write`, `file-read`, `web`, `agent` (starting a subagent), `mcp:<server>/<tool>` with `*` globs. A tool the harness's guard does not know is refused while any rule set applies, as `unknown tool: <name>` (Q3: fail closed).
+- At most 64 KB per file, and at most 64 KB for every set one request resolves to together (4.4).
+
+### 4.2 Rule set repositories and the floor (plugin #105)
+
+The plugin keeps, per fleet, one versioned guard configuration in its own database, replaced whole from an expected version, as the MCP configuration is ([fleet crew MCP](../fleet-crew-mcp/README.md), section 4): its repositories `{ repository: "<owner>/<name>", folder, access: "public" | "private" }`, a read token per private repository (write-only, stored and protected as the MCP secrets are), and the floor: a list of rule set names.
+
+- Reading, as squadrons reads templates: on add and every 5 minutes, per repository, the latest commit of its default branch through the GitHub API; when it changed, the folder's tree, and only the `.yaml` files whose blob changed are read. Each is checked against the schema and its `name` against its file name.
+- Each valid file is a rule set of that repository at that commit; each invalid one an error `{ file, reason }` shown on the page and not offered. A repository that cannot be read keeps its last read sets and shows the error.
+- A name in two repositories is a conflict: neither is offered, both show the conflict (issue #2069, point 2).
+- The floor names rule sets. A floor name that is not offered (gone, invalid, in conflict) leaves the floor unresolvable: every request with any rules waits with `floor unavailable: <name>` until it is fixed (Q3).
+- Calls, on the plugin's tRPC router through the console route, as the MCP page's: `guard.get` (fleet:read: repositories, sets, errors, conflicts, floor, version; never a token) and `guard.replace` (`trierarch:guard`, Q14: `expectedVersion`, the repositories, retained token names and new token values, the floor). `trierarch:guard` is declared by the plugin in its own namespace and granted through the scope catalogue. A replace triggers a read.
+
+### 4.3 The crew request setting (core #2070)
+
+Crew settings gain `ruleSet` (optional): one rule set name, a trierarch name, never a definition or path (0027). It is a field, not an option, for the reason MCP servers are: a computer that does not declare an option ignores it, so a session would start unguarded. Core checks only its shape (Q7); 0027's fixed core is updated with it. Every door carries it (tRPC, REST, MCP, the OpenAPI and MCP lists), and the console's crew settings fields offer the plugin's names (section 5).
+
+### 4.4 Placement and the rules message (plugin #105)
+
+After the plugin's existing placement checks, for a request whose settings version it has not resolved yet:
+
+1. The effective sets are the floor's names and the request's `ruleSet`. An unknown `ruleSet` waits with `rule set unknown: <name>` (Q7); an unresolvable floor with `floor unavailable: <name>`.
+2. With any set, a trierarch fits only when its report names the request's harness (or its default) as guarded (Q12, 4.7); none fitting waits with `no guarded harness: <harness>`.
+3. It resolves each set to the commit it last read and stores the resolution with the ship and the settings version. A give-back and a new assignment for the same settings version reuse it: a moved session applies the same rules (Q10). A new settings version resolves again.
+4. Over 64 KB together: waits with `rule sets too large`.
+5. It sends the trierarch, before claiming the assignment, one `application/vnd.aeolus.trierarch.guard-rules+json`: `{ fleetId, pluginShipId, shipId, settingsVersion, sets: [{ name, repository, commit, file, floor, rules }] }`, with the full rules (Q9). It is sent for every assignment, with `sets: []` when no rules apply, so the trierarch never has to guess. It goes through 0030's durable delivery attempts. Then it claims the assignment.
+
+### 4.5 The trierarch keeps the rules (trierarch #617)
+
+- It takes the rules message only from its fleet's plugin ship, checks it against the schema, stores it in the ship's state folder outside the worktree (`<state>/ships/<shipId>/guard/rules.json`), then acks. An equal settings version with other content is refused; an older one never replaces a newer one.
+- It starts a session only with the rules for its request's current settings version. An assignment whose rules have not arrived after 10 minutes is given back with `guard rules did not arrive`.
+- A restart reads the stored rules; nothing is fetched again.
+
+### 4.6 The guard on each call (trierarch #617)
+
+Every session the trierarch starts gets the guard for its harness (Q2). For Claude Code: the trierarch writes `<state>/ships/<shipId>/guard/settings.json` with one `PreToolUse` hook, matcher `*`, command `aeolus-trierarch guard check --ship <shipId>`, and passes it with `--settings`. Before the start it reads the effective settings the session would load; any that disable hooks (`disableAllHooks`) make the trierarch give the request back with `guard disabled by settings: <file>`.
+
+`guard check` reads the call from stdin and answers within its own 5-second deadline, below the hook's timeout. In order:
+
+1. Anything that goes wrong (rules unreadable, input it cannot read, a panic, its deadline): refuse with `guard failed: <cause>` (Q3). It answers with the harness's deny and exits with the blocking code, so neither a crash nor a timeout lets the call through. A test proves what the harness does on each.
+2. The mechanism's own protection, whatever the rules (Q11): a write to the guard's state folder, the trierarch's configuration, or the harness's settings (for Claude Code: `~/.claude/settings*.json` and every `.claude/settings*.json` in the ship's folder) is refused as `protected: <path>`.
+3. The tool's kind (4.1). The shell input is parsed as POSIX shell into its simple commands: pipelines, lists, subshells, `cd` tracked for relative paths, `sh -c` and `bash -c` with a literal string parsed again (Q4). While any set applies, what cannot be resolved before it runs is refused as `unresolvable: <what>`: `eval`, `source` or `.` of a non-literal, a command name from a variable or a substitution, `xargs` or `find -exec` running a non-literal.
+4. Paths: every write target (the file tools' paths; redirections; the operands of `cp`, `mv`, `rm`, `touch`, `mkdir`, `ln`, `tee`, `sed -i`, `chmod`) is made absolute from the session's working folder, `..` removed and symlinks resolved, and must lie inside the boundary: the ship's folder and its repositories (Q6). A set's `writePaths` narrow it further.
+5. Each set on its own (Q8): the call runs only when every set lets it. The first refusing rule names the refusal.
+
+The session sees the refusal as the tool's error: `Refused by the guard: git.deny push, in no-push @ 8d41e07.` and goes on. The guard appends each refusal to `<state>/ships/<shipId>/guard/refusals.jsonl` (protected) as `{ at, tool, rule, set, commit, summary }`, the summary the call cut to 200 characters.
+
+What the guard cannot see, stated in the trierarch's docs: what a program does once it runs (a script it wrote, an interpreter's own code, a build tool). The guard checks the call, not the program; a container session (0039) limits what that program reaches, and a repository's own branch protection limits a push. A session on the host can reach the guard's files through such a program; only a container session cannot reach them at all (Q11).
+
+### 4.7 Every harness (trierarch #617)
+
+The trierarch report details gain `guardedHarnesses`: the harnesses this computer runs with a working guard. A harness enters it only once its guard exists and its regression tests pass on that computer. Claude Code is first (PreToolUse). Codex, Copilot and Cursor follow, each with its own hook or another way (Q2's note: "This needs to work for all harnesses!"), each designed and tried in its own part of trierarch #617 before it reports guarded; until then a request with rules is not placed on it (Q12).
+
+### 4.8 What is visible (core #2070, trierarch #617)
+
+- `fleet.reportCrewStatus` gains `guard`: `{ sets: [{ name, repository, commit, floor }], refusals: <count>, recent: [<the last 20 refusals: at, tool, rule, set, commit>] }`, written by the trierarch from what it applied and from `refusals.jsonl`. Core stores it with the status, never acts on it.
+- Session activity gains the kind `refused`, with the tool's name, so the latest event shows a refusal as it happens.
+- The ship page's crew request card shows Rule set, Guard (each set at its commit, the floor marked) and Refusals; the Trierarchs page gains Rule sets (section 5).
+
+### 4.9 Tests (each child)
+
+- Plugin: reading only changed files; an invalid file shown, never offered; a name conflict offers neither; an unresolvable floor holds every request with rules; placement reasons; resolution reused for the same settings version and redone for a new one; the rules message sent before the claim, with `sets: []` too.
+- Trierarch: rules taken only from the plugin ship; older never replaces newer; no start without rules; a restart uses the stored rules. Guard: every bypass class of section 2 as a regression case (`sh -c`, `eval`, variables, aliases, `-c` interpreters, scripts, `git -c core.hooksPath=`, `--no-verify`, `GIT_*`, `..`, symlinks, `cd` then a relative path, the file tools, MCP tools), fail closed on crash, bad input and timeout, protected files, unknown tools.
+- Core: the setting through every door, the guard status and the `refused` activity kind.
+
+Rollout: on one computer first (trierarch #617).
+
+## 5. Mockups
+
+Drawn with the console's own parts (RequestCrewDialog with CrewSettingsFields, CrewRequestCard, ConsoleFrame, ListPage and TrierarchTabs, Table, Switch, EmptyState, Dialog) and `@aeolus-fleet/ui`, rendered in the console's Storybook in Chromium at 375 and 1440 wide, light and dark: before from `main`, after with the change drawn into those parts. Each board holds every state of one screen. Names are placeholders. Proposed for Thomas's approval; once approved they are the acceptance criteria of the console part of #2070 and plugin #105.
+
+### Crew settings fields
+
+The request crew dialog; the commission dialog and each squadron member use the same fields. After: Rule set under MCP servers. States: 1 None chosen; 2 `no-push` chosen; 3 the plugin offers no rule sets; 4 no floor. One drawing difference: the Select lists the names in the regular font, as SettingsSelect draws every option.
+
+#### 375 wide, light
+
+| Before | After |
+| --- | --- |
+| ![Crew settings fields before, 375 light](mockups/settings-before-375-light.png) | ![Crew settings fields after, 375 light](mockups/settings-after-375-light.png) |
+
+#### 375 wide, dark
+
+| Before | After |
+| --- | --- |
+| ![Crew settings fields before, 375 dark](mockups/settings-before-375-dark.png) | ![Crew settings fields after, 375 dark](mockups/settings-after-375-dark.png) |
+
+#### 1440 wide, light
+
+| Before | After |
+| --- | --- |
+| ![Crew settings fields before, 1440 light](mockups/settings-before-1440-light.png) | ![Crew settings fields after, 1440 light](mockups/settings-after-1440-light.png) |
+
+#### 1440 wide, dark
+
+| Before | After |
+| --- | --- |
+| ![Crew settings fields before, 1440 dark](mockups/settings-before-1440-dark.png) | ![Crew settings fields after, 1440 dark](mockups/settings-after-1440-dark.png) |
+
+### Ship page: the crew request card
+
+The card alone, without the rest of the ship page. After: Rule set, Guard (each set at its commit, the floor marked) and Refusals rows. States: 1 running, guarded, no refusals; 2 running, 3 refusals; 3 waiting, `rule set unknown`; 4 waiting, `no guarded harness`.
+
+#### 375 wide, light
+
+| Before | After |
+| --- | --- |
+| ![Ship page: the crew request card before, 375 light](mockups/ship-before-375-light.png) | ![Ship page: the crew request card after, 375 light](mockups/ship-after-375-light.png) |
+
+#### 375 wide, dark
+
+| Before | After |
+| --- | --- |
+| ![Ship page: the crew request card before, 375 dark](mockups/ship-before-375-dark.png) | ![Ship page: the crew request card after, 375 dark](mockups/ship-after-375-dark.png) |
+
+#### 1440 wide, light
+
+| Before | After |
+| --- | --- |
+| ![Ship page: the crew request card before, 1440 light](mockups/ship-before-1440-light.png) | ![Ship page: the crew request card after, 1440 light](mockups/ship-after-1440-light.png) |
+
+#### 1440 wide, dark
+
+| Before | After |
+| --- | --- |
+| ![Ship page: the crew request card before, 1440 dark](mockups/ship-before-1440-dark.png) | ![Ship page: the crew request card after, 1440 dark](mockups/ship-after-1440-dark.png) |
+
+### Trierarchs page: Rule sets
+
+Before: the Trierarchs page with its Machines and MCP servers tabs. After: a third tab, Rule sets, at `/trierarchs/rule-sets`. States: 1 empty; 2 populated, `base` the floor; 3 a file error and a name conflict; 4 read only, without trierarch:guard; 5 the Add repository dialog (full screen on phone).
+
+#### 375 wide, light
+
+| Before | After |
+| --- | --- |
+| ![Trierarchs page: Rule sets before, 375 light](mockups/rule-sets-before-375-light.png) | ![Trierarchs page: Rule sets after, 375 light](mockups/rule-sets-after-375-light.png) |
+
+#### 375 wide, dark
+
+| Before | After |
+| --- | --- |
+| ![Trierarchs page: Rule sets before, 375 dark](mockups/rule-sets-before-375-dark.png) | ![Trierarchs page: Rule sets after, 375 dark](mockups/rule-sets-after-375-dark.png) |
+
+#### 1440 wide, light
+
+| Before | After |
+| --- | --- |
+| ![Trierarchs page: Rule sets before, 1440 light](mockups/rule-sets-before-1440-light.png) | ![Trierarchs page: Rule sets after, 1440 light](mockups/rule-sets-after-1440-light.png) |
+
+#### 1440 wide, dark
+
+| Before | After |
+| --- | --- |
+| ![Trierarchs page: Rule sets before, 1440 dark](mockups/rule-sets-before-1440-dark.png) | ![Trierarchs page: Rule sets after, 1440 dark](mockups/rule-sets-after-1440-dark.png) |
+
+## 6. The flow
 
 ```mermaid
 flowchart TD
   subgraph Plugin[trierarch plugin]
-    R1[read connected repositories: latest commit, changed files only] --> V{each file valid against the schema?}
-    V -->|no| E[shown as an error on the plugin page; not offered]
+    R0[every 5 minutes, or on replace] --> R1[latest commit per repository]
+    R1 -->|unchanged| R9[keep what was read]
+    R1 -->|cannot read| RE[keep last read sets; show the error]
+    R1 -->|changed| R2[read changed .yaml files]
+    R2 --> V{valid, name matches file?}
+    V -->|no| E[error shown; not offered]
     V -->|yes| N{name unique across repositories?}
-    N -->|no| D[both refused, shown as a conflict]
-    N -->|yes| O[offered as a choice]
+    N -->|no| D[conflict shown; neither offered]
+    N -->|yes| O[offered]
   end
-  CR[crew request with optional rule set name] --> P{plugin places it}
-  P -->|name unknown| U1[unassigned: rule set unknown]
-  P -->|rules apply, no trierarch with a guarded harness| U2[unassigned: no guarded harness]
-  P -->|resolves floor and chosen set to commits| A[assignment carries full rules, sets and commits]
-  A --> T[trierarch keeps the rules with the session, outside the worktree]
-  T -->|invalid or too large| G[give back with the reason]
-  T --> S[session starts with the guard installed]
-  S --> C[tool call]
-  C --> H{guard: the harness's hook or other way}
-  H -->|rules unreadable, crash, timeout| X[refuse: guard failed]
-  H -->|cannot be resolved before it runs| X2[refuse: unresolvable command]
-  H -->|writes the guard or harness settings| X3[refuse: protected]
-  H -->|floor or chosen set refuses| X4[refuse: rule, set and commit]
-  H -->|every set lets it| OK[call runs]
-  X --> L[refusal in session activity; session told why, goes on]
+  CR[crew request, settings version n, optional ruleSet] --> P0{existing placement checks}
+  P0 -->|no fit| W0[waits with its reason]
+  P0 --> P1{resolution stored for this ship and version?}
+  P1 -->|yes: give-back or move| M[send the stored rules]
+  P1 -->|no| P2{ruleSet offered?}
+  P2 -->|no| U1[waits: rule set unknown]
+  P2 -->|yes or none| P3{floor resolvable?}
+  P3 -->|no| U2[waits: floor unavailable]
+  P3 -->|yes| P4{any sets? then a trierarch with the harness guarded}
+  P4 -->|none fits| U3[waits: no guarded harness]
+  P4 -->|fits, or no sets| P5{64 KB or less?}
+  P5 -->|no| U4[waits: rule sets too large]
+  P5 -->|yes| P6[store the resolution]
+  P6 --> M
+  M --> C[claim the assignment]
+  subgraph Trierarch[trierarch]
+    M --> T1{from its plugin ship, valid, not older?}
+    T1 -->|no| T2[refused; kept rules unchanged]
+    T1 -->|yes| T3[store outside the worktree, then ack]
+    C --> T4{rules for this version within 10 minutes?}
+    T4 -->|no| G1[give back: guard rules did not arrive]
+    T4 -->|yes| T5{harness settings disable hooks?}
+    T5 -->|yes| G2[give back: guard disabled by settings]
+    T5 -->|no| S[start the session with the guard; report guard sets]
+    S -->|restart| T4
+  end
+  S --> K[tool call] --> H{guard check}
+  H -->|error, crash, deadline| X1[refuse: guard failed]
+  H -->|writes a protected file| X2[refuse: protected]
+  H -->|unknown tool| X3[refuse: unknown tool]
+  H -->|cannot be resolved| X4[refuse: unresolvable]
+  H -->|write outside the boundary| X5[refuse: outside the boundary]
+  H -->|a set refuses| X6[refuse: rule, set, commit]
+  H -->|every set lets it| OK[the call runs]
+  X1 --> L[refusal to refusals.jsonl; tool error to the session; it goes on]
   X2 --> L
   X3 --> L
   X4 --> L
-  S -->|restart or move| T
+  X5 --> L
+  X6 --> L
+  L --> RS[next pass: guard status with count and recent; activity refused]
 ```
