@@ -125,6 +125,7 @@ Answer: approved by Thomas, option 1. Decision: the plugin places a request with
 Context: the issue asks every resolved version and every refusal to be visible.
 Options: 1 the resolved sets and commits on the crew request's status, shown on the ship page; each refusal in the crew's session activity with its rule, set and commit, and a refusal count on the ship page; 2 a message to the owner per refusal; 3 logs on the computer only.
 Pick: 1. It reuses the status and activity the trierarch already reports (0029); a message per refusal would flood the owner.
+Answer: approved by Thomas, option 1. Decision: the resolved sets and commits are on the crew request's status, shown on the ship page; each refusal is in the crew's session activity with its rule, set and commit; the ship page shows a refusal count.
 
 ### Q14. Who manages rule set repositories and the floor
 
