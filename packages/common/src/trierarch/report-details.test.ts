@@ -414,8 +414,8 @@ describe('guarded harness reports', () => {
     expect(trierarchReportDetailsSchema.parse(details)).toEqual(details);
   });
 
-  it('refuses an unknown guarded harness', () => {
-    const details = { ...trierarchReportDetailsSchema.parse(documentedDetails()), guardedHarnesses: ['unknown-harness'] };
+  it('refuses a guarded harness that is not text', () => {
+    const details = { ...trierarchReportDetailsSchema.parse(documentedDetails()), guardedHarnesses: [42] };
     expect(trierarchReportDetailsSchema.safeParse(details).success).toBe(false);
   });
 });

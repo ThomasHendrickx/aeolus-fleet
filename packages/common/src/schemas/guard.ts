@@ -6,7 +6,7 @@ import { trierarchNameSchema } from '../trierarch/names.js';
 export const guardStatusSchema = z.object({
   sets: z.array(z.object({ name: trierarchNameSchema, repository: z.string().min(1), commit: z.string().min(1), floor: z.boolean() })),
   refusals: z.int().nonnegative(),
-  recent: z.array(z.object({ at: z.iso.datetime(), tool: z.string().min(1), rule: z.string().min(1), set: trierarchNameSchema, commit: z.string().min(1) })).max(20),
+  recent: z.array(z.object({ at: z.iso.datetime(), tool: z.string().min(1), rule: z.string().min(1), set: trierarchNameSchema.nullable(), commit: z.string().min(1).nullable() })).max(20),
 });
 
 export type GuardStatus = z.infer<typeof guardStatusSchema>;

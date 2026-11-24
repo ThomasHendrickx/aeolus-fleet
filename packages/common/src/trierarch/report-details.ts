@@ -100,6 +100,8 @@ const sealingKeySchema = z.strictObject({
 });
 
 export const trierarchReportDetailsSchema = z.strictObject({
+  /** Harnesses whose guard this trierarch enforces; omitted by older reporters. Placement belongs to the plugin. */
+  guardedHarnesses: z.array(harnessSchema).optional(),
   harnesses: z.array(
     z.strictObject({
       harness: harnessSchema,
