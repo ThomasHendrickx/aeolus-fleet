@@ -1,7 +1,7 @@
 import { MEETINGS_PAGE_SIZE_DEFAULT } from '@aeolus-fleet/common';
 import type { LeaseId, MeetingId, MessageId, MicPattern, ParticipantState, ShipId, ShipKind, ShipStatus } from '@aeolus-fleet/common';
 
-import { shipStatus, type LeaseRepository, type ShipRepository } from '../registry/public.js';
+import { canReachShip, shipStatus, type CheckReachTx, type LeaseRepository, type ShipRepository } from '../registry/public.js';
 import type { ShipCaller } from '../shared/caller.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import type { Page, PageQuery } from '../shared/page.js';
@@ -14,10 +14,10 @@ import type { MessageRepository } from './ports.js';
 import type { Participant } from './meeting.js';
 import type { MeetingRepository } from './ports.js';
 
-export interface ReadMeetingTx {
+export interface ReadMeetingTx extends Omit<CheckReachTx, 'reachRefusals'> {
   meetings: Pick<MeetingRepository, 'find' | 'contributions' | 'latestCall' | 'findCall' | 'progressPage'>;
   messages: Pick<MessageRepository, 'findMany'>;
-  ships: Pick<ShipRepository, 'find' | 'findMany'>;
+  ships: Pick<ShipRepository, 'find' | 'findMany' | 'listActiveOfType'>;
   leases: Pick<LeaseRepository, 'readCrews'>;
 }
 
@@ -84,11 +84,11 @@ export type ReadMeetingRefusal = DomainError<'MEETING_NOT_FOUND' | 'MESSAGE_NOT_
 export type ReadMeeting = (caller: ShipCaller, input: { meetingId: MeetingId; callId?: MessageId; progressCursor?: ShipId; progressLimit?: number } & PageQuery<MessageId>) => Promise<Result<MeetingRead, ReadMeetingRefusal>>;
 
 /**
- * Use case: a participant reads its meeting (`meeting`, decision 0061): its
+ * Use case: a participant or a person reached by its owner reads a meeting (`meeting`, decision 0061): its
  * owner and moderator, when it opened and ended, each participant with its
  * kind and status, crewed or awaiting crew, as it is now (M14), its mic, and a page of
  * what was said so far, newest first (M12): its contributions, never the
- * notices. A meeting that does not exist and one the caller takes no part in
+ * notices. A meeting that does not exist and one the caller cannot read
  * are one refusal. Reads only. In a sealed fleet each contribution is
  * unsealed with data keys unwrapped before the unit of work (decision 0068,
  * B9); one whose key cannot be had is marked unreadable and the rest listed.
@@ -100,8 +100,11 @@ export function createReadMeeting(deps: { uow: UnitOfWork<ReadMeetingTx>; sealin
       const { meetingId } = input;
       const meeting = await tx.meetings.find(fleetId, meetingId);
       // A former participant reads it too, whether it left or was revoked (M15).
-      if (!meeting?.participants.some((participant) => participant.shipId === caller.shipId)) {
-        return refuse('MEETING_NOT_FOUND', `Meeting ${meetingId} does not exist or you are not one of its participants`);
+      if (!meeting) return refuse('MEETING_NOT_FOUND', `Meeting ${meetingId} does not exist or you are not one of its participants`);
+      if (!meeting.participants.some((participant) => participant.shipId === caller.shipId)) {
+        if (caller.kind !== 'person') return refuse('MEETING_NOT_FOUND', `Meeting ${meetingId} does not exist or you are not one of its participants`);
+        const isReached = await canReachShip(tx, { fleetId, senderShipId: meeting.ownerShipId, recipientShipId: caller.shipId });
+        if (!isReached) return refuse('MEETING_NOT_FOUND', `Meeting ${meetingId} does not exist or you are not one of its participants`);
       }
       const participantIds = meeting.participants.map((participant) => participant.shipId);
       const [participantShips, participantCrews] = await Promise.all([tx.ships.findMany(fleetId, participantIds), tx.leases.readCrews(fleetId, participantIds)]);

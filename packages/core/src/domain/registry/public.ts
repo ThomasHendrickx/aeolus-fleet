@@ -4,7 +4,7 @@ export { location, refuseEndedLease, type Lease, type LeaseEnded, type LeaseEndR
 export { endLease, holdLease, isLeasePushed, markLeasePushed, takeOverOperatorLease, type HoldLeaseTx, type LeaseTx } from './leases.js';
 export type { FleetRemoval, FleetRepository, InFlightDeliveries, LeaseRepository, ShipRepository } from './ports.js';
 export { findPingableShip, type PingableShipTx, type UnpingableShip } from './pingable-ship.js';
-export { checkManage, checkRead, checkReach, keepingReachRefusal, type CheckManageTx, type CheckReachTx, type CheckReadTx, type NotReachable } from './check-reach.js';
+export { canReachShip, checkManage, checkRead, checkReach, keepingReachRefusal, type CheckManageTx, type CheckReachTx, type CheckReadTx, type NotReachable } from './check-reach.js';
 export { resolveSelector, type ResolveSelectorTx, type UnresolvableSelector } from './resolve-selector.js';
 export { resolveInvitees, type Invitee, type ResolveInviteesTx } from './resolve-invitees.js';
 export { resolveLabelSelection, type ResolveLabelSelectionTx } from './resolve-label-selection.js';
