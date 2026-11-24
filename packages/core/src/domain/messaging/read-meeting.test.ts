@@ -56,6 +56,7 @@ describe('reading a meeting', () => {
       goal: null,
       endsAt: null,
       endAfterCalls: null,
+      closedCalls: 0,
       call: null,
       owner: { id: chief.shipId, name: 'chief' },
       moderator: { id: chief.shipId, name: 'chief' },

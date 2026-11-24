@@ -124,6 +124,7 @@ describe('the meeting read', () => {
       endsAt: null,
       call: null,
       endAfterCalls: null,
+      closedCalls: 0,
       owner: chief,
       moderator: chief,
       openedAt: '2026-10-24T09:00:00.000Z',

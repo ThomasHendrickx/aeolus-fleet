@@ -3,6 +3,7 @@ import { createIdGenerator, type MeetingId, type MessageId } from '@aeolus-fleet
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createPrismaClient, createPrismaClientTellingStatements } from '../src/adapters/prisma/client.js';
+import { createPrismaMeetingRepository } from '../src/adapters/prisma/meetings.js';
 import { createPrismaExchangeRollups } from '../src/adapters/prisma/exchange-rollups.js';
 import { createPrismaShipHistory } from '../src/adapters/prisma/history.js';
 import { createPrismaHistoryPruner } from '../src/adapters/prisma/history-pruner.js';
@@ -206,4 +207,48 @@ describe('marking meeting contributions read on Postgres', () => {
       for (const statement of statements) await assertIndexedPlan(core.prisma, statement);
     } finally { await client.$disconnect(); }
   });
+});
+
+
+describe('meeting call details on Postgres (#2068)', () => {
+  it('reads the first question without contributions, numbers later calls and counts closed calls', async () => {
+    // Given a meeting without calls.
+    expect(unwrap(await core.useCases.readMeeting(reader, { meetingId, limit: 1 }))).toMatchObject({ closedCalls: 0, call: null });
+    const first = unwrap(await core.useCases.openCall(chief, { meetingId, question: 'First question?', model: MODEL, idempotencyKey: newKey() }));
+    await contribute();
+
+    // When the first call contribution is outside the contribution page.
+    const read = unwrap(await core.useCases.readMeeting(reader, { meetingId, limit: 1 }));
+
+    // Then the question and number are still available and no calls have closed.
+    expect(read).toMatchObject({ closedCalls: 0, call: { callId: first.callId, question: 'First question?', number: 1 } });
+    expect(read.contributions.items.map((item) => item.messageId)).not.toContain(first.callId);
+    for (const by of [chief, reader]) unwrap(await core.useCases.sendMessage(by, { selector: { kind: 'meeting', meetingId }, callId: first.callId, payload: 'Ready', model: MODEL, idempotencyKey: newKey() }));
+    const second = unwrap(await core.useCases.openCall(chief, { meetingId, question: 'Second question?', model: MODEL, idempotencyKey: newKey() }));
+    expect(unwrap(await core.useCases.readMeeting(reader, { meetingId, limit: 1 }))).toMatchObject({ closedCalls: 1, call: { callId: second.callId, question: 'Second question?', number: 2 } });
+    expect(unwrap(await core.useCases.readMeeting(reader, { meetingId, callId: first.callId, limit: 1 }))).toMatchObject({ closedCalls: 1, call: { question: 'First question?', number: 1 } });
+    for (const by of [chief, reader]) unwrap(await core.useCases.sendMessage(by, { selector: { kind: 'meeting', meetingId }, callId: second.callId, payload: 'Done', model: MODEL, idempotencyKey: newKey() }));
+    expect(unwrap(await core.useCases.readMeeting(reader, { meetingId, limit: 1 }))).toMatchObject({ closedCalls: 2, call: { question: 'Second question?', number: 2 } });
+  });
+});
+
+
+it('reads call counts through indexed meeting call ranges', async () => {
+  // Given a call and a client that records the repository's actual SQL.
+  const { callId } = unwrap(await core.useCases.openCall(chief, { meetingId, question: 'Indexed?', model: MODEL, idempotencyKey: newKey() }));
+  const statements: { query: string; params: string }[] = [];
+  const client = createPrismaClientTellingStatements(core.databaseUrl, (query, params) => { if (query.trimStart().startsWith('SELECT')) statements.push({ query, params }); });
+  try {
+    // When the repository reads the ordinal and closed count.
+    const meetings = createPrismaMeetingRepository(client);
+    expect(await meetings.callNumber(chief.fleetId, { meetingId, callId })).toBe(1);
+    expect(await meetings.closedCallCount(chief.fleetId, meetingId)).toBe(0);
+    // Then the queries use indexed ranges, without reading contributions.
+    expect(statements).toHaveLength(2);
+    for (const statement of statements) {
+      const plan = await assertIndexedPlan(core.prisma, statement);
+      expect(plan).toContain('Index');
+      expect(plan).not.toContain('messages');
+    }
+  } finally { await client.$disconnect(); }
 });
