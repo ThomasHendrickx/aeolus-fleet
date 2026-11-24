@@ -413,6 +413,7 @@ export interface SealingCursor {
 
 /** What one batch of the sealing pass reads, each row held until its unit of work ends: plain messages after its cursor, oldest first, and plain schedules. */
 export interface PlainPayloads {
+  queuedWords?: { id: MessageId; payload: string }[];
   messages: Message[];
   schedules: Schedule[];
 }
@@ -426,6 +427,7 @@ export interface SealedRowPayload<Id extends MessageId | ScheduleId> {
 
 /** What one batch of the sealing pass stores in place of what it read. */
 export interface SealedPayloads {
+  queuedWords?: { id: MessageId; payload: SealedMessagePayload }[];
   messages: SealedRowPayload<MessageId>[];
   schedules: SealedRowPayload<ScheduleId>[];
 }

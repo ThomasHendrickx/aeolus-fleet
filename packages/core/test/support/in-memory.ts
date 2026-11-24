@@ -551,12 +551,12 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       storesPlainPayload: (fleetId) =>
         Promise.resolve(
           state.messages.some((held) => held.fleetId === fleetId && typeof held.payload === 'string') ||
-            state.schedules.some((held) => held.fleetId === fleetId && typeof held.send.payload === 'string'),
+            state.schedules.some((held) => held.fleetId === fleetId && typeof held.send.payload === 'string') || state.meetings.some((meeting) => meeting.fleetId === fleetId && meeting.micRequests.some(({ words }) => typeof words?.payload === 'string')),
         ),
       payloadsToSeal: (fleetId) =>
         Promise.resolve(
           state.messages.filter((held) => held.fleetId === fleetId).length +
-            state.schedules.filter((held) => held.fleetId === fleetId && typeof held.send.payload === 'string').length,
+            state.schedules.filter((held) => held.fleetId === fleetId && typeof held.send.payload === 'string').length + state.meetings.filter((meeting) => meeting.fleetId === fleetId).flatMap((meeting) => meeting.micRequests).filter(({ words }) => typeof words?.payload === 'string').length,
         ),
       turnOn: (sealing, firstKey) => {
         if (state.dataKeys.some((held) => held.fleetId === firstKey.fleetId && held.isCurrent)) {
@@ -597,9 +597,14 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
           .toSorted((one, other) => one.createdAt.getTime() - other.createdAt.getTime() || (one.id < other.id ? -1 : 1))
           .slice(0, limit);
         const schedules = state.schedules.filter((held) => held.fleetId === fleetId && typeof held.send.payload === 'string').slice(0, limit);
-        return Promise.resolve(structuredClone({ messages, schedules }));
+        const queuedWords = state.meetings.filter((meeting) => meeting.fleetId === fleetId).flatMap((meeting) => meeting.micRequests).flatMap(({ words }) => words !== undefined && typeof words.payload === 'string' ? [{ id: words.messageId, payload: words.payload }] : []).slice(0, limit);
+        return Promise.resolve(structuredClone({ messages, schedules, ...(queuedWords.length === 0 ? {} : { queuedWords }) }));
       },
       sealPayloads: (fleetId, sealed) => {
+        for (const { id, payload } of sealed.queuedWords ?? []) {
+          const request = state.meetings.filter((meeting) => meeting.fleetId === fleetId).flatMap((meeting) => meeting.micRequests).find(({ words }) => words?.messageId === id);
+          if (request?.words !== undefined) request.words.payload = structuredClone(payload);
+        }
         for (const { id, payload, requestHash } of sealed.messages) {
           const message = state.messages.find((held) => held.fleetId === fleetId && held.id === id);
           if (message !== undefined) {
