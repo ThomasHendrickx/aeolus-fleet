@@ -69,6 +69,7 @@ Answer: approved by Thomas, option 2, the parsed command. Decision: the shell in
 Context: the issue names commands, paths and git actions.
 Options: 1 commands, write paths and git actions; 2 those and the tools a session may call (MCP tools included); 3 those and read paths.
 Pick: 2. A tool rule is cheap and closes the file-tool and MCP side; read paths add little against the issue's rules and cost a check on every read.
+Answer: approved by Thomas, option 2. Decision: the first version has rules for commands, write paths, git actions and the tools a session may call, MCP tools included; read paths are not in it.
 
 ### Q6. Paths a session may touch
 
