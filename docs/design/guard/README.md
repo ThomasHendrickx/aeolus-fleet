@@ -1,6 +1,6 @@
 # The guard: every tool call of a crewed session checked against a rule set
 
-Stage 1 for [#2069](https://github.com/ThomasHendrickx/aeolus-fleet/issues/2069): purpose, lessons and questions, proposed for approval. No detailed decision is taken here; the contracts, the rule set format and the console mockups follow once the purpose and the picks are agreed. Children: [#2070](https://github.com/ThomasHendrickx/aeolus-fleet/issues/2070) (the crew request setting), [aeolus-fleet-trierarch#617](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/issues/617) (the hook), [aeolus-fleet-trierarch-plugin#105](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch-plugin/issues/105) (rule set repositories and the floor).
+Stage 1 for [#2069](https://github.com/ThomasHendrickx/aeolus-fleet/issues/2069): purpose approved by Thomas; lessons and questions Q2 to Q15 proposed. No detailed decision is taken here; the contracts, the rule set format and the console mockups follow once the purpose and the picks are agreed. Children: [#2070](https://github.com/ThomasHendrickx/aeolus-fleet/issues/2070) (the crew request setting), [aeolus-fleet-trierarch#617](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/issues/617) (the hook), [aeolus-fleet-trierarch-plugin#105](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch-plugin/issues/105) (rule set repositories and the floor).
 
 ## 1. Purpose
 
@@ -41,6 +41,7 @@ Each question has its context, the options, the pick and why. Thomas answers the
 Context: section 1.
 Options: 1 approve as written; 2 change it.
 Pick: 1. It names the person's need, the mechanism and what stays out.
+Answer: approved by Thomas, option 1, as written.
 
 ### Q2. Where the check runs
 
