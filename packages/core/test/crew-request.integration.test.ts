@@ -39,6 +39,21 @@ async function crewRequests() {
 }
 
 describe('a crew request on Postgres', () => {
+  it('stores the applied guard with its status event and reads it on the ship (#2070)', async () => {
+    const guard = { sets: [{ name: 'no-push', repository: 'company/rules', commit: '8d41e07', floor: true }], refusals: 0, recent: [] };
+    const { shipId } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'guarded-computer', type: 'trierarch', scopes: ['crew:run'] }));
+    const trierarch: ShipCaller = { fleetId: argo.fleetId, shipId, kind: 'trierarch', scopes: ['crew:run'] };
+    unwrap(await core.useCases.requestCrew(argo, { shipId: scoutId, settings: aCrewSettings({ ruleSet: 'no-push' }) }));
+    unwrap(await core.useCases.assignCrew(argo, { shipId: scoutId, trierarchShipId: shipId }));
+
+    unwrap(await core.useCases.reportCrewStatus(trierarch, { shipId: scoutId, status: 'running', guard }));
+
+    await expect(crewRequests()).resolves.toEqual([expect.objectContaining({ guard })]);
+    await expect(core.prisma.event.count({ where: { shipId: scoutId, type: 'CrewStatusChanged' } })).resolves.toBe(1);
+    await expect(core.useCases.getShip(argo, { shipId: scoutId })).resolves.toMatchObject({ value: { crewRequest: { guard } } });
+    await expect(core.useCases.listFleet(argo).then((page) => page.ships).then(wholeShips).then((ships) => ships.find((ship) => ship.id === scoutId)?.crewRequest)).resolves.toMatchObject({ guard });
+  });
+
   it('is stored once per ship, its settings as JSON, replaced in place with the next settings version', async () => {
     unwrap(await core.useCases.requestCrew(argo, { shipId: scoutId, settings: aCrewSettings({ harness: 'claude-code' }) }));
     core.clock.advance(60_000);

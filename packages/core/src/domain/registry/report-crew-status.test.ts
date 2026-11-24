@@ -120,3 +120,59 @@ describe('a status refused', () => {
     await expectRefused({ caller: trierarch, input: { shipId: scoutId, status: 'running' } }, 'CREW_REQUEST_NOT_FOUND');
   });
 });
+
+
+const guard = {
+  sets: [{ name: 'no-push', repository: 'company/rules', commit: '8d41e07', floor: true }],
+  refusals: 3,
+  recent: [{ at: '2026-10-06T17:00:30.000Z', tool: 'Bash', rule: 'git.deny push', set: 'no-push', commit: '8d41e07' }],
+};
+
+describe('guard status follows the applied settings (#2070)', () => {
+  it('stores guard status and records a change when only refusals change', async () => {
+    unwrap(await registry.reportCrewStatus(trierarch, { shipId: scoutId, status: 'running', guard: { ...guard, refusals: 0, recent: [] } }));
+    core.state.events.length = 0;
+
+    unwrap(await registry.reportCrewStatus(trierarch, { shipId: scoutId, status: 'running', guard }));
+
+    expect(core.state.crewRequests.find((request) => request.shipId === scoutId)).toMatchObject({ guard });
+    expect(core.state.events).toEqual([expect.objectContaining({ type: 'CrewStatusChanged' })]);
+    await expect(registry.getShip(argo, { shipId: scoutId })).resolves.toMatchObject({ value: { crewRequest: { guard } } });
+  });
+
+  it('an omitted guard is unknown, never the last applied guard', async () => {
+    unwrap(await registry.reportCrewStatus(trierarch, { shipId: scoutId, status: 'running', guard }));
+    core.state.events.length = 0;
+
+    unwrap(await registry.reportCrewStatus(trierarch, { shipId: scoutId, status: 'running' }));
+
+    expect(core.state.crewRequests.find((request) => request.shipId === scoutId)).toMatchObject({ guard: null });
+    expect(core.state.events).toEqual([expect.objectContaining({ type: 'CrewStatusChanged' })]);
+  });
+
+  it('a new settings version clears the applied guard', async () => {
+    unwrap(await registry.reportCrewStatus(trierarch, { shipId: scoutId, status: 'running', guard }));
+
+    unwrap(await registry.requestCrew(argo, { shipId: scoutId, settings: aCrewSettings({ ruleSet: 'no-push' }) }));
+
+    expect(core.state.crewRequests.find((request) => request.shipId === scoutId)).toMatchObject({ settingsVersion: 2, guard: null });
+  });
+
+  it('releasing clears the applied guard', async () => {
+    unwrap(await registry.reportCrewStatus(trierarch, { shipId: scoutId, status: 'running', guard }));
+
+    unwrap(await registry.removeCrewRequest(argo, { shipId: scoutId }));
+
+    expect(core.state.crewRequests.find((request) => request.shipId === scoutId)).toMatchObject({ status: 'releasing', guard: null });
+  });
+
+  it('give-back and a new assignment clear the applied guard', async () => {
+    unwrap(await registry.reportCrewStatus(trierarch, { shipId: scoutId, status: 'crewing', guard }));
+
+    unwrap(await registry.giveBackCrewRequest(trierarch, { shipId: scoutId, settingsVersion: 1, reason: 'guard failed' }));
+
+    expect(core.state.crewRequests.find((request) => request.shipId === scoutId)).toMatchObject({ assignedTo: null, guard: null });
+    unwrap(await registry.assignCrew(argo, { shipId: scoutId, trierarchShipId: trierarch.shipId }));
+    expect(core.state.crewRequests.find((request) => request.shipId === scoutId)).toMatchObject({ assignedTo: trierarch.shipId, guard: null });
+  });
+});

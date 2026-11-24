@@ -122,3 +122,22 @@ describe('crewSettingsRefusal: why settings are not crew settings, as every writ
     });
   });
 });
+
+
+describe('the guard crew setting (#2070)', () => {
+  it('carries a rule set name without interpreting it', () => {
+    const settings = { ...documentedSettings(), ruleSet: 'no-push' };
+
+    const read = crewSettingsSchema.safeParse(settings);
+
+    expect(read).toMatchObject({ success: true, data: settings });
+  });
+
+  it.each(['', '../rules', '/etc/rules', { name: 'no-push' }])('refuses a rule set definition or path: %s', (ruleSet) => {
+    const settings = { ...documentedSettings(), ruleSet };
+
+    const read = crewSettingsSchema.safeParse(settings);
+
+    expect(read.success).toBe(false);
+  });
+});
