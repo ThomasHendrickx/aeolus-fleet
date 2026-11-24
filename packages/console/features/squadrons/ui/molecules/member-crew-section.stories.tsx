@@ -175,6 +175,6 @@ export const GuardRuleSet: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByTestId('crew-settings-rule-set')).toHaveTextContent('no-push');
-    await expect(canvas.getByText(/The floor applies to every request: base/)).toBeVisible();
+    await expect(canvas.getByText(/The floor applies to every request:/)).toHaveTextContent('The floor applies to every request: base.');
   },
 };

@@ -143,7 +143,11 @@ export const RuleSetNone: Story = {
   args: { ...Edit.args, machineLabels: undefined, squadrons: undefined, guardChoices: { names: ['base', 'no-push'], floor: ['base'] } },
   play: async () => {
     await expect(screen.getByTestId('crew-settings-rule-set')).toHaveTextContent('None');
-    await waitFor(async () => { await expect(screen.getByText(/The floor applies to every request: base/)).toBeVisible(); });
+    const hint = screen.getByText((_text, element) =>
+      element?.textContent === 'triage-bot’s session is checked against the floor and this rule set. The floor applies to every request: base.');
+    for (const name of ['triage-bot', 'base']) {
+      await expect(getComputedStyle(within(hint).getByText(name)).fontFamily).toContain('monospace');
+    }
     await userEvent.click(screen.getByTestId('crew-settings-rule-set'));
     await userEvent.click(await screen.findByRole('option', { name: 'no-push' }));
     await expect(screen.getByTestId('crew-settings-rule-set')).toHaveTextContent('no-push');
@@ -159,13 +163,20 @@ export const RuleSetsEmpty: Story = {
   play: async () => {
     await expect(screen.getByTestId('crew-settings-rule-set')).toBeDisabled();
     await waitFor(async () => { await expect(screen.getByText(/No rule sets are connected/)).toBeVisible(); });
-    await waitFor(async () => { await expect(screen.getByText(/The floor applies to every request: base/)).toBeVisible(); });
+    await expect(screen.getByText(/No rule sets are connected/)).toHaveTextContent(
+      'No rule sets are connected. The floor applies to every request: base.',
+    );
     await checkGuardLayout(screen.getByTestId('request-crew-dialog'));
   },
 };
 export const RuleSetNoFloor: Story = {
   args: { ...Edit.args, machineLabels: undefined, squadrons: undefined, guardChoices: { names: ['no-push'], floor: [] } },
-  play: async () => { await waitFor(async () => { await expect(screen.getByText(/None: no rules apply/)).toBeVisible(); }); await checkGuardLayout(screen.getByTestId('request-crew-dialog')); },
+  play: async () => {
+    await expect(screen.getByText(/None: no rules apply/)).toHaveTextContent(
+      /^triage-bot’s session is checked against this rule set\. None: no rules apply\.$/,
+    );
+    await checkGuardLayout(screen.getByTestId('request-crew-dialog'));
+  },
 };
 
 

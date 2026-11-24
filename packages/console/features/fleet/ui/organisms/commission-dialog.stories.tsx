@@ -514,7 +514,7 @@ export const GuardRuleSet: Story = {
   args: { crewRequest: { offers: OFFERS, guardChoices: { names: ['no-push'], floor: ['base'] }, onSettingsChange: () => undefined } },
   play: async () => {
     await expect(screen.getByTestId('crew-settings-rule-set')).toHaveTextContent('None');
-    await waitFor(async () => { await expect(screen.getByText(/The floor applies to every request: base/)).toBeVisible(); });
+    await waitFor(async () => { await expect(screen.getByText(/The floor applies to every request:/)).toHaveTextContent('The floor applies to every request: base.'); });
   },
 };
 
