@@ -6,7 +6,7 @@ import { ok, type Result } from '../shared/result.js';
 import { listedUnsealed, unsealed, type DataKeysNeeded, type HeldDataKeys } from './data-keys.js';
 import type { DomainError } from '../shared/errors.js';
 import type { Meeting } from './meeting.js';
-import { closeAnsweredCall, type MeetingCall } from './meeting-call.js';
+import { closeAnsweredCall, closeCallByPerson, type MeetingCall } from './meeting-call.js';
 import { endAfterCalls } from './meeting-life.js';
 import { tellOfChange, tellParticipant, type MeetingNoticeTx } from './meeting-notice.js';
 import type { AcceptRefusal } from './message.js';
@@ -48,10 +48,23 @@ export interface CallCloseTx extends MeetingNoticeTx, CallReadTx {
   messages: MessageRepository;
   meetings: Pick<MeetingRepository, 'saveCall' | 'closedCallCount' | 'save' | 'contributed'>;
 }
-/** One closed call owes one collected result, and may reach the meeting's end condition. */
-export async function closeCallWithin(deps: { tx: CallCloseTx; ids: IdGenerator; hasher: RequestHasher; held: HeldDataKeys }, input: { meeting: Meeting; call: MeetingCall; by: ShipId; at: Date; isInterrupted?: boolean }): Promise<Result<{ isMeetingEnded: boolean }, AcceptRefusal | DataKeysNeeded | DomainError<'KEY_UNAVAILABLE'>>> {
+interface CallCloseDeps { tx: CallCloseTx; ids: IdGenerator; hasher: RequestHasher; held: HeldDataKeys }
+interface CallCloseInput { meeting: Meeting; call: MeetingCall; by: ShipId; at: Date }
+type CallCloseResult = Result<{ isMeetingEnded: boolean }, AcceptRefusal | DataKeysNeeded | DomainError<'KEY_UNAVAILABLE'>>;
+
+/** One settled call owes one collected result. */
+export async function closeCallWithin(deps: CallCloseDeps, input: CallCloseInput): Promise<CallCloseResult> {
+  return storeClosedCall(deps, { ...input, closed: closeAnsweredCall(input.call, input) });
+}
+
+/** A person's close collects the round with the remaining ships not asked. */
+export async function closeCallByPersonWithin(deps: CallCloseDeps, input: CallCloseInput): Promise<CallCloseResult> {
+  return storeClosedCall(deps, { ...input, closed: closeCallByPerson(input.call, input) });
+}
+
+async function storeClosedCall(deps: CallCloseDeps, input: CallCloseInput & { closed: ReturnType<typeof closeAnsweredCall> }): Promise<CallCloseResult> {
   const { tx, ids } = deps;
-  const closed = closeAnsweredCall(input.call, { by: input.by, at: input.at, isInterrupted: input.isInterrupted });
+  const { closed } = input;
   await tx.meetings.saveCall(closed.call);
   for (const event of closed.events) await recordEvent({ events: tx.events, ids }, event);
   if (closed.events.length === 0) return ok({ isMeetingEnded: false });

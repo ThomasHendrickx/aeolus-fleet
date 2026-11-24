@@ -44,17 +44,21 @@ export function answerCall(call: MeetingCall | undefined, input: { by: ShipId; m
 }
 
 /** Silence settles an expected ship just as an on-time answer does. */
-export function closeAnsweredCall(call: MeetingCall, input: { by: ShipId; at: Date; isInterrupted?: boolean }): { call: MeetingCall; events: NewEvent[] } {
+export function closeAnsweredCall(call: MeetingCall, input: { by: ShipId; at: Date }): { call: MeetingCall; events: NewEvent[] } {
   if (call.closedAt !== null) return { call, events: [] };
   const answered = call.answers.filter((answer) => !answer.isLate).map((answer) => answer.shipId);
-  if (input.isInterrupted === true) {
-    const notAskedShipIds = call.expectedShipIds.filter((shipId) => !answered.includes(shipId) && !call.silentShipIds.includes(shipId));
-    return { call: { ...call, notAskedShipIds, closedAt: input.at }, events: [callEvent(call, { type: 'CallClosed', ...input })] };
-  }
   const silentShipIds = input.at >= call.deadline ? call.expectedShipIds.filter((shipId) => !answered.includes(shipId)) : call.silentShipIds;
   if (!call.expectedShipIds.every((shipId) => answered.includes(shipId) || silentShipIds.includes(shipId))) return { call, events: [] };
   return { call: { ...call, silentShipIds, closedAt: input.at }, events: [callEvent(call, { type: 'CallClosed', ...input })] };
 }
+/** A person preserves answers and silence, and closes with the remaining ships not asked. */
+export function closeCallByPerson(call: MeetingCall, input: { by: ShipId; at: Date }): { call: MeetingCall; events: NewEvent[] } {
+  if (call.closedAt !== null) return { call, events: [] };
+  const answered = call.answers.filter((answer) => !answer.isLate).map((answer) => answer.shipId);
+  const notAskedShipIds = call.expectedShipIds.filter((shipId) => !answered.includes(shipId) && !call.silentShipIds.includes(shipId));
+  return { call: { ...call, notAskedShipIds, closedAt: input.at }, events: [callEvent(call, { type: 'CallClosed', ...input })] };
+}
+
 function callEvent(call: MeetingCall, input: { type: NewEvent['type']; by: ShipId; at: Date; messageId?: MessageId }): NewEvent {
   return { fleetId: call.fleetId, type: input.type, occurredAt: input.at, actor: shipActor(input.by), shipId: input.by, messageId: input.messageId ?? call.id, details: { meetingId: call.meetingId, callId: call.id } };
 }

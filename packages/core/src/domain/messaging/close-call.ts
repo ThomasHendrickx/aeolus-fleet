@@ -6,7 +6,7 @@ import type { Clock } from '../shared/clock.js';
 import type { DomainError } from '../shared/errors.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
-import { closeCallWithin, type CallCloseTx } from './call-round.js';
+import { closeCallByPersonWithin, type CallCloseTx } from './call-round.js';
 import { withDataKeys, type DataKeysNeeded, type PayloadSealing } from './data-keys.js';
 import type { PresenceRefusal } from './meeting.js';
 import { checkCallClose } from './meeting-call.js';
@@ -27,7 +27,7 @@ export function createCloseCall(deps: { uow: UnitOfWork<CloseCallTx>; clock: Clo
     const allowed = checkCallClose({ meeting, call }, { meetingId: input.meetingId, by: caller.shipId, byKind: caller.kind, at });
     if (!allowed.isOk) return allowed;
     if (allowed.value.call.closedAt !== null) return ok(undefined);
-    const closed = await closeCallWithin({ tx, ids: deps.ids, hasher: deps.hasher, held }, { ...allowed.value, by: caller.shipId, at, isInterrupted: true });
+    const closed = await closeCallByPersonWithin({ tx, ids: deps.ids, hasher: deps.hasher, held }, { ...allowed.value, by: caller.shipId, at });
     return closed.isOk ? ok(undefined) : closed;
   }));
 }
