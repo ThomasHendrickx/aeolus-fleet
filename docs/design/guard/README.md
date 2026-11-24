@@ -90,6 +90,7 @@ Answer: approved by Thomas, option 1. Decision: the plugin checks the name at pl
 Context: the floor applies to every request; a request can only tighten it.
 Options: 1 a call runs only when the floor and the chosen set both let it (each set refuses on its own); 2 the chosen set replaces the floor's allows but keeps its denies.
 Pick: 1. Tightening then holds by construction: no chosen set can loosen anything the floor refuses.
+Answer: approved by Thomas, option 1. Decision: a call runs only when the floor and the chosen set both let it; each set refuses on its own, so no chosen set loosens the floor.
 
 ### Q9. What travels with the assignment
 
