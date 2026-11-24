@@ -62,6 +62,7 @@ Answer: approved by Thomas, option 1, fail closed. Decision: any error, timeout 
 Context: a rule that matches command text is defeated by every bypass class in section 2.
 Options: 1 command text patterns; 2 the parsed command: the shell input is parsed into commands and their arguments, and what cannot be resolved before it runs (`eval`, `sh -c` or an interpreter's `-c` with input built at run time, a command name from a variable or substitution) is refused while a rule set applies; 3 an allow list of commands only.
 Pick: 2. It closes the classes text matching leaves open, without forcing every fleet to list every command it allows.
+Answer: approved by Thomas, option 2, the parsed command. Decision: the shell input is parsed into commands and their arguments, and what cannot be resolved before it runs is refused while a rule set applies.
 
 ### Q5. The rule types of the first version
 
