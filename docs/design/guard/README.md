@@ -118,6 +118,7 @@ Answer: approved by Thomas, option 1. Decision: the guard always refuses writes 
 Context: Claude Code first; Codex's hooks may or may not allow it; Copilot and Cursor have none known. With a floor, every request has rules.
 Options: 1 the plugin places a request with rules (the floor's or a chosen set) only on a trierarch that reports a guarded harness for it, else `no guarded harness: <harness>`; 2 crew it unguarded with a warning.
 Pick: 1. An unguarded session under a floor breaks the floor's promise. The cost: while a floor is set, Codex, Copilot and Cursor requests wait until their guard exists.
+Answer: approved by Thomas, option 1. Decision: the plugin places a request with rules (the floor's or a chosen set) only on a trierarch that reports a guarded harness for it, else the request stays unassigned with `no guarded harness: <harness>`. With Q2, every supported harness gets a guard; this rule covers a harness whose guard is not yet built.
 
 ### Q13. What is visible
 
