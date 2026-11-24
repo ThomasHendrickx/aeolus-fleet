@@ -76,6 +76,7 @@ Answer: approved by Thomas, option 2. Decision: the first version has rules for 
 Context: the issue fills "paths a session may touch" from the crew request; 0027 forbids paths in crew settings.
 Options: 1 no free paths: the guard's path boundary is the ship's own folder and the repositories the crew settings already name, which the trierarch knows; a rule set narrows it with globs relative to those repositories; 2 a new crew setting holding globs, changing 0027; 3 paths only inside rule sets.
 Pick: 1. It keeps 0027 and needs no new setting: a session's own repositories are the boundary the issue's example wants.
+Answer: approved by Thomas, option 1, no free paths. Decision: the guard's path boundary is the ship's own folder and the repositories its crew settings name; a rule set narrows it with globs relative to those repositories; crew settings get no path setting (0027 stands).
 
 ### Q7. Where a rule set's name is checked
 
