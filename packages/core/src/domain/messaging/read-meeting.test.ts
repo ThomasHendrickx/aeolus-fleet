@@ -1,7 +1,7 @@
 import { idSchema, type MeetingId, type MessageId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { crewAboard, initialiseFleet, messagingUseCases, operatorCaller, registryUseCases, SESSION_MODEL } from '../../../test/support/core-fixtures.js';
+import { applyNetworkRules, crewAboard, initialiseFleet, messagingUseCases, operatorCaller, registryUseCases, SESSION_MODEL } from '../../../test/support/core-fixtures.js';
 import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { newKey } from '../../testing/keys.js';
@@ -14,6 +14,7 @@ import type { ShipCaller } from '../shared/caller.js';
  */
 let core: InMemoryCore;
 let messaging: ReturnType<typeof messagingUseCases>;
+let argo: ShipCaller;
 let chief: ShipCaller;
 let marketing: ShipCaller;
 let product: ShipCaller;
@@ -34,7 +35,7 @@ async function contributed(by: ShipCaller, payload: string): Promise<MessageId> 
 beforeEach(async () => {
   core = createInMemoryCore(OPENED_AT);
   const fleet = await initialiseFleet(core);
-  const argo = operatorCaller(fleet);
+  argo = operatorCaller(fleet);
   const registry = registryUseCases(core);
   messaging = messagingUseCases(core);
   chief = await shipWithScopes({ registry, argo }, { name: 'chief', type: 'chief-of-staff', scopes: ['meetings:open'] });
@@ -132,6 +133,34 @@ describe('reading a meeting', () => {
       [said[0]],
       null,
     ]);
+  });
+
+  it('lets a reached person read the full meeting before joining without changing it', async () => {
+    // Given a contribution and a person who has not joined.
+    const registry = registryUseCases(core);
+    const { shipId } = unwrap(await registry.commissionShip(argo, { name: 'person', type: 'person', kind: 'person', idempotencyKey: newKey() }));
+    const person: ShipCaller = { fleetId: chief.fleetId, shipId, kind: 'person', scopes: ['messages:receive'] };
+    await contributed(chief, 'Agenda');
+    const expected = unwrap(await messaging.readMeeting(marketing, { meetingId, limit: 20 }));
+    const before = structuredClone({ meetings: core.state.meetings, messages: core.state.messages, events: core.state.events });
+
+    // When the person reads it.
+    const read = unwrap(await messaging.readMeeting(person, { meetingId, limit: 20 }));
+
+    // Then it sees the participant's full view and the read changes nothing.
+    expect(read).toEqual(expected);
+    expect({ meetings: core.state.meetings, messages: core.state.messages, events: core.state.events }).toEqual(before);
+  });
+
+  it('refuses a person outside the meeting owner\'s reach', async () => {
+    // Given a person outside the owner's reach.
+    const registry = registryUseCases(core);
+    const { shipId } = unwrap(await registry.commissionShip(argo, { name: 'person', type: 'person', kind: 'person', idempotencyKey: newKey() }));
+    const person: ShipCaller = { fleetId: chief.fleetId, shipId, kind: 'person', scopes: ['messages:receive'] };
+    await applyNetworkRules(registry, { by: argo, rules: [] });
+
+    // When it reads the meeting, then it is refused.
+    expect(refusalOf(await messaging.readMeeting(person, { meetingId, limit: 20 })).kind).toBe('MEETING_NOT_FOUND');
   });
 
   it('refuses a ship that is no participant, as it refuses a meeting that does not exist', async () => {
