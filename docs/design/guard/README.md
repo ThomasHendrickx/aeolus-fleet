@@ -97,6 +97,7 @@ Answer: approved by Thomas, option 1. Decision: a call runs only when the floor 
 Context: the trierarch holds no read token for private rule set repositories, and a moved session must apply the same rules.
 Options: 1 the plugin sends the full resolved rules of the floor and the chosen set, each with its repository and commit, and the trierarch keeps them with the session, outside the worktree; 2 only repository and commit, the trierarch reading them itself.
 Pick: 1. No token reaches a computer, and a crashed or moved session needs nothing but what it was given. A size limit well under 256 KB is set in the detailed design.
+Answer: approved by Thomas, option 1. Decision: the plugin sends the full resolved rules of the floor and the chosen set, each with its repository and commit, and the trierarch keeps them with the session, outside the worktree; no read token reaches a computer.
 
 ### Q10. A rule set that changes while a session runs
 
