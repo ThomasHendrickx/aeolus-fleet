@@ -39,7 +39,7 @@ Read CLAUDE.md, docs/blueprint.md and docs/architecture.md first. Then read the 
 ## Done when
 
 [the "Done when" cell of the build plan]
-- npm run typecheck, npm run lint and npm test pass locally and in CI.
+- `npm run check:push` passes locally and CI passes.
 - PR description: decisions the docs did not dictate, open questions, noticed not done.
 ```
 
