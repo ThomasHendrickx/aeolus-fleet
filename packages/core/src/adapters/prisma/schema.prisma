@@ -1706,6 +1706,8 @@ model CommissionApproval {
 
 /// The meeting owns its calls; answer contributions name their call through Message.callId.
 model MeetingCall {
+  /// Null only for old calls without a recoverable opening question.
+  question String?
   id String @id
   fleetId String @map("fleet_id")
   meetingId String @map("meeting_id")

@@ -248,7 +248,7 @@ const toolSchema = z.object({
     properties: z.record(z.string(), z.record(z.string(), z.unknown())),
     required: z.array(z.string()).optional(),
   }),
-  outputSchema: z.object({ type: z.literal('object') }).optional(),
+  outputSchema: z.looseObject({ type: z.literal('object') }).optional(),
 });
 
 async function listedTools(): Promise<z.infer<typeof toolSchema>[]> {
@@ -366,6 +366,17 @@ describe('the ship tools at /mcp', () => {
     for (const rule of rules) {
       expect(description).toMatch(rule);
     }
+  });
+
+  it('lists the meeting question, call number and closed count in its contract', async () => {
+    await start();
+    const meeting = await tool('meeting');
+    expect(meeting.description).toContain('closedCalls');
+    expect(meeting.description).toContain('question is null');
+    expect(meeting.description).toContain('question and number (1 for the first call)');
+    expect(JSON.stringify(meeting.outputSchema)).toContain('closedCalls');
+    expect(JSON.stringify(meeting.outputSchema)).toContain('"question":{"type":["string","null"]}');
+    expect(JSON.stringify(meeting.outputSchema)).toContain('number');
   });
 
   it('describes currentLease null and omission in the public ship contract', async () => {

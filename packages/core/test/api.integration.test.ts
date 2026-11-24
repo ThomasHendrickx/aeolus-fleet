@@ -323,6 +323,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_meeting_read_health_index$/),
       expect.stringMatching(/^\d{14}_mic_request_words$/),
       expect.stringMatching(/^\d{14}_person_meeting_intervention$/),
+      expect.stringMatching(/^\d{14}_meeting_call_question$/),
     ]);
   });
 });

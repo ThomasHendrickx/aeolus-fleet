@@ -15,7 +15,7 @@ import type { Participant } from './meeting.js';
 import type { MeetingRepository } from './ports.js';
 
 export interface ReadMeetingTx extends Omit<CheckReachTx, 'reachRefusals'> {
-  meetings: Pick<MeetingRepository, 'find' | 'contributions' | 'latestCall' | 'findCall' | 'progressPage'>;
+  meetings: Pick<MeetingRepository, 'find' | 'contributions' | 'latestCall' | 'findCall' | 'progressPage' | 'closedCallCount' | 'callNumber'>;
   messages: Pick<MessageRepository, 'findMany'>;
   ships: Pick<ShipRepository, 'find' | 'findMany' | 'listActiveOfType'>;
   leases: Pick<LeaseRepository, 'readCrews'>;
@@ -65,7 +65,8 @@ export interface MicRead {
 
 export interface MeetingRead {
   endAfterCalls: number | null;
-  call: (CallRead & { progress: Page<CallProgressRead, ShipId> }) | null;
+  closedCalls: number;
+  call: (CallRead & { question: string | null; number: number; progress: Page<CallProgressRead, ShipId> }) | null;
   meetingId: MeetingId;
   title: string | null;
   goal: string | null;
@@ -145,8 +146,9 @@ export function createReadMeeting(deps: { uow: UnitOfWork<ReadMeetingTx>; sealin
       const call = latest === undefined ? ok(null) : await readCall({ tx, held: keys }, latest);
       if (!call.isOk) return call;
       return ok({
+        closedCalls: await tx.meetings.closedCallCount(fleetId, meetingId),
         endAfterCalls: meeting.endAfterCalls ?? null,
-        call: call.value === null || latest === undefined ? null : { ...call.value, progress: await readCallProgress(tx, { call: latest, cursor: input.progressCursor, limit: input.progressLimit ?? MEETINGS_PAGE_SIZE_DEFAULT }) },
+        call: call.value === null || latest === undefined ? null : { ...call.value, question: latest.question, number: await tx.meetings.callNumber(fleetId, { meetingId, callId: latest.id }), progress: await readCallProgress(tx, { call: latest, cursor: input.progressCursor, limit: input.progressLimit ?? MEETINGS_PAGE_SIZE_DEFAULT }) },
         meetingId,
         title: meeting.title,
         goal: meeting.goal,

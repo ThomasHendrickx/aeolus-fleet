@@ -124,6 +124,7 @@ describe('the meeting read', () => {
       endsAt: null,
       call: null,
       endAfterCalls: null,
+      closedCalls: 0,
       owner: chief,
       moderator: chief,
       openedAt: '2026-10-24T09:00:00.000Z',
@@ -197,4 +198,9 @@ it.each([
   const input = { ships: [{ name: 'alpha' }], model: 'gpt-6.1-sol', idempotencyKey: 'count-limit' };
   // When a count is checked, then its individual boundary result holds.
   expect(openMeetingInputSchema.safeParse({ ...input, endAfterCalls }).success).toBe(isAccepted);
+});
+
+
+it('allows a null call question for an old call whose opening message is unavailable', () => {
+  expect(meetingOutputSchema.shape.call.unwrap().shape.question.safeParse(null).success).toBe(true);
 });

@@ -42,6 +42,8 @@ export interface MeetingRepository {
   saveCall(call: MeetingCall): Promise<void>;
   findCall(fleetId: FleetId, query: { meetingId: MeetingId; callId: MessageId }): Promise<MeetingCall | undefined>;
   latestCall(fleetId: FleetId, meetingId: MeetingId): Promise<MeetingCall | undefined>;
+  /** One-based position within the meeting, counted in its indexed call range. */
+  callNumber(fleetId: FleetId, query: { meetingId: MeetingId; callId: MessageId }): Promise<number>;
   closedCallCount(fleetId: FleetId, meetingId: MeetingId): Promise<number>;
   /** One due open meeting held for update, skipping meetings held by another server. */
   claimDue(fleetId: FleetId, query: { at: Date; tried: readonly MeetingId[] }): Promise<Meeting | undefined>;

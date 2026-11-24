@@ -8,6 +8,8 @@ import { checkPresent, type Meeting, type PresenceRefusal } from './meeting.js';
 
 export interface MeetingCall {
   id: MessageId;
+  /** Null only for old calls whose question could not be recovered. */
+  question: string | null;
   requestHash: string;
   fleetId: FleetId;
   meetingId: MeetingId;
@@ -31,7 +33,7 @@ export function openCall(meeting: Meeting | undefined, input: { meetingId: Meeti
   if (payloadBytes(input.question) > MEETING_CALL_MAX_BYTES) return refuse('PAYLOAD_TOO_LARGE', 'A call question is at most 64 KB');
   const deadline = input.deadline ?? new Date(input.at.getTime() + MEETING_CALL_DEFAULT_MS);
   if (!Number.isFinite(deadline.getTime()) || deadline <= input.at || (held.endsAt !== null && deadline > held.endsAt)) return refuse('INVALID_MEETING_END_TIME', 'A call deadline is in the future and no later than the meeting end time');
-  const call: MeetingCall = { id: input.callId, requestHash: input.requestHash, fleetId: held.fleetId, meetingId: held.id, expectedShipIds: held.participants.filter((p) => p.leftAt === null && !input.excludedShipIds.includes(p.shipId)).map((p) => p.shipId), silentShipIds: held.participants.filter((p) => p.leftAt === null && !input.excludedShipIds.includes(p.shipId) && input.awaitingCrewShipIds.includes(p.shipId)).map((p) => p.shipId), notAskedShipIds: [], deadline, openedAt: input.at, closedAt: null, answers: [] };
+  const call: MeetingCall = { id: input.callId, question: input.question, requestHash: input.requestHash, fleetId: held.fleetId, meetingId: held.id, expectedShipIds: held.participants.filter((p) => p.leftAt === null && !input.excludedShipIds.includes(p.shipId)).map((p) => p.shipId), silentShipIds: held.participants.filter((p) => p.leftAt === null && !input.excludedShipIds.includes(p.shipId) && input.awaitingCrewShipIds.includes(p.shipId)).map((p) => p.shipId), notAskedShipIds: [], deadline, openedAt: input.at, closedAt: null, answers: [] };
   return ok({ call, events: [callEvent(call, { type: 'CallOpened', by: input.by, at: input.at })] });
 }
 
