@@ -260,3 +260,18 @@ describe('round progress in one meeting read', () => {
     expect(unwrap(await messaging.readMeeting(chief, { meetingId, limit: 20 })).call?.progress.items).toContainEqual(expect.objectContaining({ ship: { id: marketing.shipId, name: 'marketing' }, progress: 'acknowledged', acknowledgedAt: new Date(OPENED_AT) }));
   });
 });
+
+
+it('reads the stored call question even when the opening payload is malformed', async () => {
+  // Given a call whose opening contribution is no longer valid JSON.
+  const { callId } = unwrap(await messaging.openCall(chief, { meetingId, question: 'Ready?', idempotencyKey: newKey(), model: SESSION_MODEL }));
+  const message = core.state.messages.find((message) => message.id === callId);
+  if (message === undefined) throw new Error('opening contribution missing');
+  message.payload = 'invalid JSON';
+
+  // When a participant reads the call.
+  const read = unwrap(await messaging.readMeeting(product, { meetingId, limit: 20 }));
+
+  // Then the question comes from the call, without parsing the contribution.
+  expect(read.call).toMatchObject({ callId, question: 'Ready?' });
+});

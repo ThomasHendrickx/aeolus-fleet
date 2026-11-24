@@ -1,4 +1,6 @@
 /** #2038: durable mark-read, one transactional event, races, rollback, and Health replay. */
+import { fileURLToPath } from 'node:url';
+
 import { createIdGenerator, type MeetingId, type MessageId } from '@aeolus-fleet/common';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -15,6 +17,7 @@ import { createPrismaUnitOfWork } from '../src/adapters/prisma/unit-of-work.js';
 import { createAcknowledgeMeetingUpTo } from '../src/domain/messaging/acknowledge-meeting-up-to.js';
 import { createReadMeeting } from '../src/domain/messaging/read-meeting.js';
 import { createUseCases } from '../src/wiring.js';
+import { executeSqlFile } from '../src/testing/database.js';
 import { newKey } from '../src/testing/keys.js';
 import { unwrap } from '../src/testing/result.js';
 import type { Crew, ShipCaller } from '../src/domain/shared/caller.js';
@@ -258,4 +261,39 @@ it('reads call counts through indexed meeting call ranges', async () => {
     expect(unwrap(await read(reader, { meetingId, limit: 1 }))).toMatchObject({ call: { question: 'Indexed?' } });
     for (const statement of statements) await assertIndexedPlan(core.prisma, statement);
   } finally { await client.$disconnect(); }
+});
+
+
+it('reads an ended meeting after retention prunes its opening call contribution', async () => {
+  // Given an ended meeting with a call, past its one-day retention.
+  const { callId } = unwrap(await core.useCases.openCall(chief, { meetingId, question: 'Keep this question?', model: MODEL, idempotencyKey: newKey() }));
+  unwrap(await core.useCases.changeMeeting(chief, { meetingId, change: { kind: 'end' } }));
+  await core.prisma.$executeRaw`UPDATE fleets SET retention_set = true, retention_days = 1 WHERE id = ${chief.fleetId}`;
+  core.clock.advance(2 * 24 * 60 * 60 * 1_000);
+
+  // When the real retention pass removes the contributions.
+  await core.useCases.closeHealthSnapshots();
+  await core.useCases.pruneHistory();
+  expect(await core.prisma.message.findUnique({ where: { id: callId } })).toBeNull();
+
+  // Then both latest and explicitly selected calls remain readable.
+  for (const selection of [{}, { callId }]) {
+    expect(unwrap(await core.useCases.readMeeting(reader, { meetingId, ...selection, limit: 1 }))).toMatchObject({ closedCalls: 1, call: { callId, question: 'Keep this question?', number: 1 }, contributions: { items: [] } });
+  }
+});
+
+
+it.each(['retained', 'pruned', 'malformed'])('backfills an old call with a %s opening contribution and reads it', async (opening) => {
+  // Given a call from before question storage, with or without its valid opening payload.
+  const { callId } = unwrap(await core.useCases.openCall(chief, { meetingId, question: 'Original question?', model: MODEL, idempotencyKey: newKey() }));
+  unwrap(await core.useCases.changeMeeting(chief, { meetingId, change: { kind: 'end' } }));
+  if (opening === 'pruned') await core.prisma.message.delete({ where: { id: callId } });
+  if (opening === 'malformed') await core.prisma.message.update({ where: { id: callId }, data: { payload: 'invalid JSON' } });
+  await core.prisma.$executeRaw`ALTER TABLE meeting_calls DROP COLUMN IF EXISTS question`;
+
+  // When the forward migration backfills the old call.
+  await executeSqlFile(core.databaseUrl, fileURLToPath(new URL('../src/adapters/prisma/migrations/20261124120000_meeting_call_question/migration.sql', import.meta.url)));
+
+  // Then only a retained valid question is recovered; old missing questions remain readable as null.
+  expect(unwrap(await core.useCases.readMeeting(reader, { meetingId, callId, limit: 1 }))).toMatchObject({ call: { callId, question: opening === 'retained' ? 'Original question?' : null } });
 });

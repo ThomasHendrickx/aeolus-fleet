@@ -199,3 +199,8 @@ it.each([
   // When a count is checked, then its individual boundary result holds.
   expect(openMeetingInputSchema.safeParse({ ...input, endAfterCalls }).success).toBe(isAccepted);
 });
+
+
+it('allows a null call question for an old call whose opening message is unavailable', () => {
+  expect(meetingOutputSchema.shape.call.unwrap().shape.question.safeParse(null).success).toBe(true);
+});
