@@ -215,7 +215,7 @@ export type MeetingRound = z.infer<typeof meetingRoundSchema>;
 export const meetingOutputSchema = z.object({
   endAfterCalls: z.int().nullable(),
   closedCalls: z.int().min(0),
-  call: meetingCallReadSchema.extend({ question: z.string(), number: z.int().min(1) }).nullable(),
+  call: meetingCallReadSchema.extend({ question: z.string().nullable(), number: z.int().min(1) }).nullable(),
   goal: z.string().nullable(),
   endsAt: isoTime.nullable(),
   meetingId: idSchema('meeting'),

@@ -375,7 +375,7 @@ describe('the ship tools at /mcp', () => {
     expect(meeting.description).toContain('question is null');
     expect(meeting.description).toContain('question and number (1 for the first call)');
     expect(JSON.stringify(meeting.outputSchema)).toContain('closedCalls');
-    expect(JSON.stringify(meeting.outputSchema)).toContain('question');
+    expect(JSON.stringify(meeting.outputSchema)).toContain('"question":{"type":["string","null"]}');
     expect(JSON.stringify(meeting.outputSchema)).toContain('number');
   });
 

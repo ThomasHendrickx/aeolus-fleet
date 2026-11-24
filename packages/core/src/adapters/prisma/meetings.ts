@@ -238,7 +238,7 @@ export const MEETING_DEADLINE_CHANNEL = 'aeolus_meeting_deadline';
 
 const callRow = z.object({
   id: idSchema('message'), fleetId: idSchema('fleet'), meetingId: idSchema('meeting'),
-  requestHash: z.string(), expectedShipIds: z.array(idSchema('ship')), silentShipIds: z.array(idSchema('ship')), notAskedShipIds: z.array(idSchema('ship')), deadline: z.date(), openedAt: z.date(), closedAt: z.date().nullable(),
+  question: z.string().nullable(), requestHash: z.string(), expectedShipIds: z.array(idSchema('ship')), silentShipIds: z.array(idSchema('ship')), notAskedShipIds: z.array(idSchema('ship')), deadline: z.date(), openedAt: z.date(), closedAt: z.date().nullable(),
 });
 
 /** The message envelope is the sole stored relationship between an answer and its call. */

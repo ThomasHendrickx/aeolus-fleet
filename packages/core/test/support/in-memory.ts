@@ -2974,7 +2974,7 @@ function inMemoryWakeStreams(): InMemoryWakeStreams {
 }
 
 function storedCall(call: MeetingCall): Omit<MeetingCall, 'answers'> {
-  return structuredClone({ id: call.id, requestHash: call.requestHash, fleetId: call.fleetId, meetingId: call.meetingId, expectedShipIds: call.expectedShipIds, silentShipIds: call.silentShipIds, notAskedShipIds: call.notAskedShipIds, deadline: call.deadline, openedAt: call.openedAt, closedAt: call.closedAt });
+  return structuredClone({ id: call.id, question: call.question, requestHash: call.requestHash, fleetId: call.fleetId, meetingId: call.meetingId, expectedShipIds: call.expectedShipIds, silentShipIds: call.silentShipIds, notAskedShipIds: call.notAskedShipIds, deadline: call.deadline, openedAt: call.openedAt, closedAt: call.closedAt });
 }
 
 function callWithAnswers(state: InMemoryState, call: Omit<MeetingCall, 'answers'> | undefined): MeetingCall | undefined {

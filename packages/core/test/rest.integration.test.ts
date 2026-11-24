@@ -138,7 +138,7 @@ describe('the ship calls at /api/v1', () => {
     const { paths } = z.object({ paths: z.record(z.string(), z.unknown()) }).parse(await response.json());
     expect(response.status).toBe(200);
     expect(JSON.stringify(paths['/ship/meeting'])).toContain('closedCalls');
-    expect(JSON.stringify(paths['/ship/meeting'])).toContain('question');
+    expect(JSON.stringify(paths['/ship/meeting'])).toContain('"question":{"type":["string","null"]}');
     expect(JSON.stringify(paths['/ship/meeting'])).toContain('question is null');
     expect(JSON.stringify(paths['/ship/meeting'])).toContain('number');
     expect(Object.keys(paths)).toEqual([

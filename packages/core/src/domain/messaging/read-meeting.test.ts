@@ -266,7 +266,8 @@ it('reads the stored call question even when the opening payload is malformed', 
   // Given a call whose opening contribution is no longer valid JSON.
   const { callId } = unwrap(await messaging.openCall(chief, { meetingId, question: 'Ready?', idempotencyKey: newKey(), model: SESSION_MODEL }));
   const message = core.state.messages.find((message) => message.id === callId);
-  if (message === undefined) throw new Error('opening contribution missing');
+  expect(message).toBeDefined();
+  if (message === undefined) return;
   message.payload = 'invalid JSON';
 
   // When a participant reads the call.

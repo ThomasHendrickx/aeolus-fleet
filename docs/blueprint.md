@@ -342,7 +342,7 @@ Full message reads, including received/redelivered messages, exchanges, meeting 
 | Moderator | The participant that decides who speaks, its opener at first; it always contributes (0061) | core |
 | Contribution | A message to a meeting: no reply, never forced (0061) | core |
 | Call | A moderator's question to a fixed expected list of present participants, with a deadline; one call open at a time. An answer to a call is a contribution naming its call, one per expected ship without the mic, distinct from an owner's answer to a question (0038, 0061) | core |
-| Round (round state) | A call's fixed expected ships, deadline, opening and closing times and collected answers; closes once every expected ship has answered, with one collected result for the moderator. The meeting read adds the call's `question` and one-based `number`, and the meeting's `closedCalls` count, independently of the contribution page (0061) | core |
+| Round (round state) | A call's fixed expected ships, deadline, opening and closing times and collected answers; closes once every expected ship has answered, with one collected result for the moderator. The call stores its question independently of its opening message. The meeting read adds the call's `question` (null only for old calls whose question could not be recovered) and one-based `number`, and the meeting's `closedCalls` count, independently of the contribution page (0061) | core |
 | Mic | What a participant holds to contribute; the moderator gives and takes it | core |
 | Mic request | A participant's place on the meeting's list for the mic, with its time; one per ship | core |
 
