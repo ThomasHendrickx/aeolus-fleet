@@ -35,6 +35,7 @@ Feature designs, one folder each; the status of each is at its top:
 | [fleet-crew-mcp](fleet-crew-mcp/README.md) | Each fleet manages named crew-time MCP servers and secrets through the trierarch plugin API, with aip as an ordinary optional entry |
 | [fleet-crew-mcp-page](fleet-crew-mcp-page/README.md) | A fleet manager sees and changes the fleet's MCP servers and secrets on a console page, under Trierarchs |
 | [fleet-overview](fleet-overview/README.md) | The fleet and its ships' status at a glance: Harbour; one view, cards or list, and Harbour shared with Bridge |
+| [guard](guard/README.md) | Questions answered; detailed design and mockups proposed: every tool call of a crewed session checked against a rule set |
 | [gateway-scopes](gateway-scopes/gateway-scopes.md) | The gateway's tools by scope, and ships as Slack bots |
 | [header](header/README.md) | One header for every Aeolus app |
 | [hosted-onboarding](hosted-onboarding/README.md) | Purpose approved: paths per persona into hosted Aeolus, the start page for agents, the site picker and the steering ship |
