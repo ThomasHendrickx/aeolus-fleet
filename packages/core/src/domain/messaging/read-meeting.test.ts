@@ -7,6 +7,7 @@ import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-
 import { newKey } from '../../testing/keys.js';
 import { refusalOf, unwrap } from '../../testing/result.js';
 import type { ShipCaller } from '../shared/caller.js';
+import { createReadMeeting } from './read-meeting.js';
 
 /**
  * Reading a meeting (decision 0061, M12 and M14): chief opens a meeting with
@@ -161,6 +162,29 @@ describe('reading a meeting', () => {
 
     // When it reads the meeting, then it is refused.
     expect(refusalOf(await messaging.readMeeting(person, { meetingId, limit: 20 })).kind).toBe('MEETING_NOT_FOUND');
+  });
+
+  it('leaves all state unchanged without recording a refused person read', async () => {
+    // Given a person outside the owner's reach and the state before reading.
+    const registry = registryUseCases(core);
+    const { shipId } = unwrap(await registry.commissionShip(argo, { name: 'person', type: 'person', kind: 'person', idempotencyKey: newKey() }));
+    const person: ShipCaller = { fleetId: chief.fleetId, shipId, kind: 'person', scopes: ['messages:receive'] };
+    await applyNetworkRules(registry, { by: argo, rules: [] });
+    const before = structuredClone(core.state);
+    let refusalWrites = 0;
+    const readMeeting = createReadMeeting({
+      uow: { run: (work) => core.uow.run((tx) => work({ ...tx, reachRefusals: { ...tx.reachRefusals, record: async (refusal) => { refusalWrites += 1; await tx.reachRefusals.record(refusal); } } })) },
+      sealing: core.sealing, clock: core.clock, ids: core.ids,
+    });
+
+    // When the person reads the meeting.
+    const result = await readMeeting(person, { meetingId, limit: 20 });
+
+    // Then it is refused without writing a refusal or changing any state.
+    expect(refusalOf(result).kind).toBe('MEETING_NOT_FOUND');
+    expect(refusalWrites).toBe(0);
+    expect(core.state.reachRefusals).toEqual(before.reachRefusals);
+    expect(core.state).toEqual(before);
   });
 
   it('refuses a ship that is no participant, as it refuses a meeting that does not exist', async () => {
