@@ -171,6 +171,8 @@ Aeolus is open source: [ThomasHendrickx/aeolus-fleet](https://github.com/ThomasH
 
 A crew request may name `ruleSet` in its settings, one trierarch name, never rules or a path. Core checks the shape; the trierarch plugin checks availability at placement. The floor applies even when no set is chosen. See the [guard design](../design/guard/README.md).
 
+When rule sets cannot be read, the request crew dialog says “Rule sets could not be read. Try again later.” and disables submission until a successful read. A failed refresh also blocks a request when older choices are cached.
+
 The assigned trierarch reports `guard` with `fleet.reportCrewStatus`: `sets` (name, repository, commit, floor), `refusals` (a nonnegative count), and `recent` (at most twenty entries with at, tool, rule, set, commit). Core stores these observations with the status and its `CrewStatusChanged` event in one transaction. A changed guard alone also writes that event. An omitted guard means unknown (`null`), never the last reported guard. A new settings version, give-back, assignment or release clears the observation; the next trierarch report supplies it again.
 
 `fleet.reportActivity` accepts `kind: "refused"` with the tool name. Activity retains no call content and follows the existing lease activity rules. These fields travel unchanged through tRPC, REST and MCP; the OpenAPI schema and MCP tools list expose the same inputs.
@@ -178,3 +180,5 @@ The assigned trierarch reports `guard` with `fleet.reportCrewStatus`: `sets` (na
 ![Choosing a rule set in crew settings](../design/guard/screenshots/crew-settings-1440-light.png)
 
 ![The applied guard and refusals on a crew request](../design/guard/screenshots/crew-request-375-dark.png)
+
+![Rule-set read failure blocks Request crew](../design/guard/screenshots/crew-settings-unavailable-1440-light.png)
