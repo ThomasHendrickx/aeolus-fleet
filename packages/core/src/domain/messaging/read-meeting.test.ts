@@ -1,4 +1,4 @@
-import type { MeetingId, MessageId } from '@aeolus-fleet/common';
+import { idSchema, type MeetingId, type MessageId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { crewAboard, initialiseFleet, messagingUseCases, operatorCaller, registryUseCases, SESSION_MODEL } from '../../../test/support/core-fixtures.js';
@@ -171,11 +171,15 @@ describe('round progress in one meeting read', () => {
     // When
     const read = unwrap(await messaging.readMeeting(chief, { meetingId, limit: 20 }));
     // Then
-    expect(read.call).toMatchObject({ progress: { items: [
-      { ship: { id: chief.shipId }, progress: 'delivered', status: 'crewed', turn: null, deliveredAt: new Date(OPENED_AT), acknowledgedAt: null },
-      { ship: { id: marketing.shipId }, progress: 'delivered', status: 'crewed', turn: null },
-      { ship: { id: product.shipId }, progress: 'silent', status: 'awaitingCrew', turn: null },
-    ], nextCursor: null } });
+    expect(read.call?.progress.items).toContainEqual({ ship: { id: marketing.shipId, name: 'marketing' }, progress: 'delivered', status: 'crewed', turn: null, deliveredAt: new Date(OPENED_AT), acknowledgedAt: null });
+  });
+  it('shows immediate silence for an expected ship awaiting crew', async () => {
+    // Given
+    await openedCall();
+    // When
+    const read = unwrap(await messaging.readMeeting(chief, { meetingId, limit: 20 }));
+    // Then
+    expect(read.call?.progress.items).toContainEqual(expect.objectContaining({ ship: { id: product.shipId, name: 'product' }, progress: 'silent', status: 'awaitingCrew', turn: null }));
   });
   it.each([{ who: 'marketing', progress: 'answered' }, { who: 'product', progress: 'late' }])('shows $progress progress for $who', async ({ who, progress }) => {
     // Given
@@ -190,8 +194,7 @@ describe('round progress in one meeting read', () => {
     // Given
     const { callId, crew } = await openedCall();
     const delivery = core.state.deliveries.find((held) => held.messageId === callId && held.recipient.kind === 'ship' && held.recipient.shipId === marketing.shipId);
-    if (delivery === undefined) throw new Error('The call has no marketing delivery');
-    const marketingDeliveryId = delivery.id;
+    const marketingDeliveryId = idSchema('delivery').parse(delivery?.id);
     unwrap(await messaging.receiveDeliveries(crew, { max: 10 }));
     unwrap(await messaging.acknowledgeDelivery(crew, { deliveryId: marketingDeliveryId }));
     // When

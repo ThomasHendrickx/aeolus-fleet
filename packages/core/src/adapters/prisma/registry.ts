@@ -438,7 +438,7 @@ export function createPrismaLeaseRepository(db: Db): LeaseRepository {
   return {
     readCrews: async (fleetId, shipIds) => {
       const rows = await db.lease.findMany({ where: { fleetId, shipId: { in: [...shipIds] }, endedAt: null }, select: { shipId: true, pushedAt: true, turn: true } });
-      return rows.map((row) => ({ shipId: idSchema('ship').parse(row.shipId), turn: row.pushedAt === null ? null : row.turn }));
+      return rows.map((row) => ({ shipId: idSchema('ship').parse(row.shipId), pushedAt: row.pushedAt, turn: row.turn }));
     },
     findOpenForUpdate: async (fleetId, shipId) => {
       const [row] = await db.$queryRaw<unknown[]>`

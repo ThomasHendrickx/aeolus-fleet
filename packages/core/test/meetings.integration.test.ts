@@ -1104,4 +1104,3 @@ it('hides a reported busy turn for a plain crew', async () => {
   await core.prisma.lease.update({ where: { id: marketing.leaseId }, data: { turn: 'busy', pushedAt: null } });
   expect(unwrap(await core.useCases.readMeeting(chief, { meetingId, callId, limit: 20 })).call?.progress.items[0]?.turn).toBe(null);
 });
-

@@ -38,6 +38,6 @@ export async function readCallProgress(tx: ProgressTx, input: { call: MeetingCal
       : call.silentShipIds.includes(row.shipId) ? 'silent' : row.isAcknowledged ? 'acknowledged' : 'delivered';
     return { ship: { id: row.shipId, name: ship?.name ?? row.shipId }, progress,
       deliveredAt: row.deliveredAt, acknowledgedAt: row.acknowledgedAt,
-      status: ship === undefined ? 'awaitingCrew' : shipStatus(ship, { isCrewed: crew !== undefined }), turn: crew?.turn ?? null };
+      status: ship === undefined ? 'awaitingCrew' : shipStatus(ship, { isCrewed: crew !== undefined }), turn: crew?.pushedAt === null ? null : crew?.turn ?? null };
   }) };
 }

@@ -219,7 +219,7 @@ export interface DefinedScopeRepository {
 /** Outbound port: leases, always within one fleet. */
 export interface LeaseRepository {
   /** Current crew facts for a bounded set of ships, without locking leases. */
-  readCrews(fleetId: FleetId, shipIds: readonly ShipId[]): Promise<{ shipId: ShipId; turn: 'busy' | 'idle' | null }[]>;
+  readCrews(fleetId: FleetId, shipIds: readonly ShipId[]): Promise<{ shipId: ShipId; pushedAt: Date | null; turn: 'busy' | 'idle' | null }[]>;
   /** The ship's open lease, locked until the unit of work ends. */
   findOpenForUpdate(fleetId: FleetId, shipId: ShipId): Promise<Lease | undefined>;
   /**

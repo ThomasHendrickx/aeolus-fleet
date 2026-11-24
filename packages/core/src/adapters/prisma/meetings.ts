@@ -259,7 +259,7 @@ export function callProgressStatement(fleetId: FleetId, query: { callId: Message
       ORDER BY expected.ship_id LIMIT ${query.limit + 1}
     )
     SELECT page.ship_id AS "shipId", d.created_at AS "deliveredAt",
-      ack.occurred_at AS "acknowledgedAt", COALESCE(d.state = 'acknowledged', false) AS "isAcknowledged"
+      ack.occurred_at AS "acknowledgedAt", (ack.occurred_at IS NOT NULL) AS "isAcknowledged"
     FROM page
     LEFT JOIN deliveries d ON d.fleet_id = ${fleetId} AND d.message_id = ${query.callId} AND d.recipient_ship_id = page.ship_id
     LEFT JOIN LATERAL (
