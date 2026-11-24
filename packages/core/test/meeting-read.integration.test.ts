@@ -129,6 +129,23 @@ describe('marking meeting contributions read on Postgres', () => {
     expect(folded.fold.deliveries).toHaveLength(1);
   });
 
+  it('shows the acknowledgement time in the inbox after marking a contribution read', async () => {
+    // Given an outstanding contribution and a later read time.
+    const upTo = await contribute();
+    core.clock.advance(1_000);
+
+    // When the participant marks it read and lists the inbox.
+    unwrap(await core.useCases.acknowledgeMeetingUpTo(reader, { meetingId, messageId: upTo }));
+    const history = createPrismaShipHistory(core.prisma);
+    const page = await history.inbox(reader.fleetId, { shipId: reader.shipId, filter: 'all', limit: 20 });
+    const entry = page.items.find((item) => item.message.id === upTo);
+
+    // Then the contribution has the read time and no reply.
+    expect(entry).toMatchObject({ doneAt: core.clock.now(), repliedWith: null });
+    if (entry === undefined) throw new Error('contribution missing from inbox');
+    expect(await history.inboxMessage(reader.fleetId, { shipId: reader.shipId, deliveryId: entry.deliveryId })).toMatchObject({ doneAt: core.clock.now(), repliedWith: null });
+  });
+
   it('shows the bulk acknowledgement in each contribution delivery history and Harbour activity', async () => {
     // Given an outstanding contribution.
     const upTo = await contribute();
