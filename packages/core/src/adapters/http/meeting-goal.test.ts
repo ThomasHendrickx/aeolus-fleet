@@ -32,7 +32,7 @@ beforeEach(async () => {
 afterEach(async () => { await client.close(); await held.server.close(); });
 
 type Door = 'tRPC' | 'REST' | 'MCP';
-async function call(door: Door, { name, input }: { name: 'openMeeting' | 'meeting' | 'openCall' | 'send'; input: Record<string, unknown> }) {
+async function call(door: Door, { name, input }: { name: 'openMeeting' | 'meeting' | 'openCall' | 'send' | 'rejoinMeeting' | 'endMeeting'; input: Record<string, unknown> }) {
   if (door === 'MCP') {
     const result = z.object({ structuredContent: z.unknown().optional(), isError: z.boolean().optional(), content: z.array(z.object({ text: z.string() })) }).parse(await client.callTool({ name, arguments: { ...input, crewToken: token } }));
     return result.isError ? { refusal: result.content.map((part) => part.text).join(' ') } : { data: result.structuredContent };
@@ -118,5 +118,29 @@ describe.each<Door>(['tRPC', 'REST', 'MCP'])('%s meeting calls', (door) => {
     const before = held.core.state.messages.length;
     expect((await call(door, { name: 'openCall', input: { meetingId, question: 'Friday?', idempotencyKey: 'invalid-call', model: SESSION_MODEL, ...change } })).refusal).toContain('BAD_REQUEST');
     expect(held.core.state.messages).toHaveLength(before);
+  });
+});
+
+
+describe.each<Door>(['tRPC', 'REST', 'MCP'])('%s person intervention', (door) => {
+  it('lets a person join, speak without the mic, read not-asked ships and end', async () => {
+    // Given a meeting and its open call.
+    const { meetingId } = z.object({ meetingId: z.string() }).parse((await call(door, { name: 'openMeeting', input: anOpen() })).data);
+    await call(door, { name: 'openCall', input: { meetingId, question: 'Ready?', idempotencyKey: 'person-call', model: SESSION_MODEL } });
+    const fleetId = held.core.state.fleets[0]?.id;
+    if (fleetId === undefined) throw new Error('Missing fleet');
+    const argo = held.core.state.ships.find((ship) => ship.kind === 'operator');
+    if (argo === undefined) throw new Error('Missing argo');
+    const result = await registryUseCases(held.core).commissionShip({ fleetId, shipId: argo.id, kind: 'operator', scopes: [] }, { name: 'person', type: 'person', kind: 'person', idempotencyKey: 'commission-person' });
+    if (!result.isOk) throw new Error(result.error.message);
+    token = crewShip(held.core, { fleetId, shipId: result.value.shipId });
+    // When the person uses the public self-join and send calls.
+    expect((await call(door, { name: 'rejoinMeeting', input: { meetingId } })).refusal).toBeUndefined();
+    expect((await call(door, { name: 'send', input: { selector: { kind: 'meeting', meetingId }, payload: 'Change direction', idempotencyKey: 'person-speech' } })).refusal).toBeUndefined();
+    // Then the call read distinguishes pending ships from silent ones and permits ending.
+    const read = await call(door, { name: 'meeting', input: { meetingId } });
+    expect(read.data).toMatchObject({ call: { silentShipIds: [] } });
+    expect(z.object({ call: z.object({ notAskedShipIds: z.array(z.string()) }) }).parse(read.data).call.notAskedShipIds).toHaveLength(2);
+    expect((await call(door, { name: 'endMeeting', input: { meetingId } })).refusal).toBeUndefined();
   });
 });

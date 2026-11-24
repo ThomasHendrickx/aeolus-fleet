@@ -1057,3 +1057,29 @@ it('closes an open call when its meeting ends', async () => {
   // Then the call no longer occupies the open deadline index.
   expect((await createPrismaMeetingRepository(core.prisma).findCall(fleetId, { meetingId, callId }))?.closedAt).toEqual(core.clock.now());
 });
+
+it('stores person intervention and not-asked ships atomically with its events and deliveries', async () => {
+  // Given a real stored open call and a person outside the participant list.
+  await crewOf(marketingId);
+  await crewOf(productId);
+  const { meetingId } = unwrap(await core.useCases.openMeeting(chief, aMeeting()));
+  const { callId } = unwrap(await core.useCases.openCall(chief, { meetingId, question: 'Ready?', excludedShipIds: [chief.shipId], model: MODEL, idempotencyKey: newKey() }));
+  const { shipId } = unwrap(await core.useCases.commissionShip(argo, { name: 'person', type: 'person', kind: 'person', idempotencyKey: newKey() }));
+  const person: ShipCaller = { fleetId, shipId, kind: 'person', scopes: ['messages:send', 'messages:receive'] };
+  unwrap(await core.useCases.changeMeeting(person, { meetingId, change: { kind: 'rejoin' } }));
+  // When fan-out fails after the call closure would be stored.
+  const failing = unitOfWorkWith((tx) => ({ ...tx, deliveries: { ...tx.deliveries, create: () => Promise.reject(new Error('person delivery failed')) } }));
+  const send = createSendMessage({ uow: failing, clock: core.clock, ids: newId, hasher: sha256Hasher, sealing: unsealedFleetsOnly });
+  await expect(send(person, { selector: { kind: 'meeting', meetingId }, payload: 'New direction', idempotencyKey: newKey() })).rejects.toThrow('person delivery failed');
+  // Then rollback leaves the call open, and a successful retry stores the whole intervention.
+  expect((await createPrismaMeetingRepository(core.prisma).findCall(fleetId, { meetingId, callId }))?.closedAt).toBeNull();
+  const { messageId } = unwrap(await core.useCases.sendMessage(person, { selector: { kind: 'meeting', meetingId }, payload: 'New direction', idempotencyKey: newKey() }));
+  const read = unwrap(await core.useCases.readMeeting(chief, { meetingId, callId, limit: 20 }));
+  expect(read.call).toMatchObject({ closedAt: core.clock.now(), silentShipIds: [], notAskedShipIds: [marketingId, productId] });
+  expect(read.moderator.id).toBe(chief.shipId);
+  await expect(core.prisma.delivery.count({ where: { fleetId, messageId } })).resolves.toBe(3);
+  await expect(core.prisma.event.count({ where: { fleetId, type: 'CallClosed' } })).resolves.toBe(1);
+  await contributionPlans(meetingId);
+  unwrap(await core.useCases.changeMeeting(person, { meetingId, change: { kind: 'end' } }));
+  await expect(core.prisma.meeting.findUnique({ where: { fleetId_id: { fleetId, id: meetingId } } })).resolves.toMatchObject({ endedAt: core.clock.now() });
+});
