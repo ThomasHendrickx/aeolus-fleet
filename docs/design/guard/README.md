@@ -1,6 +1,6 @@
 # The guard: every tool call of a crewed session checked against a rule set
 
-Stage 1 for [#2069](https://github.com/ThomasHendrickx/aeolus-fleet/issues/2069): purpose approved by Thomas; lessons and questions Q2 to Q15 proposed. No detailed decision is taken here; the contracts, the rule set format and the console mockups follow once the purpose and the picks are agreed. Children: [#2070](https://github.com/ThomasHendrickx/aeolus-fleet/issues/2070) (the crew request setting), [aeolus-fleet-trierarch#617](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/issues/617) (the hook), [aeolus-fleet-trierarch-plugin#105](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch-plugin/issues/105) (rule set repositories and the floor).
+Stage 1 for [#2069](https://github.com/ThomasHendrickx/aeolus-fleet/issues/2069): purpose and all fifteen questions answered by Thomas. Next: the detailed design and the console mockups. No detailed decision is taken here; the contracts, the rule set format and the console mockups follow once the purpose and the picks are agreed. Children: [#2070](https://github.com/ThomasHendrickx/aeolus-fleet/issues/2070) (the crew request setting), [aeolus-fleet-trierarch#617](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/issues/617) (the hook), [aeolus-fleet-trierarch-plugin#105](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch-plugin/issues/105) (rule set repositories and the floor).
 
 ## 1. Purpose
 
@@ -139,10 +139,11 @@ Answer: approved by Thomas, option 1. Decision: a plugin scope `trierarch:guard`
 Context: before and after mockups follow these answers.
 Options: 1 the plugin's own page lists the rule set repositories, their sets, errors and the floor; the crew request form gets a rule set choice (None means the floor only); the ship page shows the resolved sets and refusals; 2 a core Settings page for repositories and floor.
 Pick: 1. The plugin owns its pages (0043); core shows only the setting and the request's status.
+Answer: approved by Thomas, option 1. Decision: the trierarch plugin's own page lists the rule set repositories, their sets, errors and the floor; the crew request form gets a rule set choice, None meaning the floor only; the ship page shows the resolved sets and refusals. Before and after mockups follow in the detailed design.
 
 ## 4. The flow these picks give
 
-Proposed, to be redrawn with the answers.
+The picks as answered; the detailed design draws it per harness (Q2).
 
 ```mermaid
 flowchart TD
@@ -159,9 +160,9 @@ flowchart TD
   P -->|resolves floor and chosen set to commits| A[assignment carries full rules, sets and commits]
   A --> T[trierarch keeps the rules with the session, outside the worktree]
   T -->|invalid or too large| G[give back with the reason]
-  T --> S[session starts with the guard hook installed]
+  T --> S[session starts with the guard installed]
   S --> C[tool call]
-  C --> H{guard hook}
+  C --> H{guard: the harness's hook or other way}
   H -->|rules unreadable, crash, timeout| X[refuse: guard failed]
   H -->|cannot be resolved before it runs| X2[refuse: unresolvable command]
   H -->|writes the guard or harness settings| X3[refuse: protected]
