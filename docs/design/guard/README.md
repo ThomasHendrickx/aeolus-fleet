@@ -48,6 +48,7 @@ Answer: approved by Thomas, option 1, as written.
 Context: Claude Code offers a PreToolUse hook (sees every tool call, the shell's and the file tools' and MCP's, before deny rules), deny rules (`--disallowedTools`, matching only by tool and prefix) and the permission tool (reached only for calls that would ask, so not for allowed calls).
 Options: 1 a PreToolUse hook the trierarch installs in a settings file it writes per session, outside the session's folder; 2 deny rules only; 3 the permission tool.
 Pick: 1. Only the hook sees every call with its whole input; deny rules cannot express paths or git actions, and the permission tool never sees an allowed call.
+Answer: approved by Thomas, option 1, with his note: "This needs to work for all harnesses! PreToolUse is fine if all other supported harnesses are covered as well in the same or other ways." Decision: Claude Code is guarded by a PreToolUse hook the trierarch installs in a settings file it writes per session, outside the session's folder; every other supported harness (Codex, Copilot, Cursor) is guarded too, by its own hook where it has one or another way where it has none, worked out per harness in the detailed design.
 
 ### Q3. When the guard itself fails
 
