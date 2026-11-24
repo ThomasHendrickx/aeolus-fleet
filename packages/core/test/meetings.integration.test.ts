@@ -478,6 +478,48 @@ describe('the mic on Postgres', () => {
     notices.length = 0;
   });
 
+  it('stores queued words through HTTP and says them once under concurrent mic grants', async () => {
+    // Given words queued through the public HTTP door.
+    const { secret } = unwrap(await core.useCases.getStartingPrompt(argo, { shipId: marketingId }));
+    const { crewToken: marketingToken } = unwrap(await core.useCases.claimShip({ shipId: marketingId, secret: secretOf(secret), location: { kind: 'CLOUD' }, harness: 'codex' }));
+    const app = createApp({ databaseUrl: core.databaseUrl, publicUrl: 'http://localhost', clock: core.clock, logger: false });
+    try {
+      const response = await app.inject({ method: 'POST', url: '/api/v1/ship/requestMic', headers: { authorization: `Bearer ${marketingToken}` }, payload: { meetingId, payload: 'Ready for launch', model: MODEL } });
+      expect(response.statusCode).toBe(200);
+      const queued = unwrap(await core.useCases.readMeeting(chief, { meetingId, cursor: undefined, limit: 20 }));
+      expect(queued.mic.requests).toMatchObject([{ words: { payload: 'Ready for launch' } }]);
+
+      // When two moderator grants race for that request.
+      await Promise.all([1, 2].map(() => core.useCases.changeMic(chief, { meetingId, change: { kind: 'give', shipId: marketingId } })));
+
+      // Then the words and deliveries exist exactly once with the requesting crew's provenance.
+      const said = await core.prisma.message.findMany({ where: { meetingId, selectorKind: 'meeting' } });
+      expect(said).toHaveLength(1);
+      expect(said[0]).toMatchObject({ senderShipId: marketingId, payload: 'Ready for launch', model: MODEL });
+      expect(said[0]?.senderLeaseId).not.toBeNull();
+      expect(await core.prisma.delivery.count({ where: { messageId: said[0]?.id } })).toBe(2);
+      await contributionPlans(meetingId);
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('rolls back queued words, release, events and wakeups when delivery fails', async () => {
+    // Given words waiting for a moderator grant.
+    unwrap(await core.useCases.changeMic(marketing, { meetingId, change: { kind: 'request', payload: 'Keep me queued', model: MODEL } }));
+    const before = await storedCounts();
+    const changeMic = changeMicWith(unitOfWorkWith((tx) => ({ ...tx, deliveries: { ...tx.deliveries, create: async () => { throw new Error('disk full'); } } })));
+
+    // When storing its delivery fails halfway through the change.
+    await expect(changeMic(chief, { meetingId, change: { kind: 'give', shipId: marketingId } })).rejects.toThrow('disk full');
+
+    // Then the request survives, nothing was said or released, and nobody wakes.
+    expect(await storedCounts()).toEqual(before);
+    const read = unwrap(await core.useCases.readMeeting(chief, { meetingId, cursor: undefined, limit: 20 }));
+    expect(read.mic).toMatchObject({ holder: null, requests: [{ words: { payload: 'Keep me queued' } }] });
+    expect(notices).toEqual([]);
+  });
+
   function changeMicWith(uow: UnitOfWork<PrismaTx>) {
     return createChangeMic({ uow, clock: core.clock, ids: newId, hasher: sha256Hasher, sealing: unsealedFleetsOnly });
   }
