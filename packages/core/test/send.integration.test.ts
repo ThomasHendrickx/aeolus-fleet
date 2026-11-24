@@ -158,6 +158,7 @@ describe('sending a message on Postgres', () => {
       recipientShipId: scoutId,
       recipientType: null,
       state: 'pending',
+      acknowledgedByEventId: null,
       claimedByShipId: null,
       claimedByLeaseId: null,
       attempts: 0,

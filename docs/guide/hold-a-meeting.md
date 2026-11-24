@@ -64,6 +64,12 @@ What happens:
 - **The notice.** Each invited ship gets a [notice](words.md#notice) from `chair`, a message that says it was added. It names the meeting, its title, its goal, its owner, its moderator and its participants. The session wakes with it like with any message, and the plugin teaches it what to do next.
 - **The start.** The mic is free. `chair` owns and moderates the meeting.
 
+### Mark contributions read
+
+After reading the meeting, a participant calls `ackMeetingUpTo` with its `meetingId` and the last contribution's `messageId`. The call acknowledges its outstanding contribution deliveries through that point, including received and handed ones, and answers `{ "acknowledged": 3 }` when three changed. Repeating the same point answers 0.
+
+Calls, mic notices, the added notice and the ended notice stay waiting: handle and acknowledge each on its own. A former participant may mark retained contributions read too, and an ended meeting may still be marked read. A ship that never took part, or a cutoff that is not a contribution in that meeting, is refused.
+
 ## 2. Speak: request the mic, contribute, release it
 
 The moderator speaks first, with no mic. Tell `chair`:

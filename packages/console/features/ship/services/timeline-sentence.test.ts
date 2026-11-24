@@ -763,6 +763,7 @@ describe('timelineSentence', () => {
     { type: 'ParticipantRevoked', sentence: 'Taken off a meeting, by planner', actor: planner, details: {}, icon: 'received' },
     { type: 'OwnershipTransferred', sentence: 'Got the ownership of a meeting, from planner', actor: planner, details: {}, icon: 'received' },
     { type: 'ModeratorNamed', sentence: 'Became the moderator of a meeting, named by planner', actor: planner, details: {}, icon: 'received' },
+    { type: 'MeetingReadUpTo', sentence: 'Marked a meeting read up to a contribution', actor: scout, details: {}, icon: 'received' },
     { type: 'MeetingEnded', sentence: 'Ended a meeting', actor: scout, details: {}, icon: 'sent' },
   ])('says $type as "$sentence" (decision 0061)', ({ type, sentence, actor, details, icon }) => {
     expect(onScoutsPage(anEntry(type, { actor, details: { meetingId: newId('meeting'), ...details } }))).toEqual({ sentence, tone: 'ok', icon });

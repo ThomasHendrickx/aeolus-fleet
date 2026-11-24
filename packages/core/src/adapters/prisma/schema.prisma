@@ -1158,6 +1158,8 @@ model MeetingParticipant {
 }
 
 model Delivery {
+  /// The single bulk read event, when this delivery was acknowledged by ackMeetingUpTo.
+  acknowledgedByEventId String? @map("acknowledged_by_event_id")
   journeyQualifying Boolean?      @map("journey_qualifying")
   journeyBothCrewed Boolean?      @map("journey_both_crewed")
   id                String        @id
@@ -1195,6 +1197,7 @@ model Delivery {
   /// One row per recipient.
   @@unique([messageId, recipientShipId])
   @@unique([messageId, recipientType])
+  @@index([fleetId, acknowledgedByEventId, id], map: "deliveries_acknowledged_by_event_idx", where: raw("acknowledged_by_event_id IS NOT NULL"))
   @@index([fleetId, recipientShipId, state])
   /// A ship's inbox pages newest first by id.
   @@index([fleetId, recipientShipId, id])
@@ -1346,6 +1349,8 @@ model Event {
   @@index([fleetId, deliveryId])
   /// The health reads take a fleet's events since a time (decision 0042).
   @@index([fleetId, occurredAt])
+  /// Health replays bulk meeting acknowledgements by time without scanning other event history.
+  @@index([fleetId, occurredAt], map: "events_meeting_read_up_to_idx", where: raw("(type = 'MeetingReadUpTo'::text)"))
   @@index([fleetId, shipId, seq], map: "events_starting_prompt_issued_idx", where: raw("(type = 'StartingPromptIssued'::text)"))
   /// The owner a commissioner named last, preselected for argo's next commission from the console (decision 0045).
   @@index([fleetId, actorShipId, seq], map: "events_owner_set_idx", where: raw("(type = 'OwnerSet'::text)"))

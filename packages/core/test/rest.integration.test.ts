@@ -175,6 +175,7 @@ describe('the ship calls at /api/v1', () => {
       '/ship/notHandled',
       '/ship/ack',
       '/ship/ackUpTo',
+      '/ship/ackMeetingUpTo',
       '/ship/pong',
       '/ship/report',
       '/ship/turn',

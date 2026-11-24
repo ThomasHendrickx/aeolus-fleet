@@ -161,9 +161,14 @@ function deliveriesWithStepsStatement(fleetId: FleetId, read: { candidates: Pris
     CROSS JOIN LATERAL (SELECT * FROM deliveries d WHERE d.fleet_id = ${fleetId} AND d.id = c.id ${sentBy} LIMIT 1) d
     CROSS JOIN LATERAL (SELECT m.sender_ship_id FROM messages m WHERE m.fleet_id = ${fleetId} AND m.id = d.message_id LIMIT 1) m
     LEFT JOIN LATERAL (
-      SELECT json_agg(json_build_object('type', e.type, 'occurredAt', e.occurred_at, 'shipId', e.ship_id, 'details', e.details) ORDER BY e.seq) AS steps
-      FROM events e
-      WHERE e.fleet_id = ${fleetId} AND e.delivery_id = d.id AND e.type = ANY(${[...STEP_EVENT_TYPES]}::text[]) ${stepsBy}
+      SELECT json_agg(json_build_object('type', CASE WHEN e.type = 'MeetingReadUpTo' THEN 'DeliveryAcknowledged' ELSE e.type END, 'occurredAt', e.occurred_at, 'shipId', e.ship_id, 'details', e.details) ORDER BY e.seq) AS steps
+      FROM (
+        SELECT e.* FROM events e
+        WHERE e.fleet_id = ${fleetId} AND e.delivery_id = d.id AND e.type = ANY(${[...STEP_EVENT_TYPES]}::text[]) ${stepsBy}
+        UNION ALL
+        SELECT e.* FROM events e
+        WHERE e.fleet_id = ${fleetId} AND e.id = d.acknowledged_by_event_id AND e.type = 'MeetingReadUpTo' ${stepsBy}
+      ) e
     ) s ON true`;
 }
 
@@ -179,7 +184,11 @@ export function replayDeliveriesStatement(fleetId: FleetId, since: Date): Prisma
     candidates: Prisma.sql`
       SELECT id FROM deliveries WHERE fleet_id = ${fleetId} AND state IN ${OPEN_STATES_SQL}
       UNION
-      SELECT delivery_id FROM events WHERE fleet_id = ${fleetId} AND occurred_at >= ${since} AND delivery_id IS NOT NULL`,
+      SELECT delivery_id FROM events WHERE fleet_id = ${fleetId} AND occurred_at >= ${since} AND delivery_id IS NOT NULL
+      UNION
+      SELECT d.id FROM events e JOIN deliveries d ON d.fleet_id = e.fleet_id AND d.acknowledged_by_event_id = e.id
+      WHERE e.fleet_id = ${fleetId} AND e.type = 'MeetingReadUpTo' AND e.occurred_at >= ${since}`,
+
   });
 }
 
@@ -196,7 +205,10 @@ export function baseCandidatesStatement(fleetId: FleetId, hour: Date): Prisma.Sq
     SELECT id FROM deliveries WHERE fleet_id = ${fleetId} AND state IN ${OPEN_STATES_SQL} AND created_at <= ${hour}
     UNION
     SELECT delivery_id FROM events WHERE fleet_id = ${fleetId} AND occurred_at > ${hour} AND delivery_id IS NOT NULL
-    GROUP BY delivery_id HAVING bool_and(type <> 'MessageAccepted')`;
+    GROUP BY delivery_id HAVING bool_and(type <> 'MessageAccepted')
+    UNION
+    SELECT d.id FROM events e JOIN deliveries d ON d.fleet_id = e.fleet_id AND d.acknowledged_by_event_id = e.id
+    WHERE e.fleet_id = ${fleetId} AND e.type = 'MeetingReadUpTo' AND e.occurred_at > ${hour} AND d.created_at <= ${hour}`;
 }
 
 /** The first snapshot's deliveries at `hour`, each with its steps up to the hour only, which is all the fold reads of it. */
@@ -261,7 +273,13 @@ export function createPrismaHealthRecords(db: Db): HealthRecords {
           FROM events e
           JOIN deliveries d ON d.fleet_id = e.fleet_id AND d.id = e.delivery_id
           JOIN messages m ON m.fleet_id = d.fleet_id AND m.id = d.message_id
-          WHERE e.fleet_id = ${fleetId} AND e.type = 'DeliveryAcknowledged' AND e.occurred_at > ${since}`,
+          WHERE e.fleet_id = ${fleetId} AND e.type = 'DeliveryAcknowledged' AND e.occurred_at > ${since}
+          UNION ALL
+          SELECT d.created_at AS sent_at, e.occurred_at AS acknowledged_at, d.id, m.sender_ship_id, d.recipient_ship_id, d.recipient_type, d.claimed_by_ship_id
+          FROM events e
+          JOIN deliveries d ON d.fleet_id = e.fleet_id AND d.acknowledged_by_event_id = e.id
+          JOIN messages m ON m.fleet_id = d.fleet_id AND m.id = d.message_id
+          WHERE e.fleet_id = ${fleetId} AND e.type = 'MeetingReadUpTo' AND e.occurred_at > ${since}`,
       );
       return rows.map((row) => ({
         sentAt: row.sent_at,

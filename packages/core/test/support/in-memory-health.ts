@@ -16,7 +16,9 @@ function isTurnState(value: unknown): value is TurnState {
 }
 
 export function createInMemoryHealthRecords(state: InMemoryState): HealthRecords {
-  const eventsOf = (fleetId: FleetId) => state.events.filter((event) => event.fleetId === fleetId);
+  const eventsOf = (fleetId: FleetId) => state.events.filter((event) => event.fleetId === fleetId).flatMap((event) => event.type === 'MeetingReadUpTo'
+    ? state.deliveries.filter((delivery) => delivery.fleetId === fleetId && delivery.acknowledgedByEventId === event.id).map((delivery) => ({ ...event, type: 'DeliveryAcknowledged' as const, deliveryId: delivery.id }))
+    : [event]);
   const senderOf = (messageId: MessageId): ShipId => {
     const message = state.messages.find((held) => held.id === messageId);
     if (!message) {

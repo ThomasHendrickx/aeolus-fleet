@@ -294,3 +294,9 @@ export type MeetingListEntry = z.infer<typeof meetingListEntrySchema>;
 
 export const meetingsOutputSchema = pageOutputOf(meetingListEntrySchema, meetingsCursorSchema);
 export type MeetingsOutput = z.infer<typeof meetingsOutputSchema>;
+
+/** Marks outstanding contribution deliveries through this contribution, with one event. */
+export const ackMeetingUpToInputSchema = z.object({ meetingId: idSchema('meeting'), messageId: idSchema('message') });
+export const ackMeetingUpToOutputSchema = z.object({ acknowledged: z.int().min(0) });
+export type AckMeetingUpToInput = z.infer<typeof ackMeetingUpToInputSchema>;
+export type AckMeetingUpToOutput = z.infer<typeof ackMeetingUpToOutputSchema>;

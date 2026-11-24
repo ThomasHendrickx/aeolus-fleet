@@ -1,3 +1,4 @@
+import { createAcknowledgeMeetingUpTo, type AcknowledgeMeetingUpTo } from './domain/messaging/acknowledge-meeting-up-to.js';
 import { createCloseCall, type CloseCall } from './domain/messaging/close-call.js';
 import { createOpenCall, type OpenCall } from './domain/messaging/open-call.js';
 import { createPrismaMeetingRepository } from './adapters/prisma/meetings.js';
@@ -361,6 +362,7 @@ export interface UseCases {
   rotateDataKeys: RotateDataKeys;
   acknowledgeDelivery: AcknowledgeDelivery;
   acknowledgeUpTo: AcknowledgeUpTo;
+  acknowledgeMeetingUpTo: AcknowledgeMeetingUpTo;
   answerPing: AnswerPing;
   pingShip: PingShip;
   checkInbox: CheckInbox;
@@ -651,6 +653,7 @@ export function createUseCases(options: {
     sealStoredPayloads: createSealStoredPayloads({ sealings, uow, clock, ids, hasher: sha256Hasher, sealing }),
     rotateDataKeys: createRotateDataKeys({ sealings, uow, clock, ids, dataKeys: sealing.dataKeys }),
     acknowledgeDelivery: createAcknowledgeDelivery({ uow, clock, ids }),
+    acknowledgeMeetingUpTo: createAcknowledgeMeetingUpTo({ uow, clock, ids }),
     acknowledgeUpTo: createAcknowledgeUpTo({ uow, clock, ids }),
     answerPing: createAnswerPing({ uow, clock, ids }),
     pingShip: createPingShip({ uow, clock, ids, hasher: sha256Hasher, sealing }),

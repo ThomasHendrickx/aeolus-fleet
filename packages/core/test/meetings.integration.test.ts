@@ -1173,4 +1173,3 @@ it('ends a meeting with an open call when a person ends it', async () => {
   expect(unwrap(await core.useCases.readMeeting(chief, { meetingId, callId, limit: 20 })).call).toMatchObject({ notAskedShipIds: [], silentShipIds: [], closedAt: core.clock.now() });
   await expect(core.prisma.meeting.findUnique({ where: { fleetId_id: { fleetId, id: meetingId } } })).resolves.toMatchObject({ endedAt: core.clock.now() });
 });
-

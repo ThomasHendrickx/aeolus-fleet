@@ -1,3 +1,4 @@
+import { createAcknowledgeMeetingUpTo } from '../../src/domain/messaging/acknowledge-meeting-up-to.js';
 import { createCloseCall } from '../../src/domain/messaging/close-call.js';
 import { createOpenCall } from '../../src/domain/messaging/open-call.js';
 import { createLookup } from '../../src/domain/registry/lookup.js';
@@ -442,6 +443,7 @@ export function messagingUseCases(core: InMemoryCore) {
     readExchanges: createReadExchanges({ uow: core.uow, sealing }),
     reportNotHandled: createReportNotHandled(deps),
     acknowledgeDelivery: createAcknowledgeDelivery(deps),
+    acknowledgeMeetingUpTo: createAcknowledgeMeetingUpTo({ uow: core.uow, clock: core.clock, ids: core.ids }),
     acknowledgeUpTo: createAcknowledgeUpTo(deps),
     checkInbox: createCheckInbox({ uow: core.uow }),
     watchWakeups: createWatchWakeups({ uow: core.uow, wakeStreams: core.wakeStreams }),
