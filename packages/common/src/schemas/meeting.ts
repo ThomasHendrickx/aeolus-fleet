@@ -8,7 +8,7 @@ import { shipHandleSchema } from './fleet.js';
 import { partySchema } from './history.js';
 import { idempotencyKeySchema } from './idempotency-key.js';
 import { payloadBytes } from '../rules/payload.js';
-import { modelSchema } from './message.js';
+import { contentTypeSchema, modelSchema } from './message.js';
 import { pageInputOf, pageOutputOf } from './page.js';
 
 /**
@@ -79,6 +79,18 @@ export type MicPattern = z.infer<typeof micPatternSchema>;
  */
 export const meetingIdInputSchema = z.object({ meetingId: idSchema('meeting') });
 
+/** Words are checked when requested and delivered as this ship when its mic arrives. */
+export const requestMicInputSchema = meetingIdInputSchema.extend({
+  payload: z.string().refine((text) => payloadBytes(text) <= MEETING_CALL_MAX_BYTES, 'A contribution is at most 64 KB in UTF-8').optional(),
+  contentType: contentTypeSchema.optional(),
+  model: modelSchema.optional(),
+});
+
+const queuedWordsReadSchema = z.object({
+  payload: z.string(), isPayloadUnreadable: z.boolean(),
+  contentType: z.string(), model: z.string().nullable(), senderLeaseId: idSchema('lease').nullable(),
+});
+
 /**
  * Input of a call on a meeting and one of its ships: `ship.giveMic` (the
  * moderator), `ship.revokeFromMeeting`, `ship.transferMeeting` and
@@ -110,13 +122,13 @@ export const meetingChangedOutputSchema = z.object({});
 export const meetingMicReadSchema = z.object({
   holder: partySchema.nullable(),
   pattern: micPatternSchema,
-  requests: z.array(z.object({ ship: partySchema, requestedAt: isoTime })),
+  requests: z.array(z.object({ ship: partySchema, requestedAt: isoTime, words: queuedWordsReadSchema.optional() })),
 });
 
 /** Output of `ship.requestMic`: the mic as it stands after the request, and where the caller is in it. */
 export const requestMicOutputSchema = z.object({
   mic: meetingMicReadSchema,
-  caller: z.discriminatedUnion('kind', [z.object({ kind: z.literal('holding') }), z.object({ kind: z.literal('waiting'), place: z.int().min(1) })]),
+  caller: z.discriminatedUnion('kind', [z.object({ kind: z.literal('said'), messageId: idSchema('message') }), z.object({ kind: z.literal('holding') }), z.object({ kind: z.literal('waiting'), place: z.int().min(1) })]),
 });
 
 /** Whether a participant is in the meeting now, left it keeping its right to rejoin, or was revoked by the owner (decision 0061, M13). */
@@ -166,6 +178,7 @@ export const meetingCallReadSchema = z.object({
   callId: idSchema('message'),
   expectedShipIds: z.array(idSchema('ship')),
   silentShipIds: z.array(idSchema('ship')),
+  notAskedShipIds: z.array(idSchema('ship')),
   lateAnswers: z.array(contributionSchema),
   deadline: isoTime,
   openedAt: isoTime,
@@ -182,6 +195,7 @@ export const openCallInputSchema = z.object({
   idempotencyKey: idempotencyKeySchema,
   model: modelSchema.optional(),
 });
+export const closeCallInputSchema = z.object({ meetingId: idSchema('meeting'), callId: idSchema('message') });
 export const openCallOutputSchema = z.object({ callId: idSchema('message') });
 export const MEETING_CALL_CONTENT_TYPE = 'application/vnd.aeolus.meeting.call+json';
 export const MEETING_ROUND_CONTENT_TYPE = 'application/vnd.aeolus.meeting.round+json';
@@ -235,7 +249,7 @@ export type MeetingAdded = z.infer<typeof meetingAddedSchema>;
 export const MEETING_MIC_CONTENT_TYPE = 'application/vnd.aeolus.meeting.mic+json';
 
 /** The payload of the mic notice: the meeting whose mic the ship now holds. */
-export const meetingMicSchema = z.object({ meetingId: idSchema('meeting') });
+export const meetingMicSchema = z.object({ meetingId: idSchema('meeting'), messageId: idSchema('message').optional() });
 
 export type MeetingMic = z.infer<typeof meetingMicSchema>;
 
@@ -243,7 +257,7 @@ export type MeetingMic = z.infer<typeof meetingMicSchema>;
 export const MEETING_ENDED_CONTENT_TYPE = 'application/vnd.aeolus.meeting.ended+json';
 
 /** The payload of the ended notice: the meeting that ended. */
-export const meetingEndedSchema = z.object({ meetingId: idSchema('meeting') });
+export const meetingEndedSchema = z.object({ meetingId: idSchema('meeting'), unsaidRequest: z.object({ shipId: idSchema('ship'), requestedAt: isoTime }).optional() });
 
 export type MeetingEnded = z.infer<typeof meetingEndedSchema>;
 
@@ -293,3 +307,9 @@ export type MeetingListEntry = z.infer<typeof meetingListEntrySchema>;
 
 export const meetingsOutputSchema = pageOutputOf(meetingListEntrySchema, meetingsCursorSchema);
 export type MeetingsOutput = z.infer<typeof meetingsOutputSchema>;
+
+/** Marks outstanding contribution deliveries through this contribution, with one event. */
+export const ackMeetingUpToInputSchema = z.object({ meetingId: idSchema('meeting'), messageId: idSchema('message') });
+export const ackMeetingUpToOutputSchema = z.object({ acknowledged: z.int().min(0) });
+export type AckMeetingUpToInput = z.infer<typeof ackMeetingUpToInputSchema>;
+export type AckMeetingUpToOutput = z.infer<typeof ackMeetingUpToOutputSchema>;

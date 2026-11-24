@@ -1,4 +1,4 @@
-import { answeredQuestionIdOf, askedQuestionIdOf, isPingContentType, withdrawalOf, type AccountId, type DeliveryId, type DeliveryState, type FleetId, type LabelValueId, type LeaseId, type MeetingId, type MessageId, type ScheduleId, type ShipId, type ShipKind } from '@aeolus-fleet/common';
+import { answeredQuestionIdOf, askedQuestionIdOf, isPingContentType, withdrawalOf, type AccountId, type DeliveryId, type EventId, type DeliveryState, type FleetId, type LabelValueId, type LeaseId, type MeetingId, type MessageId, type ScheduleId, type ShipId, type ShipKind } from '@aeolus-fleet/common';
 
 import { refuse, type DomainError } from '../shared/errors.js';
 import { shipActor, type Actor, type NewEvent } from '../shared/events.js';
@@ -71,6 +71,8 @@ export interface Delivery {
   messageId: MessageId;
   recipient: Recipient;
   state: DeliveryState;
+  /** The bulk read event that acknowledged this delivery, if any; retained for replay. */
+  acknowledgedByEventId?: EventId;
   /**
    * The ship and the lease of the crew whose receive claimed it: set while it
    * is in flight, kept once acknowledged, none while it is pending.

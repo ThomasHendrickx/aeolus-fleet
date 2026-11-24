@@ -551,12 +551,12 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       storesPlainPayload: (fleetId) =>
         Promise.resolve(
           state.messages.some((held) => held.fleetId === fleetId && typeof held.payload === 'string') ||
-            state.schedules.some((held) => held.fleetId === fleetId && typeof held.send.payload === 'string'),
+            state.schedules.some((held) => held.fleetId === fleetId && typeof held.send.payload === 'string') || state.meetings.some((meeting) => meeting.fleetId === fleetId && meeting.micRequests.some(({ words }) => typeof words?.payload === 'string')),
         ),
       payloadsToSeal: (fleetId) =>
         Promise.resolve(
           state.messages.filter((held) => held.fleetId === fleetId).length +
-            state.schedules.filter((held) => held.fleetId === fleetId && typeof held.send.payload === 'string').length,
+            state.schedules.filter((held) => held.fleetId === fleetId && typeof held.send.payload === 'string').length + state.meetings.filter((meeting) => meeting.fleetId === fleetId).flatMap((meeting) => meeting.micRequests).filter(({ words }) => typeof words?.payload === 'string').length,
         ),
       turnOn: (sealing, firstKey) => {
         if (state.dataKeys.some((held) => held.fleetId === firstKey.fleetId && held.isCurrent)) {
@@ -597,9 +597,14 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
           .toSorted((one, other) => one.createdAt.getTime() - other.createdAt.getTime() || (one.id < other.id ? -1 : 1))
           .slice(0, limit);
         const schedules = state.schedules.filter((held) => held.fleetId === fleetId && typeof held.send.payload === 'string').slice(0, limit);
-        return Promise.resolve(structuredClone({ messages, schedules }));
+        const queuedWords = state.meetings.filter((meeting) => meeting.fleetId === fleetId).flatMap((meeting) => meeting.micRequests).flatMap(({ words }) => words !== undefined && typeof words.payload === 'string' ? [{ id: words.messageId, payload: words.payload }] : []).slice(0, limit);
+        return Promise.resolve(structuredClone({ messages, schedules, ...(queuedWords.length === 0 ? {} : { queuedWords }) }));
       },
       sealPayloads: (fleetId, sealed) => {
+        for (const { id, payload } of sealed.queuedWords ?? []) {
+          const request = state.meetings.filter((meeting) => meeting.fleetId === fleetId).flatMap((meeting) => meeting.micRequests).find(({ words }) => words?.messageId === id);
+          if (request?.words !== undefined) request.words.payload = structuredClone(payload);
+        }
         for (const { id, payload, requestHash } of sealed.messages) {
           const message = state.messages.find((held) => held.fleetId === fleetId && held.id === id);
           if (message !== undefined) {
@@ -1487,7 +1492,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         return Promise.resolve(pageOf(rows, { limit, cursorOf: (row) => row.shipId }));
       },
       createCall: (call) => { const meeting = state.meetings.find((m) => m.fleetId === call.fleetId && m.id === call.meetingId); if (meeting !== undefined) meeting.calls = [...(meeting.calls ?? []), storedCall(call)]; return Promise.resolve(); },
-      saveCall: (call) => { const meeting = state.meetings.find((m) => m.fleetId === call.fleetId && m.id === call.meetingId); if (meeting?.calls !== undefined) meeting.calls = meeting.calls.map((c) => c.id === call.id ? { ...c, closedAt: call.closedAt, silentShipIds: call.silentShipIds } : c); return Promise.resolve(); },
+      saveCall: (call) => { const meeting = state.meetings.find((m) => m.fleetId === call.fleetId && m.id === call.meetingId); if (meeting?.calls !== undefined) meeting.calls = meeting.calls.map((c) => c.id === call.id ? { ...c, closedAt: call.closedAt, silentShipIds: call.silentShipIds, notAskedShipIds: call.notAskedShipIds } : c); return Promise.resolve(); },
       findCall: (fleetId, { meetingId, callId }) => Promise.resolve(callWithAnswers(state, state.meetings.flatMap((m) => m.calls ?? []).find((c) => c.fleetId === fleetId && c.meetingId === meetingId && c.id === callId))),
       latestCall: (fleetId, meetingId) => Promise.resolve(callWithAnswers(state, state.meetings.flatMap((m) => m.calls ?? []).filter((c) => c.fleetId === fleetId && c.meetingId === meetingId).sort((a, b) => b.id.localeCompare(a.id))[0])),
       closedCallCount: (fleetId, meetingId) => Promise.resolve(state.meetings.flatMap((m) => m.calls ?? []).filter((c) => c.fleetId === fleetId && c.meetingId === meetingId && c.closedAt !== null).length),
@@ -1545,7 +1550,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       save: (meeting) => {
         const at = state.meetings.findIndex((held) => held.fleetId === meeting.fleetId && held.id === meeting.id);
         if (at >= 0) {
-          state.meetings[at] = { ...state.meetings[at], ...structuredClone(meeting) };
+          state.meetings[at] = { ...state.meetings[at], ...structuredClone(meeting), calls: state.meetings[at]?.calls };
           if (meeting.endedAt !== null) state.meetings[at].calls = state.meetings[at].calls?.map((call) => call.closedAt === null ? { ...call, closedAt: meeting.endedAt } : call);
         }
         return Promise.resolve();
@@ -1774,6 +1779,19 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
           .toSorted((first, second) => (toward === 'older' ? second.delivery.id.localeCompare(first.delivery.id) : first.delivery.id.localeCompare(second.delivery.id)))
           .slice(0, limit);
         return Promise.resolve(toward === 'older' ? rows : rows.toReversed());
+      },
+      acknowledgeMeetingContributionsUpTo: ({ fleetId, meetingId, shipId, leaseId, upTo, eventId }) => {
+        let count = 0;
+        for (const delivery of state.deliveries) {
+          if (delivery.fleetId !== fleetId || delivery.recipient.kind !== 'ship' || delivery.recipient.shipId !== shipId || !['pending', 'received', 'handed'].includes(delivery.state)) continue;
+          const message = state.messages.find((held) => held.fleetId === fleetId && held.id === delivery.messageId);
+          if (message?.meetingId !== meetingId || message.id > upTo || message.selector.kind !== 'meeting' || message.contentType === 'application/vnd.aeolus.meeting.call+json') continue;
+          if (delivery.state === 'pending') { delivery.claimedByShipId = shipId; delivery.claimedByLeaseId = leaseId; }
+          delivery.state = 'acknowledged';
+          delivery.acknowledgedByEventId = eventId;
+          count += 1;
+        }
+        return Promise.resolve(count);
       },
       findUnacknowledgedUpToForUpdate: ({ fleetId, shipId, otherShipId, upTo }) => {
         const rows = state.deliveries
@@ -2193,7 +2211,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
                     state: harbourStateOf({ status: listed.status, reportState: listed.report?.state ?? null, hasOpenAlert: listed.openAlertCount > 0 }),
                     note: listed.report?.note ?? null,
                     lastActivityAt: latestOf([
-                      ...state.events.filter((event) => event.fleetId === fleetId && event.actor.kind === 'ship' && event.actor.shipId === listed.id && ['MessageAccepted', 'DeliveryAcknowledged'].includes(event.type)).map((event) => event.occurredAt),
+                      ...state.events.filter((event) => event.fleetId === fleetId && event.actor.kind === 'ship' && event.actor.shipId === listed.id && ['MessageAccepted', 'DeliveryAcknowledged', 'MeetingReadUpTo'].includes(event.type)).map((event) => event.occurredAt),
                       ...state.leaseActivities.filter((held) => state.leases.some((lease) => lease.id === held.leaseId && lease.shipId === listed.id && lease.endedAt === null)).map((held) => held.activity.at),
                     ]),
                   },
@@ -2397,7 +2415,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       });
   /** A message to the ship itself as its inbox lists it. */
   const inboxEntryOf = (fleetId: FleetId, { shipId, delivery, message }: { shipId: ShipId; delivery: Delivery; message: Message }): InboxEntry<StoredPayload> => {
-    const acknowledged = numbered(fleetId).findLast((event) => event.deliveryId === delivery.id && event.type === 'DeliveryAcknowledged');
+    const acknowledged = deliveryEvents(fleetId).findLast((event) => event.deliveryId === delivery.id && event.type === 'DeliveryAcknowledged');
     const reply = acknowledged?.details.reply;
     const { id, sender, inReplyTo, sentAt, contentType, model, senderLeaseId, payload } = historyMessageOf(message);
     return {
@@ -2464,6 +2482,9 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
   };
   const newestFirst = (first: Message, second: Message) =>
     second.createdAt.getTime() - first.createdAt.getTime() || second.id.localeCompare(first.id);
+  const deliveryEvents = (fleetId: FleetId) => numbered(fleetId).flatMap((event) => event.type === 'MeetingReadUpTo'
+    ? state.deliveries.filter((delivery) => delivery.fleetId === fleetId && delivery.acknowledgedByEventId === event.id).map((delivery) => ({ ...event, type: 'DeliveryAcknowledged' as const, deliveryId: delivery.id, messageId: delivery.messageId }))
+    : [event]);
   const history: ShipHistory = {
     timeline: (fleetId, { shipId, cursor, limit }) => {
       if (!ship(fleetId, shipId)) {
@@ -2510,7 +2531,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       }
       const delivery = deliveryOfMessage(message);
       const leases = wayLeases(fleetId);
-      const changes = numbered(fleetId)
+      const changes = deliveryEvents(fleetId)
         .filter((event) => event.deliveryId === delivery.id)
         .reverse()
         .flatMap((event) => deliveryStepOf(event, { party: (id) => partyOf(fleetId, id), leases }));
@@ -2545,7 +2566,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
             ship: shipId === null ? null : partyOf(fleetId, shipId),
             state: held.state,
             report: state.leaseReports.find((report) => report.fleetId === fleetId && state.leases.some((lease) => lease.id === report.leaseId && lease.shipId === shipId && lease.endedAt === null))?.report ?? null,
-            steps: numbered(fleetId)
+            steps: deliveryEvents(fleetId)
               .filter((event) => event.deliveryId === held.id)
               .reverse()
               .flatMap((event) => deliveryStepOf(event, { party: (id) => partyOf(fleetId, id), leases })),
@@ -2952,7 +2973,7 @@ function inMemoryWakeStreams(): InMemoryWakeStreams {
 }
 
 function storedCall(call: MeetingCall): Omit<MeetingCall, 'answers'> {
-  return structuredClone({ id: call.id, requestHash: call.requestHash, fleetId: call.fleetId, meetingId: call.meetingId, expectedShipIds: call.expectedShipIds, silentShipIds: call.silentShipIds, deadline: call.deadline, openedAt: call.openedAt, closedAt: call.closedAt });
+  return structuredClone({ id: call.id, requestHash: call.requestHash, fleetId: call.fleetId, meetingId: call.meetingId, expectedShipIds: call.expectedShipIds, silentShipIds: call.silentShipIds, notAskedShipIds: call.notAskedShipIds, deadline: call.deadline, openedAt: call.openedAt, closedAt: call.closedAt });
 }
 
 function callWithAnswers(state: InMemoryState, call: Omit<MeetingCall, 'answers'> | undefined): MeetingCall | undefined {

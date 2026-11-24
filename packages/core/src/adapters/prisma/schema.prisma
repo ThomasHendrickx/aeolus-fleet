@@ -1110,11 +1110,24 @@ model MeetingMicRequest {
   /// Its place on the list, the oldest request's 0.
   place       Int
 
+  wordsMessageId String? @map("words_message_id")
+  contentType String? @map("content_type")
+  model String?
+  senderKind String? @map("sender_kind")
+  senderLeaseId String? @map("sender_lease_id")
+  signedInAccountId String? @map("signed_in_account_id")
+  payload String?
+  sealedDataKeyId String? @map("sealed_data_key_id")
+  sealedNonce Bytes? @map("sealed_nonce")
+  sealedCiphertext Bytes? @map("sealed_ciphertext")
+  sealedPayloadBytes Int? @map("sealed_payload_bytes")
+
   fleet       Fleet              @relation(fields: [fleetId], references: [id])
   meeting     Meeting            @relation(fields: [fleetId, meetingId], references: [fleetId, id], onDelete: Restrict)
   participant MeetingParticipant @relation(fields: [fleetId, meetingId, shipId], references: [fleetId, meetingId, shipId], onDelete: Restrict)
 
   @@id([fleetId, meetingId, shipId])
+  @@index([fleetId, wordsMessageId], map: "meeting_mic_requests_plain_payload_idx", where: raw("(payload IS NOT NULL)"))
   @@map("meeting_mic_requests")
 }
 
@@ -1145,6 +1158,8 @@ model MeetingParticipant {
 }
 
 model Delivery {
+  /// The single bulk read event, when this delivery was acknowledged by ackMeetingUpTo.
+  acknowledgedByEventId String? @map("acknowledged_by_event_id")
   journeyQualifying Boolean?      @map("journey_qualifying")
   journeyBothCrewed Boolean?      @map("journey_both_crewed")
   id                String        @id
@@ -1182,6 +1197,7 @@ model Delivery {
   /// One row per recipient.
   @@unique([messageId, recipientShipId])
   @@unique([messageId, recipientType])
+  @@index([fleetId, acknowledgedByEventId, id], map: "deliveries_acknowledged_by_event_idx", where: raw("acknowledged_by_event_id IS NOT NULL"))
   @@index([fleetId, recipientShipId, state])
   /// A ship's inbox pages newest first by id.
   @@index([fleetId, recipientShipId, id])
@@ -1333,6 +1349,8 @@ model Event {
   @@index([fleetId, deliveryId])
   /// The health reads take a fleet's events since a time (decision 0042).
   @@index([fleetId, occurredAt])
+  /// Health replays bulk meeting acknowledgements by time without scanning other event history.
+  @@index([fleetId, occurredAt], map: "events_meeting_read_up_to_idx", where: raw("(type = 'MeetingReadUpTo'::text)"))
   @@index([fleetId, shipId, seq], map: "events_starting_prompt_issued_idx", where: raw("(type = 'StartingPromptIssued'::text)"))
   /// The owner a commissioner named last, preselected for argo's next commission from the console (decision 0045).
   @@index([fleetId, actorShipId, seq], map: "events_owner_set_idx", where: raw("(type = 'OwnerSet'::text)"))
@@ -1694,6 +1712,7 @@ model MeetingCall {
   requestHash String @map("request_hash")
   expectedShipIds String[] @map("expected_ship_ids")
   silentShipIds String[] @default([]) @map("silent_ship_ids")
+  notAskedShipIds String[] @default([]) @map("not_asked_ship_ids")
   deadline DateTime @db.Timestamptz(3)
   openedAt DateTime @map("opened_at") @db.Timestamptz(3)
   closedAt DateTime? @map("closed_at") @db.Timestamptz(3)

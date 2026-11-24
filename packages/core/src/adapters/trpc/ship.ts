@@ -27,6 +27,8 @@ import {
   meetingsOutputSchema,
   exchangesInputSchema,
   exchangesOutputSchema,
+  ackMeetingUpToInputSchema,
+  ackMeetingUpToOutputSchema,
   ackUpToInputSchema,
   ackUpToOutputSchema,
   handledInputSchema,
@@ -40,8 +42,10 @@ import {
   meetingIdInputSchema,
   meetingChangedOutputSchema,
   requestMicOutputSchema,
+  requestMicInputSchema,
   notHandledInputSchema,
   openCallInputSchema,
+  closeCallInputSchema,
   openCallOutputSchema,
   openMeetingInputSchema,
   openMeetingOutputSchema,
@@ -167,7 +171,7 @@ export const shipRouter = router({
         'selector picks the recipient: one ship by name { "kind": "ship", "name": "..." } or by id { "kind": "ship", "shipId": "shp_..." },',
         'or any one ship of a type { "kind": "type", "type": "..." },',
         'or every other participant of a meeting you take part in { "kind": "meeting", "meetingId": "mtg_..." }: a contribution, one delivery each,',
-        'which names no inReplyTo and is never forced, from the moderator or the holder of the mic only (request it with requestMic),',
+        'which names no inReplyTo and is never forced, from a present person, the moderator or the holder of the mic (request it with requestMic),',
         'or with callId, an expected ship answers a call once without the mic, at most 64 KB. Answers have no individual delivery; one collected round reaches the moderator on close. Read all full answers in meeting.',
         'or every ship carrying every value of a label selection { "kind": "label", "valueIds": ["lbv_..."] }, never you: one delivery for every ship of it,',
         'refused whole when one of them is out of your reach; learn a value\'s id with fleet_findLabelValue.',
@@ -270,6 +274,15 @@ export const shipRouter = router({
     .output(openCallOutputSchema)
     .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.openCall(ctx.caller, input))),
 
+  closeCall: scopedProcedure('messages:send')
+    .meta({ description: 'A present person closes the named call separately from speaking. Pending ships are marked not asked, preserving answers and recorded silence. The moderator gets one collected round; repeated closes of that call store nothing. Joining and ordinary contributions leave the call open.' })
+    .input(closeCallInputSchema)
+    .output(meetingChangedOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      okOrThrow(await ctx.useCases.closeCall(ctx.caller, input));
+      return {};
+    }),
+
   /**
    * Opens a meeting of the calling ship and the ships it invites, owned and
    * moderated by the caller (decision 0061). Answers with the meeting's id
@@ -318,7 +331,7 @@ export const shipRouter = router({
         openedAt: read.openedAt.toISOString(),
         endedAt: read.endedAt?.toISOString() ?? null,
         endsAt: read.endsAt?.toISOString() ?? null,
-        mic: { ...read.mic, requests: read.mic.requests.map((request) => ({ ...request, requestedAt: request.requestedAt.toISOString() })) },
+        mic: { ...read.mic, requests: read.mic.requests.map((request) => ({ ...request, requestedAt: request.requestedAt.toISOString(), words: request.words === undefined ? undefined : { ...request.words, ...listedPayloadOutputOf(request.words.payload) } })) },
         contributions: { ...read.contributions, items: read.contributions.items.map((item) => ({ ...item, ...listedPayloadOutputOf(item.payload), sentAt: item.sentAt.toISOString() })) },
       };
     }),
@@ -340,20 +353,23 @@ export const shipRouter = router({
   requestMic: scopedProcedure('messages:send')
     .meta({
       description: [
-        'Requests the mic of a meeting you take part in: only the moderator and the holder of the mic contribute.',
+        'Requests the mic of a meeting you take part in: the moderator and a present person need no mic to contribute.',
         'You join the back of the list with the time of your request; one request per ship (CONFLICT for a second, or while you hold it).',
         'The moderator gives the mic, or it goes to the oldest request when the moderator set fifo.',
+        'Optional payload (at most 64 KB), contentType (default text/plain) and model queue words checked now as a contribution, keeping this crew as their sender.',
+        'When the mic arrives those words are contributed and the mic released together: caller.kind said with messageId now, or a mic notice with messageId later.',
+        'Withdraw removes the words; if the meeting ends first, its notice identifies your unsaidRequest and the meeting read keeps the words.',
         'When you get it, the moderator sends you a message of application/vnd.aeolus.meeting.mic+json naming the meeting. The moderator needs no mic (BAD_REQUEST).',
       ].join(' '),
     })
-    .input(meetingIdInputSchema)
+    .input(requestMicInputSchema)
     .output(requestMicOutputSchema)
     .mutation(async ({ ctx, input }) => {
-      const response = okOrThrow(await ctx.useCases.changeMic(ctx.caller, { meetingId: input.meetingId, change: { kind: 'request' } }));
+      const response = okOrThrow(await ctx.useCases.changeMic(ctx.caller, { meetingId: input.meetingId, change: { kind: 'request', payload: input.payload, contentType: input.contentType, model: input.model } }));
       if (response === undefined) {
         throw new Error('A mic request did not return its queue');
       }
-      return { ...response, mic: { ...response.mic, requests: response.mic.requests.map((request) => ({ ...request, requestedAt: request.requestedAt.toISOString() })) } };
+      return { ...response, mic: { ...response.mic, requests: response.mic.requests.map((request) => ({ ...request, requestedAt: request.requestedAt.toISOString(), words: request.words === undefined ? undefined : { ...request.words, ...listedPayloadOutputOf(request.words.payload) } })) } };
     }),
 
   /** Takes the caller's request off its meeting's mic list (decision 0061, M8). */
@@ -461,11 +477,11 @@ export const shipRouter = router({
       return {};
     }),
 
-  /** A ship that left its meeting comes back by itself (decision 0061, M5, M13). */
+  /** A ship rejoins, or a person joins for the first time, checked on owner reach. */
   rejoinMeeting: scopedProcedure('messages:send')
     .meta({
       description: [
-        'Rejoins a meeting you left: deliveries reach you from now on, and meeting reads what you missed.',
+        'Rejoins a meeting you left; a person ship also joins for the first time without an invitation. Deliveries reach you from now on, and meeting reads what you missed.',
         "Checked on the owner's reach of your ship (NOT_REACHABLE). Refused once the owner revoked your right (FORBIDDEN), and while you take part (CONFLICT).",
       ].join(' '),
     })
@@ -506,11 +522,11 @@ export const shipRouter = router({
       return {};
     }),
 
-  /** The owner or the moderator ends its meeting (decision 0061, M15). */
+  /** The owner, moderator or a present person ends its meeting. */
   endMeeting: scopedProcedure('messages:send')
     .meta({
       description: [
-        'For the owner or the moderator: ends the meeting. Every other participant gets a message from you of application/vnd.aeolus.meeting.ended+json naming it.',
+        'For the owner, moderator or a present person: ends the meeting. Every other participant gets a message from you of application/vnd.aeolus.meeting.ended+json naming it.',
         'It then takes no contributions, participants or mic changes; deliveries pending still arrive, and every former participant reads it with meeting.',
       ].join(' '),
     })
@@ -798,6 +814,13 @@ export const shipRouter = router({
     .input(ackUpToInputSchema)
     .output(ackUpToOutputSchema)
     .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.acknowledgeUpTo(ctx.crew, input))),
+
+  /** A participant marks outstanding contribution deliveries read through one contribution, including pending, received and handed deliveries. */
+  ackMeetingUpTo: scopedCrewProcedure('messages:receive')
+    .meta({ description: 'Marks your meeting read up to and including messageId: acknowledges your outstanding contribution deliveries, pending, received or handed, in one transaction with one MeetingReadUpTo event. Calls, mic, added and ended notices stay as they are. Former participants may mark read too. Answers how many were acknowledged; repeating changes nothing and answers 0. Refuses a stranger as NOT_FOUND, or a cutoff that is not a contribution in the meeting as MESSAGE_NOT_FOUND.' })
+    .input(ackMeetingUpToInputSchema)
+    .output(ackMeetingUpToOutputSchema)
+    .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.acknowledgeMeetingUpTo(ctx.crew, input))),
 
   /**
    * Answers a ping the ship received: acknowledges it and marks the session

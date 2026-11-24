@@ -361,6 +361,19 @@ export function createPrismaDeliveryRepository(db: Db, rollups: ExchangeRollups)
       });
       return rows.map(({ row, message }) => ({ delivery: toDeliveryFromSql(row), message }));
     },
+    acknowledgeMeetingContributionsUpTo: (input) => db.$executeRaw(Prisma.sql`
+      WITH contributions AS MATERIALIZED (
+        SELECT d.id FROM messages m
+        JOIN deliveries d ON d.fleet_id = m.fleet_id AND d.message_id = m.id
+        WHERE m.fleet_id = ${input.fleetId} AND m.meeting_id = ${input.meetingId} AND m.id <= ${input.upTo}
+          AND m.selector_kind = 'meeting' AND m.content_type <> 'application/vnd.aeolus.meeting.call+json'
+          AND d.recipient_ship_id = ${input.shipId} AND d.state IN ('pending', 'received', 'handed')
+        ORDER BY d.id FOR UPDATE OF d
+      )
+      UPDATE deliveries d SET state = 'acknowledged', acknowledged_by_event_id = ${input.eventId},
+        claimed_by_ship_id = CASE WHEN d.state = 'pending' THEN ${input.shipId} ELSE d.claimed_by_ship_id END,
+        claimed_by_lease_id = CASE WHEN d.state = 'pending' THEN ${input.leaseId} ELSE d.claimed_by_lease_id END
+      FROM contributions c WHERE d.fleet_id = ${input.fleetId} AND d.id = c.id`),
     findUnacknowledgedUpToForUpdate: async (query) => {
       const rows = await db.$queryRaw<unknown[]>(unacknowledgedUpToStatement(query));
       return withMessages(db, { fleetId: query.fleetId, deliveries: rows.map(toDeliveryFromSql) });

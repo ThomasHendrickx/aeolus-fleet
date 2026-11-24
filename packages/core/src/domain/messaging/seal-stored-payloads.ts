@@ -76,14 +76,16 @@ export function createSealStoredPayloads(deps: {
         }
         const plain = await sealings.plainPayloads(fleetId, { after, limit: batchSize });
         const seal = (row: { fleetId: FleetId; rowId: Message['id'] | Schedule['id'] }, payload: string) => ({ sealed: held.sealer.seal({ key, row }, payload), plainBytes: payloadBytes(payload) });
+        const queuedWords = (plain.queuedWords ?? []).map(({ id, payload }) => ({ id, payload: seal({ fleetId, rowId: id }, payload) }));
         const sealed: SealedPayloads = {
+          ...(queuedWords.length === 0 ? {} : { queuedWords }),
           messages: plain.messages.flatMap((message) => sealedMessageRow({ hasher: deps.hasher, key, seal }, message)),
           schedules: plain.schedules.flatMap((schedule) => sealedScheduleRow({ hasher: deps.hasher, key, seal }, schedule)),
         };
         await sealings.sealPayloads(fleetId, sealed);
         const last = plain.messages.at(-1);
-        const isMoreLeft = plain.messages.length === batchSize || plain.schedules.length === batchSize;
-        const count = sealed.messages.length + sealed.schedules.length;
+        const isMoreLeft = plain.messages.length === batchSize || plain.schedules.length === batchSize || queuedWords.length === batchSize;
+        const count = sealed.messages.length + sealed.schedules.length + queuedWords.length;
         return ok(isMoreLeft ? { kind: 'more', after: last === undefined ? after : { createdAt: last.createdAt, id: last.id }, sealed: count } : { kind: 'done', sealed: count });
       }),
     );

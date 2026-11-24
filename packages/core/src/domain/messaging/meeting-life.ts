@@ -1,10 +1,10 @@
-import type { MeetingId, ShipId } from '@aeolus-fleet/common';
+import type { MeetingId, ShipId, ShipKind } from '@aeolus-fleet/common';
 
 import { refuse, type DomainError } from '../shared/errors.js';
 import { SYSTEM, shipActor, type Actor, type NewEvent } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
 import { checkPresent, isPresent, type Meeting, type Participant, type PresenceRefusal } from './meeting.js';
-import { offTheMic } from './mic.js';
+import { offTheMic, type MicRequest } from './mic.js';
 
 /**
  * A meeting's life after it opened (decision 0061, M2, M3, M13, M15, M17):
@@ -15,7 +15,7 @@ import { offTheMic } from './mic.js';
 /**
  * One change of a meeting: a participant leaves or rejoins by itself; the
  * owner revokes a ship's right, transfers the meeting or names its
- * moderator; the owner or the moderator ends it.
+ * moderator; the owner, moderator or a present person ends it.
  */
 export type MeetingChange =
   | { kind: 'leave' }
@@ -35,19 +35,21 @@ export interface MeetingChanged {
   events: NewEvent[];
   micGivenTo: ShipId | null;
   hasEnded: boolean;
+  said?: MicRequest[];
 }
 
 const ENDED = 'it no longer changes';
 
 /**
  * Changes the meeting for the ship `by`. A rejoin takes a ship that left,
- * whose right stands; every other change takes a present participant of the
- * open meeting. The owner's reach for a rejoin is the caller's to check.
+ * whose right stands, or a person joining for the first time. Every other
+ * change takes a present participant of the open meeting. The owner's reach
+ * for a join is the caller's to check.
  */
-export function changeMeeting(meeting: Meeting | undefined, input: { meetingId: MeetingId; by: ShipId; change: MeetingChange; at: Date }): Result<MeetingChanged, MeetingChangeRefusal> {
+export function changeMeeting(meeting: Meeting | undefined, input: { meetingId: MeetingId; by: ShipId; byKind?: ShipKind; change: MeetingChange; at: Date }): Result<MeetingChanged, MeetingChangeRefusal> {
   const { meetingId, by, change, at } = input;
   if (change.kind === 'rejoin') {
-    return rejoined(meeting, { meetingId, by, at });
+    return rejoined(meeting, { meetingId, by, byKind: input.byKind, at });
   }
   const present = checkPresent(meeting, { meetingId, shipId: by, ended: ENDED, at });
   if (!present.isOk) {
@@ -70,7 +72,7 @@ export function changeMeeting(meeting: Meeting | undefined, input: { meetingId: 
     case 'nameModerator':
       return onlyByOwner(open, by) ?? presentOnly(open, change.shipId) ?? ok(roleChanged(open, { role: 'moderator', shipId: change.shipId, actor, at }));
     case 'end':
-      if (by !== open.ownerShipId && by !== open.moderatorShipId) {
+      if (input.byKind !== 'person' && by !== open.ownerShipId && by !== open.moderatorShipId) {
         return refuse('NOT_OWNER_OR_MODERATOR', `Only the owner or the moderator of meeting ${open.id} ends it`);
       }
       return ok(ended(open, { by, actor, at }));
@@ -123,8 +125,14 @@ export function withRetiredShip(meeting: Meeting, input: { shipId: ShipId; actor
   return gone(meeting, { shipId, actor, at, type: 'ParticipantLeft', isRevoked: false });
 }
 
-function rejoined(meeting: Meeting | undefined, input: { meetingId: MeetingId; by: ShipId; at: Date }): Result<MeetingChanged, MeetingChangeRefusal> {
+function rejoined(meeting: Meeting | undefined, input: { meetingId: MeetingId; by: ShipId; byKind?: ShipKind; at: Date }): Result<MeetingChanged, MeetingChangeRefusal> {
   const { by, at } = input;
+  if (input.byKind === 'person' && meeting !== undefined && !meeting.participants.some((participant) => participant.shipId === by)) {
+    const joined = { ...meeting, participants: [...meeting.participants, { shipId: by, joinedAt: at, leftAt: null, isRevoked: false }] };
+    const present = checkPresent(joined, { meetingId: input.meetingId, shipId: by, ended: ENDED, at });
+    if (!present.isOk) return present;
+    return ok({ meeting: joined, events: [lifeEvent(meeting, { type: 'ParticipantAdded', shipId: by, actor: shipActor(by), at })], micGivenTo: null, hasEnded: false });
+  }
   const left = checkPresent(meeting, { meetingId: input.meetingId, shipId: by, ended: ENDED, at });
   if (left.isOk) {
     return refuse('ALREADY_PRESENT', `You take part in meeting ${input.meetingId} already`);
@@ -147,7 +155,7 @@ function gone(meeting: Meeting, input: { shipId: ShipId; actor: Actor; at: Date;
     events.push(lifeEvent(meeting, { type: 'ModeratorNamed', shipId: meeting.ownerShipId, actor, at }));
   }
   const offMic = offTheMic(changed, { shipId, actor, at });
-  return { meeting: offMic.meeting, events: [...events, ...offMic.events], micGivenTo: offMic.givenTo, hasEnded: false };
+  return { meeting: offMic.meeting, events: [...events, ...offMic.events], micGivenTo: offMic.givenTo, said: offMic.said, hasEnded: false };
 }
 
 /** The owner or the moderator handed to another present participant; a new moderator goes off the mic, as it needs none. */
@@ -161,7 +169,7 @@ function roleChanged(meeting: Meeting, input: { role: 'owner' | 'moderator'; shi
   }
   const named = lifeEvent(meeting, { type: 'ModeratorNamed', shipId, actor, at });
   const offMic = offTheMic({ ...meeting, moderatorShipId: shipId }, { shipId, actor, at });
-  return { meeting: offMic.meeting, events: [named, ...offMic.events], micGivenTo: offMic.givenTo, hasEnded: false };
+  return { meeting: offMic.meeting, events: [named, ...offMic.events], micGivenTo: offMic.givenTo, said: offMic.said, hasEnded: false };
 }
 
 function ended(meeting: Meeting, input: { by: ShipId; actor: Actor; at: Date }): MeetingChanged {

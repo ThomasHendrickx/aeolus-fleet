@@ -238,6 +238,7 @@ describe('eventTypeSchema', () => {
       'AlertRaised',
       'AlertCleared',
       'ExpectationsSet',
+      'MeetingReadUpTo',
     ]);
   });
 });

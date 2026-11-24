@@ -317,6 +317,7 @@ export const EVENT_TYPES = [
   'AlertRaised',
   'AlertCleared',
   'ExpectationsSet',
+  'MeetingReadUpTo',
 ] as const;
 export const eventTypeSchema = z.enum(EVENT_TYPES);
 export type EventType = z.infer<typeof eventTypeSchema>;

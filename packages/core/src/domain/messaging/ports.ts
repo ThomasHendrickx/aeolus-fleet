@@ -1,5 +1,5 @@
 import type { MeetingCall } from './meeting-call.js';
-import type { DataKeyId, DeliveryId, FleetId, LeaseId, MeetingId, MessageId, ScheduleId, ScheduleState, ShipId, ShipKind } from '@aeolus-fleet/common';
+import type { DataKeyId, EventId, DeliveryId, FleetId, LeaseId, MeetingId, MessageId, ScheduleId, ScheduleState, ShipId, ShipKind } from '@aeolus-fleet/common';
 
 import type { Page, PageQuery } from '../shared/page.js';
 import type { DataKeyAge, FleetSealing, KeyAvailability, StoredDataKey } from './fleet-sealing.js';
@@ -301,6 +301,8 @@ export interface DeliveryRepository {
    * is skipped and two such reads take turns.
    */
   findUnacknowledgedUpToForUpdate(query: { fleetId: FleetId; shipId: ShipId; otherShipId: ShipId; upTo: DeliveryId }): Promise<ExchangedDelivery[]>;
+  /** Acknowledges outstanding contribution deliveries through a message id, holding rows in id order. Associates their exact set with the single event for Health replay. */
+  acknowledgeMeetingContributionsUpTo(input: { fleetId: FleetId; meetingId: MeetingId; shipId: ShipId; leaseId: LeaseId; upTo: MessageId; eventId: EventId }): Promise<number>;
   /**
    * A page of the ship's record: the deliveries to it and those of its type
    * it claimed, in any state and whichever lease took them, each with its
@@ -420,6 +422,7 @@ export interface SealingCursor {
 
 /** What one batch of the sealing pass reads, each row held until its unit of work ends: plain messages after its cursor, oldest first, and plain schedules. */
 export interface PlainPayloads {
+  queuedWords?: { id: MessageId; payload: string }[];
   messages: Message[];
   schedules: Schedule[];
 }
@@ -433,6 +436,7 @@ export interface SealedRowPayload<Id extends MessageId | ScheduleId> {
 
 /** What one batch of the sealing pass stores in place of what it read. */
 export interface SealedPayloads {
+  queuedWords?: { id: MessageId; payload: SealedMessagePayload }[];
   messages: SealedRowPayload<MessageId>[];
   schedules: SealedRowPayload<ScheduleId>[];
 }

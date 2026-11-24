@@ -1,3 +1,5 @@
+import type { AcknowledgeMeetingUpTo } from '../../domain/messaging/acknowledge-meeting-up-to.js';
+import type { CloseCall } from '../../domain/messaging/close-call.js';
 import type { OpenCall } from '../../domain/messaging/open-call.js';
 import type { Lookup } from '../../domain/registry/lookup.js';
 import type { createReadInstallationJourneys } from '../../domain/registry/read-installation-journeys.js';
@@ -271,6 +273,7 @@ export interface UseCases {
   sendMessage: SendMessage;
   sendFormattedMessage: SendFormattedMessage;
   openCall: OpenCall;
+  closeCall: CloseCall;
   openMeeting: OpenMeeting;
   scheduleMessage: ScheduleMessage;
   listSchedules: ListSchedules;
@@ -294,6 +297,7 @@ export interface UseCases {
   reportNotHandled: ReportNotHandled;
   acknowledgeDelivery: AcknowledgeDelivery;
   acknowledgeUpTo: AcknowledgeUpTo;
+  acknowledgeMeetingUpTo: AcknowledgeMeetingUpTo;
   answerPing: AnswerPing;
   pingShip: PingShip;
   checkInbox: CheckInbox;

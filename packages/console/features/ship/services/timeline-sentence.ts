@@ -393,6 +393,8 @@ export function timelineSentence(entry: TimelineEntry, { shipId, ownerNames = ne
       return { parts: [text('Got the ownership of a meeting'), ...(entry.actor ? [text(', from '), ship(entry.actor)] : [])], tone: 'ok', icon: 'received' };
     case 'ModeratorNamed':
       return { parts: [text('Became the moderator of a meeting'), ...(entry.actor ? [text(', named by '), ship(entry.actor)] : [])], tone: 'ok', icon: 'received' };
+    case 'MeetingReadUpTo':
+      return { parts: [text('Marked a meeting read up to a contribution')], tone: 'ok', icon: 'received' };
     case 'MeetingEnded':
       return { parts: [text('Ended a meeting')], tone: 'ok', icon: 'sent' };
     case 'ScheduleCreated':

@@ -72,7 +72,10 @@ export function createInMemoryHealthSnapshots(state: InMemoryState, health: Heal
       const events = numbered(fleetId)
         .filter((event) => event.seq > seq)
         .slice(0, limit);
-      return Promise.resolve({ events, sent: sentOf(fleetId, events) });
+      const steps = events.flatMap((event) => event.type === 'MeetingReadUpTo'
+        ? state.deliveries.filter((delivery) => delivery.fleetId === fleetId && delivery.acknowledgedByEventId === event.id).map((delivery) => ({ ...event, type: 'DeliveryAcknowledged' as const, deliveryId: delivery.id }))
+        : [event]);
+      return Promise.resolve({ events: steps, sent: sentOf(fleetId, events) });
     },
     crews: async (fleetId, since) => {
       const { ships, leases } = await health.read(fleetId, since);
