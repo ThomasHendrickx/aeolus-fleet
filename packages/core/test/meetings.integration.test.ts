@@ -1124,7 +1124,7 @@ it('rolls back a person call close when round delivery fails', async () => {
   const failing = unitOfWorkWith((tx) => ({ ...tx, deliveries: { ...tx.deliveries, create: () => Promise.reject(new Error('person delivery failed')) } }));
   const close = createCloseCall({ uow: failing, clock: core.clock, ids: newId, hasher: sha256Hasher, sealing: unsealedFleetsOnly });
   await expect(close(person, { meetingId, callId })).rejects.toThrow('person delivery failed');
-  // Then rollback leaves the call open, and a successful retry stores the whole intervention.
+  // Then rollback leaves the call open.
   expect((await createPrismaMeetingRepository(core.prisma).findCall(fleetId, { meetingId, callId }))?.closedAt).toBeNull();
 });
 
@@ -1169,9 +1169,8 @@ it('ends a meeting with an open call when a person ends it', async () => {
   const { shipId } = unwrap(await core.useCases.commissionShip(argo, { name: 'person', type: 'person', kind: 'person', idempotencyKey: newKey() }));
   const person: ShipCaller = { fleetId, shipId, kind: 'person', scopes: ['messages:send', 'messages:receive'] };
   unwrap(await core.useCases.changeMeeting(person, { meetingId, change: { kind: 'rejoin' } }));
-  const next = unwrap(await core.useCases.openCall(chief, { meetingId, question: 'Continue?', excludedShipIds: [chief.shipId, person.shipId], model: MODEL, idempotencyKey: newKey() }));
   unwrap(await core.useCases.changeMeeting(person, { meetingId, change: { kind: 'end' } }));
-  expect(unwrap(await core.useCases.readMeeting(chief, { meetingId, callId: next.callId, limit: 20 })).call).toMatchObject({ notAskedShipIds: [], silentShipIds: [], closedAt: core.clock.now() });
+  expect(unwrap(await core.useCases.readMeeting(chief, { meetingId, callId, limit: 20 })).call).toMatchObject({ notAskedShipIds: [], silentShipIds: [], closedAt: core.clock.now() });
   await expect(core.prisma.meeting.findUnique({ where: { fleetId_id: { fleetId, id: meetingId } } })).resolves.toMatchObject({ endedAt: core.clock.now() });
 });
 

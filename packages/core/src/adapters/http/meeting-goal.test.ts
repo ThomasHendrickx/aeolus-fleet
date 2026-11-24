@@ -126,7 +126,7 @@ describe.each<Door>(['tRPC', 'REST', 'MCP'])('%s person intervention', (door) =>
   it('lets a reached person join for the first time', async () => {
     // Given a meeting and its open call.
     const { meetingId } = z.object({ meetingId: z.string() }).parse((await call(door, { name: 'openMeeting', input: anOpen() })).data);
-    const { callId } = z.object({ callId: z.string() }).parse((await call(door, { name: 'openCall', input: { meetingId, question: 'Ready?', deadline: '2026-11-23T10:00:30.000Z', idempotencyKey: 'person-call', model: SESSION_MODEL } })).data);
+    z.object({ callId: z.string() }).parse((await call(door, { name: 'openCall', input: { meetingId, question: 'Ready?', deadline: '2026-11-23T10:00:30.000Z', idempotencyKey: 'person-call', model: SESSION_MODEL } })).data);
     const fleetId = held.core.state.fleets[0]?.id;
     if (fleetId === undefined) throw new Error('Missing fleet');
     const argo = held.core.state.ships.find((ship) => ship.kind === 'operator');
@@ -139,7 +139,7 @@ describe.each<Door>(['tRPC', 'REST', 'MCP'])('%s person intervention', (door) =>
   it('lets a person speak without the mic and leaves the call open', async () => {
     // Given a meeting and its open call.
     const { meetingId } = z.object({ meetingId: z.string() }).parse((await call(door, { name: 'openMeeting', input: anOpen() })).data);
-    const { callId } = z.object({ callId: z.string() }).parse((await call(door, { name: 'openCall', input: { meetingId, question: 'Ready?', deadline: '2026-11-23T10:00:30.000Z', idempotencyKey: 'person-call', model: SESSION_MODEL } })).data);
+    z.object({ callId: z.string() }).parse((await call(door, { name: 'openCall', input: { meetingId, question: 'Ready?', deadline: '2026-11-23T10:00:30.000Z', idempotencyKey: 'person-call', model: SESSION_MODEL } })).data);
     const fleetId = held.core.state.fleets[0]?.id;
     if (fleetId === undefined) throw new Error('Missing fleet');
     const argo = held.core.state.ships.find((ship) => ship.kind === 'operator');
@@ -171,7 +171,7 @@ describe.each<Door>(['tRPC', 'REST', 'MCP'])('%s person intervention', (door) =>
   it('lets a present person end the meeting', async () => {
     // Given a meeting and its open call.
     const { meetingId } = z.object({ meetingId: z.string() }).parse((await call(door, { name: 'openMeeting', input: anOpen() })).data);
-    const { callId } = z.object({ callId: z.string() }).parse((await call(door, { name: 'openCall', input: { meetingId, question: 'Ready?', deadline: '2026-11-23T10:00:30.000Z', idempotencyKey: 'person-call', model: SESSION_MODEL } })).data);
+    z.object({ callId: z.string() }).parse((await call(door, { name: 'openCall', input: { meetingId, question: 'Ready?', deadline: '2026-11-23T10:00:30.000Z', idempotencyKey: 'person-call', model: SESSION_MODEL } })).data);
     const fleetId = held.core.state.fleets[0]?.id;
     if (fleetId === undefined) throw new Error('Missing fleet');
     const argo = held.core.state.ships.find((ship) => ship.kind === 'operator');
