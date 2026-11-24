@@ -121,7 +121,9 @@ describe('the snapshot close on a fleet at staging scale', () => {
     const statement = baseDeliveriesStatement(fleetId, firstHour);
 
     // Then every history read uses an index, including events nested beneath the candidate aggregate.
-    expect(await assertIndexedPlan(core.prisma, statement)).toContain('events_delivery_bootstrap_idx');
+    const plan = await assertIndexedPlan(core.prisma, statement);
+    expect(plan).toContain('events_delivery_bootstrap_idx');
+    expect(plan).toContain('events_meeting_read_up_to_idx');
   });
 
   it('serves and bootstraps the open deliveries while its time-range index waits', async () => {
@@ -158,7 +160,9 @@ describe('the snapshot close on a fleet at staging scale', () => {
       // Then the index is built and the oldest hour's bootstrap reads through it.
       await expect.poll(isIndexValid, { timeout: INDEX_BUILT_MS }).toBe(true);
       const firstHour = new Date(core.clock.now().getTime() - CATCH_UP_HOURS * HOUR_MS);
-      expect(await assertIndexedPlan(core.prisma, baseDeliveriesStatement(fleetId, firstHour))).toContain('events_delivery_bootstrap_idx');
+      const plan = await assertIndexedPlan(core.prisma, baseDeliveriesStatement(fleetId, firstHour));
+      expect(plan).toContain('events_delivery_bootstrap_idx');
+      expect(plan).toContain('events_meeting_read_up_to_idx');
     } finally {
       await lock.release();
       await server.close();
