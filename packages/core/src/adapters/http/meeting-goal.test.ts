@@ -123,7 +123,7 @@ describe.each<Door>(['tRPC', 'REST', 'MCP'])('%s meeting calls', (door) => {
 
 
 describe.each<Door>(['tRPC', 'REST', 'MCP'])('%s person intervention', (door) => {
-  it('lets a person join, speak without the mic, read not-asked ships and end', async () => {
+  it('lets a reached person join for the first time', async () => {
     // Given a meeting and its open call.
     const { meetingId } = z.object({ meetingId: z.string() }).parse((await call(door, { name: 'openMeeting', input: anOpen() })).data);
     const { callId } = z.object({ callId: z.string() }).parse((await call(door, { name: 'openCall', input: { meetingId, question: 'Ready?', deadline: '2026-11-23T10:00:30.000Z', idempotencyKey: 'person-call', model: SESSION_MODEL } })).data);
@@ -134,15 +134,52 @@ describe.each<Door>(['tRPC', 'REST', 'MCP'])('%s person intervention', (door) =>
     const result = await registryUseCases(held.core).commissionShip({ fleetId, shipId: argo.id, kind: 'operator', scopes: [] }, { name: 'person', type: 'person', kind: 'person', idempotencyKey: 'commission-person' });
     if (!result.isOk) throw new Error(result.error.message);
     token = crewShip(held.core, { fleetId, shipId: result.value.shipId });
-    // When the person uses the public self-join and send calls.
+    expect((await call(door, { name: 'rejoinMeeting', input: { meetingId } })).refusal).toBeUndefined();
+  });
+  it('lets a person speak without the mic and leaves the call open', async () => {
+    // Given a meeting and its open call.
+    const { meetingId } = z.object({ meetingId: z.string() }).parse((await call(door, { name: 'openMeeting', input: anOpen() })).data);
+    const { callId } = z.object({ callId: z.string() }).parse((await call(door, { name: 'openCall', input: { meetingId, question: 'Ready?', deadline: '2026-11-23T10:00:30.000Z', idempotencyKey: 'person-call', model: SESSION_MODEL } })).data);
+    const fleetId = held.core.state.fleets[0]?.id;
+    if (fleetId === undefined) throw new Error('Missing fleet');
+    const argo = held.core.state.ships.find((ship) => ship.kind === 'operator');
+    if (argo === undefined) throw new Error('Missing argo');
+    const result = await registryUseCases(held.core).commissionShip({ fleetId, shipId: argo.id, kind: 'operator', scopes: [] }, { name: 'person', type: 'person', kind: 'person', idempotencyKey: 'commission-person' });
+    if (!result.isOk) throw new Error(result.error.message);
+    token = crewShip(held.core, { fleetId, shipId: result.value.shipId });
     expect((await call(door, { name: 'rejoinMeeting', input: { meetingId } })).refusal).toBeUndefined();
     expect((await call(door, { name: 'send', input: { selector: { kind: 'meeting', meetingId }, payload: 'Change direction', idempotencyKey: 'person-speech' } })).refusal).toBeUndefined();
-    // Then speaking leaves the call open, and the separate close distinguishes pending ships.
     expect((await call(door, { name: 'meeting', input: { meetingId } })).data).toMatchObject({ call: { closedAt: null } });
+  });
+  it('reads pending ships as not asked after a person closes the call', async () => {
+    // Given a meeting and its open call.
+    const { meetingId } = z.object({ meetingId: z.string() }).parse((await call(door, { name: 'openMeeting', input: anOpen() })).data);
+    const { callId } = z.object({ callId: z.string() }).parse((await call(door, { name: 'openCall', input: { meetingId, question: 'Ready?', deadline: '2026-11-23T10:00:30.000Z', idempotencyKey: 'person-call', model: SESSION_MODEL } })).data);
+    const fleetId = held.core.state.fleets[0]?.id;
+    if (fleetId === undefined) throw new Error('Missing fleet');
+    const argo = held.core.state.ships.find((ship) => ship.kind === 'operator');
+    if (argo === undefined) throw new Error('Missing argo');
+    const result = await registryUseCases(held.core).commissionShip({ fleetId, shipId: argo.id, kind: 'operator', scopes: [] }, { name: 'person', type: 'person', kind: 'person', idempotencyKey: 'commission-person' });
+    if (!result.isOk) throw new Error(result.error.message);
+    token = crewShip(held.core, { fleetId, shipId: result.value.shipId });
+    expect((await call(door, { name: 'rejoinMeeting', input: { meetingId } })).refusal).toBeUndefined();
     expect((await call(door, { name: 'closeCall', input: { meetingId, callId } })).refusal).toBeUndefined();
     const read = await call(door, { name: 'meeting', input: { meetingId } });
     expect(read.data).toMatchObject({ call: { silentShipIds: [] } });
     expect(z.object({ call: z.object({ notAskedShipIds: z.array(z.string()) }) }).parse(read.data).call.notAskedShipIds).toHaveLength(2);
+  });
+  it('lets a present person end the meeting', async () => {
+    // Given a meeting and its open call.
+    const { meetingId } = z.object({ meetingId: z.string() }).parse((await call(door, { name: 'openMeeting', input: anOpen() })).data);
+    const { callId } = z.object({ callId: z.string() }).parse((await call(door, { name: 'openCall', input: { meetingId, question: 'Ready?', deadline: '2026-11-23T10:00:30.000Z', idempotencyKey: 'person-call', model: SESSION_MODEL } })).data);
+    const fleetId = held.core.state.fleets[0]?.id;
+    if (fleetId === undefined) throw new Error('Missing fleet');
+    const argo = held.core.state.ships.find((ship) => ship.kind === 'operator');
+    if (argo === undefined) throw new Error('Missing argo');
+    const result = await registryUseCases(held.core).commissionShip({ fleetId, shipId: argo.id, kind: 'operator', scopes: [] }, { name: 'person', type: 'person', kind: 'person', idempotencyKey: 'commission-person' });
+    if (!result.isOk) throw new Error(result.error.message);
+    token = crewShip(held.core, { fleetId, shipId: result.value.shipId });
+    expect((await call(door, { name: 'rejoinMeeting', input: { meetingId } })).refusal).toBeUndefined();
     expect((await call(door, { name: 'endMeeting', input: { meetingId } })).refusal).toBeUndefined();
   });
 });
