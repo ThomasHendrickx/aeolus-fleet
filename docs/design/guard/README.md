@@ -83,6 +83,7 @@ Answer: approved by Thomas, option 1, no free paths. Decision: the guard's path 
 Context: #2070 says an unknown name is refused on the crew request; core does not act on settings and does not know the plugin's rule sets.
 Options: 1 the plugin at placement, as for models (0063): an unknown name leaves the request unassigned with the reason `rule set unknown: <name>`, and the console offers only the plugin's names; 2 core asks the plugin at request time and refuses.
 Pick: 1. It keeps core free of plugin data and follows a recorded pattern; the console's choice list stops the common mistake.
+Answer: approved by Thomas, option 1. Decision: the plugin checks the name at placement, as for models (0063): an unknown name leaves the request unassigned with the reason `rule set unknown: <name>`; core checks only the setting's shape; the console offers only the plugin's names.
 
 ### Q8. Floor and chosen set together
 
