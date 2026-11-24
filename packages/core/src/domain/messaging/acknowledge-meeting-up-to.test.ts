@@ -1,4 +1,4 @@
-/** D8 and #2038: mark contribution deliveries read without clearing requests or meeting notices. */
+/** #2038: mark contribution deliveries read without clearing requests or meeting notices. */
 import { MEETING_CALL_CONTENT_TYPE, type MeetingId, type MessageId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 

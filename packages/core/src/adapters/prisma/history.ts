@@ -190,16 +190,8 @@ async function inboxEntriesOf(
   db: Db,
   { fleetId, shipId, rows }: { fleetId: FleetId; shipId: ShipId; rows: Prisma.DeliveryGetPayload<{ select: typeof INBOX_ROW }>[] },
 ): Promise<InboxEntry<StoredPayload>[]> {
-  const acknowledged = new Map(
-    (
-      await db.event.findMany({
-        where: { fleetId, type: 'DeliveryAcknowledged', deliveryId: { in: rows.map((row) => row.id) } },
-        orderBy: { seq: 'asc' },
-      })
-    )
-      .map(toSequencedEvent)
-      .map((event) => [event.deliveryId, event]),
-  );
+  const events = await deliveryHistory(db, { fleetId, deliveryIds: rows.map((row) => idSchema('delivery').parse(row.id)) });
+  const acknowledged = new Map(events.filter((event) => event.type === 'DeliveryAcknowledged').toReversed().map((event) => [event.deliveryId, event]));
   const found = rows.map((row) => ({ row, message: toMessage(row.message) }));
   const party = await partiesOf(db, { fleetId, shipIds: found.map(({ message }) => message.senderShipId) });
   const replies = (

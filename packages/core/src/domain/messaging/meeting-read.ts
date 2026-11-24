@@ -1,4 +1,4 @@
-/** A meeting read cutoff is a contribution, and every retained participant may mark through it (D8). */
+/** A meeting read cutoff is a contribution, and every retained participant may mark through it. */
 import { MEETING_CALL_CONTENT_TYPE, type MeetingId, type MessageId, type ShipId } from '@aeolus-fleet/common';
 
 import { refuse, type DomainError } from '../shared/errors.js';

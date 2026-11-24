@@ -514,7 +514,7 @@ Each event records its type and time, who caused it (a ship, `argo` included, or
 | `ParticipantRevoked` | Messaging | The owner revoked the ship's right to a meeting (0061): details hold the meeting |
 | `OwnershipTransferred` | Messaging | The ship became the owner of a meeting, from its owner (0061): details hold the meeting |
 | `ModeratorNamed` | Messaging | The ship became the moderator of a meeting, named by the owner or as the moderator went (0061): details hold the meeting |
-| `MeetingReadUpTo` | Messaging | A participant acknowledged its outstanding contribution deliveries through one contribution (D8), one event for the whole change: meeting, cutoff, count and lease |
+| `MeetingReadUpTo` | Messaging | A participant acknowledged its outstanding contribution deliveries through one contribution, including pending, received and handed deliveries, one event for the whole change: meeting, cutoff, count and lease |
 | `MeetingEnded` | Messaging | The ship ended a meeting, as its owner or moderator, or as its owner retired (0061): details hold the meeting |
 | `ScheduleCreated` | Messaging | The ship made a schedule (0062): details hold the schedule, its timing and next send time |
 | `ScheduleCancelled` | Messaging | The schedule was cancelled by its ship, a manager or its ship's retire (0062): details hold the schedule and the reason (`ship`, `manager`, `retired`) |

@@ -800,7 +800,7 @@ export const shipRouter = router({
     .output(ackUpToOutputSchema)
     .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.acknowledgeUpTo(ctx.crew, input))),
 
-  /** A participant marks outstanding contribution deliveries read through one contribution (D8). */
+  /** A participant marks outstanding contribution deliveries read through one contribution, including pending, received and handed deliveries. */
   ackMeetingUpTo: scopedCrewProcedure('messages:receive')
     .meta({ description: 'Marks your meeting read up to and including messageId: acknowledges your outstanding contribution deliveries, pending, received or handed, in one transaction with one MeetingReadUpTo event. Calls, mic, added and ended notices stay as they are. Former participants may mark read too. Answers how many were acknowledged; repeating changes nothing and answers 0. Refuses a stranger as NOT_FOUND, or a cutoff that is not a contribution in the meeting as MESSAGE_NOT_FOUND.' })
     .input(ackMeetingUpToInputSchema)

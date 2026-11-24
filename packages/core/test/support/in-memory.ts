@@ -2399,7 +2399,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       });
   /** A message to the ship itself as its inbox lists it. */
   const inboxEntryOf = (fleetId: FleetId, { shipId, delivery, message }: { shipId: ShipId; delivery: Delivery; message: Message }): InboxEntry<StoredPayload> => {
-    const acknowledged = numbered(fleetId).findLast((event) => event.deliveryId === delivery.id && event.type === 'DeliveryAcknowledged');
+    const acknowledged = deliveryEvents(fleetId).findLast((event) => event.deliveryId === delivery.id && event.type === 'DeliveryAcknowledged');
     const reply = acknowledged?.details.reply;
     const { id, sender, inReplyTo, sentAt, contentType, model, senderLeaseId, payload } = historyMessageOf(message);
     return {

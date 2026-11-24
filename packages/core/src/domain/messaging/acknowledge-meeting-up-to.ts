@@ -1,4 +1,4 @@
-/** D8: one transaction acknowledges outstanding contribution deliveries through a meeting contribution. */
+/** One transaction acknowledges outstanding contribution deliveries through a meeting contribution. */
 import type { IdGenerator, MeetingId, MessageId } from '@aeolus-fleet/common';
 
 import { holdLease, type HoldLeaseTx, type LeaseEnded } from '../registry/public.js';
