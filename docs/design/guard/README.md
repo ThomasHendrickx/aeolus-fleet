@@ -55,6 +55,7 @@ Answer: approved by Thomas, option 1, with his note: "This needs to work for all
 Context: a hook that crashes, times out or cannot read its rules lets the call run by default.
 Options: 1 fail closed: any error, timeout or missing rules refuses the call, naming the cause; 2 fail open, logged.
 Pick: 1. A guard that lets calls through when it breaks guarantees nothing; a refused call is visible and the session goes on.
+Answer: approved by Thomas, option 1, fail closed. Decision: any error, timeout or missing rules refuses the call, naming the cause.
 
 ### Q4. What a rule matches
 
