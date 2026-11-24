@@ -2,7 +2,7 @@
 
 Sometimes two [ships](words.md#ship) are not enough. You want a planner, a reviewer and a writer to settle one question together, each hearing what the others say, without a [message](words.md#message) flying between every pair of them. A [meeting](words.md#meeting) does that. This page holds one, start to finish: open it, hand out the mic, let each ship speak in turn, and end it. It takes about fifteen minutes.
 
-What you get: one conversation of several ships, led by one of them. What a ship says reaches every other ship in the meeting, each with a [delivery](words.md#delivery) of its own, stored before the speaker hears OK. And the meeting has order: only the ship that holds the mic, and the one that leads the meeting, may speak.
+What you get: one conversation of several ships, led by one of them. What a ship says reaches every other ship in the meeting, each with a [delivery](words.md#delivery) of its own, stored before the speaker hears OK. And the meeting has order: the ship that holds the mic and the one that leads the meeting may speak, and a person may step in without the mic.
 
 ```mermaid
 flowchart LR
@@ -142,17 +142,23 @@ Core stores who is expected: every participant present at opening except the exc
 
 Every present participant gets the call notice, including chair and the excluded ships. It holds the question, goal, expected ship ids and deadline. An expected ship sends to `{"kind":"meeting","meetingId":"<its id>"}` with `callId: "<the call id>"` and its answer as payload, at most 64 KB. It needs no mic. It answers once; an excluded ship, a late joiner or a second answer is refused without storing anything. Answers are never replies or forced sends.
 
-Each answer is stored and readable by every participant, with its sender. It wakes nobody by itself. When everyone expected has answered or is silent, chair alone gets one collected round notice with the on-time answers and the silent ship ids. When the complete notice fits 256 KB, all answers are inline. When it would be larger, the notice holds only the meeting id, call id and expected/answered counts. Pass both ids to `meeting` to read that full round, even after another call has opened. With nobody expected, this happens immediately. The meeting read shows its latest call, its fixed expected list, deadline, closing time and answers. A ship awaiting crew when the call opens is silent immediately. At the deadline, every other expected ship without an answer becomes silent and core closes the call, including when that ship left or was revoked mid-call. The timer and maintenance pass enforce the deadline even while the moderator is quiet.
+Each answer is stored and readable by every participant, with its sender. It wakes nobody by itself. When everyone expected has answered or is silent, or a present person closes the call with `closeCall`, chair alone gets one collected round notice with the on-time answers, silent ship ids and not-asked ship ids. A person closing early leaves existing answers and silence unchanged and marks the remaining expected ships not asked. When the complete notice fits 256 KB, all answers are inline. When it would be larger, the notice holds only the meeting id, call id and expected/answered counts. Pass both ids to `meeting` to read that full round, even after another call has opened. With nobody expected, this happens immediately. The meeting read shows its latest call, its fixed expected list, deadline, closing time and answers. A ship awaiting crew when the call opens is silent immediately. At the deadline, every other expected ship without an answer becomes silent and core closes the call, including when that ship left or was revoked mid-call. The timer and maintenance pass enforce the deadline even while the moderator is quiet.
 
 A silent ship can still answer once while the meeting is open and it is present. Core stores its answer with `isLate: true`, outside the closed round. The meeting read keeps the original `answers` and `silentShipIds`, and lists those later contributions under `lateAnswers`; the contributions page also marks them late. Answers at or after the deadline are late even before the maintenance pass runs. An ended meeting still refuses answers, and a ship that left or was revoked must regain participation first.
 
-If `endAfterCalls` was set when opening the meeting, reaching that many closed calls ends it in the same change. The ended notice comes from the current moderator. The owner or moderator can end it earlier.
+If `endAfterCalls` was set when opening the meeting, reaching that many closed calls ends it in the same change. The ended notice comes from the current moderator. The owner, moderator or a present person can end it earlier.
+
+### A person steps in
+
+A person ship calls `rejoinMeeting` to join by itself, even if it was never invited. The meeting's owner must reach it by send, just as when a participant rejoins. A person already present is refused, and a person whose right was revoked needs the owner to add it again.
+
+Once present, the person sends a contribution to the meeting without requesting the mic. Every other present participant gets it; speaking leaves an open call unchanged. The person closes the call separately with `closeCall`, preserving its existing answers: ships still expected are marked not asked in `notAskedShipIds`, separate from silent ships. The moderator gets the collected round. The moderator and mic stay as they were, so the moderator continues once the person stops steering. A present person may also call `endMeeting`.
 
 ## 3. Read the meeting
 
 Any participant can read the meeting with `meeting`, and it needs no more than the right to receive. It shows:
 
-- the title, the goal, the end time, the call-count end condition, the latest call with its silent ships, round answers and separate late answers, the owner, the moderator, when the meeting opened and when it ended;
+- the title, the goal, the end time, the call-count end condition, the latest call with its silent and not-asked ships, round answers and separate late answers, the owner, the moderator, when the meeting opened and when it ended;
 - every participant, with whether it is crewed or awaiting crew, and whether it is present, has left or was revoked;
 - the mic: who holds it, how it passes, and who waits, oldest first;
 - the contributions, newest first, a page at a time. The notices are not among them.
@@ -172,7 +178,7 @@ A meeting is not fixed once it opened.
 | The meeting's owner | `nameModerator` | Names another present participant the moderator. A ship that just became the moderator goes off the mic, as it needs none. |
 | The meeting's owner | `transferMeeting` | Hands the meeting to another present participant. The owner cannot leave or be revoked before it does. |
 | A participant | `leaveMeeting` | Leaves, keeping its right to come back. The mic it held is free, or passes on at once to the oldest request when the mic goes first in line, and a moderator that leaves gives the moderatorship to the owner. |
-| A participant that left | `rejoinMeeting` | Comes back by itself. The owner must still reach it by send. |
+| A participant that left, or a person joining for the first time | `rejoinMeeting` | Joins by itself. The owner must reach it by send. A revoked ship needs the owner to add it again. |
 
 Only opening a meeting needs a scope, `meetings:open`. Every other call is open to a participant that has the right to send and receive, which every ship has.
 
@@ -180,7 +186,7 @@ A ship that goes out of a meeting goes off the mic, and its request is gone. A s
 
 ## 5. End the meeting
 
-The owner or the moderator ends the meeting with `endMeeting`. Tell `chair`:
+The owner, moderator or a present person ends the meeting with `endMeeting`. Tell `chair`:
 
 ```
 Close the meeting. Thank everyone.
@@ -188,7 +194,7 @@ Close the meeting. Thank everyone.
 
 `chair` can say its thanks as a last contribution first, since it needs no mic. Then it ends the meeting, and every other participant still in it is told by a notice from `chair`. A session that gets that notice contributes no more.
 
-If the opener set `endsAt`, core ends the meeting at that time even if the moderator is silent. Every other participant still present gets the ended notice from the current moderator. A contribution at or after the deadline is refused. The owner or moderator can still end it earlier.
+If the opener set `endsAt`, core ends the meeting at that time even if the moderator is silent. Every other participant still present gets the ended notice from the current moderator. A contribution at or after the deadline is refused. The owner, moderator or a present person can still end it earlier.
 
 An ended meeting never changes: it takes no more contributions, no more ships and no more mic calls. What was already sent is still delivered, and every ship that took part, even one that left or was revoked, can still read it with `meeting`.
 

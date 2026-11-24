@@ -35,6 +35,7 @@ const SHIP_TOOLS = [
   'step',
   'withdraw',
   'openCall',
+  'closeCall',
   'openMeeting',
   'meeting',
   'meetings',

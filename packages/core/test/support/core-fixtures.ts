@@ -1,3 +1,4 @@
+import { createCloseCall } from '../../src/domain/messaging/close-call.js';
 import { createOpenCall } from '../../src/domain/messaging/open-call.js';
 import { createLookup } from '../../src/domain/registry/lookup.js';
 import { createReadInstallationJourneys } from '../../src/domain/registry/read-installation-journeys.js';
@@ -422,6 +423,7 @@ export function messagingUseCases(core: InMemoryCore) {
     readSealing: createReadSealing({ sealings: core.sealings }),
     readRecoverySet: createReadRecoverySet({ sealings: core.sealings, featureFlags: core.featureFlagReads }),
     recoverKeys: createRecoverKeys({ ...deps, vault: core.keyVault.vault, sealer: sealing.sealer, sealings: core.sealings, featureFlags: core.featureFlagReads }),
+    closeCall: createCloseCall({ ...deps, hasher: core.hasher, sealing }),
     openCall: createOpenCall({ ...deps, hasher: core.hasher, sealing }),
     openMeeting: createOpenMeeting({ ...deps, hasher: core.hasher, sealing: core.sealing }),
     readMeeting: createReadMeeting({ uow: core.uow, sealing }),
