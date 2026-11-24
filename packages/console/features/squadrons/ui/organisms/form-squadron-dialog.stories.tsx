@@ -133,3 +133,24 @@ export const MembersNotOffered: Story = {
 };
 /** Phone: full screen, the footer at the bottom. */
 export const MembersPhone: Story = { args: { crew: CREW }, play: toMembers, globals: { viewport: { value: 'mobile1' } } };
+
+/** Catalogue failure reuses the approved line and blocks creation with cached choices too. */
+export const GuardReadFailed: Story = {
+  args: { crew: { ...MembersAllReady.args?.crew as FormCrew, guardChoices: { names: ['no-push'], floor: ['base'] }, hasGuardReadFailed: true } },
+  play: async (context) => {
+    await toMembers(context);
+    const body = within(context.canvasElement.ownerDocument.body);
+    await expect(body.getByText('Rule sets could not be read. Try again later.')).toBeVisible();
+    await expect(body.getByTestId('form-squadron-ready')).toHaveTextContent('3 of 3 members ready');
+    await expect(body.getByTestId('form-squadron-submit')).toBeDisabled();
+  },
+};
+
+export const GuardReadPending: Story = {
+  args: { crew: { ...MembersAllReady.args?.crew as FormCrew, isGuardReading: true } },
+  play: async (context) => {
+    await toMembers(context);
+    const body = within(context.canvasElement.ownerDocument.body);
+    await expect(body.getByTestId('form-squadron-submit')).toBeDisabled();
+  },
+};
