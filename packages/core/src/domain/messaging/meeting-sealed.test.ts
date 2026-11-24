@@ -143,3 +143,43 @@ it.each(['stored payloads', 'call retry', 'answer retry'])('preserves %s when ex
   if (outcome === 'call retry') expect(unwrap(await messaging.openCall(chair, input))).toEqual({ callId });
   if (outcome === 'answer retry') expect(unwrap(await messaging.sendMessage(alpha, reply))).toEqual(original);
 });
+
+it('seals queued words at rest and delivers them as written when the mic arrives', async () => {
+  // Given a sealed meeting and a participant with words to say.
+  unwrap(await messaging.changeMic(product, { meetingId, change: { kind: 'request', payload: CONTRIBUTION, model: SESSION_MODEL } }));
+  const queued = core.state.meetings.find(({ id }) => id === meetingId)?.micRequests[0]?.words;
+  expect(queued === undefined ? false : isSealedPayload(queued.payload)).toBe(true);
+  const read = unwrap(await messaging.readMeeting(product, { meetingId, limit: 10 }));
+  expect(read.mic.requests[0]?.words?.payload).toBe(CONTRIBUTION);
+
+  // When the moderator grants its mic.
+  unwrap(await messaging.changeMic(chief, { meetingId, change: { kind: 'give', shipId: product.shipId } }));
+
+  // Then the contribution stays sealed at rest and is readable as written.
+  noPayloadStoredPlain();
+  const said = unwrap(await messaging.readMeeting(product, { meetingId, limit: 10 }));
+  expect(said.contributions.items[0]?.payload).toBe(CONTRIBUTION);
+  expect(said.mic.holder).toBeNull();
+});
+
+it('seals unsaid request words when a plain fleet turns sealing on', async () => {
+  // Given queued words in a plain fleet.
+  const plain = createInMemoryCore('2026-11-23T10:00:00.000Z');
+  const fleet = await initialiseFleet(plain);
+  const argo = operatorCaller(fleet);
+  const registry = registryUseCases(plain);
+  const chair = await shipWithScopes({ registry, argo }, { name: 'chair', type: 'agent', scopes: ['meetings:open'] });
+  const alpha = await shipWithScopes({ registry, argo }, { name: 'alpha', type: 'agent', scopes: [] });
+  const messaging = messagingUseCases(plain);
+  const { meetingId } = unwrap(await messaging.openMeeting(chair, { ships: [{ shipId: alpha.shipId }], model: SESSION_MODEL, idempotencyKey: newKey() }));
+  unwrap(await messaging.changeMic(alpha, { meetingId, change: { kind: 'request', payload: CONTRIBUTION, model: SESSION_MODEL } }));
+
+  // When the fleet's existing payloads become sealed.
+  await sealFleet(plain, fleet.fleetId);
+  await createSealStoredPayloads({ uow: plain.uow, sealings: plain.sealings, sealing: plain.sealing, clock: plain.clock, ids: plain.ids, hasher: plain.hasher })();
+
+  // Then its unsaid words are sealed too and still readable.
+  const queued = plain.state.meetings[0]?.micRequests[0]?.words;
+  expect(queued === undefined ? false : isSealedPayload(queued.payload)).toBe(true);
+  expect(unwrap(await messaging.readMeeting(alpha, { meetingId, limit: 10 })).mic.requests[0]?.words?.payload).toBe(CONTRIBUTION);
+});

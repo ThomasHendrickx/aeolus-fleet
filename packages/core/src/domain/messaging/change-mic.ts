@@ -1,30 +1,30 @@
-import type { IdGenerator, MeetingId } from '@aeolus-fleet/common';
+import type { IdGenerator, MeetingId, MessageId } from '@aeolus-fleet/common';
 
 import type { ShipRepository } from '../registry/public.js';
-import type { ShipCaller } from '../shared/caller.js';
+import { isCrew, type ShipCaller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import type { DomainError } from '../shared/errors.js';
 import { recordEvent } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
-import { withDataKeys, type DataKeysNeeded, type PayloadSealing } from './data-keys.js';
+import { withDataKeys, sealedFor, type DataKeysNeeded, type PayloadSealing } from './data-keys.js';
 import { tellOfChange, type MeetingNoticeTx } from './meeting-notice.js';
 import type { Meeting } from './meeting.js';
 import type { AcceptRefusal } from './message.js';
-import { changeMic, type MicChange, type MicRefusal } from './mic.js';
+import { changeMic, checkRequestWords, type MicChange, type MicRefusal } from './mic.js';
 import type { MeetingRepository, RequestHasher } from './ports.js';
 import type { MeetingParty, MicRead } from './read-meeting.js';
 
 export interface ChangeMicTx extends MeetingNoticeTx {
-  meetings: Pick<MeetingRepository, 'findForUpdate' | 'save'>;
+  meetings: Pick<MeetingRepository, 'findForUpdate' | 'save' | 'contributed'>;
   ships: Pick<ShipRepository, 'findMany'>;
 }
 
-export type ChangeMicFailure = MicRefusal | AcceptRefusal | DomainError<'KEY_UNAVAILABLE'>;
+export type ChangeMicFailure = MicRefusal | AcceptRefusal | DomainError<'KEY_UNAVAILABLE' | 'PAYLOAD_TOO_LARGE' | 'INVALID_CONTENT_TYPE'>;
 
 export interface RequestMicResponse {
   mic: MicRead;
-  caller: { kind: 'holding' } | { kind: 'waiting'; place: number };
+  caller: { kind: 'holding' } | { kind: 'waiting'; place: number } | { kind: 'said'; messageId: MessageId };
 }
 
 export type ChangeMic = (caller: ShipCaller, input: { meetingId: MeetingId; change: MicChange }) => Promise<Result<RequestMicResponse | undefined, ChangeMicFailure>>;
@@ -44,21 +44,33 @@ export function createChangeMic(deps: { uow: UnitOfWork<ChangeMicTx>; clock: Clo
     withDataKeys({ sealing: deps.sealing, fleetId: caller.fleetId }, (held) => deps.uow.run(async (tx): Promise<Result<RequestMicResponse | undefined, ChangeMicFailure | DataKeysNeeded>> => {
       const { fleetId } = caller;
       const at = deps.clock.now();
-      const changed = changeMic(await tx.meetings.findForUpdate(fleetId, input.meetingId), { meetingId: input.meetingId, by: caller.shipId, change: input.change, at });
+      const before = await tx.meetings.findForUpdate(fleetId, input.meetingId);
+      let change = input.change;
+      if (change.kind === 'request' && change.payload !== undefined) {
+        const checked = checkRequestWords(before, { meetingId: input.meetingId, by: caller.shipId, at, payload: change.payload, contentType: change.contentType, model: change.model, senderKind: caller.kind });
+        if (!checked.isOk) return checked;
+        const messageId = deps.ids('message');
+        const payload = sealedFor(held, { currentDataKeyId: await tx.sealings.currentDataKeyId(fleetId), row: { fleetId, rowId: messageId }, payload: change.payload });
+        if (!payload.isOk) return payload;
+        change = { ...change, words: { messageId, payload: payload.value, contentType: checked.value.contentType, model: change.model, senderKind: caller.kind, senderLeaseId: isCrew(caller) ? caller.leaseId : null, signedInAccountId: caller.signedInAccountId } };
+      }
+      const changed = changeMic(before, { meetingId: input.meetingId, by: caller.shipId, change, at });
       if (!changed.isOk) {
         return changed;
       }
-      const { meeting, events, givenTo } = changed.value;
+      const { meeting, events, givenTo, said } = changed.value;
       await tx.meetings.save(meeting);
       for (const event of events) {
         await recordEvent({ events: tx.events, ids: deps.ids }, event);
       }
       const isCallerToldByResponse = input.change.kind === 'request' && givenTo === caller.shipId;
-      const told = await tellOfChange({ tx, ids: deps.ids, hasher: deps.hasher, held }, { meeting, micGivenTo: isCallerToldByResponse ? null : givenTo, endedBy: null, at });
+      const told = await tellOfChange({ tx, ids: deps.ids, hasher: deps.hasher, held }, { meeting, micGivenTo: isCallerToldByResponse ? null : givenTo, said, saidByResponse: input.change.kind === 'request' ? caller.shipId : undefined, endedBy: null, at });
       if (!told.isOk) {
         return told;
       }
-      return input.change.kind === 'request' ? ok(await requestResponse(tx, { meeting, callerShipId: caller.shipId })) : ok(undefined);
+      const response = input.change.kind === 'request' ? await requestResponse(tx, { meeting, callerShipId: caller.shipId }) : undefined;
+      const words = told.value.said.find((request) => request.shipId === caller.shipId);
+      return ok(response !== undefined && words !== undefined ? { ...response, caller: { kind: 'said', messageId: words.messageId } } : response);
     }));
 }
 

@@ -1,3 +1,4 @@
+import type { DomainError } from '../shared/errors.js';
 import type { FleetId, IdGenerator, ShipId } from '@aeolus-fleet/common';
 
 import { recordEvent, type Actor } from '../shared/events.js';
@@ -10,7 +11,7 @@ import type { AcceptRefusal } from './message.js';
 import type { MeetingRepository, RequestHasher } from './ports.js';
 
 export interface RetiredParticipantTx extends MeetingNoticeTx {
-  meetings: Pick<MeetingRepository, 'listPresentInForUpdate' | 'save'>;
+  meetings: Pick<MeetingRepository, 'listPresentInForUpdate' | 'save' | 'contributed'>;
 }
 
 /**
@@ -33,7 +34,7 @@ export function lockMeetingsOf(tx: Pick<RetiredParticipantTx, 'meetings'>, ship:
 export async function leaveMeetingsOnRetire(
   deps: { tx: RetiredParticipantTx; ids: IdGenerator; hasher: RequestHasher; held: HeldDataKeys },
   retire: { meetings: readonly Meeting[]; shipId: ShipId; actor: Actor; at: Date },
-): Promise<Result<undefined, AcceptRefusal | DataKeysNeeded>> {
+): Promise<Result<undefined, AcceptRefusal | DataKeysNeeded | DomainError<'KEY_UNAVAILABLE'>>> {
   const { tx, ids } = deps;
   const { shipId, actor, at } = retire;
   for (const meeting of retire.meetings) {
@@ -43,7 +44,7 @@ export async function leaveMeetingsOnRetire(
       for (const event of changed.events) {
         await recordEvent({ events: tx.events, ids }, event);
       }
-      const told = await tellOfChange(deps, { meeting: changed.meeting, micGivenTo: changed.micGivenTo, endedBy: changed.hasEnded ? shipId : null, at });
+      const told = await tellOfChange(deps, { meeting: changed.meeting, micGivenTo: changed.micGivenTo, said: changed.said, endedBy: changed.hasEnded ? shipId : null, at });
       if (!told.isOk) {
         return told;
       }

@@ -1,4 +1,9 @@
-import type { MeetingId, MicPattern, ShipId } from '@aeolus-fleet/common';
+import { MEETING_CALL_MAX_BYTES, payloadBytes } from '@aeolus-fleet/common';
+import type { AccountId, LeaseId, MessageId, MeetingId, MicPattern, ShipId, ShipKind } from '@aeolus-fleet/common';
+
+import { contentType } from './content-type.js';
+import { checkModel, type AcceptRefusal } from './message.js';
+import type { StoredPayload } from './sealed-payload.js';
 
 import { refuse, type DomainError } from '../shared/errors.js';
 import { shipActor, type Actor, type NewEvent } from '../shared/events.js';
@@ -14,6 +19,18 @@ import { checkPresent, isPresent, type Meeting, type PresenceRefusal } from './m
 export interface MicRequest {
   shipId: ShipId;
   requestedAt: Date;
+  words?: QueuedWords;
+}
+
+/** The words belong to the crew that requested them, even when another crew is present on delivery. */
+export interface QueuedWords {
+  messageId: MessageId;
+  payload: StoredPayload;
+  contentType: string;
+  model?: string;
+  senderKind: ShipKind;
+  senderLeaseId: LeaseId | null;
+  signedInAccountId?: AccountId;
 }
 
 /**
@@ -21,7 +38,7 @@ export interface MicRequest {
  * releases it; the moderator gives it, takes it back or sets how it passes.
  */
 export type MicChange =
-  | { kind: 'request' }
+  | { kind: 'request'; payload?: string; contentType?: string; model?: string; words?: QueuedWords }
   | { kind: 'withdraw' }
   | { kind: 'release' }
   | { kind: 'give'; shipId: ShipId }
@@ -46,6 +63,7 @@ export interface MicChanged {
   meeting: Meeting;
   events: NewEvent[];
   givenTo: ShipId | null;
+  said?: MicRequest[];
 }
 
 /**
@@ -85,7 +103,7 @@ function applied(meeting: Meeting, input: { by: ShipId; change: MicChange; at: D
       if (meeting.micRequests.some((request) => request.shipId === by)) {
         return refuse('MIC_ALREADY_REQUESTED', `You requested the mic of meeting ${meeting.id} already: wait for it, or withdraw the request`);
       }
-      return ok({ meeting: { ...meeting, micRequests: [...meeting.micRequests, { shipId: by, requestedAt: at }] }, events: [event('MicRequested', { shipId: by })], givenTo: null });
+      return ok({ meeting: { ...meeting, micRequests: [...meeting.micRequests, { shipId: by, requestedAt: at, ...(change.words === undefined ? {} : { words: change.words }) }] }, events: [event('MicRequested', { shipId: by })], givenTo: null });
     }
     case 'withdraw':
       if (!meeting.micRequests.some((request) => request.shipId === by)) {
@@ -112,6 +130,7 @@ function applied(meeting: Meeting, input: { by: ShipId; change: MicChange; at: D
         meeting: { ...meeting, micHolderShipId: change.shipId, micRequests: meeting.micRequests.filter((request) => request.shipId !== change.shipId) },
         events: [...(former === null || former === change.shipId ? [] : [event('MicTaken', { shipId: former })]), event('MicGiven', { shipId: change.shipId, pattern: 'moderator' })],
         givenTo: change.shipId,
+        ...(meeting.micRequests.find((request) => request.shipId === change.shipId)?.words === undefined ? {} : { said: meeting.micRequests.filter((request) => request.shipId === change.shipId) }),
       });
     }
     case 'take': {
@@ -155,20 +174,24 @@ export function offTheMic(meeting: Meeting, input: { shipId: ShipId; actor: Acto
 
 /** First in line: a free mic goes to the oldest request, given by the moderator, who set the pattern (M9, M11). */
 export function handedOn(changed: MicChanged, at: Date): MicChanged {
-  const { meeting } = changed;
-  const [oldest, ...waiting] = meeting.micRequests;
-  if (meeting.micPattern !== 'fifo' || meeting.micHolderShipId !== null || oldest === undefined) {
-    return changed;
+  let current = changed;
+  for (;;) {
+    if (current.givenTo !== null && current.said?.some((request) => request.shipId === current.givenTo)) {
+      const released: NewEvent = { fleetId: current.meeting.fleetId, type: 'MicReleased', occurredAt: at, actor: shipActor(current.givenTo), shipId: current.givenTo, details: { meetingId: current.meeting.id } };
+      current = { ...current, meeting: { ...current.meeting, micHolderShipId: null }, events: [...current.events, released], givenTo: null };
+      continue;
+    }
+    const { meeting } = current;
+    const [oldest, ...waiting] = meeting.micRequests;
+    if (meeting.micPattern !== 'fifo' || meeting.micHolderShipId !== null || oldest === undefined) return current;
+    const given: NewEvent = {
+      fleetId: meeting.fleetId, type: 'MicGiven', occurredAt: at, actor: shipActor(meeting.moderatorShipId),
+      shipId: oldest.shipId, details: { meetingId: meeting.id, pattern: 'fifo' },
+    };
+    current = { meeting: { ...meeting, micHolderShipId: oldest.shipId, micRequests: waiting }, events: [...current.events, given], givenTo: oldest.shipId,
+      ...((current.said === undefined && oldest.words === undefined) ? {} : { said: [...(current.said ?? []), ...(oldest.words === undefined ? [] : [oldest])] }),
+    };
   }
-  const given: NewEvent = {
-    fleetId: meeting.fleetId,
-    type: 'MicGiven',
-    occurredAt: at,
-    actor: shipActor(meeting.moderatorShipId),
-    shipId: oldest.shipId,
-    details: { meetingId: meeting.id, pattern: 'fifo' },
-  };
-  return { meeting: { ...meeting, micHolderShipId: oldest.shipId, micRequests: waiting }, events: [...changed.events, given], givenTo: oldest.shipId };
 }
 
 function moderatorNeedsNoMic(meeting: Meeting): Result<never, MicRefusal> {
@@ -177,4 +200,15 @@ function moderatorNeedsNoMic(meeting: Meeting): Result<never, MicRefusal> {
 
 function notModerator(meeting: Meeting): Result<never, MicRefusal> {
   return refuse('NOT_MODERATOR', `Only the moderator of meeting ${meeting.id} gives the mic, takes it back and sets how it passes`);
+}
+
+/** A request's words follow contribution limits and the sending model rule before they enter the queue. */
+export function checkRequestWords(meeting: Meeting | undefined, input: { meetingId: MeetingId; by: ShipId; at: Date; payload: string; contentType?: string; model?: string; senderKind: ShipKind }): Result<{ payload: string; contentType: string }, MicRefusal | AcceptRefusal | DomainError<'PAYLOAD_TOO_LARGE' | 'INVALID_CONTENT_TYPE'>> {
+  const present = checkPresent(meeting, { meetingId: input.meetingId, shipId: input.by, ended: 'it takes no more contributions', at: input.at });
+  if (!present.isOk) return present;
+  if (payloadBytes(input.payload) > MEETING_CALL_MAX_BYTES) return refuse('PAYLOAD_TOO_LARGE', 'A contribution is at most 64 KB in UTF-8');
+  const mediaType = contentType(input.contentType);
+  if (!mediaType.isOk) return mediaType;
+  const model = checkModel({ senderKind: input.senderKind, model: input.model, contentType: mediaType.value });
+  return model.isOk ? ok({ payload: input.payload, contentType: mediaType.value }) : model;
 }

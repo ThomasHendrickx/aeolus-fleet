@@ -5,7 +5,7 @@ import type { ShipCaller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import type { DomainError } from '../shared/errors.js';
 import { recordEvent } from '../shared/events.js';
-import type { Result } from '../shared/result.js';
+import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { changeMeeting, type MeetingChange, type MeetingChangeRefusal } from './meeting-life.js';
 import { withDataKeys, type DataKeysNeeded, type PayloadSealing } from './data-keys.js';
@@ -14,7 +14,7 @@ import type { AcceptRefusal } from './message.js';
 import type { MeetingRepository, RequestHasher } from './ports.js';
 
 export interface ChangeMeetingTx extends MeetingNoticeTx, CheckReachTx {
-  meetings: Pick<MeetingRepository, 'findForUpdate' | 'save'>;
+  meetings: Pick<MeetingRepository, 'findForUpdate' | 'save' | 'contributed'>;
 }
 
 export type ChangeMeetingFailure = MeetingChangeRefusal | NotReachable | AcceptRefusal | DomainError<'KEY_UNAVAILABLE'>;
@@ -50,6 +50,7 @@ export function createChangeMeeting(deps: { uow: UnitOfWork<ChangeMeetingTx>; cl
       for (const event of events) {
         await recordEvent({ events: tx.events, ids: deps.ids }, event);
       }
-      return tellOfChange({ tx, ids: deps.ids, hasher: deps.hasher, held }, { meeting, micGivenTo, endedBy: hasEnded ? caller.shipId : null, at });
+      const told = await tellOfChange({ tx, ids: deps.ids, hasher: deps.hasher, held }, { meeting, micGivenTo, said: changed.value.said, endedBy: hasEnded ? caller.shipId : null, at });
+      return told.isOk ? ok(undefined) : told;
     }));
 }

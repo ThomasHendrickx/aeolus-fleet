@@ -1,4 +1,4 @@
-import { idSchema, meetingListEntrySchema, micPatternSchema, readMeetingsCursor, type FleetId, type MeetingId, type ShipId } from '@aeolus-fleet/common';
+import { accountIdSchema, shipKindSchema, idSchema, meetingListEntrySchema, micPatternSchema, readMeetingsCursor, type FleetId, type MeetingId, type ShipId } from '@aeolus-fleet/common';
 import { z } from 'zod';
 
 import { meetingListCursor } from '../../domain/messaging/meeting-list.js';
@@ -9,7 +9,7 @@ import type { PageQuery } from '../../domain/shared/page.js';
 import { pageOf } from '../../domain/shared/page.js';
 import type { Db } from './client.js';
 import { Prisma } from './generated/client.js';
-import { toMessage } from './rows.js';
+import { payloadColumnsOf, storedPayloadOf, toMessage } from './rows.js';
 
 const meetingRow = z.object({
   id: idSchema('meeting'),
@@ -28,7 +28,7 @@ const meetingRow = z.object({
   micHolderShipId: idSchema('ship').nullable(),
   micPattern: micPatternSchema,
   participants: z.array(z.object({ shipId: idSchema('ship'), joinedAt: z.date(), leftAt: z.date().nullable(), isRevoked: z.boolean() })),
-  micRequests: z.array(z.object({ shipId: idSchema('ship'), requestedAt: z.date() })),
+  micRequests: z.array(z.unknown()).transform((rows) => rows.map(toRequest)),
 });
 
 /** A meeting row with its participants, as the meeting holds them: the opener first, then in the order they joined. */
@@ -39,7 +39,7 @@ function toMeeting(row: unknown): Meeting {
 /** Each participant once, in the order they joined, the opener first; and the mic requests, oldest first. */
 const PARTICIPANTS_AND_REQUESTS = {
   participants: { select: { shipId: true, joinedAt: true, leftAt: true, isRevoked: true }, orderBy: { place: 'asc' } },
-  micRequests: { select: { shipId: true, requestedAt: true }, orderBy: { place: 'asc' } },
+  micRequests: { orderBy: { place: 'asc' } },
 } as const;
 
 /** Meetings on Postgres (decision 0061): a row per meeting and one per participant. */
@@ -169,7 +169,9 @@ export function createPrismaMeetingRepository(db: Db): MeetingRepository {
 
 /** The mic requests as rows, each with its place on the list. */
 async function saveRequests(db: Db, { fleetId, meetingId, requests }: { fleetId: FleetId; meetingId: MeetingId; requests: readonly MicRequest[] }): Promise<void> {
-  await db.meetingMicRequest.createMany({ data: requests.map((request, place) => ({ fleetId, meetingId, ...request, place })) });
+  await db.meetingMicRequest.createMany({ data: requests.map(({ words, ...request }, place) => ({ fleetId, meetingId, ...request, place,
+    ...(words === undefined ? {} : { wordsMessageId: words.messageId, contentType: words.contentType, model: words.model ?? null, senderKind: words.senderKind, senderLeaseId: words.senderLeaseId, signedInAccountId: words.signedInAccountId ?? null, ...payloadColumnsOf(words.payload) }),
+  })) });
 }
 
 
@@ -242,4 +244,16 @@ async function callWithAnswers(db: Db, row: unknown) {
     orderBy: { id: 'asc' },
   });
   return { ...call, answers: answers.map((message) => ({ shipId: idSchema('ship').parse(message.senderShipId), messageId: idSchema('message').parse(message.id), ...(message.isLate ? { isLate: true } : {}) })) };
+}
+
+const requestRow = z.object({ shipId: idSchema('ship'), requestedAt: z.date(), wordsMessageId: idSchema('message').nullable() });
+const wordsRow = z.object({ contentType: z.string(), model: z.string().nullable(), senderKind: shipKindSchema, senderLeaseId: idSchema('lease').nullable(), signedInAccountId: accountIdSchema.nullable() });
+
+/** Request-time provenance and payload travel together through every save of a meeting. */
+function toRequest(raw: unknown): MicRequest {
+  const row = requestRow.parse(raw);
+  const request = { shipId: row.shipId, requestedAt: row.requestedAt };
+  if (row.wordsMessageId === null) return request;
+  const words = wordsRow.parse(raw);
+  return { ...request, words: { messageId: row.wordsMessageId, payload: storedPayloadOf(raw), contentType: words.contentType, senderKind: words.senderKind, senderLeaseId: words.senderLeaseId, ...(words.model === null ? {} : { model: words.model }), ...(words.signedInAccountId === null ? {} : { signedInAccountId: words.signedInAccountId }) } };
 }

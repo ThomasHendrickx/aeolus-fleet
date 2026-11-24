@@ -58,7 +58,7 @@ export interface ContributionRead {
 export interface MicRead {
   holder: MeetingParty | null;
   pattern: MicPattern;
-  requests: { ship: MeetingParty; requestedAt: Date }[];
+  requests: { ship: MeetingParty; requestedAt: Date; words?: { payload: ListedPayload; contentType: string; model: string | null; senderLeaseId: LeaseId | null } }[];
 }
 
 export interface MeetingRead {
@@ -122,7 +122,14 @@ export function createReadMeeting(deps: { uow: UnitOfWork<ReadMeetingTx>; sealin
       }
       const requests: MicRead['requests'] = [];
       for (const request of meeting.micRequests) {
-        requests.push({ ship: await party(request.shipId), requestedAt: request.requestedAt });
+        if (request.words === undefined) {
+          requests.push({ ship: await party(request.shipId), requestedAt: request.requestedAt });
+        } else {
+          const words = request.words;
+          const payload = listedUnsealed(keys, { row: { fleetId, rowId: words.messageId }, payload: words.payload });
+          if (!payload.isOk) return payload;
+          requests.push({ ship: await party(request.shipId), requestedAt: request.requestedAt, words: { payload: payload.value, contentType: words.contentType, model: words.model ?? null, senderLeaseId: words.senderLeaseId } });
+        }
       }
       const mic: MicRead = { holder: meeting.micHolderShipId === null ? null : await party(meeting.micHolderShipId), pattern: meeting.micPattern, requests };
       const latest = input.callId === undefined ? await tx.meetings.latestCall(fleetId, meetingId) : await tx.meetings.findCall(fleetId, { meetingId, callId: input.callId });
