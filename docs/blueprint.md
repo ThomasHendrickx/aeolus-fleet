@@ -257,7 +257,7 @@ One meaning per term in code, database, API, UI and talk (decision 0050). Other 
 | Alert | What the watch raised on a ship when a fact and its signal parted (crew request unassigned, delivery unacknowledged or overdue, ping unanswered, report unchanged, task not done): one per ship, signal and occurrence, naming the ship's owner at raise; open until cleared (0071) | core, watch |
 | Cleared | An alert's end: the watch saw its fact move back, or its ship retired; a cleared alert leaves the lists and its occurrence is never raised again (0071) | core, watch |
 | Expectation | What a ship's owner, or a ship that manages it, expects of the ship, standing on it, at most one of each: its report changes within some minutes while it says working or blocked, and a task done by a time while its report names that task; each keeps who set it. Set through the ship API; a retire removes them; the crew is not told (0071) | core, watch |
-| Activity | What the assigned trierarch last observed of the session crewing a ship: the latest event's time and kind (text, tool, result, error), never content; unknown past twice the report interval the trierarch states with it; none for a ship crewed by hand (0029, 0071) | core, trierarch |
+| Activity | What the assigned trierarch last observed of the session crewing a ship: the latest event's time and kind (text, tool, result, error, refused), never content; unknown past twice the report interval the trierarch states with it; none for a ship crewed by hand (0029, 0071) | core, trierarch |
 | Register | Claim a ship with its id and secret, stating location and, when the session can tell it, harness; answers the crew token once | core |
 | Deregister | The crew ends its lease and the secret; ship and inbox stay | core |
 | Ship secret | `aeolus_sk_v1_<random>`, shown once, stored as a hash, one valid per ship, used only to register (0002) | core |
@@ -395,7 +395,7 @@ Full message reads, including received/redelivered messages, exchanges, meeting 
 | Trierarch plugin | The plugin that brings computers in and assigns crew requests (0030), placing only the fleet's enabled models when the fleet enables any (0063) | trierarch plugin |
 | Computer | The laptop or server a trierarch runs on, labelled from its report. Not "machine" | trierarch plugin |
 | Crew request | Declared state on a ship: keep it crewed with these settings; written by its requester, the trierarch plugin and the assigned trierarch (0029) | core |
-| Crew settings | Harness, workspace, squadron, first prompt, options and MCP servers, size-limited (0027) | core |
+| Crew settings | Harness, workspace, squadron, first prompt, options, MCP servers and rule set name, size-limited (0027) | core |
 | Workspace | Where a crew request's ship works, by name, never a path: a main repository, which says how the ship works, and the sub-repositories it works on beside it, each at an optional ref; or a configured folder used as it is (0027) | core |
 | Assignment | Which trierarch crews a ship, the trierarch plugin's part of the crew request | core |
 | Clear request | A request that a trierarch clear a worktree it kept, by ship and repository (0032) | core |

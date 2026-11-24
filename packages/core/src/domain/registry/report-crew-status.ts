@@ -1,4 +1,4 @@
-import type { CrewStatus, IdGenerator, ShipId } from '@aeolus-fleet/common';
+import type { CrewStatus, GuardStatus, IdGenerator, ShipId } from '@aeolus-fleet/common';
 
 import { actorOf, type ShipCaller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
@@ -21,7 +21,7 @@ export type ReportCrewStatusRefusal = DomainError<
 
 export type ReportCrewStatus = (
   caller: ShipCaller,
-  input: { shipId: ShipId; status: CrewStatus; attempt?: number; startedAt?: string | null },
+  input: { shipId: ShipId; status: CrewStatus; attempt?: number; startedAt?: string | null; guard?: GuardStatus },
 ) => Promise<Result<undefined, ReportCrewStatusRefusal>>;
 
 /**
@@ -44,6 +44,7 @@ export function createReportCrewStatus(deps: { uow: UnitOfWork<ReportCrewStatusT
           status: input.status,
           attempt: input.attempt ?? 0,
           sessionStartedAt: input.startedAt === undefined || input.startedAt === null ? null : new Date(input.startedAt),
+          guard: input.guard ?? null,
           at: deps.clock.now(),
           actor: actorOf(caller),
         },

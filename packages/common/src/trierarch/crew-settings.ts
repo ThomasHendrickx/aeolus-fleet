@@ -41,7 +41,7 @@ export type TrierarchWorkspace = z.infer<typeof trierarchWorkspaceSchema>;
  * A crew request's settings as a trierarch reads them (decision 0027): the
  * fixed core of an optional harness, workspace, an optional squadron, an
  * optional first prompt, options, optional machine labels and optional MCP
- * servers. Without a harness, the trierarch it goes to crews it with its default: the first in its configuration. The server refuses a request whose settings this schema refuses (#809) but never acts on them; the trierarch
+ * servers and an optional rule set name. Without a harness, the trierarch it goes to crews it with its default: the first in its configuration. The server refuses a request whose settings this schema refuses (#809) but never acts on them; the trierarch
  * plugin and the trierarch parse them with this schema. Never a path or a
  * command-line flag: a workspace names repositories or a folder, options pick
  * named settings, and a first prompt never starts with `-`.
@@ -73,6 +73,8 @@ export const crewSettingsSchema = z.strictObject({
    * or a path. None: no crew-time server.
    */
   mcpServers: z.array(trierarchNameSchema).optional(),
+  /** A rule set name, checked by the plugin at placement, never a definition or path. */
+  ruleSet: trierarchNameSchema.optional(),
 });
 
 /**

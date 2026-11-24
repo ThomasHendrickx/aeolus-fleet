@@ -41,7 +41,7 @@ export interface ListedShip {
   activity: LeaseActivity | null;
   /** The ship's crew request by its settings version and when it was requested, never its settings; null when it holds none. */
   crewRequest:
-    | (Pick<CrewRequest, 'settingsVersion' | 'requestedAt' | 'status' | 'reason' | 'attempt' | 'sessionStartedAt'> & {
+    | (Pick<CrewRequest, 'settingsVersion' | 'requestedAt' | 'status' | 'reason' | 'attempt' | 'sessionStartedAt' | 'guard'> & {
         /** The trierarch ship it is assigned to, by id and name; null while unassigned. */
         assignedTo: { id: ShipId; name: string } | null;
         /** The ship that made it last, by id and name; null for a request made before it was recorded. */
@@ -157,6 +157,7 @@ export function listedShipOf({
       crewedBy,
       attempt: crewRequest.attempt,
       sessionStartedAt: crewRequest.sessionStartedAt,
+      guard: crewRequest.guard,
       givenBack: crewRequestGivenBack,
     },
     labels,

@@ -125,7 +125,7 @@ describe('reportCrewStatusInputSchema', () => {
 
 describe('listedCrewRequestSchema', () => {
   it('carries the restart attempt and when the session started (#332)', () => {
-    const listed = { settingsVersion: 1, requestedAt: '2026-10-07T13:00:00.000Z', assignedTo: null, requestedBy: null, status: 'restarting', reason: null, crewedBy: null, attempt: 2, startedAt: '2026-10-07T13:24:00.000Z', givenBack: [] };
+    const listed = { settingsVersion: 1, requestedAt: '2026-10-07T13:00:00.000Z', assignedTo: null, requestedBy: null, status: 'restarting', reason: null, crewedBy: null, attempt: 2, startedAt: '2026-10-07T13:24:00.000Z', guard: null, givenBack: [] };
 
     expect(listedCrewRequestSchema.parse(listed)).toEqual(listed);
     expect(listedCrewRequestSchema.safeParse({ ...listed, attempt: undefined }).success).toBe(false);
@@ -133,7 +133,7 @@ describe('listedCrewRequestSchema', () => {
 
   it('carries each trierarch that gave it back, with the settings version, the reason and when (#382)', () => {
     const givenBack = [{ trierarch: { id: newId('ship'), name: 'mac-mini' }, settingsVersion: 1, reason: 'mac-mini: claude-code 2.1.293 refused claude-opus-5-5', givenBackAt: '2026-10-09T08:01:00.000Z' }];
-    const listed = { settingsVersion: 1, requestedAt: '2026-10-09T08:00:00.000Z', assignedTo: null, requestedBy: null, status: null, reason: null, crewedBy: null, attempt: 0, startedAt: null, givenBack };
+    const listed = { settingsVersion: 1, requestedAt: '2026-10-09T08:00:00.000Z', assignedTo: null, requestedBy: null, status: null, reason: null, crewedBy: null, attempt: 0, startedAt: null, guard: null, givenBack };
 
     expect(listedCrewRequestSchema.parse(listed)).toEqual(listed);
     expect(listedCrewRequestSchema.safeParse({ ...listed, givenBack: undefined }).success).toBe(false);
@@ -201,4 +201,16 @@ describe('explainCrewRequestInputSchema', () => {
   ])('rejects %s', (_label, reason) => {
     expect(explainCrewRequestInputSchema.safeParse({ shipId: newId('ship'), reason }).success).toBe(false);
   });
+});
+
+
+it('reports at most the last twenty guard refusals (#2070)', () => {
+  const refusal = { at: '2026-11-24T08:00:00.000Z', tool: 'Bash', rule: 'git.deny push', set: 'no-push', commit: '8d41e07' };
+  const status = { shipId: newId('ship'), status: 'running', guard: { sets: [], refusals: 21, recent: Array.from({ length: 20 }, () => refusal) } };
+
+  const twenty = reportCrewStatusInputSchema.safeParse(status);
+  const twentyOne = reportCrewStatusInputSchema.safeParse({ ...status, guard: { ...status.guard, recent: [...status.guard.recent, refusal] } });
+
+  expect(twenty.success).toBe(true);
+  expect(twentyOne.success).toBe(false);
 });

@@ -1,5 +1,7 @@
 import { useId } from 'react';
 
+import type { GuardChoices } from '../../lib/guard-choices';
+import { RuleSetField } from './rule-set-field';
 import { byteSize, promptBytes, withHarness, type CrewSettingsValues, type HarnessOffer } from '../../lib/crew-settings-form';
 import { harnessWord } from '../../lib/harness';
 import type { MachineLabelsInput } from '../../lib/machine-labels';
@@ -11,6 +13,7 @@ import { SettingsSelect } from './settings-select';
 import { WorkspaceFields } from './workspace-fields';
 
 interface CrewSettingsFieldsProps {
+  guardChoices?: GuardChoices;
   /** The ship the request crews, as the placement hints name it. */
   shipName: string;
   offers: readonly HarnessOffer[];
@@ -39,7 +42,7 @@ const NONE = '';
  * squadron with its hint (decision 12). Built from what the
  * answering machines offer; a field the trierarch plugin refused shows why.
  */
-export function CrewSettingsFields({ shipName, offers, values, onChange, firstPromptMaxBytes, squadrons, refusal, isDisabled = false, isCommission = false, machineLabels }: CrewSettingsFieldsProps) {
+export function CrewSettingsFields({ shipName, offers, values, onChange, firstPromptMaxBytes, squadrons, refusal, isDisabled = false, isCommission = false, machineLabels, guardChoices }: CrewSettingsFieldsProps) {
   const ids = { harness: useId(), options: useId(), firstPrompt: useId(), squadron: useId() };
   const offer = offers.find((each) => each.harness === values.harness);
   const errorOf = (field: string) => (refusal?.field === field ? refusal.reason : undefined);
@@ -99,6 +102,11 @@ export function CrewSettingsFields({ shipName, offers, values, onChange, firstPr
           onChange({ ...values, mcpServers: values.mcpServers.filter((each) => each !== server) });
         }}
       />
+      {guardChoices === undefined ? null : <RuleSetField
+        shipName={shipName} choices={guardChoices} value={values.ruleSet ?? ''}
+        isDisabled={isDisabled} error={errorOf('ruleSet')}
+        onChange={(ruleSet) => { onChange({ ...values, ruleSet }); }}
+      />}
       {(offer?.options ?? []).map((option, index) => (
         <SettingsField key={option.name} id={`${ids.options}-${String(index)}`} label={option.name} error={index === 0 ? errorOf('options') : undefined}>
           <SettingsSelect

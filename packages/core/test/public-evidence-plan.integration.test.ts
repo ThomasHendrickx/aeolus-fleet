@@ -1,13 +1,17 @@
 /** Public evidence projects facts from the indexed ship/message reads, never lease or message history. */
+import { createIdGenerator } from '@aeolus-fleet/common';
 import { afterAll, beforeAll, expect, it } from 'vitest';
 
 import { createPrismaClientTellingStatements } from '../src/adapters/prisma/client.js';
+import { createReportCrewStatus } from '../src/domain/registry/report-crew-status.js';
+import { createPrismaUnitOfWork } from '../src/adapters/prisma/unit-of-work.js';
 import { createPrismaFleetListing } from '../src/adapters/prisma/registry.js';
 import { createPrismaShipHistory } from '../src/adapters/prisma/history.js';
 import { toMessage } from '../src/adapters/prisma/rows.js';
 import { unwrap } from '../src/testing/result.js';
 import { createPostgresCore, type PostgresCore } from './support/postgres-core.js';
 import { operatorCaller, secretOf } from './support/core-fixtures.js';
+import { aCrewSettings } from './support/crew-fixtures.js';
 import { assertIndexedPlan } from './support/assert-indexed-plan.js';
 
 let core: PostgresCore;
@@ -19,6 +23,9 @@ it('reads one current lease and immutable sending evidence by indexed ship and m
   const fleet = unwrap(await core.useCases.initialiseFleet({ name: 'evidence scale' }));
   const argo = operatorCaller(fleet);
   const ship = unwrap(await core.useCases.commissionShip(argo, { name: 'sender', type: 'reviewer', idempotencyKey: 'sender' }));
+  const guard = { sets: [{ name: 'no-push', repository: 'company/rules', commit: '8d41e07', floor: true }], refusals: 0, recent: [] };
+  unwrap(await core.useCases.requestCrew(argo, { shipId: ship.shipId, settings: aCrewSettings({ ruleSet: 'no-push' }) }));
+  unwrap(await core.useCases.assignCrew(argo, { shipId: ship.shipId, trierarchShipId: argo.shipId }));
   const claimed = unwrap(await core.useCases.claimShip({ shipId: ship.shipId, secret: secretOf(ship.secret), location: { kind: 'SERVER' } }));
   const crew = unwrap(await core.useCases.authenticate.byCrewToken(claimed.crewToken));
   const { messageId } = unwrap(await core.useCases.sendMessage(crew, { selector: { kind: 'ship', shipId: argo.shipId }, payload: 'Confirmed', model: 'gpt-6.1-sol', idempotencyKey: 'confirmed' }));
@@ -39,12 +46,15 @@ it('reads one current lease and immutable sending evidence by indexed ship and m
   const statements: { query: string; params: string }[] = [];
   const client = createPrismaClientTellingStatements(core.databaseUrl, (query, params) => statements.push({ query, params }));
   try {
-    // When the actual adapters fetch the referenced ship and message.
+    // When the guard is reported and the actual adapters fetch the referenced ship and message.
+    const report = createReportCrewStatus({ uow: createPrismaUnitOfWork(client), clock: core.clock, ids: createIdGenerator() });
+    unwrap(await report(argo, { shipId: ship.shipId, status: 'running', guard }));
     const facts = await createPrismaFleetListing(client).ship(fleet.fleetId, ship.shipId);
     const message = await createPrismaShipHistory(client).message(fleet.fleetId, messageId);
     const stored = toMessage(await client.message.findUniqueOrThrow({ where: { id: messageId } }));
 
     // Then evidence survives projection and every history lookup uses its index.
+    expect(facts?.crewRequest?.guard).toEqual(guard);
     expect(facts?.openLease).toMatchObject({ id: crew.leaseId });
     expect(message).toMatchObject({ senderLeaseId: crew.leaseId });
     expect(stored.senderLeaseId).toBe(crew.leaseId);

@@ -144,6 +144,7 @@ export function ShipCrewRequest({ ship, timeline, now }: { ship: ShipDetail; tim
         {...(hasTrierarchs ? { usageHref: usageLinkOf({ ship: ship.id }) } : {})}
         busy={busy}
         error={error}
+        guard={request?.guard}
         settingsRows={request === null ? undefined : settingsRows(settings)}
         {...(login === undefined ? {} : { login })}
         {...(request === null || labelContext === undefined ? {} : { machineLabels: pickedChips(machineLabelIdsOf(settings), labelContext) })}

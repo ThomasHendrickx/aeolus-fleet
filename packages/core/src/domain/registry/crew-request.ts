@@ -5,6 +5,7 @@ import {
   readCrewSettings,
   crewRequestSettingsBytes,
   type CrewStatus,
+  type GuardStatus,
   type FleetId,
   type LabelValueId,
   type Scope,
@@ -47,6 +48,8 @@ export interface CrewRequest {
   attempt: number;
   /** When the session its trierarch runs now started, written with the status; null while none runs. */
   sessionStartedAt: Date | null;
+  /** Applied guard for the current settings and assignment; null while unknown. */
+  guard: GuardStatus | null;
   /** Whether its crew is final: set by its trierarch's first running, restarting or crashed, kept whatever status follows, cleared on every new settings version (#382, #472). */
   isFinal: boolean;
   /** The trierarchs that gave it back before their crew was final, oldest first (#382); cleared on every new settings version. */
@@ -132,6 +135,7 @@ export function requestCrew(
     reason: current?.reason ?? null,
     attempt: current?.attempt ?? 0,
     sessionStartedAt: current?.sessionStartedAt ?? null,
+    guard: null,
     // New settings are a new request: not final until they run.
     isFinal: false,
     // New settings may fit the trierarchs that gave the old ones back.
@@ -166,7 +170,7 @@ export function removeCrewRequest(
     return ok({ request: current, events: [] });
   }
   return ok({
-    request: { ...current, status: 'releasing' },
+    request: { ...current, status: 'releasing', guard: null },
     events: [event(ship, { ...input, type: 'CrewStatusChanged', details: { status: 'releasing' } })],
   });
 }
@@ -199,7 +203,7 @@ export function assignCrew(
     return refuse('ASSIGNEE_NOT_ACTIVE', 'A crew request is assigned only to an active ship of the fleet');
   }
   return ok({
-    request: { ...current, assignedTo: assignee.id, reason: null },
+    request: { ...current, assignedTo: assignee.id, reason: null, guard: null },
     events: [event(ship, { ...input, type: 'CrewAssigned', details: { assignedTo: assignee.id } })],
   });
 }
@@ -251,7 +255,7 @@ function checkAssignedTo({ ship, current, trierarchShipId }: { ship: Ship; curre
  */
 export function reportCrewStatus(
   { ship, current, trierarchShipId }: { ship: Ship; current: CrewRequest | undefined; trierarchShipId: ShipId },
-  input: { status: CrewStatus; attempt: number; sessionStartedAt: Date | null; at: Date; actor: Actor },
+  input: { status: CrewStatus; attempt: number; sessionStartedAt: Date | null; guard: GuardStatus | null; at: Date; actor: Actor },
 ): Result<{ request: CrewRequest; events: NewEvent[] }, NotFound | NotTheCallers | Releasing> {
   if (!current) {
     return notFound(ship);
@@ -264,7 +268,9 @@ export function reportCrewStatus(
     return refuse('CREW_REQUEST_RELEASING', `${ship.name}'s crew request is releasing: stop its session, end its lease and confirm`);
   }
   const isSameStart = (current.sessionStartedAt?.getTime() ?? null) === (input.sessionStartedAt?.getTime() ?? null);
-  if (current.status === input.status && current.attempt === input.attempt && isSameStart) {
+  const guard = input.status === 'releasing' ? null : input.guard;
+  const isSameGuard = JSON.stringify(current.guard) === JSON.stringify(guard);
+  if (current.status === input.status && current.attempt === input.attempt && isSameStart && isSameGuard) {
     return ok({ request: current, events: [] });
   }
   return ok({
@@ -273,6 +279,7 @@ export function reportCrewStatus(
       status: input.status,
       attempt: input.attempt,
       sessionStartedAt: input.sessionStartedAt,
+      guard,
       isFinal: current.isFinal || FINAL_STATUSES.has(input.status),
     },
     events: [event(ship, { at: input.at, actor: input.actor, type: 'CrewStatusChanged', details: { status: input.status, attempt: input.attempt } })],
@@ -355,6 +362,7 @@ export function giveBackCrewRequest(
       status: null,
       attempt: 0,
       sessionStartedAt: null,
+      guard: null,
       givenBack: [...current.givenBack.filter((held) => held.trierarchShipId !== trierarchShipId), back],
     },
     events: [

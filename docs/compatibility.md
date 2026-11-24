@@ -68,3 +68,28 @@ The console calls the trierarch plugin's tRPC procedures from the web app's serv
 The core/common release carrying aeolus-fleet#1957 directly changes `ship.discover` (REST `discover`, MCP `discover`) to return crew summaries with source/version, without capabilities. Identity, status, verified facts and type counts remain. `ship.lookup` accepts `includeStatement: true` to add the complete current `statement`, with its source/version or commission-note/null fallback, under the same `messages:send` scope and current send reach. Without the option its header stays unchanged. An unreachable or missing target answers null.
 
 Consumers needing capability schemas must discover summaries, then look up the chosen ship with `includeStatement: true`. Raise their minimum core/common version to the release carrying #1957. Gateway MCP tools and A2A cards that consume full discover statements need the [gateway #424](https://github.com/ThomasHendrickx/aeolus-fleet-gateway/issues/424) before adopting that release.
+
+## Guard settings and observations
+
+The core/common release carrying #2070 is required by trierarch plugin #105 and trierarch #617 before they use `crewSettings.ruleSet`, `fleet.reportCrewStatus.guard`, or activity kind `refused`. No released version is assigned yet. All are additive through tRPC, REST and MCP; the plugin and trierarch raise their minimum core/common version to that release. Core checks a rule set name's shape, not its availability. The [crew guide](guide/commission-and-crew.md#guard-settings-and-status) defines observation clearing and the reported fields.
+
+The console requires the trierarch plugin release carrying #105 for `guard.get`. It reads `GET /api/trierarch-plugin/guard.get`, whose server forwards the caller's console sign-in cookies and Origin to the plugin's `GET /trpc/guard.get`, like the MCP configuration route. The plugin authorises `fleet:read`. Its tRPC result is `{ result: { data: <configuration> } }`, with this metadata-only configuration:
+
+```typescript
+{
+  version: number; // nonnegative integer
+  repositories: { repository: string; folder: string; access: 'public' | 'private' }[];
+  sets: { name: string; repository: string; commit: string; file: string }[];
+  errors: { repository: string; file?: string; reason: string }[];
+  conflicts: { name: string; repositories: string[] }[];
+  floor: string[];
+}
+```
+
+`sets` contains only offered names: valid files with no name conflict. Each set identifies its repository, exact last-read commit and file. Repository read errors omit `file`; file errors name it. Conflicts name each repository holding that name. `floor` holds the configured names, including an unavailable one so the reader can explain it. Names are trierarch names. No token, token value, rules or credentials appear in this answer. The console parses and projects it on its server before passing metadata to the browser. Its schema follows the MCP configuration pattern in `packages/console/lib/`.
+
+The same release adds optional `guardedHarnesses: harness[]` to the common trierarch report-details schema. An omitted field is not a claim of guard support; an empty list explicitly names none. Trierarch #617 reports it and plugin #105 uses it for placement. Core only preserves the report contract. In `guard.recent`, mechanism refusals carry `set: null` and `commit: null`, with the mechanism cause in `rule`; refusals by a set carry its actual name and commit. Consumers must accept these nullable provenance fields.
+
+The release also exports the shared rules contract from `@aeolus-fleet/common` (`common/src/trierarch/guard-rules.ts`): `guardRulesSchema` and `GuardRules` for the inner rules block; `guardRuleSetSchema`, `guardRuleSetJsonSchema` and `GuardRuleSet` for the strict YAML document of [design section 4.1](design/guard/README.md#41-the-rule-set-file-plugin-105-schema-in-common); and `trierarchGuardRulesMessageSchema`, `TrierarchGuardRulesMessage` and `TRIERARCH_GUARD_RULES_CONTENT_TYPE` for the assignment message of section 4.4. Unknown fields are refused at every level. The plugin checks YAML source size, file-name agreement and the combined resolved-set size before sending; these byte and repository checks are not inferred from the structural JSON Schema.
+
+The message content type is `application/vnd.aeolus.trierarch.guard-rules+json`. It carries `{ fleetId, pluginShipId, shipId, settingsVersion, sets }`, where each set is `{ name, repository, commit, file, floor, rules }`. `rules` is the inner block (`commands`, `git`, `writePaths`, `tools`), never the full file document; use `{}` for a name-only file. `settingsVersion` is a positive integer. Send `sets: []` when none apply, before every assignment; preserve the resolved content across moves and give-backs for that settings version. The plugin and trierarch consume these common exports rather than maintaining separate schemas.

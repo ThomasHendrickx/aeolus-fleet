@@ -508,3 +508,50 @@ export const CrewCheckRefusalIsReturned: Story = {
     await expect(screen.getByTestId('crew-settings-first-prompt')).toHaveValue('Review the change');
   },
 };
+
+
+export const GuardRuleSet: Story = {
+  args: { crewRequest: { offers: OFFERS, guardChoices: { names: ['no-push'], floor: ['base'] }, onSettingsChange: () => undefined } },
+  play: async () => {
+    await expect(screen.getByTestId('crew-settings-rule-set')).toHaveTextContent('None');
+    await waitFor(async () => { await expect(screen.getByText(/The floor applies to every request:/)).toHaveTextContent('The floor applies to every request: base.'); });
+  },
+};
+
+/** The same approved failure state blocks creation even with cached choices. */
+export const GuardReadFailed: Story = {
+  args: { crewRequest: { offers: OFFERS, guardChoices: { names: ['no-push'], floor: ['base'] }, hasGuardReadFailed: true, onSettingsChange: () => undefined } },
+  play: async () => {
+    await typeNameAndType();
+    await expect(screen.getByText('Rule sets could not be read. Try again later.')).toBeVisible();
+    await expect(screen.getByTestId('commission-submit')).toBeDisabled();
+  },
+};
+
+export const GuardReadPending: Story = {
+  args: { crewRequest: { offers: OFFERS, isGuardReading: true, onSettingsChange: () => undefined } },
+  play: async () => {
+    await typeNameAndType();
+    await expect(screen.getByTestId('commission-submit')).toBeDisabled();
+  },
+};
+
+function GuardRecoveryCommission(props: ComponentProps<typeof CommissionDialog>) {
+  const [hasGuardReadFailed, setHasGuardReadFailed] = useState(true);
+  return <><button type="button" data-testid="commission-guard-recovery" onClick={() => { setHasGuardReadFailed(false); }}>Catalogue read succeeded</button><CommissionDialog {...props} crewRequest={{ offers: OFFERS, guardChoices: { names: ['no-push'], floor: ['base'] }, hasGuardReadFailed, onSettingsChange: () => undefined }} /></>;
+}
+
+export const GuardReadRecovery: Story = {
+  render: (args) => <GuardRecoveryCommission {...args} />,
+  play: async () => {
+    await typeNameAndType();
+    await userEvent.type(screen.getByTestId('crew-settings-first-prompt'), 'Keep this prompt');
+    await expect(screen.getByTestId('commission-submit')).toBeDisabled();
+    // A successful retry updates props without remounting or discarding input.
+    screen.getByTestId('commission-guard-recovery').click();
+    await waitFor(async () => { await expect(screen.getByTestId('commission-submit')).toBeEnabled(); });
+    await expect(screen.getByTestId('commission-name')).toHaveValue('reviewer-03');
+    await expect(screen.getByTestId('crew-settings-first-prompt')).toHaveValue('Keep this prompt');
+    await expect(screen.queryByText('Rule sets could not be read. Try again later.')).not.toBeInTheDocument();
+  },
+};

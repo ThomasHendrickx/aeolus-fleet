@@ -136,3 +136,128 @@ export const EditedBeforeOffersArrive: Story = {
     await expect(screen.getByTestId('crew-settings-first-prompt')).toHaveValue('Triage issues');
   },
 };
+
+
+/** Guard design, settings boards 1-4. */
+export const RuleSetNone: Story = {
+  args: { ...Edit.args, machineLabels: undefined, squadrons: undefined, guardChoices: { names: ['base', 'no-push'], floor: ['base'] } },
+  play: async () => {
+    await expect(screen.getByTestId('crew-settings-rule-set')).toHaveTextContent('None');
+    const hint = screen.getByText((_text, element) =>
+      element?.textContent === 'triage-bot’s session is checked against the floor and this rule set. The floor applies to every request: base.');
+    for (const name of ['triage-bot', 'base']) {
+      await expect(getComputedStyle(within(hint).getByText(name)).fontFamily).toContain('monospace');
+    }
+    await userEvent.click(screen.getByTestId('crew-settings-rule-set'));
+    await userEvent.click(await screen.findByRole('option', { name: 'no-push' }));
+    await expect(screen.getByTestId('crew-settings-rule-set')).toHaveTextContent('no-push');
+    await checkGuardLayout(screen.getByTestId('request-crew-dialog'));
+  },
+};
+export const RuleSetChosen: Story = {
+  args: { ...Edit.args, machineLabels: undefined, squadrons: undefined, heldSettings: { ...SETTINGS, ruleSet: 'no-push' }, guardChoices: { names: ['base', 'no-push'], floor: ['base'] } },
+  play: async () => { await expect(screen.getByTestId('crew-settings-rule-set')).toHaveTextContent('no-push'); await checkGuardLayout(screen.getByTestId('request-crew-dialog')); },
+};
+export const RuleSetsEmpty: Story = {
+  args: { ...Edit.args, machineLabels: undefined, squadrons: undefined, guardChoices: { names: [], floor: ['base'] } },
+  play: async () => {
+    await expect(screen.getByTestId('crew-settings-rule-set')).toBeDisabled();
+    await waitFor(async () => { await expect(screen.getByText(/No rule sets are connected/)).toBeVisible(); });
+    await expect(screen.getByText(/No rule sets are connected/)).toHaveTextContent(
+      'No rule sets are connected. The floor applies to every request: base.',
+    );
+    await checkGuardLayout(screen.getByTestId('request-crew-dialog'));
+  },
+};
+export const RuleSetNoFloor: Story = {
+  args: { ...Edit.args, machineLabels: undefined, squadrons: undefined, guardChoices: { names: ['no-push'], floor: [] } },
+  play: async () => {
+    await expect(screen.getByText(/None: no rules apply/)).toHaveTextContent(
+      /^triage-bot’s session is checked against this rule set\. None: no rules apply\.$/,
+    );
+    await checkGuardLayout(screen.getByTestId('request-crew-dialog'));
+  },
+};
+
+
+async function checkGuardLayout(element: HTMLElement) {
+  if (!('__vitest_browser__' in window)) return;
+  const { page } = await import('vitest/browser');
+  const original = { width: window.innerWidth, height: window.innerHeight, isDark: document.documentElement.classList.contains('dark') };
+  try {
+    for (const width of [375, 1440, 1920]) {
+      await page.viewport(width, 1200);
+      for (const isDark of [false, true]) {
+        document.documentElement.classList.toggle('dark', isDark);
+        await waitFor(async () => {
+          await expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(width);
+          await expect(element.getBoundingClientRect().right).toBeLessThanOrEqual(width);
+        });
+      }
+    }
+  } finally {
+    document.documentElement.classList.toggle('dark', original.isDark);
+    await page.viewport(original.width, original.height);
+  }
+}
+
+
+/** A failed catalogue read blocks creation until it succeeds (Thomas, card 08c8c0be). */
+export const RuleSetsReadFailed: Story = {
+  args: { hasGuardReadFailed: true },
+  play: async () => {
+    await waitFor(async () => { await expect(screen.getByText('Rule sets could not be read. Try again later.')).toBeVisible(); });
+    await expect(screen.getByTestId('request-crew-submit')).toBeDisabled();
+    await checkGuardLayout(screen.getByTestId('request-crew-dialog'));
+  },
+};
+export const RuleSetsRefreshFailed: Story = {
+  args: { ...RuleSetChosen.args, hasGuardReadFailed: true },
+  play: async () => {
+    await expect(screen.getByTestId('crew-settings-rule-set')).toHaveTextContent('no-push');
+    await waitFor(async () => { await expect(screen.getByText('Rule sets could not be read. Try again later.')).toBeVisible(); });
+    await expect(screen.getByTestId('request-crew-submit')).toBeDisabled();
+  },
+};
+export const RuleSetsAndPluginReadFailed: Story = {
+  args: { state: 'unreachable', hasGuardReadFailed: true },
+  play: async () => {
+    await waitFor(async () => { await expect(screen.getByText('Rule sets could not be read. Try again later.')).toBeVisible(); });
+    await expect(screen.getByRole('button', { name: 'Request crew' })).toBeDisabled();
+  },
+};
+
+function RequestWithGuardRecovery(args: ComponentProps<typeof RequestCrewDialog>) {
+  const [hasFailed, setHasFailed] = useState(true);
+  useEffect(() => {
+    const read = () => { setHasFailed(false); };
+    window.addEventListener('guard-catalogue-read', read);
+    return () => { window.removeEventListener('guard-catalogue-read', read); };
+  }, []);
+  return <RequestCrewDialog {...args} hasGuardReadFailed={hasFailed}
+    guardChoices={hasFailed ? undefined : { names: ['no-push'], floor: ['base'] }} />;
+}
+
+export const RuleSetsReadRecovers: Story = {
+  render: (args) => <RequestWithGuardRecovery {...args} />,
+  play: async () => {
+    await expect(screen.getByTestId('request-crew-submit')).toBeDisabled();
+    await userEvent.type(screen.getByTestId('crew-settings-first-prompt'), 'Keep this prompt');
+
+    window.dispatchEvent(new Event('guard-catalogue-read'));
+
+    await waitFor(async () => { await expect(screen.getByTestId('request-crew-submit')).toBeEnabled(); });
+    await expect(screen.queryByText('Rule sets could not be read. Try again later.')).not.toBeInTheDocument();
+    await expect(screen.getByTestId('crew-settings-first-prompt')).toHaveValue('Keep this prompt');
+    await expect(screen.getByTestId('crew-settings-rule-set')).toHaveTextContent('None');
+  },
+};
+
+
+export const RuleSetsReading: Story = {
+  args: { isGuardReading: true },
+  play: async () => {
+    await expect(screen.getByTestId('request-crew-submit')).toBeDisabled();
+    await expect(screen.getByTestId('request-crew-note')).toHaveTextContent('Waiting for the trierarch plugin.');
+  },
+};

@@ -1,12 +1,13 @@
 import { sessionCookieOf } from './plugin-call';
 import { trierarchPluginUrlFrom } from './trierarch-plugin-url';
+import { guardAnswerSchema } from './trierarch-plugin-guard-schemas';
 import { mcpAnswerSchemas } from './trierarch-plugin-mcp-schemas';
 
 /**
  * The trierarch plugin's MCP configuration procedures as a manager reaches
  * them from the console (fleet crew MCP design, section 4; #1732, #1735):
  * `GET /api/trierarch-plugin/mcp.get` and `POST /api/trierarch-plugin/mcp.replace`.
- * The web app's server forwards only these two, with only the caller's console
+ * The web app's server forwards these two and the metadata-only `guard.get`, with only the caller's console
  * sign-in cookies and the Origin it sent, never one made up, and for a
  * replacement its content type and body unchanged. The plugin checks the
  * session, scope and Origin, and its refusals go back as they are. Successful answers are parsed here
@@ -15,7 +16,9 @@ import { mcpAnswerSchemas } from './trierarch-plugin-mcp-schemas';
  * limit is refused here, read no further than that.
  */
 
-export type McpProcedure = 'mcp.get' | 'mcp.replace';
+export type McpProcedure = 'mcp.get' | 'mcp.replace' | 'guard.get';
+
+const answerSchemas = { ...mcpAnswerSchemas, 'guard.get': guardAnswerSchema };
 
 const TIMEOUT_MS = 30_000;
 
@@ -31,6 +34,7 @@ export async function forwardMcpCall(
   input: { procedure: McpProcedure; environment: Readonly<Record<string, string | undefined>>; fetchImplementation?: typeof fetch },
 ): Promise<Response> {
   const { procedure, environment, fetchImplementation = fetch } = input;
+  const noAnswer = procedure === 'guard.get' ? { error: { message: 'The trierarch plugin did not answer: read guard.get again' } } : NO_ANSWER;
   const url = trierarchPluginUrlFrom(environment);
   if (url === undefined) {
     return new Response(null, { status: 404 });
@@ -62,12 +66,12 @@ export async function forwardMcpCall(
     answerText = await answer.text();
     if (answer.ok) {
       const answerBody: unknown = JSON.parse(answerText);
-      const parsed = mcpAnswerSchemas[procedure].safeParse(answerBody);
-      if (!parsed.success) return Response.json(NO_ANSWER, { status: 502 });
+      const parsed = answerSchemas[procedure].safeParse(answerBody);
+      if (!parsed.success) return Response.json(noAnswer, { status: 502 });
       answerText = JSON.stringify(parsed.data);
     }
   } catch {
-    return Response.json(NO_ANSWER, { status: 502 });
+    return Response.json(noAnswer, { status: 502 });
   }
   return new Response(answerText, {
     status: answer.status,

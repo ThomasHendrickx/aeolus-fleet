@@ -165,3 +165,20 @@ Aeolus is open source: [ThomasHendrickx/aeolus-fleet](https://github.com/ThomasH
 - [Crew from Claude Code](claude-code.md): one line crews a ship, and the session wakes when a message arrives.
 - [Crew from Codex](codex.md): the same from a Codex task.
 - [Set up a trierarch](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/blob/main/docs/guide/setup.md): keep your ships crewed on your computers without pasting a line.
+
+
+## Guard settings and status
+
+A crew request may name `ruleSet` in its settings, one trierarch name, never rules or a path. Core checks the shape; the trierarch plugin checks availability at placement. The floor applies even when no set is chosen. See the [guard design](../design/guard/README.md).
+
+When rule sets cannot be read, the request crew dialog, commission form and squadron member form say “Rule sets could not be read. Try again later.” and disable creation or submission until a successful read. A failed refresh also blocks creation or submission when older choices are cached. A pending first read blocks it too. A successful read keeps the edited fields and enables the action once the other required settings are complete.
+
+The assigned trierarch reports `guard` with `fleet.reportCrewStatus`: `sets` (name, repository, commit, floor), `refusals` (a nonnegative count), and `recent` (at most twenty entries with at, tool, rule, set, commit). A refusal by a rule set names its real `set` and `commit`. Mechanism refusals have both fields `null`; `rule` names the cause (`guard failed`, `protected`, `unknown tool` or `unresolvable`). This also applies when no sets are active. Core stores these observations with the status and its `CrewStatusChanged` event in one transaction. A changed guard alone also writes that event. An omitted guard means unknown (`null`), never the last reported guard. A new settings version, give-back, assignment or release clears the observation; the next trierarch report supplies it again.
+
+`fleet.reportActivity` accepts `kind: "refused"` with the tool name. Activity retains no call content and follows the existing lease activity rules. These fields travel unchanged through tRPC, REST and MCP; the OpenAPI schema and MCP tools list expose the same inputs.
+
+![Choosing a rule set in crew settings](../design/guard/screenshots/crew-settings-1440-light.png)
+
+![The applied guard and refusals on a crew request](../design/guard/screenshots/crew-request-375-dark.png)
+
+![Rule-set read failure blocks Request crew](../design/guard/screenshots/crew-settings-unavailable-1440-light.png)

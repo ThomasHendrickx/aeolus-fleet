@@ -44,3 +44,5 @@ export * from './system.js';
 export * from './verified-fact.js';
 
 export * from './message-task-access.js';
+
+export * from './guard.js';

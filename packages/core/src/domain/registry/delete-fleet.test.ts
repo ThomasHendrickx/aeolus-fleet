@@ -129,7 +129,7 @@ describe('deleting a fleet for the installation', () => {
       status: null,
       reason: null,
       attempt: 0,
-      sessionStartedAt: null,
+      sessionStartedAt: null, guard: null,
       isFinal: false,
       givenBack: [{ trierarchShipId: trierarch.shipId, settingsVersion: 1, reason: 'no room', givenBackAt: core.clock.now() }],
     });

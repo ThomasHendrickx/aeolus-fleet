@@ -30,7 +30,7 @@ function assignedTo(shipId: ShipId, machine: ShipId): void {
     status: 'crewing',
     reason: null,
     attempt: 0,
-    sessionStartedAt: null,
+    sessionStartedAt: null, guard: null,
     isFinal: false,
     givenBack: [],
   });

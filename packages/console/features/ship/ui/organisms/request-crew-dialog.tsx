@@ -6,6 +6,7 @@ import { useState, type ReactNode } from 'react';
 
 import { useConsoleConstants } from '../../../../lib/console-constants';
 import { promptBytes, settingsOf, valuesOf, withDefaultsFilled, workspaceProblems, type CrewSettingsValues, type HarnessOffer } from '../../../../lib/crew-settings-form';
+import type { GuardChoices } from '../../../../lib/guard-choices';
 import type { MachineLabelsInput } from '../../../../lib/machine-labels';
 import { secondsTime } from '../../../../lib/relative-time';
 import type { SettingsCheck } from '../../../../lib/trierarch-plugin-schemas';
@@ -16,6 +17,11 @@ import { CrewSettingsFields } from '../../../../components/molecules/crew-settin
 export type RequestCrewDialogState = 'loading' | 'unreachable' | 'ready';
 
 interface RequestCrewDialogProps {
+  /** A failed guard catalogue read blocks the request until a successful read. */
+  hasGuardReadFailed?: boolean;
+  /** Other settings stay editable while the first catalogue read answers. */
+  isGuardReading?: boolean;
+  guardChoices?: GuardChoices;
   shipName: string;
   /** Request a crew, or Edit the settings of the request held (decision 3). */
   mode: 'request' | 'edit';
@@ -59,6 +65,8 @@ const WORDS = {
   },
 } as const;
 
+const RULE_SETS_READ_ERROR = 'Rule sets could not be read. Try again later.';
+
 const TONES = {
   waiting: 'border-tone-waiting-border bg-tone-waiting-bg text-tone-waiting-fg',
   attention: 'border-tone-attention-border bg-tone-attention-bg text-tone-attention-fg',
@@ -91,7 +99,7 @@ function RequestCrewForm(props: Omit<RequestCrewDialogProps, 'isOpen' | 'onOpenC
   const isWaitingForMachine = values.machineLabels.length > 0 && machineLabels?.matchOf(values.machineLabels).matching.length === 0;
   // A repository no machine offers, or one named twice, is the plugin's to refuse: the form says so first.
   const workspaceNote = workspaceProblems(values.workspace, offers.find((offer) => offer.harness === values.harness)).note;
-  const canSubmit = settings !== undefined && refusal === undefined && workspaceNote === undefined && !isPromptTooLong && !isPending;
+  const canSubmit = settings !== undefined && refusal === undefined && workspaceNote === undefined && !isPromptTooLong && !isPending && props.hasGuardReadFailed !== true && props.isGuardReading !== true;
   const change = (next: CrewSettingsValues) => {
     setValues(next);
     onSettingsChange(settingsOf(next));
@@ -129,6 +137,7 @@ function RequestCrewForm(props: Omit<RequestCrewDialogProps, 'isOpen' | 'onOpenC
       {offers.length === 0 ? null : <CrewSettingsFields
           shipName={shipName}
           offers={offers}
+          guardChoices={props.guardChoices}
           values={values}
           firstPromptMaxBytes={firstPromptMaxBytes}
           onChange={change}
@@ -137,10 +146,11 @@ function RequestCrewForm(props: Omit<RequestCrewDialogProps, 'isOpen' | 'onOpenC
           isDisabled={isPending}
           {...(machineLabels === undefined ? {} : { machineLabels })}
         />}
+      {props.hasGuardReadFailed ? <InlineError title={RULE_SETS_READ_ERROR} /> : null}
       {error === undefined ? null : <InlineError title={mode === 'edit' ? 'Couldn’t save the settings' : 'Couldn’t request crew'} description={`${error} Nothing changed.`} />}
       <DialogFooter className="items-center">
         <span className="mr-auto text-meta text-muted-foreground" data-testid="request-crew-note">
-          {refusal !== undefined && refusedAt !== undefined
+          {props.hasGuardReadFailed ? null : props.isGuardReading ? 'Waiting for the trierarch plugin.' : refusal !== undefined && refusedAt !== undefined
             ? `Refused at ${secondsTime(refusedAt)}. Nothing was requested.`
             : (workspaceNote ??
               (isWaitingForMachine ? 'The request will wait for a machine with these labels.' : check?.kind === 'noRoom' ? 'The request will wait for room.' : null))}
@@ -201,6 +211,7 @@ export function RequestCrewDialog(props: RequestCrewDialogProps) {
                 {mode === 'request' ? <p className="text-meta text-muted-foreground">You can still crew {shipName} by hand: close this and use Get starting prompt.</p> : null}
               </>
             )}
+            {props.hasGuardReadFailed ? <InlineError title={RULE_SETS_READ_ERROR} /> : null}
             <DialogFooter className="items-center">
               <span className="mr-auto text-meta text-muted-foreground">
                 {state === 'loading' ? 'Waiting for the trierarch plugin.' : `${words.action} is off until the plugin answers.`}

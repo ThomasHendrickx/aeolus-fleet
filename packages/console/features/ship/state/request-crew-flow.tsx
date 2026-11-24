@@ -3,6 +3,7 @@
 import type { CrewSettings, ShipId } from '@aeolus-fleet/common';
 import { useState, type ReactNode } from 'react';
 
+import { useGuardChoices } from '../../../lib/use-guard-choices';
 import { lazyDialog } from '../../../lib/lazy-dialog';
 import { useConsoleConstants } from '../../../lib/console-constants';
 import { defaultValues, offersOf, settingsOf, valuesOf } from '../../../lib/crew-settings-form';
@@ -37,12 +38,13 @@ export function useRequestCrewFlow(of: RequestCrewFor | undefined): { open: (mod
   const enabledModels = useEnabledModels();
   // A plugin that cannot answer them leaves the forms as without a rule: placement and its check still apply it.
   const enabled = enabledModels.data ?? [];
-  const isReading = machines.data === undefined || (enabledModels.data === undefined && !enabledModels.isError);
   const squadronsConnection = useSquadronsConnection();
   const squadrons = useSquadrons();
   const requestCrew = useRequestCrew();
   const labelContext = useLabelContext(machines.data?.map((machine) => machine.shipId));
   const [mode, setMode] = useState<'request' | 'edit'>();
+  const guard = useGuardChoices(mode !== undefined);
+  const isReading = machines.data === undefined || (enabledModels.data === undefined && !enabledModels.isError);
   // Null until the form changes: the check then asks for the settings the form starts with.
   const [edited, setEdited] = useState<CrewSettings | undefined | null>(null);
   const [refusedAt, setRefusedAt] = useState<Date>();
@@ -55,10 +57,10 @@ export function useRequestCrewFlow(of: RequestCrewFor | undefined): { open: (mod
   const initial = settingsOf(mode === 'edit' ? valuesOf(held, { offers, enabledModels: enabled }) : defaultValues(offers));
   const isOpen = mode !== undefined && of !== undefined && (mode !== 'edit' || parsedHeld !== undefined);
   const settings = edited === null ? initial : edited;
-  const check = useCrewSettingsCheck(isOpen && !isReading ? settings : undefined);
+  const check = useCrewSettingsCheck(isOpen && !isReading && guard.data !== undefined && !guard.isError ? settings : undefined);
 
   const submit = async (picked: CrewSettings) => {
-    if (of === undefined || mode === undefined) {
+    if (of === undefined || mode === undefined || guard.isError || guard.data === undefined) {
       return;
     }
     requestCrew.reset();
@@ -102,6 +104,9 @@ export function useRequestCrewFlow(of: RequestCrewFor | undefined): { open: (mod
           state={machines.isError ? 'unreachable' : isReading ? 'loading' : 'ready'}
           offers={offers}
           enabledModels={enabled}
+          guardChoices={guard.data}
+          hasGuardReadFailed={guard.isError}
+          isGuardReading={guard.data === undefined && !guard.isError}
           heldSettings={held}
           squadrons={squadronsConnection === 'connected' ? (squadrons.data ?? []).filter((squadron) => squadron.state !== 'disbanded').map((squadron) => squadron.id) : undefined}
           {...(machineLabels === undefined ? {} : { machineLabels })}
@@ -123,6 +128,7 @@ export function useRequestCrewFlow(of: RequestCrewFor | undefined): { open: (mod
           onRetry={() => {
             void machines.refetch();
             void enabledModels.refetch();
+            void guard.refetch();
           }}
         />
       ),

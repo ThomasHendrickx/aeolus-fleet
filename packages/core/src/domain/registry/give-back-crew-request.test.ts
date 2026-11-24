@@ -51,7 +51,7 @@ describe('a trierarch giving back a crew request', () => {
       assignedTo: null,
       status: null,
       attempt: 0,
-      sessionStartedAt: null,
+      sessionStartedAt: null, guard: null,
       givenBack: [{ trierarchShipId: trierarch.shipId, settingsVersion: 1, reason: REASON, givenBackAt: core.clock.now() }],
     });
     expect(core.state.events).toEqual([

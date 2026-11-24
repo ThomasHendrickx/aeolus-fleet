@@ -11,6 +11,7 @@ import { machineLabelsInputOf } from '../../../lib/machine-labels';
 import { useBlueprintCrew, useFormSquadron } from '../../../lib/squadrons-api';
 import type { TemplateVersion } from '../../../lib/squadrons-schemas';
 import type { BlueprintChoice } from '../../../lib/squadrons-view';
+import { useGuardChoices } from '../../../lib/use-guard-choices';
 import { useEnabledModels, useHasTrierarchPlugin, useMachines } from '../../../lib/trierarch-plugin';
 
 // Dialogs load when first opened, not with the page.
@@ -39,6 +40,7 @@ export function FormSquadron({ blueprints, templates, isOpen, onOpenChange, init
   const [picked, setPicked] = useState<{ repository: string; name: string; version: number }>();
   const crew = useBlueprintCrew(hasTrierarchs ? picked : undefined);
   const machines = useMachines();
+  const guard = useGuardChoices(isOpen);
   const enabledModels = useEnabledModels();
   const isReadingModels = enabledModels.data === undefined && !enabledModels.isError;
   const context = useLabelContext(machines.data?.map((machine) => machine.shipId));
@@ -63,6 +65,9 @@ export function FormSquadron({ blueprints, templates, isOpen, onOpenChange, init
             crew: {
               state: crew.isError || machines.isError ? 'error' : crew.data === undefined || machines.data === undefined || isReadingModels ? 'loading' : 'ready',
               members: crew.data ?? [],
+              guardChoices: guard.data,
+              hasGuardReadFailed: guard.isError,
+              isGuardReading: guard.data === undefined && !guard.isError,
               offers: offersOf(machines.data ?? [], enabledModels.data ?? []),
               ...(context === undefined ? {} : { context }),
               ...(machineLabels === undefined ? {} : { machineLabels }),
@@ -71,11 +76,13 @@ export function FormSquadron({ blueprints, templates, isOpen, onOpenChange, init
                 void crew.refetch();
                 void machines.refetch();
                 void enabledModels.refetch();
+                void guard.refetch();
               },
             },
           }
         : {})}
       onSubmit={(blueprint, members) => {
+        if (hasTrierarchs && (guard.isError || guard.data === undefined)) return;
         form.mutate(
           { blueprint, ...(members === undefined ? {} : { members: formMembersOf(members, context) }) },
           {
