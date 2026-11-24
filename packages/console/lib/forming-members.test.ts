@@ -198,3 +198,12 @@ describe('offeredWorkspacesOf (#1769)', () => {
     });
   });
 });
+
+
+it('carries a member rule set from its files through forming (#2070)', () => {
+  const drafts = [aDraft({ crew: { options: {}, ruleSet: 'no-push' } })];
+
+  const members = membersOf(drafts, CONTEXT);
+
+  expect(formMembersOf(members, CONTEXT)['implementer-1']?.crew).toMatchObject({ ruleSet: 'no-push' });
+});

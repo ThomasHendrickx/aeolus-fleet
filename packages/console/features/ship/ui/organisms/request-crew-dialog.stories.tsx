@@ -136,3 +136,32 @@ export const EditedBeforeOffersArrive: Story = {
     await expect(screen.getByTestId('crew-settings-first-prompt')).toHaveValue('Triage issues');
   },
 };
+
+
+/** Guard design, settings boards 1-4. */
+export const RuleSetNone: Story = {
+  args: { guardChoices: { names: ['base', 'no-push'], floor: ['base'] } },
+  play: async () => {
+    await expect(screen.getByTestId('crew-settings-rule-set')).toHaveTextContent('None');
+    await expect(screen.getByText(/The floor applies to every request: base/)).toBeVisible();
+    await userEvent.click(screen.getByTestId('crew-settings-rule-set'));
+    await userEvent.click(screen.getByRole('option', { name: 'no-push', exact: true }));
+    await expect(screen.getByTestId('crew-settings-rule-set')).toHaveTextContent('no-push');
+  },
+};
+export const RuleSetChosen: Story = {
+  args: { ...Edit.args, heldSettings: { ...SETTINGS, ruleSet: 'no-push' }, guardChoices: { names: ['base', 'no-push'], floor: ['base'] } },
+  play: async () => { await expect(screen.getByTestId('crew-settings-rule-set')).toHaveTextContent('no-push'); },
+};
+export const RuleSetsEmpty: Story = {
+  args: { guardChoices: { names: [], floor: ['base'] } },
+  play: async () => {
+    await expect(screen.getByTestId('crew-settings-rule-set')).toBeDisabled();
+    await expect(screen.getByText(/No rule sets are connected/)).toBeVisible();
+    await expect(screen.getByText(/The floor applies to every request: base/)).toBeVisible();
+  },
+};
+export const RuleSetNoFloor: Story = {
+  args: { guardChoices: { names: ['no-push'], floor: [] } },
+  play: async () => { await expect(screen.getByText(/None: no rules apply/)).toBeVisible(); },
+};

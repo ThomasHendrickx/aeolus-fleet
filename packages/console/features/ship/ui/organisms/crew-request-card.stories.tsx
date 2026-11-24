@@ -199,3 +199,38 @@ export const FolderWorkspace: Story = {
 };
 /** A viewer sees the same rows without Edit (board 7). */
 export const SubRepositoriesReadOnly: Story = { args: { ...SeveralSubRepositories.args, canManage: false } };
+
+
+const GUARD = { sets: [
+  { name: 'base', repository: 'company/rules', commit: '3f9c2a1', floor: true },
+  { name: 'no-push', repository: 'company/rules', commit: '8d41e07', floor: false },
+], refusals: 0, recent: [] };
+const GUARDED_ROWS = [...ROWS, { label: 'Rule set', value: 'no-push', isMono: true }];
+
+/** Guard design, ship card boards 1-4. */
+export const GuardRunning: Story = {
+  args: { ...RunningWithPlugin.args, settingsRows: GUARDED_ROWS, guard: GUARD },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByTestId('crew-request-guard')).toHaveTextContent('base @ 3f9c2a1');
+    await expect(canvas.getByTestId('crew-request-guard')).toHaveTextContent('Floor');
+    await expect(canvas.getByTestId('crew-request-guard')).toHaveTextContent('no-push @ 8d41e07');
+    await expect(canvas.getByTestId('crew-request-refusals')).toHaveTextContent('0');
+  },
+};
+export const GuardRefusals: Story = {
+  args: { ...GuardRunning.args, guard: { ...GUARD, refusals: 3 } },
+  play: async ({ canvasElement }) => { await expect(within(canvasElement).getByTestId('crew-request-refusals')).toHaveTextContent('3, see session activity'); },
+};
+export const GuardUnknownRuleSet: Story = {
+  args: { ...NeedsCrewWithPlugin.args, settingsRows: GUARDED_ROWS, stage: { kind: 'needsCrew', requestedAt: minutesAgo(4), reason: 'rule set unknown: no-push' } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByTestId('crew-request-note')).toHaveTextContent('Rule set unknown: no-push.');
+    await expect(canvas.queryByTestId('crew-request-guard')).not.toBeInTheDocument();
+  },
+};
+export const GuardNoGuardedHarness: Story = {
+  args: { ...GuardUnknownRuleSet.args, stage: { kind: 'needsCrew', requestedAt: minutesAgo(4), reason: 'no guarded harness: copilot' } },
+  play: async ({ canvasElement }) => { await expect(within(canvasElement).getByTestId('crew-request-note')).toHaveTextContent('No guarded harness: copilot.'); },
+};

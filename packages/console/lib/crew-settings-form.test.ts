@@ -300,3 +300,16 @@ describe('settingsRows', () => {
     expect(byteSize(8192)).toBe('8 KB');
   });
 });
+
+
+it('keeps a chosen rule set when editing and changing harness, and omits None (#2070)', () => {
+  const offers = offersOf([aMachine('gd01')], NO_RULE);
+  const picked = { ...defaultValues(offers), ruleSet: 'no-push' };
+
+  const settings = settingsOf(withHarness(picked, { harness: picked.harness, offers }));
+
+  expect(settings).toMatchObject({ ruleSet: 'no-push' });
+  expect(valuesOf(settings, { offers, enabledModels: NO_RULE })).toMatchObject({ ruleSet: 'no-push' });
+  expect(settingsOf({ ...picked, ruleSet: '' })).not.toHaveProperty('ruleSet');
+  expect(settingsRows(settings)).toContainEqual({ label: 'Rule set', value: 'no-push', isMono: true });
+});
