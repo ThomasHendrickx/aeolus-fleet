@@ -42,11 +42,11 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await context?.close();
-  await browser?.close();
-  await web?.stop();
-  await plugin?.stop();
-  await server?.close();
-  await database?.$disconnect();
+  await browser.close();
+  await web.stop();
+  await plugin.stop();
+  await server.close();
+  await database.$disconnect();
 });
 
 it('opens the crew dialog without writing a request when the plugin reads are slow', async () => {
@@ -56,8 +56,8 @@ it('opens the crew dialog without writing a request when the plugin reads are sl
   await page.clock.setFixedTime(clock.now());
   await signIn(page, OPERATOR);
   await page.getByTestId('fleet-commission').waitFor();
-  const connection = Promise.withResolvers<void>();
-  const machines = Promise.withResolvers<void>();
+  const connection = Promise.withResolvers<undefined>();
+  const machines = Promise.withResolvers<undefined>();
   await page.route('**/api/reads/trierarch-plugin-connection', async (route) => {
     await connection.promise;
     await route.continue();
@@ -78,15 +78,15 @@ it('opens the crew dialog without writing a request when the plugin reads are sl
     // Then the early press is disabled. A press after the connection answers
     // opens the dialog even while the machines are still loading.
     expect(wasEnabled).toBe(false);
-    connection.resolve();
+    connection.resolve(undefined);
     await request.click();
     const dialog = page.getByTestId('request-crew-dialog');
     await dialog.getByText('Loading the trierarch plugin’s options.').waitFor();
-    machines.resolve();
+    machines.resolve(undefined);
     await dialog.getByTestId('request-crew-submit').waitFor();
     expect(await database.crewRequest.findFirst({ where: { shipId } })).toBeNull();
   } finally {
-    connection.resolve();
-    machines.resolve();
+    connection.resolve(undefined);
+    machines.resolve(undefined);
   }
 });
