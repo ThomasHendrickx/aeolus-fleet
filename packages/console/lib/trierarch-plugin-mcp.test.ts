@@ -181,15 +181,44 @@ describe('the console route forwards mcp.get and mcp.replace to the trierarch pl
 });
 
 
-it('reads the offered guard sets and floor through the console route, projecting tokens away (#2070)', async () => {
-  const data = { version: 1, repositories: [{ repository: 'company/rules', folder: 'rules', access: 'private', token: 'not-returned' }], sets: [{ name: 'no-push', repository: 'company/rules', commit: '8d41e07', file: 'rules/no-push.yaml' }], errors: [], conflicts: [], floor: ['base'] };
-  const plugin = aPlugin(() => Promise.resolve(Response.json({ result: { data } })));
+it('reads repository commits, rule counts and the floor without projecting tokens or rules', async () => {
+  const repositories = [
+    { repository: 'company/rules', folder: 'rules', access: 'private', readCommit: '8d41e07' },
+    { repository: 'company/more-rules', folder: '', access: 'public', readCommit: null },
+  ];
+  const sets = [{ name: 'no-push', repository: 'company/rules', commit: '8d41e07', file: 'rules/no-push.yaml', rulesCount: 3 }];
+  const data = { version: 1, repositories, sets, errors: [], conflicts: [], floor: ['base'] };
+  const plugin = aPlugin(() => Promise.resolve(Response.json({ result: { data: {
+    ...data,
+    repositories: repositories.map((repository) => ({ ...repository, token: 'not-returned' })),
+    sets: sets.map((set) => ({ ...set, rules: { git: { deny: ['push'] } } })),
+  } } })));
 
   const response = await forwardMcpCall(aRequest('/api/trierarch-plugin/guard.get', { headers: { cookie: COOKIE, origin: CONSOLE_ORIGIN } }), { procedure: 'guard.get', environment: ENVIRONMENT, fetchImplementation: plugin.fetch });
 
   expect(response.status).toBe(200);
-  const body: unknown = await response.json();
-  expect(body).toMatchObject({ result: { data: { sets: data.sets, floor: ['base'], version: 1 } } });
-  expect(JSON.stringify(body)).not.toContain('not-returned');
+  expect(await response.json()).toEqual({ result: { data } });
   expect(plugin.sent).toEqual([{ url: 'https://plugin.example/trpc/guard.get', method: 'GET', headers: { cookie: SIGN_IN_COOKIES, origin: CONSOLE_ORIGIN }, body: undefined }]);
+});
+
+it('replaces the guard configuration with the console session and Origin and returns only its version', async () => {
+  const replacement = JSON.stringify({
+    expectedVersion: 1,
+    repositories: [{ repository: 'company/rules', folder: 'rules', access: 'private' }],
+    floor: ['base'],
+    secrets: ['company/rules'],
+    secretValues: { 'company/rules': 'test-value' },
+  });
+  const plugin = aPlugin(() => Promise.resolve(Response.json({ result: { data: { version: 2, token: 'not-returned' } } })));
+
+  const response = await forwardMcpCall(aRequest('/api/trierarch-plugin/guard.replace', {
+    method: 'POST', headers: { cookie: COOKIE, origin: CONSOLE_ORIGIN, 'content-type': 'application/json' }, body: replacement,
+  }), { procedure: 'guard.replace', environment: ENVIRONMENT, fetchImplementation: plugin.fetch });
+
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({ result: { data: { version: 2 } } });
+  expect(plugin.sent).toEqual([{
+    url: 'https://plugin.example/trpc/guard.replace', method: 'POST',
+    headers: { cookie: SIGN_IN_COOKIES, origin: CONSOLE_ORIGIN, 'content-type': 'application/json' }, body: replacement,
+  }]);
 });
