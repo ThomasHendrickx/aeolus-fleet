@@ -64,7 +64,7 @@ function questionPayload({ id, title, context, options, pick }: Question): strin
     title,
     context,
     options: options.map(({ key, label, detail }) => ({ key, label, detail })),
-    pick: { option: pick.option, why: pick.why },
+    ...(pick === undefined ? {} : { pick: { option: pick.option, why: pick.why } }),
   });
 }
 

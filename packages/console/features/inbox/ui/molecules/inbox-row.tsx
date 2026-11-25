@@ -21,7 +21,7 @@ function isUnread(entry: InboxEntry): boolean {
 
 function QuestionLine({ entry, now }: { entry: Extract<InboxEntry, { kind: 'question' }>; now: Date }) {
   const { question, stale } = entry;
-  const pick = question.options.find(({ key }) => key === question.pick.option);
+  const pick = question.options.find(({ key }) => key === question.pick?.option);
   if (question.answer !== null) {
     const answered = question.options.find(({ key }) => key === question.answer?.option);
     return (
@@ -44,7 +44,7 @@ function QuestionLine({ entry, now }: { entry: Extract<InboxEntry, { kind: 'ques
       {/* A check would read as answered (#870): the pick is only a suggestion until argo answers. */}
       <CircleDashed aria-hidden />
       <span className="min-w-0 truncate">
-        Not answered, pick: <span className="font-medium text-foreground">{pick === undefined ? String(question.pick.option) : `${String(pick.key)}. ${pick.label}`}</span>
+        Not answered{question.pick === undefined ? null : <>, pick: <span className="font-medium text-foreground">{pick === undefined ? String(question.pick.option) : `${String(pick.key)}. ${pick.label}`}</span></>}
       </span>
       <Badge variant="outline" className="ml-auto shrink-0 tabular-nums" data-testid="inbox-row-waiting">
         {duration(new Date(entry.sentAt), now)}
