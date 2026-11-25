@@ -139,7 +139,7 @@ describe('an assignment refused', () => {
 
   it('refuses to assign when the crew request settings changed after placement read them', async () => {
     const ship = unwrap(await registry.getShip(argo, { shipId: scoutId }));
-    const settingsVersion = ship.crewRequest?.settingsVersion;
+    const settingsVersion = 'crewRequest' in ship ? ship.crewRequest?.settingsVersion : undefined;
     if (settingsVersion === undefined) {
       throw new Error('Expected placement to see a crew request');
     }
