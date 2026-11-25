@@ -240,13 +240,19 @@ describe('the ship page', () => {
   it('scenario 19: a timeline link to a removed ship opens its dates and retained history without ship actions', async () => {
     // Given a timeline entry that names a ship removed by retention.
     clock.set('2026-08-12T12:00:00.000Z');
-    const tester = unwrap(await useCases.commissionShip(argo, { name: 'tester', type: 'core', idempotencyKey: newKey() }));
+    const tester = await crewedOverRest({ name: 'tester', type: 'core' });
     const owner = unwrap(await useCases.commissionShip(argo, { name: 'tester-member', type: 'core', idempotencyKey: newKey() }));
     const peer = unwrap(await useCases.commissionShip(argo, { name: 'retained-history-peer', type: 'planner', idempotencyKey: newKey() }));
     unwrap(await useCases.setOwner(argo, { shipId: owner.shipId, ownerShipId: tester.shipId }));
     unwrap(await useCases.setOwner(argo, { shipId: peer.shipId, ownerShipId: owner.shipId }));
     unwrap(await useCases.retireShip(argo, { shipId: owner.shipId }));
     clock.set('2026-09-03T14:02:00.000Z');
+    const payload = 'Still waiting for the peer';
+    await tester.call('send', {
+      selector: { kind: 'ship', shipId: peer.shipId },
+      payload,
+      idempotencyKey: newKey(),
+    });
     unwrap(await useCases.retireShip(argo, { shipId: tester.shipId }));
     await pruneWithFiveDaysOfRetention('2026-10-04T15:00:00.000Z');
     const page = await signedInPage({ timezoneId: 'UTC', reducedMotion: 'reduce' });
@@ -272,6 +278,12 @@ describe('the ship page', () => {
     await page.goto(`/ships/${tester.shipId}?tab=schedules`);
     await header.getByText('Removed', { exact: true }).waitFor();
     await expect.soft(page.getByRole('tab', { name: 'Timeline' }).getAttribute('aria-selected')).resolves.toBe('true');
+
+    await page.getByRole('tab', { name: 'Messages' }).click();
+    await messageRow(page, payload).click();
+    const sheet = page.getByTestId('message-sheet');
+    await sheet.getByTestId('message-payload').filter({ hasText: payload }).waitFor();
+    await expect.soft(page.getByRole('button', { name: /^Reply\b/ }).count()).resolves.toBe(0);
   });
 
   it('scenario 21: a removed ship whose messages were pruned shows No messages kept and the retention date', async () => {
