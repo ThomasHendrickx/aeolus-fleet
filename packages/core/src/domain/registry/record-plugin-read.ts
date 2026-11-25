@@ -3,12 +3,12 @@ import type { IdGenerator, RecordPluginReadInput } from '@aeolus-fleet/common';
 
 import { actorOf, type Caller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
-import { refuse, type DomainError } from '../shared/errors.js';
+import type { DomainError } from '../shared/errors.js';
 import { recordEvent, type EventLog } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { checkRead, keepingReachRefusal, type CheckReadTx, type NotReachable } from './check-reach.js';
-import { applyPluginRead, isActivePlugin } from './plugin-reads.js';
+import { applyPluginRead } from './plugin-reads.js';
 import type { ShipRepository } from './ports.js';
 
 interface RecordPluginReadTx extends Omit<CheckReadTx, 'ships'> {
@@ -37,20 +37,20 @@ export function createRecordPluginRead(deps: {
     const result = await keepingReachRefusal(deps.uow, async (tx): Promise<Result<string, RecordPluginReadRefusal>> => {
       // A second record or a retire uses the same lock and observes the state this call commits.
       const ship = await tx.ships.findForUpdate(fleetId, shipId);
-      if (!isActivePlugin(ship)) {
-        return refuse('PLUGIN_NOT_FOUND', 'Target is not a connected plugin in this fleet');
-      }
       const at = deps.clock.now();
+      const applied = applyPluginRead(ship, { read: input, at, actor: actorOf(caller) });
+      if (!applied.isOk) {
+        return applied;
+      }
       const reached = await checkRead({ tx, ids: deps.ids }, { reader: caller, askedBy: null, shipId, at });
       if (!reached.isOk) {
         return reached;
       }
-      const { pluginReads, event } = applyPluginRead(ship, { read: input, at, actor: actorOf(caller) });
-      await tx.ships.savePluginReads({ fleetId, shipId, pluginReads });
-      if (event !== null) {
+      await tx.ships.savePluginReads({ fleetId, shipId, pluginReads: applied.value.state.pluginReads });
+      for (const event of applied.value.events) {
         await recordEvent({ events: tx.events, ids: deps.ids }, event);
       }
-      return ok(ship.type);
+      return ok(applied.value.state.type);
     });
     if (!result.isOk) {
       return result;
