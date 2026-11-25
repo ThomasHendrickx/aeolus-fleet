@@ -106,6 +106,17 @@ export const WithReportDetails: Story = {
 };
 export const Argo: Story = { args: { ship: ARGO_SHIP, actions: undefined } };
 export const Retired: Story = { args: { ship: RETIRED_SHIP }, play: async ({ canvasElement }) => expectStates(canvasElement, [['Retired', 'ended']]) };
+export const Removed: Story = {
+  args: { ship: { ...RETIRED_SHIP, scopes: [], removedAt: '2026-10-04T15:00:00Z' } },
+  play: async ({ canvas }) => {
+    const retired = canvas.getByText('Retired', { exact: true, selector: 'span' });
+    await expect(retired).toHaveAttribute('data-slot', 'status-badge');
+    await expect(retired).toHaveAttribute('data-status', 'retired');
+    await expect(canvas.getByRole('heading', { level: 1 })).toHaveTextContent(RETIRED_SHIP.id.slice(-4));
+    await expect(canvas.getByText(/Kept: its name, type and the history that names it/)).toBeVisible();
+    await expect(canvas.queryByRole('button', { name: 'Release' })).not.toBeInTheDocument();
+  },
+};
 export const Loading: Story = { args: { ship: undefined, state: 'loading' } };
 export const NotFound: Story = { args: { ship: undefined, shipId: UNKNOWN_SHIP_ID, state: 'not-found' } };
 export const Phone: Story = { globals: { viewport: { value: 'mobile1' } } };

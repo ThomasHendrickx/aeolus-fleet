@@ -105,6 +105,7 @@ export function ShipPageFor({ shipId, tab, messageId }: { shipId: ShipId; tab: S
 
   // A ship the session does not read whole shows as one it cannot find (decision 0034).
   const isNotFound = trpcErrorCode(ship.error) === 'NOT_FOUND' || ship.data === null;
+  const isRemoved = ship.data?.removedAt != null;
   // argo's own side is this console; a ship no session crews has none.
   const wayView = way.data && (ship.data?.kind === 'agent' || ship.data?.kind === 'trierarch') ? shipWayView(way.data, { now, machines: machines.data ?? [] }) : undefined;
   // In a sealed fleet, a ship the gateway reads says so (decision 0068, B19); nothing until the sealing is read.
@@ -118,8 +119,9 @@ export function ShipPageFor({ shipId, tab, messageId }: { shipId: ShipId; tab: S
     : undefined;
   // A ship in a squadron sits below it: Squadrons, then its squadron.
   const inSquadron = shipsInSquadrons(squadrons.data ?? []).get(shipId);
-  // Listing a ship's schedules needs fleet:manage (decision 0062): a viewer has no Schedules tab.
-  const shownTab = tab === SHIP_TABS.schedules && !access.canManage ? SHIP_TABS.timeline : tab;
+  // Listing schedules needs fleet:manage (0062). A removed ship's schedules are gone (0070).
+  const canShowSchedules = ship.data != null && !isRemoved && access.canManage;
+  const shownTab = tab === SHIP_TABS.schedules && !canShowSchedules ? SHIP_TABS.timeline : tab;
 
   return (
     <DetailPage
@@ -131,7 +133,7 @@ export function ShipPageFor({ shipId, tab, messageId }: { shipId: ShipId; tab: S
       banner={frame.banner}
       title={ship.data?.name ?? 'Ship'}
       parents={
-        inSquadron
+        inSquadron && !isRemoved
           ? [
               { href: '/squadrons', label: 'Squadrons' },
               { href: `/squadrons/${inSquadron.squadronId}`, label: inSquadron.squadronId },
@@ -156,8 +158,8 @@ export function ShipPageFor({ shipId, tab, messageId }: { shipId: ShipId; tab: S
           way={wayView && way.data?.lease ? <ShipWayLines view={wayView} onOpenMessage={openMessageAt} /> : undefined}
           gatewayReader={gatewayReader}
         />
-        {isNotFound ? null : <ShipSquadron shipId={shipId} now={now} />}
-        {isNotFound ? null : <NotHandled shipId={shipId} />}
+        {isNotFound || isRemoved ? null : <ShipSquadron shipId={shipId} now={now} />}
+        {isNotFound || isRemoved ? null : <NotHandled shipId={shipId} />}
         </>
       }
       sheet={
@@ -188,7 +190,7 @@ export function ShipPageFor({ shipId, tab, messageId }: { shipId: ShipId; tab: S
             }
           }}
           onReply={
-            access.canSend
+            ship.data != null && !isRemoved && access.canSend
               ? (replied) => {
                   setReplyTo({ messageId: replied.id, sender: replied.sender });
                 }
@@ -212,7 +214,7 @@ export function ShipPageFor({ shipId, tab, messageId }: { shipId: ShipId; tab: S
             <TabsTrigger variant="line" value={SHIP_TABS.messages}>
               Messages
             </TabsTrigger>
-            {access.canManage ? (
+            {canShowSchedules ? (
               <TabsTrigger variant="line" value={SHIP_TABS.schedules}>
                 Schedules
               </TabsTrigger>
@@ -242,6 +244,7 @@ export function ShipPageFor({ shipId, tab, messageId }: { shipId: ShipId; tab: S
             <div className="flex flex-col gap-3">
             <MessageThreads
               shipId={shipId}
+              isShipRemoved={isRemoved}
               messages={messages.items ?? []}
               state={messages.isFailed ? 'error' : messages.items ? 'ready' : 'loading'}
               onRetry={messages.retry}
@@ -256,7 +259,7 @@ export function ShipPageFor({ shipId, tab, messageId }: { shipId: ShipId; tab: S
             <HistoryKeptFrom keptFrom={keptFrom} area="message-threads" />
             </div>
           </TabsContent>
-          {access.canManage ? (
+          {canShowSchedules ? (
             <TabsContent value={SHIP_TABS.schedules} className="pt-4">
               <ShipPageSchedules shipId={shipId} now={now} onOpenMessage={openMessageAt} />
             </TabsContent>

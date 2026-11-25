@@ -1,5 +1,5 @@
 import type { ListedMessage, MessageId, ShipId } from '@aeolus-fleet/common';
-import { ArrowDownLeft, ArrowUpRight, Mail, RotateCw } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, Mail, RotateCw, Send } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 import { LoadingSkeleton, Button, classNames, EmptyState, InlineError, StatusBadge } from '@aeolus-fleet/ui';
@@ -18,6 +18,7 @@ interface MessageThreadsProps {
   /** The ship's messages, in any order. */
   messages: readonly ListedMessage[];
   state: 'ready' | 'loading' | 'error';
+  isShipRemoved?: boolean;
   onRetry?: () => void;
   /** What ends the list while older messages follow: Load more. */
   more?: ReactNode;
@@ -93,7 +94,7 @@ function MessageRow({
  * company key is cut off (decision 0068, N1), and opens in the MessageSheet
  * with its whole payload.
  */
-export function MessageThreads({ shipId, messages, state, onRetry, more, now, onOpenMessage }: MessageThreadsProps) {
+export function MessageThreads({ shipId, messages, state, isShipRemoved = false, onRetry, more, now, onOpenMessage }: MessageThreadsProps) {
   if (state === 'loading') {
     return <LoadingSkeleton variant="list" rows={3} label="Loading the messages" />;
   }
@@ -110,6 +111,9 @@ export function MessageThreads({ shipId, messages, state, onRetry, more, now, on
     );
   }
   if (messages.length === 0 && !more) {
+    if (isShipRemoved) {
+      return <EmptyState icon={<Send />} title="No messages kept" />;
+    }
     return (
       <EmptyState
         variant="section"
