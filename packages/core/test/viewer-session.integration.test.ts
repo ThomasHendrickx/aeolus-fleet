@@ -99,7 +99,7 @@ describe('a fleet the installation creates with a viewer', () => {
   });
 
   it('has one viewer ship at most: Postgres refuses a second', async () => {
-    const viewer = await database.ship.findFirstOrThrow({ where: { fleetId: demoFleet, kind: 'viewer' } });
+    const viewer = await database.ship.findFirstOrThrow({ where: { fleetId: demoFleet, kind: 'viewer' }, omit: { pluginReads: true } });
 
     await expect(database.ship.create({ data: { ...viewer, id: `shp_${newKey().slice(0, 26)}`, name: 'viewer-2' } })).rejects.toThrow(/Unique constraint/);
   });

@@ -21,7 +21,7 @@ beforeEach(async () => {
   })));
   fleet.core.state.events.length = 0;
   fleet.core.clock.set(firstAt);
-  record = createRecordPluginRead({ ...fleet.core, countFailure: () => {} });
+  record = createRecordPluginRead({ ...fleet.core, countFailure: () => undefined });
 });
 
 function failRead() {

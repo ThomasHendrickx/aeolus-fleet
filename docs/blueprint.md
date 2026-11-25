@@ -234,7 +234,7 @@ One meaning per term in code, database, API, UI and talk (decision 0050). Other 
 | agent | An AI session's ship, commissioned, crewed by a trierarch or a harness; the only kind that states a model | core |
 | trierarch | A computer’s process crewing its assigned ships; displayed as Trierarch, distinct from its free type | core |
 | app | Software in one fleet, commissioned: the gateway's proxy ships, own integrations | core |
-| plugin | Software installed once per installation, serving many fleets: squadrons, the trierarch plugin, the gateway. argo connecting it is its commission | core |
+| plugin | Software installed once per installation, serving many fleets: squadrons, the trierarch plugin, the gateway. argo connecting it is its commission. Its active ship carries the [counted plugin reads](design/monitoring/plugin-read-failed.md#41-the-fact-core) | core |
 | argo | The operator ship: one per fleet, permanent, every scope, no secret, name reserved; messages to it are argo's inbox (0012) | core |
 | Viewer | The ship `viewer` of a fleet created with one: permanent, `fleet:read` only, receives nothing; anyone with a viewer ticket signs in as it. A named person who reads only gets a person ship with `fleet:read` (0022) | core |
 | Owner | The person ship, or argo, that answers for a ship: its questions, gates and trouble go there, and it reaches the ships it owns. Only a ship has an owner (0045) | core |
@@ -477,6 +477,8 @@ Each event records its type and time, who caused it (a ship, `argo` included, or
 | `VerifiedFactsSet` | Registry | A writer set its verified facts about the ship, or withdrew them: details hold how many, never their values; the actor is the writer (decision 0059) |
 | `AlertRaised` | Registry | An actor holding `fleet:alert`, the watch, raised an alert on the ship: details hold the alert, its signal and its occurrence key, never a payload; the actor is the raiser (decision 0071) |
 | `AlertCleared` | Registry | An open alert on the ship cleared: details hold the alert, its signal and why, `cleared` by its raiser's kind of actor or `retired` with its ship (decision 0071) |
+| `PluginReadFailed` | Registry | A counted read started an outage on the plugin ship. The actor recorded the read, and the details name the read and its failure reason |
+| `PluginReadRecovered` | Registry | A counted good read ended an outage on the plugin ship. The actor recorded the read, and the details name the good read and the first failure's reason |
 | `ExpectationsSet` | Registry | An actor with `fleet:manage` within manage reach set or cleared expectations on the ship: details hold what holds after, the minutes report changes within, the time the task is done by and its task's kind; the actor is the setter (decision 0071) |
 | `VerifiedFactsRemoved` | Registry | A writer's verified facts about the ship went with a retire: the writer, how many, and why, the ship or the writer retired (decision 0059) |
 | `CrewRequested` | Registry | A requester asked that the ship be kept crewed, or replaced the settings of its request: details hold the settings version, never the settings |

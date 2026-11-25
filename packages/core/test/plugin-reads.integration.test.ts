@@ -1,8 +1,9 @@
 import { createIdGenerator, type ShipId } from '@aeolus-fleet/common';
 import { afterEach, beforeEach, expect, it } from 'vitest';
 
-import { Prisma } from '../src/adapters/prisma/generated/client.js';
-import { createPrismaShipRepository, createPrismaFleetListing } from '../src/adapters/prisma/registry.js';
+import { createPrismaClientTellingStatements } from '../src/adapters/prisma/client.js';
+import { createPrismaFleetListing, createPrismaShipRepository } from '../src/adapters/prisma/registry.js';
+import { toShip } from '../src/adapters/prisma/rows.js';
 import { createPrismaUnitOfWork } from '../src/adapters/prisma/unit-of-work.js';
 import { createRecordPluginRead } from '../src/domain/registry/record-plugin-read.js';
 import type { ShipCaller } from '../src/domain/shared/caller.js';
@@ -26,7 +27,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
-  await core?.close();
+  await core.close();
 });
 
 function failedRead(pluginShipId: ShipId) {
@@ -40,6 +41,8 @@ it('carries the recorded failure with the detail and the fleet list', async () =
   const list = await core.useCases.listFleet(argo);
   const failure = { at: core.clock.now().toISOString(), read: 'guard.get', reason: 'timeout' };
   const pluginReads = { lastFailed: failure, failingSince: failure, lastGood: null };
+  const stored = await core.prisma.ship.findUniqueOrThrow({ where: { fleetId_id: { fleetId: argo.fleetId, id: pluginShipId } } });
+  expect(toShip(stored).pluginReads).toEqual(pluginReads);
   expect(detail).toMatchObject({ pluginReads });
   expect(list.ships.find((ship) => ship.id === pluginShipId)).toMatchObject({ pluginReads });
   expect(list.ships.find((ship) => ship.id === argo.shipId)).toMatchObject({ pluginReads: null });
@@ -67,12 +70,28 @@ it('rollback leaves no event, fact or counter increment', async () => {
 });
 
 it('locks and reads the plugin fact through the fleet and ship key', async () => {
-  const ships = createPrismaShipRepository(core.prisma);
-  const listing = createPrismaFleetListing(core.prisma);
+  const id = createIdGenerator();
+  await core.prisma.ship.createMany({ data: Array.from({ length: 3_000 }, (_, index) => ({
+    id: id('ship'), fleetId: argo.fleetId, name: `agent-${index}`, type: 'agent', kind: 'agent', scopes: [], createdAt: core.clock.now(),
+  })) });
+  await core.prisma.$executeRaw`ANALYZE ships`;
 
-  await expect(ships.findForUpdate(argo.fleetId, pluginShipId)).resolves.toMatchObject({ id: pluginShipId });
-  await expect(listing.ship(argo.fleetId, pluginShipId)).resolves.toBeDefined();
-  await assertIndexedPlan(core.prisma, Prisma.sql`
-    SELECT plugin_reads FROM ships WHERE fleet_id = ${argo.fleetId} AND id = ${pluginShipId} FOR NO KEY UPDATE
-  `);
+  const statements: { query: string; params: string }[] = [];
+  const db = createPrismaClientTellingStatements(core.databaseUrl, (query, params) => statements.push({ query, params }));
+  try {
+    const ships = createPrismaShipRepository(db);
+    const listing = createPrismaFleetListing(db);
+
+    await expect(ships.findForUpdate(argo.fleetId, pluginShipId)).resolves.toMatchObject({ id: pluginShipId });
+    await expect(listing.ship(argo.fleetId, pluginShipId)).resolves.toBeDefined();
+
+    const reads = statements.filter(({ query }) => query.includes('plugin_reads'));
+    expect(reads).toHaveLength(2);
+    for (const statement of reads) {
+      const plan = await assertIndexedPlan(core.prisma, statement);
+      expect(plan).toMatch(/"Index Name": "ships_(?:pkey|fleet_id_id_key)"/);
+    }
+  } finally {
+    await db.$disconnect();
+  }
 });

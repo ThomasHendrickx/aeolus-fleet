@@ -232,6 +232,7 @@ const ERROR_CODES: Record<DomainErrorKind, TRPCError['code']> = {
   // BAD_REQUEST, as when the schema at the door refuses the same payload.
   PAYLOAD_TOO_LARGE: 'BAD_REQUEST',
   PING_NOT_RESENT: 'CONFLICT',
+  PLUGIN_NOT_FOUND: 'NOT_FOUND',
   // BAD_REQUEST, as for a payload over its limit.
   REPORT_DETAILS_TOO_LARGE: 'BAD_REQUEST',
   RESERVED_CONTENT_TYPE: 'FORBIDDEN',
@@ -279,6 +280,7 @@ const SHIP_REFUSAL_CODES = [
   'DELIVERY_NOT_UNDELIVERABLE',
   'KEY_UNAVAILABLE',
   'IDEMPOTENCY_KEY_REUSED',
+  'PLUGIN_NOT_FOUND',
 ] as const satisfies readonly DomainErrorKind[];
 
 type ShipRefusalCodeKind = (typeof SHIP_REFUSAL_CODES)[number];
@@ -714,7 +716,7 @@ export function actorScopedProcedure(scope: Scope) {
  * of the network rules, which changes the rules and defines labels (design
  * network-io, Q5). Checked before any use case runs, as for one scope.
  */
-export function actorAllScopesProcedure(...scopes: [Scope, Scope, ...Scope[]]) {
+export function actorAllScopesProcedure(...scopes: [Scope, ...Scope[]]) {
   return actorProcedure.use(async ({ ctx, next }) => {
     if (!scopes.every((scope) => hasScope(ctx.caller, scope))) {
       throw new TRPCError({ code: 'FORBIDDEN', message: `This call needs the ${scopes.join(' and ')} scopes` });

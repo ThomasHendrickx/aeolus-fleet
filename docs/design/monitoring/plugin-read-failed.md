@@ -52,7 +52,7 @@ A ship of kind `plugin` carries `pluginReads`, null on every other ship:
 | `lastGood` | The last good read: `at`, `read`. Null before any |
 | `failingSince` | The first failed read since the last good one: `at`, `read`, `reason`. Null when the last recorded read was good, or none was recorded. It is Q4's occurrence |
 
-- `read` is the read's name as the console calls it (`guard.get`); core checks its shape only.
+- `read` is the name as the console calls it (`guard.get`), at most 64 characters, in nonempty segments of lowercase ASCII letters, digits and hyphens joined by dots.
 - `reason` is `no-answer`, `timeout` or `unusable-answer` (Q3).
 - `at` is core's clock when it records, never a time from the request.
 - Read: `fleet.ship` and `fleet.list` carry it on the ship (`fleet:read`, read reach), so the console and the watch read it with the ship.
