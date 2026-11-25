@@ -57,10 +57,12 @@ export function RuleSetsContainer() {
     if (await guard.save(change)) setDialog(undefined);
   };
   const onReadAgain = () => { void guard.readAgain(); };
-  const isDisabled = guard.action !== undefined || guard.query.isFetching || guard.query.isError || guard.error?.shouldReadAgain === true;
+  const isDisabled = guard.isWriteDisabled;
   const management = canChange ? {
     isDisabled,
     floorSave: guard.floorSave,
+    repositoryUpdates: guard.repositoryUpdates,
+    onUpdate: (repository: string) => { void guard.updateRepository(repository); },
     onAdd: () => { open({ kind: 'add' }); },
     onRemove: (repository: string) => { open({ kind: 'remove', repository }); },
     onSetFloor: (name: string, isIncluded: boolean) => { void save({ kind: 'floor', name, isIncluded }); },

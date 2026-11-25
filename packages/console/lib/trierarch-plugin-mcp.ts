@@ -1,3 +1,4 @@
+import { TRIERARCH_PLUGIN_NO_ANSWER } from './no-answer';
 import { sessionCookieOf } from './plugin-call';
 import { trierarchPluginUrlFrom } from './trierarch-plugin-url';
 import { guardAnswerSchemas } from './trierarch-plugin-guard-schemas';
@@ -7,7 +8,7 @@ import { mcpAnswerSchemas } from './trierarch-plugin-mcp-schemas';
  * The trierarch plugin's MCP and guard configuration procedures as the console reaches them.
  * The web app's server forwards them with only the caller's console
  * sign-in cookies and the Origin it sent, never one made up, and for a
- * replacement its content type and body unchanged. The plugin checks the
+ * mutation its content type and body unchanged. The plugin checks the
  * session, scope and Origin, and its refusals go back as they are. Successful answers are parsed here
  * and projected to metadata or a committed version, never secret values. The body holds
  * secret values: nothing here logs it or names it. A body over the plugin's own
@@ -27,6 +28,7 @@ const noAnswerMessages: Record<ConfigurationProcedure, string> = {
   'mcp.replace': 'The trierarch plugin did not answer: read mcp.get before replacing again',
   'guard.get': 'The trierarch plugin did not answer: read guard.get again',
   'guard.replace': 'The trierarch plugin did not answer: read guard.get before replacing again',
+  'guard.update': TRIERARCH_PLUGIN_NO_ANSWER,
 };
 
 export async function forwardMcpCall(
@@ -45,20 +47,20 @@ export async function forwardMcpCall(
     headers.origin = origin;
   }
   const contentType = request.headers.get('content-type');
-  const isReplacement = procedure === 'mcp.replace' || procedure === 'guard.replace';
-  if (isReplacement && contentType !== null) {
+  const isMutation = procedure === 'mcp.replace' || procedure === 'guard.replace' || procedure === 'guard.update';
+  if (isMutation && contentType !== null) {
     headers['content-type'] = contentType;
   }
-  const body = isReplacement ? await bodyWithin(request, BODY_MAX_BYTES) : undefined;
+  const body = isMutation ? await bodyWithin(request, BODY_MAX_BYTES) : undefined;
   if (body?.kind === 'tooLarge') {
-    const configuration = procedure === 'guard.replace' ? 'guard' : 'MCP';
+    const configuration = procedure.startsWith('guard.') ? 'guard' : 'MCP';
     return Response.json({ error: { message: `The ${configuration} configuration body is over 1 MiB` } }, { status: 413 });
   }
   let answer: Response;
   let answerText: string;
   try {
     answer = await fetchImplementation(`${url}/trpc/${procedure}`, {
-      method: isReplacement ? 'POST' : 'GET',
+      method: isMutation ? 'POST' : 'GET',
       headers,
       ...(body === undefined ? {} : { body: body.text }),
       cache: 'no-store',

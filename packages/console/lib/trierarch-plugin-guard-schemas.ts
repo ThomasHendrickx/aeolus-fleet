@@ -17,7 +17,10 @@ const configurationSchema = z.object({
 
 export type GuardConfiguration = z.infer<typeof configurationSchema>;
 
+const catalogueAnswerSchema = z.object({ result: z.object({ data: configurationSchema }) });
+
 export const guardAnswerSchemas = {
-  'guard.get': z.object({ result: z.object({ data: configurationSchema }) }),
+  'guard.get': catalogueAnswerSchema,
+  'guard.update': catalogueAnswerSchema,
   'guard.replace': z.object({ result: z.object({ data: z.object({ version: z.int().positive() }) }) }),
 };

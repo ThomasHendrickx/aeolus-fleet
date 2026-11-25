@@ -5,8 +5,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { showToast } from '@aeolus-fleet/ui';
 import type { FleetId } from '@aeolus-fleet/common';
 import { useConsoleRead } from '../../../lib/console-read-query';
-import { guardReplacement, type GuardChange, type GuardSaveError } from '../services/guard-configuration';
-import { readGuardConfiguration, replaceGuardConfiguration } from './guard-configuration-client';
+import { guardReplacement, type GuardChange, type GuardSaveError, type RepositoryUpdate } from '../services/guard-configuration';
+import { readGuardConfiguration, replaceGuardConfiguration, updateGuardRepository } from './guard-configuration-client';
 
 function done(change: GuardChange): string {
   switch (change.kind) {
@@ -23,15 +23,17 @@ export function useGuardConfiguration({ fleetId, isEnabled, canChange }: {
   canChange: boolean;
 }) {
   const queryClient = useQueryClient();
+  const queryKey = ['trierarch-plugin', 'guard-configuration', fleetId];
   const query = useConsoleRead({
-    queryKey: ['trierarch-plugin', 'guard-configuration', fleetId],
+    queryKey,
     queryFn: ({ signal }) => readGuardConfiguration(signal),
     enabled: isEnabled,
     refetchOnWindowFocus: false,
     retry: false,
   });
   const isWriting = useRef(false);
-  const [action, setAction] = useState<GuardChange['kind']>();
+  const [action, setAction] = useState<GuardChange['kind'] | 'update'>();
+  const [repositoryUpdates, setRepositoryUpdates] = useState<ReadonlyMap<string, RepositoryUpdate>>(() => new Map());
   const [floorSave, setFloorSave] = useState<{ name: string; state: 'pending' | 'success' | 'failure' }>();
   const [error, setError] = useState<GuardSaveError>();
   const readAgain = async () => {
@@ -40,8 +42,41 @@ export function useGuardConfiguration({ fleetId, isEnabled, canChange }: {
     return result.isSuccess;
   };
 
+  const isWriteDisabled = query.data === undefined || query.isError || query.isFetching || error?.shouldReadAgain === true;
+  const canWrite = () => canChange && !isWriteDisabled && !isWriting.current;
+  const recordUpdate = (repository: string, update: RepositoryUpdate) => {
+    setRepositoryUpdates((current) => new Map(current).set(repository, update));
+  };
+
+  const updateRepository = async (repository: string): Promise<void> => {
+    if (!canWrite()) return;
+    isWriting.current = true;
+    setAction('update');
+    recordUpdate(repository, { state: 'pending' });
+    try {
+      const result = await updateGuardRepository(repository);
+      if (result.kind === 'unconfirmed') {
+        recordUpdate(repository, { state: 'failure', reason: result.reason, hasStoredCopy: false });
+        return;
+      }
+      const { configuration } = result;
+      queryClient.setQueryData(queryKey, configuration);
+      const readError = configuration.errors.find((entry) => entry.repository === repository && entry.file === undefined);
+      if (readError !== undefined) {
+        const stored = configuration.repositories.find((entry) => entry.repository === repository);
+        recordUpdate(repository, { state: 'failure', reason: readError.reason, hasStoredCopy: stored?.readCommit != null });
+        return;
+      }
+      recordUpdate(repository, { state: 'success' });
+      void queryClient.invalidateQueries({ queryKey: ['trierarch-plugin', 'guard-choices'] });
+    } finally {
+      isWriting.current = false;
+      setAction(undefined);
+    }
+  };
+
   const save = async (change: GuardChange): Promise<boolean> => {
-    if (!canChange || query.data === undefined || query.isError || query.isFetching || isWriting.current || error?.shouldReadAgain) return false;
+    if (!canWrite() || query.data === undefined) return false;
     isWriting.current = true;
     setAction(change.kind);
     setError(undefined);
@@ -54,6 +89,13 @@ export function useGuardConfiguration({ fleetId, isEnabled, canChange }: {
           query.refetch(),
           queryClient.invalidateQueries({ queryKey: ['trierarch-plugin', 'guard-choices'] }),
         ]);
+        if (change.kind === 'remove') {
+          setRepositoryUpdates((current) => {
+            const remaining = new Map(current);
+            remaining.delete(change.repository);
+            return remaining;
+          });
+        }
         showToast({ title: done(change) });
         didSave = true;
         return true;
@@ -77,7 +119,8 @@ export function useGuardConfiguration({ fleetId, isEnabled, canChange }: {
   };
 
   return {
-    query, action, error, save, readAgain,
+    query, action, error, save, readAgain, repositoryUpdates, updateRepository,
+    isWriteDisabled: isWriteDisabled || action !== undefined,
     floorSave: floorSave?.state === 'failure' && error === undefined ? undefined : floorSave,
     resetError: () => { setError((current) => current?.shouldReadAgain ? current : undefined); },
   };

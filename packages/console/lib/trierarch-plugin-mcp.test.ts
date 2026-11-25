@@ -222,3 +222,52 @@ it('replaces the guard configuration with the console session and Origin and ret
     headers: { cookie: SIGN_IN_COOKIES, origin: CONSOLE_ORIGIN, 'content-type': 'application/json' }, body: replacement,
   }]);
 });
+
+it('forwards one repository update and returns the stored commits, counts and failure reason', async () => {
+  // Given a plugin that could not read the selected repository and kept its stored copy.
+  const data = {
+    version: 1,
+    repositories: [{ repository: 'company/rules', folder: 'rules', access: 'private', readCommit: '8d41e07' }],
+    sets: [{ name: 'no-push', repository: 'company/rules', commit: '8d41e07', file: 'rules/no-push.yaml', rulesCount: 3 }],
+    errors: [{ repository: 'company/rules', reason: 'GitHub did not respond.' }],
+    conflicts: [],
+    floor: ['no-push'],
+  };
+  const plugin = aPlugin(() => Promise.resolve(Response.json({ result: { data: {
+    ...data,
+    repositories: data.repositories.map((repository) => ({ ...repository, token: 'not-returned' })),
+    sets: data.sets.map((set) => ({ ...set, rules: { git: { deny: ['push'] } } })),
+  } } })));
+  const body = JSON.stringify({ repository: 'company/rules' });
+
+  // When an operator sends Update from the console.
+  const response = await forwardMcpCall(aRequest('/api/trierarch-plugin/guard.update', {
+    method: 'POST', headers: { cookie: COOKIE, origin: CONSOLE_ORIGIN, 'content-type': 'application/json' }, body,
+  }), { procedure: 'guard.update', environment: ENVIRONMENT, fetchImplementation: plugin.fetch });
+
+  // Then the plugin receives the selected repository and the console gets the safe catalogue.
+  expect(plugin.sent).toEqual([{
+    url: 'https://plugin.example/trpc/guard.update', method: 'POST',
+    headers: { cookie: SIGN_IN_COOKIES, origin: CONSOLE_ORIGIN, 'content-type': 'application/json' }, body,
+  }]);
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({ result: { data } });
+});
+
+it('answers with the trierarch read error when the plugin returns no usable Update reply', async () => {
+  // Given a trierarch plugin that answers without a catalogue.
+  const plugin = aPlugin(() => Promise.resolve(Response.json({ result: { data: {} } })));
+
+  // When an operator updates the repository through the console.
+  const response = await forwardMcpCall(aRequest('/api/trierarch-plugin/guard.update', {
+    method: 'POST',
+    headers: { cookie: COOKIE, origin: CONSOLE_ORIGIN, 'content-type': 'application/json' },
+    body: JSON.stringify({ repository: 'company/rules' }),
+  }), { procedure: 'guard.update', environment: ENVIRONMENT, fetchImplementation: plugin.fetch });
+
+  // Then the console answers with the existing trierarch read error.
+  expect(response.status).toBe(502);
+  expect(await response.json()).toEqual({
+    error: { message: 'the trierarch plugin or the fleet did not answer: try again in a moment' },
+  });
+});

@@ -1,7 +1,7 @@
 import { createTRPCClient, httpBatchLink } from '@trpc/client';
 import type { FastifyInstance } from 'fastify';
 import type { Browser } from 'playwright';
-import { afterAll, beforeAll, beforeEach, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, expect, it, onTestFinished } from 'vitest';
 import { z } from 'zod';
 import type { GuardConfiguration } from '../packages/console/lib/trierarch-plugin-guard-schemas.js';
 import { createApp } from '../packages/core/src/app.js';
@@ -14,12 +14,14 @@ import { startFakeTrierarchPlugin, type FakeTrierarchPlugin } from './support/fa
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 
 const INSTALLATION_TOKEN = 'aeolus_installation_test_rule_sets';
+const STORED_COMMIT = '8d41e07a1234567890';
+const UPDATED_COMMIT = 'a73c19e1234567890';
 const GUARD_CATALOGUE: GuardConfiguration = {
   version: 1,
-  repositories: [{ repository: 'acme/guard-rules', folder: 'rules/', access: 'private', readCommit: '8d41e07a1234567890' }],
+  repositories: [{ repository: 'acme/guard-rules', folder: 'rules/', access: 'private', readCommit: STORED_COMMIT }],
   sets: [
-    { name: 'base', repository: 'acme/guard-rules', file: 'rules/base.yaml', commit: '8d41e07a1234567890', rulesCount: 6 },
-    { name: 'docs-only', repository: 'acme/guard-rules', file: 'rules/docs-only.yaml', commit: '8d41e07a1234567890', rulesCount: 4 },
+    { name: 'base', repository: 'acme/guard-rules', file: 'rules/base.yaml', commit: STORED_COMMIT, rulesCount: 6 },
+    { name: 'docs-only', repository: 'acme/guard-rules', file: 'rules/docs-only.yaml', commit: STORED_COMMIT, rulesCount: 4 },
   ],
   errors: [],
   conflicts: [],
@@ -41,6 +43,9 @@ let accountApp: FakeAccountApp | undefined;
 let serverUrl: string;
 let catalogue = GUARD_CATALOGUE;
 let heldWrite: Promise<undefined> | undefined;
+let isRepositoryAvailable = true;
+const guardUpdate = z.strictObject({ repository: z.literal('acme/guard-rules') });
+let repositoryCommit = UPDATED_COMMIT;
 
 function holdNextWrite() {
   const write = Promise.withResolvers<undefined>();
@@ -67,6 +72,25 @@ beforeAll(async () => {
   plugin = await startFakeTrierarchPlugin({
     guard: {
       read: () => catalogue,
+      update: async (input) => {
+        const parsed = guardUpdate.safeParse(input);
+        if (!parsed.success) return { status: 400, body: { error: { message: 'Expected the selected repository' } } };
+        const { repository } = parsed.data;
+        const answer = heldWrite;
+        heldWrite = undefined;
+        await answer;
+        if (!isRepositoryAvailable) {
+          return { status: 200, body: { result: { data: {
+            ...catalogue, errors: [...catalogue.errors, { repository, reason: 'GitHub did not respond.' }],
+          } } } };
+        }
+        catalogue = {
+          ...catalogue,
+          repositories: catalogue.repositories.map((entry) => entry.repository === repository ? { ...entry, readCommit: repositoryCommit } : entry),
+          sets: catalogue.sets.map((set) => set.repository === repository ? { ...set, commit: repositoryCommit } : set),
+        };
+        return { status: 200, body: { result: { data: catalogue } } };
+      },
       replace: async (input) => {
         const parsed = guardReplacement.safeParse(input);
         const refusal = { status: 400, body: { error: { message: 'Invalid guard configuration' } } };
@@ -104,6 +128,8 @@ beforeEach(() => {
   catalogue = GUARD_CATALOGUE;
   receivedWrites.length = 0;
   heldWrite = undefined;
+  isRepositoryAvailable = true;
+  repositoryCommit = UPDATED_COMMIT;
 });
 
 afterAll(async () => {
@@ -141,6 +167,7 @@ it('opens Rule sets from Machines and reads repository commits, rule counts and 
     await page.getByRole('row', { name: /^docs-only / }).getByRole('cell', { name: '4', exact: true }).waitFor();
     await base.getByRole('cell', { name: 'Yes', exact: true }).waitFor();
     expect(await page.getByRole('switch').count()).toBe(0);
+    expect(await page.getByRole('button', { name: /^Update/ }).count()).toBe(0);
     expect(await page.getByRole('button', { name: 'Add repository' }).count()).toBe(0);
   } finally {
     await context.close();
@@ -233,6 +260,7 @@ it('shows file errors and conflicts by set name and lets a manager clear a floor
     await page.goto('/trierarchs/rule-sets');
     await page.getByText('rules/broken.yaml', { exact: true }).waitFor({ timeout: 5000 });
     await page.getByText('no-push', { exact: true }).waitFor();
+    await page.getByText('Fix the file in its repository, then select Update.', { exact: false }).waitFor();
 
     // When the manager confirms removing the repository that provided the floor.
     await page.getByTestId('rule-sets-remove-acme/guard-rules').filter({ visible: true }).click({ timeout: 5000 });
@@ -262,4 +290,100 @@ it('shows file errors and conflicts by set name and lets a manager clear a floor
     releaseClear?.();
     await context.close();
   }
+});
+
+async function openStoredRuleSetsAsOperator() {
+  if (browser === undefined || web === undefined || accountApp === undefined) throw new Error('The console did not start');
+  catalogue = {
+    ...GUARD_CATALOGUE,
+    repositories: [...GUARD_CATALOGUE.repositories, { repository: 'acme/other-rules', folder: 'guard/', access: 'public', readCommit: 'c258bd3123456789' }],
+  };
+  const { fleetId } = await installation().fleets.create.mutate({ requestId: newKey(), name: 'Acme', operatorEmail: 'update@example.com' });
+  accountApp.signInAs({
+    id: 'acc-guard-updater', email: 'update@acme.example',
+    fleets: [{ id: fleetId, name: 'Acme', scopes: ['fleet:read', 'trierarch:guard'] }],
+  });
+  const context = await browser.newContext({ baseURL: web.url, reducedMotion: 'reduce' });
+  onTestFinished(() => context.close());
+  const page = await context.newPage();
+  await page.clock.setFixedTime(new Date());
+  await page.goto('/');
+  await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
+  await page.goto('/trierarchs/rule-sets');
+  const repository = page.getByRole('row', { name: /^acme\/guard-rules / });
+  const update = repository.getByTestId('rule-sets-update-acme/guard-rules');
+  await repository.getByText('8d41e07', { exact: true }).waitFor();
+  await update.waitFor({ timeout: 5000 });
+  return { page, repository, update };
+}
+
+it('shows Update working while the repository read is pending', async () => {
+  // Given an operator viewing stored rule sets and a repository read held open.
+  const { page, update } = await openStoredRuleSetsAsOperator();
+  await page.getByText('New requests use the stored copy.', { exact: false }).waitFor();
+  const releaseUpdate = holdNextWrite();
+  try {
+    // When the operator selects Update.
+    await update.click();
+
+    // Then the control shows Updating and cannot be pressed again while the read is pending.
+    await expect.poll(() => update.getAttribute('data-state')).toBe('pending');
+    await expect.poll(() => update.isDisabled()).toBe(true);
+    await expect.poll(() => update.textContent()).toContain('Updating');
+  } finally {
+    releaseUpdate();
+  }
+});
+
+it('keeps the stored rule sets visible when the repository read fails', async () => {
+  // Given an operator viewing stored rule sets whose repository cannot be read.
+  const { page, repository, update } = await openStoredRuleSetsAsOperator();
+  isRepositoryAvailable = false;
+
+  // When the operator selects Update.
+  await update.click();
+
+  // Then the failure explains that the stored copy was kept and the copy stays visible.
+  const failure = page.getByRole('alert').filter({ hasText: 'Update failed' });
+  await failure.getByText('GitHub did not respond.', { exact: true }).waitFor();
+  await failure.getByText('Kept the stored copy.', { exact: true }).waitFor();
+  await repository.getByText('8d41e07', { exact: true }).waitFor();
+  const ruleSet = page.getByRole('row', { name: /^base / });
+  await ruleSet.getByText('8d41e07', { exact: true }).waitFor();
+  await ruleSet.getByRole('cell', { name: '6', exact: true }).waitFor();
+});
+
+it('updates only the selected repository when the operator retries successfully', async () => {
+  // Given two stored repositories and a failed update whose repository is available again.
+  const { page, repository, update } = await openStoredRuleSetsAsOperator();
+  const otherRepository = page.getByRole('row', { name: /^acme\/other-rules / });
+  await otherRepository.getByText('c258bd3', { exact: true }).waitFor();
+  isRepositoryAvailable = false;
+  await update.click();
+  const failure = page.getByRole('alert').filter({ hasText: 'Update failed' });
+  await failure.waitFor();
+  isRepositoryAvailable = true;
+
+  // When the operator retries Update for the same repository.
+  await update.click();
+
+  // Then only the selected repository and its rule sets show the new commit.
+  await repository.getByText('Updated', { exact: true }).waitFor();
+  await repository.getByText('a73c19e', { exact: true }).waitFor();
+  await page.getByRole('row', { name: /^base / }).getByText('a73c19e', { exact: true }).waitFor();
+  await otherRepository.getByText('c258bd3', { exact: true }).waitFor();
+  await failure.waitFor({ state: 'hidden' });
+});
+
+it('shows Updated when the repository is read at its stored commit', async () => {
+  // Given an operator viewing stored rule sets whose repository is still at that commit.
+  const { repository, update } = await openStoredRuleSetsAsOperator();
+  repositoryCommit = STORED_COMMIT;
+
+  // When the operator selects Update.
+  await update.click();
+
+  // Then the repository shows a successful update at the same commit.
+  await repository.getByText('Updated', { exact: true }).waitFor();
+  await repository.getByText('8d41e07', { exact: true }).waitFor();
 });

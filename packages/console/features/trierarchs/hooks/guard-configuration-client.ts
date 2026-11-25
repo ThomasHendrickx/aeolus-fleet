@@ -1,3 +1,4 @@
+import { TRIERARCH_PLUGIN_NO_ANSWER } from '../../../lib/no-answer';
 import type { GuardConfiguration } from '../../../lib/trierarch-plugin-guard-schemas';
 import type { guardReplacement } from '../services/guard-configuration';
 
@@ -58,4 +59,23 @@ export async function replaceGuardConfiguration(replacement: ReturnType<typeof g
     return { kind: 'uncertain', message: WRITE_FAILURE };
   }
   return { kind: 'uncertain', message: WRITE_FAILURE };
+}
+
+
+export async function updateGuardRepository(repository: string): Promise<
+  { kind: 'answered'; configuration: GuardConfiguration } | { kind: 'unconfirmed'; reason: string }
+> {
+  try {
+    const response = await fetch('/api/trierarch-plugin/guard.update', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ repository }),
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    const answer: unknown = await response.json();
+    if (response.ok && hasCatalogue(answer)) return { kind: 'answered', configuration: answer.result.data };
+    return { kind: 'unconfirmed', reason: refusal(answer) ?? TRIERARCH_PLUGIN_NO_ANSWER };
+  } catch {
+    return { kind: 'unconfirmed', reason: TRIERARCH_PLUGIN_NO_ANSWER };
+  }
 }

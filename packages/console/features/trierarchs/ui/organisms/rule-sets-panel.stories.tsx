@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { useState } from 'react';
 import { expect, screen, userEvent } from 'storybook/test';
 import type { GuardConfiguration } from '../../../../lib/trierarch-plugin-guard-schemas';
+import type { RepositoryUpdate } from '../../services/guard-configuration';
 import { AddRuleSetRepositoryDialog } from './add-rule-set-repository-dialog';
 import { GuardSaveNotice } from './guard-save-notice';
 import { RemoveRuleSetRepositoryDialog } from './remove-rule-set-repository-dialog';
@@ -20,7 +21,7 @@ const catalogue: GuardConfiguration = {
   conflicts: [],
 };
 const noop = () => undefined;
-const management = { isDisabled: false, onAdd: noop, onRemove: noop, onSetFloor: noop };
+const management = { isDisabled: false, onUpdate: noop, onAdd: noop, onRemove: noop, onSetFloor: noop };
 const writeFailure = <GuardSaveNotice error={{ message: 'Invalid guard configuration' }} isReading={false} onReadAgain={noop} />;
 
 const meta = {
@@ -32,6 +33,32 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Ready: Story = {};
+
+function withRepositoryUpdate(update: RepositoryUpdate) {
+  return { ...management, repositoryUpdates: new Map([['acme/guard-rules', update]]) };
+}
+
+export const UpdatingRepository: Story = {
+  args: { management: withRepositoryUpdate({ state: 'pending' }) },
+};
+
+const updatedCommit = 'a73c19e1234567890';
+export const UpdatedRepository: Story = {
+  args: {
+    configuration: {
+      ...catalogue,
+      repositories: catalogue.repositories.map((repository) => ({ ...repository, readCommit: updatedCommit })),
+      sets: catalogue.sets.map((set) => ({ ...set, commit: updatedCommit })),
+    },
+    management: withRepositoryUpdate({ state: 'success' }),
+  },
+};
+
+export const RepositoryUpdateFailure: Story = {
+  args: {
+    management: withRepositoryUpdate({ state: 'failure', reason: 'GitHub did not respond.', hasStoredCopy: true }),
+  },
+};
 export const Empty: Story = { args: { configuration: { ...catalogue, repositories: [], sets: [], floor: [] } } };
 export const Loading: Story = { args: { configuration: undefined, isReading: true } };
 export const ReadFailure: Story = { args: { configuration: undefined, error: 'The trierarch plugin did not answer with its rule sets.' } };
