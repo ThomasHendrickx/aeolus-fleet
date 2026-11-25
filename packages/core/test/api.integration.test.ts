@@ -325,6 +325,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_person_meeting_intervention$/),
       expect.stringMatching(/^\d{14}_meeting_call_question$/),
       expect.stringMatching(/^\d{14}_guard_status$/),
+      expect.stringMatching(/^\d{14}_crew_settings_version$/),
     ]);
   });
 });
