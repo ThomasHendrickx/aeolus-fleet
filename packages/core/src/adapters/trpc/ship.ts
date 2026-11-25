@@ -204,7 +204,7 @@ export const shipRouter = router({
         'id is a new uuid you make for the question and keep: an answer names it, and withdraw takes it.',
         'title says what to decide; context what it takes to answer, may be empty;',
         'options are numbered choices { "key": 1, "label": "...", "detail": "..." }, each key a positive whole number of its own, detail optional;',
-        'pick { "option": <a key>, "why": "..." } is the option you would choose and why.',
+        'pick is optional; when given, { "option": <a key>, "why": "..." } is the option you would choose and why.',
         'A field that breaks these rules is refused (BAD_REQUEST) naming it, and nothing is sent: correct it and call again.',
         'It answers with the messageId once the question is stored, as send does: an answer comes as a reply to it (inReplyTo).',
         'model and idempotencyKey are as on send: after an error or a lost answer, call again with the same id, fields, selector and key, and get the original messageId.',

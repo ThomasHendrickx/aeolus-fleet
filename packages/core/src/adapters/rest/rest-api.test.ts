@@ -1084,7 +1084,7 @@ describe('ask, step and withdraw at /api/v1 (docs/design/ask-and-step)', () => {
   it('ask: accepts a question without a pick', async () => {
     start();
     const crewToken = crewedShip('scout');
-    const { pick: _pick, ...question } = aQuestionInput;
+    const question = Object.fromEntries(Object.entries(aQuestionInput).filter(([key]) => key !== 'pick'));
 
     const response = await post('ask', { crewToken, body: question });
 

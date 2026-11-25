@@ -45,20 +45,20 @@ const textSchema = z.string().min(1);
 /** An option: its number, a label, and a detail, empty when the asker sent none (#854): a question is its type, not a perfect format. */
 const optionSchema = z.object({ key: optionKeySchema, label: textSchema, detail: z.string().default('') });
 
-/** A question: its own uuid, a title, the context to answer from, numbered options, and the asker's pick and why. */
+/** A question: its own uuid, a title, the context to answer from, numbered options, and optionally the asker's pick and why. */
 export const questionSchema = z
   .object({
     id: z.uuid(),
     title: textSchema,
     context: z.string(),
     options: z.array(optionSchema).min(1),
-    pick: z.object({ option: optionKeySchema, why: textSchema }),
+    pick: z.object({ option: optionKeySchema, why: textSchema }).optional(),
   })
   .refine(({ options }) => new Set(options.map(({ key }) => key)).size === options.length, {
     message: 'Every option has its own number',
     path: ['options'],
   })
-  .refine(({ options, pick }) => options.some(({ key }) => key === pick.option), {
+  .refine(({ options, pick }) => pick === undefined || options.some(({ key }) => key === pick.option), {
     message: 'The pick names one of the options',
     path: ['pick', 'option'],
   });
@@ -106,7 +106,7 @@ export const inboxQuestionSchema = z.object({
   title: z.string(),
   context: z.string(),
   options: z.array(optionSchema),
-  pick: z.object({ option: optionKeySchema, why: z.string() }),
+  pick: z.object({ option: optionKeySchema, why: z.string() }).optional(),
   answer: inboxAnswerSchema.nullable(),
 });
 

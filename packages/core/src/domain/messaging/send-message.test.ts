@@ -666,7 +666,7 @@ describe('declared formatted messages', () => {
 
 describe('formatted message preservation', () => {
   it('accepts a raw question without a pick', async () => {
-    const { pick: _pick, ...question } = aQuestion();
+    const question = Object.fromEntries(Object.entries(aQuestion()).filter(([key]) => key !== 'pick'));
     const payload = JSON.stringify(question);
 
     const messageId = await sent(argo, aReview({ payload, contentType: 'application/vnd.aeolus.question+json' }));

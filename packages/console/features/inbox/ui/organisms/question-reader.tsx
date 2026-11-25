@@ -112,7 +112,7 @@ function StaleNotice({ question, onSelect }: { question: QuestionEntry; onSelect
 
 function OptionText({ option, question, isChosen, isSuggested = false }: { option: Option; question: QuestionEntry; isChosen: boolean; isSuggested?: boolean }) {
   const { pick } = question.question;
-  const isPicked = option.key === pick.option;
+  const isPicked = option.key === pick?.option;
   return (
     <span className="flex min-w-0 flex-col gap-0.5">
       <span className="flex flex-wrap items-center gap-2 text-body font-medium text-foreground max-sm:text-body-touch">
@@ -187,7 +187,7 @@ function AnswerForm({
   const noteId = `${id}-note`;
   const { options, pick } = question.question;
   const held = heldAnswerOf({ failure, draft });
-  const [option, setOption] = useState<number | undefined>(held === undefined ? pick.option : held.option);
+  const [option, setOption] = useState<number | undefined>(held === undefined ? pick?.option : held.option);
   const [note, setNote] = useState(held?.note ?? '');
   // The pick stays a suggestion until the operator chooses an option themselves (#870).
   const [hasChosen, setHasChosen] = useState(held !== undefined);
@@ -195,7 +195,7 @@ function AnswerForm({
   const change = (next: AnswerDraft) => {
     setOption(next.option);
     setNote(next.note);
-    onDraftChange?.(next.option === pick.option && next.note.trim() === '' ? undefined : next);
+    onDraftChange?.(next.option === pick?.option && next.note.trim() === '' ? undefined : next);
   };
   const choose = (next: number | undefined) => {
     setHasChosen(true);
