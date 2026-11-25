@@ -11,7 +11,7 @@ const plugin: ShipDetail = {
   type: 'trierarch-plugin',
   kind: 'plugin',
   harness: null,
-  location: { kind: 'SERVER' },
+  location: { kind: 'SERVER', description: null },
   scopes: ['fleet:read'],
   lastSeenAt: null,
   commissionedAt: '2026-11-25T09:12:00Z',
