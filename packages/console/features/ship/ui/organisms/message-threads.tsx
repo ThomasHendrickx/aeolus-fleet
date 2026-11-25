@@ -112,13 +112,7 @@ export function MessageThreads({ shipId, messages, state, isShipRemoved = false,
   }
   if (messages.length === 0 && !more) {
     if (isShipRemoved) {
-      return (
-        <EmptyState
-          icon={<Send />}
-          title="No messages kept"
-          className="gap-2 bg-transparent py-8 [&>span]:mb-1 [&>span]:size-11 [&>span]:border-0 [&>span>svg]:size-(--size-icon-lg) max-sm:[&>h2]:text-heading"
-        />
-      );
+      return <EmptyState icon={<Send />} title="No messages kept" />;
     }
     return (
       <EmptyState
