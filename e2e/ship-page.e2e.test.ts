@@ -1,5 +1,6 @@
+import type { ShipId } from '@aeolus-fleet/common';
 import type { FastifyInstance } from 'fastify';
-import type { Browser, BrowserContext, Locator, Page } from 'playwright';
+import type { Browser, BrowserContext, BrowserContextOptions, Locator, Page } from 'playwright';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
@@ -63,7 +64,7 @@ afterAll(async () => {
 
 /** A ship's session on the REST API, as its starting prompt tells it to connect. */
 interface Session {
-  shipId: string;
+  shipId: ShipId;
   call(operation: 'send' | 'receive' | 'ack' | 'report', body: Record<string, unknown>): Promise<unknown>;
 }
 
@@ -92,14 +93,22 @@ async function crewedOverRest(ship: { name: string; type: string }): Promise<Ses
 const sentSchema = z.object({ messageId: z.string() });
 const receivedSchema = z.object({ deliveries: z.array(z.object({ deliveryId: z.string(), messageId: z.string() })) });
 
-async function signedInPage(): Promise<Page> {
-  const context = await browser.newContext({ baseURL: web.url });
+async function signedInPage(options?: BrowserContextOptions): Promise<Page> {
+  const context = await browser.newContext({ ...options, baseURL: web.url });
   contexts.push(context);
   const page = await context.newPage();
   await signIn(page, OPERATOR);
   await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
   await page.goto('/?view=list');
   return page;
+}
+
+/** Closes the health snapshot before pruning, as the fleet's pass does. */
+async function pruneWithFiveDaysOfRetention(at: string): Promise<void> {
+  await database.$executeRaw`UPDATE fleets SET retention_set = true, retention_days = 5 WHERE id = ${argo.fleetId}`;
+  clock.set(at);
+  await useCases.closeHealthSnapshots();
+  await useCases.pruneHistory((_, error) => { throw error; });
 }
 
 /** A message's row, found by what it says: the question and its reply are rows of one thread. */
@@ -239,16 +248,8 @@ describe('the ship page', () => {
     unwrap(await useCases.retireShip(argo, { shipId: owner.shipId }));
     clock.set('2026-09-03T14:02:00.000Z');
     unwrap(await useCases.retireShip(argo, { shipId: tester.shipId }));
-    await database.$executeRaw`UPDATE fleets SET retention_set = true, retention_days = 5 WHERE id = ${argo.fleetId}`;
-    clock.set('2026-10-04T15:00:00.000Z');
-    await useCases.closeHealthSnapshots();
-    await useCases.pruneHistory((_, error) => { throw error; });
-
-    const context = await browser.newContext({ baseURL: web.url, timezoneId: 'UTC', reducedMotion: 'reduce' });
-    contexts.push(context);
-    const page = await context.newPage();
-    await signIn(page, OPERATOR);
-    await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
+    await pruneWithFiveDaysOfRetention('2026-10-04T15:00:00.000Z');
+    const page = await signedInPage({ timezoneId: 'UTC', reducedMotion: 'reduce' });
     await page.goto(`/ships/${peer.shipId}`);
 
     // When argo follows the link in the retained entry.
@@ -268,4 +269,28 @@ describe('the ship page', () => {
     await timeline.getByText('Commissioned', { exact: false }).first().waitFor();
   });
 
+  it('scenario 21: a removed ship whose messages were pruned shows No messages kept and the retention date', async () => {
+    // Given a removed ship whose only message was pruned after retirement.
+    clock.set('2026-10-07T10:00:00.000Z');
+    const sender = await crewedOverRest({ name: 'old-message-sender', type: 'planner' });
+    const tester = await crewedOverRest({ name: 'tester', type: 'core' });
+    await sender.call('send', {
+      selector: { kind: 'ship', shipId: tester.shipId },
+      payload: 'This delivery is abandoned on retirement',
+      idempotencyKey: newKey(),
+    });
+    clock.set('2026-10-08T14:02:00.000Z');
+    unwrap(await useCases.retireShip(argo, { shipId: tester.shipId }));
+    await pruneWithFiveDaysOfRetention('2026-11-04T15:00:00.000Z');
+    const page = await signedInPage({ timezoneId: 'UTC', reducedMotion: 'reduce' });
+    await page.goto(`/ships/${tester.shipId}`);
+
+    // When argo opens the remnant's Messages tab.
+    await page.getByRole('tab', { name: 'Messages' }).click();
+
+    // Then the empty state names the retained history and its cutoff.
+    const messages = page.getByRole('tabpanel');
+    await messages.getByRole('heading', { name: 'No messages kept' }).waitFor({ timeout: 6_000 });
+    await messages.getByText('This fleet keeps its finished history from 30 Oct 2026, 15:00. Older open deliveries stay.').waitFor();
+  });
 });
