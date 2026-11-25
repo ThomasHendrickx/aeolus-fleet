@@ -57,14 +57,17 @@ export function createRequestCrew(deps: { uow: UnitOfWork<RequestCrewTx>; clock:
       if (requestedBy === undefined) {
         return refuse('FLEET_NOT_FOUND', `Fleet ${caller.fleetId} does not exist`);
       }
-      const requested = requestCrew({ ship, current, labelValues }, { settings: input.settings, requestedBy, at: deps.clock.now(), actor: actorOf(caller) });
+      const lastSettingsVersion = await tx.crewRequests.lastSettingsVersion(caller.fleetId, ship.id);
+      const requested = requestCrew({ ship, current, labelValues, lastSettingsVersion }, { settings: input.settings, requestedBy, at: deps.clock.now(), actor: actorOf(caller) });
       if (!requested.isOk) {
         return requested;
       }
-      await tx.crewRequests.save(requested.value.request);
+      const { request } = requested.value;
+      await tx.crewRequests.save(request);
+      await tx.crewRequests.recordSettingsVersion(caller.fleetId, { shipId: ship.id, settingsVersion: request.settingsVersion });
       for (const event of requested.value.events) {
         await recordEvent({ events: tx.events, ids: deps.ids }, event);
       }
-      return ok({ settingsVersion: requested.value.request.settingsVersion });
+      return ok({ settingsVersion: request.settingsVersion });
     });
 }

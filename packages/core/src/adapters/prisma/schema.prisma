@@ -194,6 +194,8 @@ model Ship {
   commissionRequestHash String?           @map("commission_request_hash")
   /// The ship that directly owns it, a person ship, agent, app or argo (decision 0045); null for argo and the viewer.
   ownerShipId           String?           @map("owner_ship_id")
+  /// The last crew settings version issued, kept when the crew request is removed.
+  lastCrewSettingsVersion Int             @default(0) @map("last_crew_settings_version")
 
   fleet                Fleet                  @relation(fields: [fleetId], references: [id])
   owner                Ship?                  @relation("ShipOwner", fields: [fleetId, ownerShipId], references: [fleetId, id], onDelete: Restrict)

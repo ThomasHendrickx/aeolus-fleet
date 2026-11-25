@@ -176,6 +176,7 @@ export interface InMemoryState {
   /** Each lease's activity as its trierarch wrote it: the activity columns, apart from the Lease. */
   leaseActivities: { fleetId: FleetId; leaseId: Lease['id']; activity: LeaseActivity }[];
   crewRequests: CrewRequest[];
+  crewSettingsVersions: { fleetId: FleetId; shipId: ShipId; settingsVersion: number }[];
   /** The pending clear requests (decision 0032). */
   clearRequests: ClearRequest[];
   /** The fleet's labels, by key (decision 0031): a retired label is gone. */
@@ -429,6 +430,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     leaseTurns: [],
     leaseActivities: [],
     crewRequests: [],
+    crewSettingsVersions: [],
     clearRequests: [],
     labels: [],
     shipLabels: [],
@@ -892,6 +894,13 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       countHolding: (fleetId, scope) => Promise.resolve(state.ships.filter((held) => held.fleetId === fleetId && held.retiredAt === null && held.scopes.includes(scope)).length),
     },
     crewRequests: {
+      lastSettingsVersion: (fleetId, shipId) =>
+        Promise.resolve(state.crewSettingsVersions.find((held) => held.fleetId === fleetId && held.shipId === shipId)?.settingsVersion ?? 0),
+      recordSettingsVersion: (fleetId, { shipId, settingsVersion }) => {
+        const index = state.crewSettingsVersions.findIndex((held) => held.fleetId === fleetId && held.shipId === shipId);
+        state.crewSettingsVersions.splice(index === -1 ? state.crewSettingsVersions.length : index, index === -1 ? 0 : 1, { fleetId, shipId, settingsVersion });
+        return Promise.resolve();
+      },
       find: (fleetId, shipId) => {
         const request = state.crewRequests.find((held) => held.fleetId === fleetId && held.shipId === shipId);
         return Promise.resolve(request && { ...request, givenBack: [...request.givenBack] });
@@ -2816,6 +2825,7 @@ const FLEET_TABLES = [
   'leaseTurns',
   'leaseActivities',
   'crewRequests',
+  'crewSettingsVersions',
   'clearRequests',
   'labels',
   'shipLabels',
@@ -2863,6 +2873,7 @@ const TABLES = [
   'leaseTurns',
   'leaseActivities',
   'crewRequests',
+  'crewSettingsVersions',
   'clearRequests',
   'labels',
   'shipLabels',

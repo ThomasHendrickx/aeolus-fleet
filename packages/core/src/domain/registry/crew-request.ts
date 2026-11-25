@@ -94,7 +94,7 @@ function event(ship: Ship, change: Pick<NewEvent, 'type' | 'details'> & { at: Da
  * request is releasing.
  */
 export function requestCrew(
-  { ship, current, labelValues }: { ship: Ship; current: CrewRequest | undefined; labelValues: ReadonlySet<LabelValueId> },
+  { ship, current, labelValues, lastSettingsVersion }: { ship: Ship; current: CrewRequest | undefined; labelValues: ReadonlySet<LabelValueId>; lastSettingsVersion: number },
   input: { settings: JsonObject; requestedBy: ShipId; at: Date; actor: Actor },
 ): Result<{ request: CrewRequest; events: NewEvent[] }, RequestCrewRefusal> {
   const requestable = checkCanBeRequestedCrew(ship);
@@ -127,7 +127,7 @@ export function requestCrew(
     fleetId: ship.fleetId,
     shipId: ship.id,
     settings: input.settings,
-    settingsVersion: (current?.settingsVersion ?? 0) + 1,
+    settingsVersion: lastSettingsVersion + 1,
     requestedAt: input.at,
     requestedBy: input.requestedBy,
     assignedTo: current?.assignedTo ?? null,
@@ -177,21 +177,27 @@ export function removeCrewRequest(
 
 export type AssignCrewRefusal =
   | NotFound
-  | DomainError<'CREW_REQUEST_ALREADY_ASSIGNED' | 'SHIP_NOT_AWAITING_CREW' | 'ASSIGNEE_NOT_ACTIVE'>;
+  | DomainError<'CREW_REQUEST_ALREADY_ASSIGNED' | 'CREW_REQUEST_SETTINGS_CHANGED' | 'SHIP_NOT_AWAITING_CREW' | 'ASSIGNEE_NOT_ACTIVE'>;
 
 /**
  * A ship with crew:assign assigns the request to a trierarch, by optimistic
- * claim: only while it is unassigned, so of two claims the first wins. Never
+ * claim: only while it is unassigned and still at the version placement read. Never
  * a crewed ship (crewing by hand fulfils the request). Any active ship of the
  * fleet may be the assignee: the fleet does no routing, and a ship that is no
  * trierarch just gets work it does not understand. CrewAssigned names it.
  */
 export function assignCrew(
   { ship, current, isCrewed, assignee }: { ship: Ship; current: CrewRequest | undefined; isCrewed: boolean; assignee: Ship | undefined },
-  input: { at: Date; actor: Actor },
+  input: { settingsVersion: number; at: Date; actor: Actor },
 ): Result<{ request: CrewRequest; events: NewEvent[] }, AssignCrewRefusal> {
   if (!current) {
     return notFound(ship);
+  }
+  if (current.settingsVersion !== input.settingsVersion) {
+    return refuse(
+      'CREW_REQUEST_SETTINGS_CHANGED',
+      `${ship.name}'s crew request is at settings version ${String(current.settingsVersion)}, not ${String(input.settingsVersion)}: read the new settings before assigning`,
+    );
   }
   if (current.assignedTo !== null) {
     return refuse('CREW_REQUEST_ALREADY_ASSIGNED', `${ship.name}'s crew request is assigned already`);
@@ -204,7 +210,7 @@ export function assignCrew(
   }
   return ok({
     request: { ...current, assignedTo: assignee.id, reason: null, guard: null },
-    events: [event(ship, { ...input, type: 'CrewAssigned', details: { assignedTo: assignee.id } })],
+    events: [event(ship, { at: input.at, actor: input.actor, type: 'CrewAssigned', details: { assignedTo: assignee.id } })],
   });
 }
 

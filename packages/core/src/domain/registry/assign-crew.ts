@@ -18,7 +18,7 @@ export interface AssignCrewTx {
 
 export type AssignCrew = (
   caller: Caller,
-  input: { shipId: ShipId; trierarchShipId: ShipId },
+  input: { shipId: ShipId; trierarchShipId: ShipId; settingsVersion: number },
 ) => Promise<Result<undefined, DomainError<'SHIP_NOT_FOUND'> | AssignCrewRefusal>>;
 
 /**
@@ -43,7 +43,7 @@ export function createAssignCrew(deps: { uow: UnitOfWork<AssignCrewTx>; clock: C
           isCrewed: (await tx.leases.findOpenForShare(fleetId, ship.id)) !== undefined,
           assignee: await tx.ships.find(fleetId, input.trierarchShipId),
         },
-        { at: deps.clock.now(), actor: actorOf(caller) },
+        { settingsVersion: input.settingsVersion, at: deps.clock.now(), actor: actorOf(caller) },
       );
       if (!assigned.isOk) {
         return assigned;

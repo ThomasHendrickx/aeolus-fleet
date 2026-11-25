@@ -127,6 +127,20 @@ export function createPrismaFleetRepository(db: Db): FleetRepository {
 export function createPrismaCrewRequestRepository(db: Db): CrewRequestRepository {
   const withGivenBack = { givenBack: { orderBy: { givenBackAt: 'asc' } } } as const;
   return {
+    lastSettingsVersion: async (fleetId, shipId) => {
+      const ship = await db.ship.findUniqueOrThrow({
+        where: { fleetId_id: { fleetId, id: shipId } },
+        select: { lastCrewSettingsVersion: true },
+      });
+      return ship.lastCrewSettingsVersion;
+    },
+    recordSettingsVersion: async (fleetId, { shipId, settingsVersion }) => {
+      await db.ship.update({
+        where: { fleetId_id: { fleetId, id: shipId } },
+        data: { lastCrewSettingsVersion: settingsVersion },
+        select: { id: true },
+      });
+    },
     find: async (fleetId, shipId) => {
       const row = await db.crewRequest.findUnique({ where: { fleetId_shipId: { fleetId, shipId } }, include: withGivenBack });
       return row === null ? undefined : toCrewRequest(row);

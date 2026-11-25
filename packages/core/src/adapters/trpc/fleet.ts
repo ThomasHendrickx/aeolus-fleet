@@ -415,11 +415,11 @@ export const fleetRouter = router({
       return {};
     }),
 
-  /** Assigns a ship's crew request to a trierarch, only while it is unassigned (optimistic claim, decision 0029). */
+  /** Assigns a ship's crew request to a trierarch, only while it is unassigned and at the expected settings version (decision 0029). */
   assignCrew: actorScopedProcedure('crew:assign')
     .meta({
       description: [
-        "Needs crew:assign. Assigns a ship's crew request to a trierarch ship (any active ship of the fleet), only while it is unassigned:",
+        "Needs crew:assign. Assigns a ship's crew request to a trierarch ship (any active ship of the fleet), only while it is unassigned and at the supplied settings version.",
         'a lost claim is CONFLICT, so read again. Never a crewed ship: crewing it by hand fulfils its request.',
       ].join(' '),
     })
