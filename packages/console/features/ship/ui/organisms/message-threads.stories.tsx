@@ -22,7 +22,17 @@ type Story = StoryObj<typeof meta>;
 
 export const Threads: Story = {};
 export const Empty: Story = { args: { messages: [] } };
-export const RemovedShipEmpty: Story = { args: { messages: [], isShipRemoved: true } };
+export const RemovedShipEmpty: Story = {
+  args: { messages: [], isShipRemoved: true },
+  play: async ({ canvas }) => {
+    const title = canvas.getByRole('heading', { name: 'No messages kept' });
+    await expect(title).toBeVisible();
+    await expect(title).toHaveClass('max-sm:text-heading-touch');
+    const empty = title.closest('[data-slot="empty-state"]');
+    await expect(empty).toHaveAttribute('data-variant', 'page');
+    await expect(empty).toHaveClass('bg-card');
+  },
+};
 export const Loading: Story = { args: { state: 'loading' } };
 export const Error: Story = { args: { state: 'error' } };
 /** A member's check-in and role: each in words, its raw payload in the message sheet. */
