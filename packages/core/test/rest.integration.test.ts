@@ -808,10 +808,10 @@ describe('the fleet actions at /api/v1/fleet', () => {
 
     const claim = (settingsVersion: number) => request('fleet/assignCrew', { crewToken: plugin.crewToken, body: { shipId, trierarchShipId: trierarch.shipId, settingsVersion } });
 
-    await expect(claim(first.settingsVersion)).resolves.toMatchObject({
-      status: 409,
-      body: { code: 'CONFLICT', message: expect.stringContaining('read the new settings before assigning') },
-    });
+    const stale = await claim(first.settingsVersion);
+
+    expect(stale).toMatchObject({ status: 409, body: { code: 'CONFLICT' } });
+    expect(z.object({ message: z.string() }).parse(stale.body).message).toContain('read the new settings before assigning');
     await ok(claim(updated.settingsVersion), z.strictObject({}));
   });
 
