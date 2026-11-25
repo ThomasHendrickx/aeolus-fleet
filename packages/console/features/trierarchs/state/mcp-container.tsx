@@ -9,6 +9,7 @@ import { useAccess } from '../../../lib/access';
 import { useLiveFleet } from '../../../lib/live-fleet';
 import { useTrierarchPluginConnection, useTrierarchPluginVersion } from '../../../lib/trierarch-plugin';
 import { useMcpConfiguration } from '../hooks/use-mcp-configuration';
+import { useRuleSetsAccess } from '../hooks/use-rule-sets-access';
 import type { McpChange, McpServer } from '../services/mcp-configuration';
 import { TrierarchTabs } from '../ui/molecules/trierarch-tabs';
 import { MachineList } from '../ui/organisms/machine-list';
@@ -38,6 +39,7 @@ type Dialog =
 export function McpContainer() {
   const frame = useConsoleFrame();
   const access = useAccess();
+  const { canReadRuleSets } = useRuleSetsAccess();
   const connection = useTrierarchPluginConnection();
   const pluginVersion = useTrierarchPluginVersion();
   const liveFleet = useLiveFleet();
@@ -88,7 +90,7 @@ export function McpContainer() {
         ) : undefined
       }
     >
-      {canManage ? <TrierarchTabs active="mcp" /> : null}
+      {canManage ? <TrierarchTabs active="mcp" canSeeRuleSets={canReadRuleSets} /> : null}
       {connection === 'none' ? (
         <MachineList connection="none" machines={undefined} ships={[]} now={new Date()} onRetry={() => undefined} />
       ) : canManage ? (

@@ -1,7 +1,7 @@
 import { useId } from 'react';
 import { useForm } from 'react-hook-form';
 import { Input, Label } from '@aeolus-fleet/ui';
-import { McpFormShell } from './mcp-form-shell';
+import { ConfigurationFormDialog } from './configuration-form-dialog';
 import { McpSaveErrorNotice, type McpSaveError } from './mcp-save-error';
 
 /** A replacement value is write-only and exists only for this open form. */
@@ -27,7 +27,7 @@ export function McpSecretDialog({
   const id = useId();
   const { register, handleSubmit } = useForm<{ value: string }>({ defaultValues: { value: '' } });
   return (
-    <McpFormShell
+    <ConfigurationFormDialog
       size="sm"
       title={`Replace ${name}’s value`}
       description={`${usedBy.length === 0 ? 'No server uses it.' : `Used by ${usedBy.join(', ')}.`} The old value is not shown and cannot be read back. Sessions use the new one once their machine applies the change.`}
@@ -55,6 +55,6 @@ export function McpSecretDialog({
         <p className="text-meta text-muted-foreground">Write-only. 1 to 8192 bytes, no line breaks.</p>
       </div>
       <McpSaveErrorNotice error={error} subject="value" onReadAgain={onReadAgain} isReading={isReading} />
-    </McpFormShell>
+    </ConfigurationFormDialog>
   );
 }

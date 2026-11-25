@@ -40,7 +40,7 @@ let plugin: FakeTrierarchPlugin | undefined;
 let accountApp: FakeAccountApp | undefined;
 let serverUrl: string;
 let catalogue = GUARD_CATALOGUE;
-const firstWrite = Promise.withResolvers<void>();
+const firstWrite = Promise.withResolvers<undefined>();
 const receivedWrites: z.infer<typeof guardReplacement>[] = [];
 
 function installation() {
@@ -106,19 +106,22 @@ afterAll(async () => {
 });
 
 it('opens Rule sets from Machines and reads repository commits, rule counts and the floor', async () => {
-  // Given a signed-in operator and a repository with two offered sets.
-  if (browser === undefined || web === undefined) throw new Error('The console did not start');
+  // Given a signed-in fleet reader and a repository with two offered sets.
+  if (browser === undefined || web === undefined || accountApp === undefined) throw new Error('The console did not start');
   const { fleetId } = await installation().fleets.create.mutate({ requestId: newKey(), name: 'Acme', operatorEmail: 'guard@example.com' });
-  const { ticket } = await installation().operators.issueSignInTicket.mutate({ fleetId });
+  accountApp.signInAs({
+    id: 'acc-guard-reader', email: 'reader@acme.example',
+    fleets: [{ id: fleetId, name: 'Acme', scopes: ['fleet:read'] }],
+  });
   const context = await browser.newContext({ baseURL: web.url, reducedMotion: 'reduce' });
   try {
     const page = await context.newPage();
     await page.clock.setFixedTime(new Date());
-    await page.goto(`/sign-in/ticket?ticket=${encodeURIComponent(ticket)}`);
+    await page.goto('/');
     await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
     await page.goto('/trierarchs');
 
-    // When the operator opens the Rule sets tab.
+    // When the reader opens the Rule sets tab.
     await page.getByTestId('trierarchs-rule-sets-tab').click({ timeout: 5000 });
 
     // Then the catalogue shows the exact committed reads, counts and floor.
@@ -162,7 +165,7 @@ it('keeps a private repository’s inputs on failure and shows the committed rep
     // When the first replacement is held, then refused, and the account saves again.
     await dialog.getByTestId('rule-sets-submit').click();
     await expect.poll(() => dialog.getByTestId('rule-sets-submit').getAttribute('aria-busy')).toBe('true');
-    firstWrite.resolve();
+    firstWrite.resolve(undefined);
     await dialog.getByRole('alert').getByText('Invalid guard configuration', { exact: true }).waitFor();
     await expect.poll(() => dialog.getByTestId('rule-sets-repository').inputValue()).toBe('acme/more-rules');
     await expect.poll(() => dialog.getByTestId('rule-sets-read-token').inputValue()).toBe('test-example-value');
@@ -179,7 +182,7 @@ it('keeps a private repository’s inputs on failure and shows the committed rep
     await page.getByRole('switch', { name: 'Floor for docs-only', checked: true }).waitFor();
     expect(catalogue.floor).toEqual(['base', 'docs-only']);
   } finally {
-    firstWrite.resolve();
+    firstWrite.resolve(undefined);
     await context.close();
   }
 });

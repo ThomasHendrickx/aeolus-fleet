@@ -4,7 +4,7 @@ import { useId, useState } from 'react';
 import { Button, Checkbox, InlineError, Input, Label } from '@aeolus-fleet/ui';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../../components/atoms/select';
 import type { McpChange, McpServer } from '../../services/mcp-configuration';
-import { McpFormShell } from './mcp-form-shell';
+import { ConfigurationFormDialog } from './configuration-form-dialog';
 import { McpSaveErrorNotice, type McpSaveError } from './mcp-save-error';
 
 interface ServerFields {
@@ -107,7 +107,7 @@ export function McpServerDialog({
     });
   });
   return (
-    <McpFormShell
+    <ConfigurationFormDialog
       title={server === undefined ? 'Add server' : `Edit ${server.name}`}
       description={`Saving replaces the fleet’s MCP servers at version ${version}. Machines apply it on their next pass.`}
       isPending={isPending}
@@ -301,6 +301,6 @@ export function McpServerDialog({
         </div>
       </fieldset>
       <McpSaveErrorNotice error={error} subject="server" onReadAgain={onReadAgain} isReading={isReading} />
-    </McpFormShell>
+    </ConfigurationFormDialog>
   );
 }
