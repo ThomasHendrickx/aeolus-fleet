@@ -3,6 +3,7 @@ import type { guardReplacement } from '../services/guard-configuration';
 
 const TIMEOUT_MS = 35_000; // Allow for the console's network hop after the plugin's 30-second deadline.
 const READ_FAILURE = 'The trierarch plugin did not answer with its rule sets.';
+const UPDATE_FAILURE = 'The trierarch plugin did not confirm the update. Try again.';
 const WRITE_FAILURE = 'The trierarch plugin did not confirm the change. Read the rule sets again before saving.';
 
 export type GuardSaveResult = { kind: 'saved' } | { kind: 'conflict' } | { kind: 'uncertain' | 'refused'; message: string };
@@ -58,4 +59,23 @@ export async function replaceGuardConfiguration(replacement: ReturnType<typeof g
     return { kind: 'uncertain', message: WRITE_FAILURE };
   }
   return { kind: 'uncertain', message: WRITE_FAILURE };
+}
+
+
+export async function updateGuardRepository(repository: string): Promise<
+  { kind: 'answered'; configuration: GuardConfiguration } | { kind: 'unconfirmed'; reason: string }
+> {
+  try {
+    const response = await fetch('/api/trierarch-plugin/guard.update', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ repository }),
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    const answer: unknown = await response.json();
+    if (response.ok && hasCatalogue(answer)) return { kind: 'answered', configuration: answer.result.data };
+    return { kind: 'unconfirmed', reason: refusal(answer) ?? UPDATE_FAILURE };
+  } catch {
+    return { kind: 'unconfirmed', reason: UPDATE_FAILURE };
+  }
 }

@@ -1,8 +1,9 @@
-import { CircleAlert, LoaderCircle, Trash2 } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { Check, CircleAlert, LoaderCircle, RotateCw, Trash2 } from 'lucide-react';
+import { Fragment, type ReactNode } from 'react';
 import { Badge, Button, EmptyState, InlineError, LoadingSkeleton, Switch, Tooltip, TooltipContent, TooltipTrigger } from '@aeolus-fleet/ui';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../../components/atoms/table';
 import type { GuardConfiguration } from '../../../../lib/trierarch-plugin-guard-schemas';
+import type { RepositoryUpdate } from '../../services/guard-configuration';
 
 const SHORT_COMMIT_LENGTH = 7;
 
@@ -12,6 +13,8 @@ type RuleSet = GuardConfiguration['sets'][number];
 interface Management {
   isDisabled: boolean;
   floorSave?: { name: string; state: 'pending' | 'success' | 'failure' };
+  repositoryUpdates?: ReadonlyMap<string, RepositoryUpdate>;
+  onUpdate: (repository: string) => void;
   onAdd: () => void;
   onRemove: (repository: string) => void;
   onSetFloor: (name: string, isIncluded: boolean) => void;
@@ -59,6 +62,51 @@ function RemoveRepository({ repository, management }: { repository: string; mana
   );
 }
 
+function RepositoryActions({ repository, management }: { repository: string; management: Management }) {
+  const state = management.repositoryUpdates?.get(repository)?.state ?? 'idle';
+  const isUpdating = state === 'pending';
+  const label = isUpdating ? 'Updating' : 'Update';
+  return (
+    <div className="flex shrink-0 items-start justify-end gap-1 sm:items-center">
+      <div className="flex items-center gap-2 max-sm:flex-col max-sm:gap-1">
+        {state === 'success' ? (
+          <span role="status" className="inline-flex items-center gap-1 whitespace-nowrap text-meta text-tone-ok-fg max-sm:order-last">
+            <Check aria-hidden className="size-(--size-icon-sm)" /> Updated
+          </span>
+        ) : null}
+        <Button
+          variant="secondary"
+          size="xs"
+          icon={<RotateCw aria-hidden className="size-(--size-icon-sm)" />}
+          isLoading={isUpdating}
+          disabled={management.isDisabled}
+          aria-label={`${label} ${repository}`}
+          data-testid={`rule-sets-update-${repository}`}
+          data-state={state}
+          className="max-sm:h-(--size-control-touch)"
+          onClick={() => { management.onUpdate(repository); }}
+        >
+          {label}
+        </Button>
+      </div>
+      <RemoveRepository repository={repository} management={management} />
+    </div>
+  );
+}
+
+function RepositoryUpdateFailure({ update }: { update: Extract<RepositoryUpdate, { state: 'failure' }> }) {
+  return (
+    <div role="alert" className="flex items-start gap-1.5 break-words py-2 text-meta">
+      <CircleAlert aria-hidden className="mt-0.5 size-(--size-icon-sm) shrink-0 text-destructive-text" />
+      <div className="flex min-w-0 flex-col gap-x-2 sm:flex-row sm:flex-wrap">
+        <span className="font-semibold text-destructive-text">Update failed</span>
+        <span className="text-muted-foreground">{update.reason}</span>
+        {update.hasStoredCopy ? <span className="text-muted-foreground">Kept the stored copy.</span> : null}
+      </div>
+    </div>
+  );
+}
+
 function Repositories({ repositories, sets, errors, management }: {
   repositories: readonly Repository[];
   sets: readonly RuleSet[];
@@ -87,33 +135,51 @@ function Repositories({ repositories, sets, errors, management }: {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {repositories.map(({ repository, folder, readCommit }) => (
-              <TableRow key={repository}>
-                <TableCell className="break-all font-mono text-id font-medium">{repository}</TableCell>
-                <TableCell className="break-all font-mono text-id text-muted-foreground">{folder}</TableCell>
-                <TableCell><Commit commit={readCommit} /></TableCell>
-                <TableCell className="text-meta text-muted-foreground">{status(repository)}</TableCell>
-                {management ? <TableCell className="text-right"><RemoveRepository repository={repository} management={management} /></TableCell> : null}
-              </TableRow>
-            ))}
+            {repositories.map(({ repository, folder, readCommit }) => {
+              const update = management?.repositoryUpdates?.get(repository);
+              return (
+                <Fragment key={repository}>
+                  <TableRow>
+                    <TableCell className="break-all font-mono text-id font-medium">{repository}</TableCell>
+                    <TableCell className="break-all font-mono text-id text-muted-foreground">{folder}</TableCell>
+                    <TableCell><Commit commit={readCommit} /></TableCell>
+                    <TableCell className="text-meta text-muted-foreground">{status(repository)}</TableCell>
+                    {management ? <TableCell><RepositoryActions repository={repository} management={management} /></TableCell> : null}
+                  </TableRow>
+                  {update?.state === 'failure' ? (
+                    <TableRow className="h-auto hover:bg-transparent">
+                      <TableCell colSpan={5}><RepositoryUpdateFailure update={update} /></TableCell>
+                    </TableRow>
+                  ) : null}
+                </Fragment>
+              );
+            })}
           </TableBody>
         </Table>
       </div>
       <ul className="divide-y divide-border rounded-lg border border-border bg-card sm:hidden">
-        {repositories.map(({ repository, folder, readCommit }) => (
-          <li key={repository} className="flex items-start justify-between gap-2 px-3.5 py-3">
-            <div className="flex min-w-0 flex-col gap-1">
-              <span className="break-all font-mono text-body-touch font-medium">{repository}</span>
-              {folder || readCommit !== null ? (
-                <span className="break-all font-mono text-id text-muted-foreground">
-                  {folder}{folder && readCommit !== null ? ' · ' : null}<Commit commit={readCommit} />
-                </span>
+        {repositories.map(({ repository, folder, readCommit }) => {
+          const update = management?.repositoryUpdates?.get(repository);
+          return (
+            <li key={repository}>
+              <div className="flex items-start justify-between gap-2 px-3.5 py-3">
+                <div className="flex min-w-0 flex-col gap-1">
+                  <span className="break-all font-mono text-body-touch font-medium">{repository}</span>
+                  {folder || readCommit !== null ? (
+                    <span className="break-all font-mono text-id text-muted-foreground">
+                      {folder}{folder && readCommit !== null ? ' · ' : null}<Commit commit={readCommit} />
+                    </span>
+                  ) : null}
+                  <span className="text-meta text-muted-foreground">{status(repository)}</span>
+                </div>
+                {management ? <RepositoryActions repository={repository} management={management} /> : null}
+              </div>
+              {update?.state === 'failure' ? (
+                <div className="border-t border-border px-3.5"><RepositoryUpdateFailure update={update} /></div>
               ) : null}
-              <span className="text-meta text-muted-foreground">{status(repository)}</span>
-            </div>
-            {management ? <RemoveRepository repository={repository} management={management} /> : null}
-          </li>
-        ))}
+            </li>
+          );
+        })}
       </ul>
     </section>
   );
@@ -282,7 +348,11 @@ export function RuleSetsPanel({ configuration, error, isReading, onReadAgain, ma
   }
 
   const { repositories, sets, floor, errors, conflicts } = configuration;
-  const errorCount = errors.length + conflicts.length;
+  const catalogueErrors = errors.filter(({ repository, file, reason }) => {
+    const update = management?.repositoryUpdates?.get(repository);
+    return file !== undefined || update?.state !== 'failure' || update.reason !== reason;
+  });
+  const errorCount = catalogueErrors.length + conflicts.length;
   return (
     <div className="flex min-w-0 flex-col gap-6" data-state="success">
       {repositories.length === 0 ? (
@@ -295,18 +365,23 @@ export function RuleSetsPanel({ configuration, error, isReading, onReadAgain, ma
         <>
           <p className="text-meta text-muted-foreground">
             Every crew request is checked against the floor and the rule set it names.
-            A request keeps the commits it was assigned with.
+            A request keeps the commits it was assigned with. New requests use the stored copy.
           </p>
-          <Repositories repositories={repositories} sets={sets} errors={errors} management={management} />
+          <Repositories repositories={repositories} sets={sets} errors={catalogueErrors} management={management} />
         </>
       )}
       {repositories.length > 0 || floor.length > 0 ? <RuleSets sets={sets} floor={floor} management={management} notice={floorNotice} /> : null}
       {errorCount > 0 ? (
         <section className="flex min-w-0 flex-col gap-3">
           <SectionTitle count={errorCount}>Errors</SectionTitle>
-          <p className="text-meta text-muted-foreground">Fix files with errors in their repositories. Rule set names must be unique across repositories.</p>
+          {management && catalogueErrors.some(({ file }) => file !== undefined) ? (
+            <p className="text-meta text-muted-foreground">Fix the file in its repository, then select Update.</p>
+          ) : null}
+          {conflicts.length > 0 ? (
+            <p className="text-meta text-muted-foreground">Rule set names must be unique across repositories.</p>
+          ) : null}
           <ul className="divide-y divide-border rounded-lg border border-border bg-card">
-            {errors.map(({ repository, file, reason }) => (
+            {catalogueErrors.map(({ repository, file, reason }) => (
               <CatalogueError key={JSON.stringify([repository, file, reason])} name={file ?? repository} reason={file === undefined ? reason : `${repository}: ${reason}`} />
             ))}
             {conflicts.map(({ name, repositories: sources }) => (

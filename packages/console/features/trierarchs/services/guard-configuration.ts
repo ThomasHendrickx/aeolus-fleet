@@ -7,6 +7,10 @@ export type GuardChange =
   | { kind: 'remove'; repository: string }
   | { kind: 'floor'; name: string; isIncluded: boolean };
 
+export type RepositoryUpdate =
+  | { state: 'pending' | 'success' }
+  | { state: 'failure'; reason: string; hasStoredCopy: boolean };
+
 export interface GuardSaveError {
   message: string;
   shouldReadAgain?: boolean;
