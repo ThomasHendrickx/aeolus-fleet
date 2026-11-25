@@ -2233,6 +2233,25 @@ describe("argo's effective scopes at the API (decision 0046)", () => {
     expect(row && 'scopes' in row ? row.scopes : []).toEqual(expect.arrayContaining(newScopes));
   });
 
+  it("removes a retired declarer's scopes from argo's answers", async () => {
+    const argo = await signedInArgo();
+    const declarer = client({ authorization: `Bearer ${await crewedShip(['scopes:declare'])}` });
+    const { shipId } = await declarer.ship.whoami.query();
+    const scope = 'operator-retired:guard';
+    await declarer.fleet.declareScopes.mutate({ namespace: 'operator-retired', scopes: [{ scope, description: 'Manage guards' }] });
+    const beforeSession = await argo.console.session.query();
+    const beforeShip = await argo.fleet.ship.query({ shipId: argoId });
+
+    await argo.fleet.retire.mutate({ shipId });
+
+    const session = await argo.console.session.query();
+    const ship = await argo.fleet.ship.query({ shipId: argoId });
+    expect(beforeSession.scopes).toContain(scope);
+    expect('scopes' in beforeShip ? beforeShip.scopes : []).toContain(scope);
+    expect(session.scopes).not.toContain(scope);
+    expect('scopes' in ship ? ship.scopes : []).not.toContain(scope);
+  });
+
   it("answers only another ship's held scopes when the fleet has additional scopes", async () => {
     const argo = await signedInArgo();
     const { shipId } = await agentShip();
