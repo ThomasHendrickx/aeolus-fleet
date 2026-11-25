@@ -227,4 +227,43 @@ describe('the ship page', () => {
       .parse(await helmsman.call('receive', {}));
     expect(replied.deliveries).toEqual([expect.objectContaining({ payload: 'main', inReplyTo: asked })]);
   });
+
+  it('scenario 19: a timeline link to a removed ship opens its dates and retained history without ship actions', async () => {
+    // Given a timeline entry that names a ship removed by retention.
+    clock.set('2026-08-12T12:00:00.000Z');
+    const tester = unwrap(await useCases.commissionShip(argo, { name: 'tester', type: 'core', idempotencyKey: newKey() }));
+    const owner = unwrap(await useCases.commissionShip(argo, { name: 'tester-member', type: 'core', idempotencyKey: newKey() }));
+    const peer = unwrap(await useCases.commissionShip(argo, { name: 'retained-history-peer', type: 'planner', idempotencyKey: newKey() }));
+    unwrap(await useCases.setOwner(argo, { shipId: owner.shipId, ownerShipId: tester.shipId }));
+    unwrap(await useCases.setOwner(argo, { shipId: peer.shipId, ownerShipId: owner.shipId }));
+    unwrap(await useCases.retireShip(argo, { shipId: owner.shipId }));
+    clock.set('2026-09-03T14:02:00.000Z');
+    unwrap(await useCases.retireShip(argo, { shipId: tester.shipId }));
+    await database.$executeRaw`UPDATE fleets SET retention_set = true, retention_days = 5 WHERE id = ${argo.fleetId}`;
+    clock.set('2026-10-04T15:00:00.000Z');
+    await useCases.closeHealthSnapshots();
+    await useCases.pruneHistory((_, error) => { throw error; });
+
+    const context = await browser.newContext({ baseURL: web.url, timezoneId: 'UTC', reducedMotion: 'reduce' });
+    contexts.push(context);
+    const page = await context.newPage();
+    await signIn(page, OPERATOR);
+    await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
+    await page.goto(`/ships/${peer.shipId}`);
+
+    // When argo follows the link in the retained entry.
+    const timeline = page.getByTestId('ship-timeline');
+    await timeline.locator(`a[href="/ships/${tester.shipId}"]`).click({ timeout: 10_000 });
+
+    // Then the remnant shows its dates and retained history, with no ship actions.
+    const header = page.getByTestId('ship-header');
+    await header.getByText('Retired on 3 Sep 2026, 14:02, removed on 4 Oct 2026, 15:00. Kept: its name, type and the history that names it.').waitFor({ timeout: 6_000 });
+    for (const date of ['12 Aug 2026', '3 Sep 2026', '4 Oct 2026']) {
+      await header.getByText(date, { exact: true }).waitFor();
+    }
+    await expect(header.getByRole('button').count()).resolves.toBe(0);
+    await expect(header.getByText('Permissions', { exact: true }).count()).resolves.toBe(0);
+    await timeline.getByText('Commissioned', { exact: false }).first().waitFor();
+  });
+
 });
