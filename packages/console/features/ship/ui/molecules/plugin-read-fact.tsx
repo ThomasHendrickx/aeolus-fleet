@@ -15,23 +15,19 @@ const failureReasons: Record<FailedRead['reason'], string> = {
 
 function ReadRow({ label, read, reason }: {
   label: string;
-  read: PluginReads['lastGood'];
+  read: NonNullable<PluginReads['lastGood']>;
   reason?: FailedRead['reason'];
 }) {
-  const at = read === null ? null : new Date(read.at);
+  const at = new Date(read.at);
 
   return (
-    <div className="grid min-w-0 grid-cols-1 gap-1 bg-card px-3.5 py-3 max-sm:grid-cols-[7rem_minmax(0,1fr)] max-sm:gap-1.5 max-sm:py-2">
+    <div className="grid min-w-0 grid-cols-1 content-start gap-1 bg-card px-3.5 py-3 max-sm:grid-cols-[var(--size-plugin-read-label)_minmax(0,1fr)] max-sm:gap-1.5 max-sm:py-2">
       <dt className="text-meta text-muted-foreground">{label}</dt>
       <dd className="min-w-0 text-meta">
-        {read === null || at === null ? (
-          <span className="text-muted-foreground">No good read yet</span>
-        ) : (
-          <div className="flex flex-wrap items-baseline gap-x-1.5">
-            <code className="min-w-0 font-mono text-id wrap-anywhere">{read.read}</code>
-            <time dateTime={read.at} title={fullDateTime(at)} className="tabular-nums">{shortDateTime(at)}</time>
-          </div>
-        )}
+        <div className="flex flex-wrap items-baseline gap-x-1.5">
+          <code className="min-w-0 font-mono text-id wrap-anywhere">{read.read}</code>
+          <time dateTime={read.at} title={fullDateTime(at)} className="tabular-nums">{shortDateTime(at)}</time>
+        </div>
         {reason === undefined ? null : <p className="mt-0.5 text-muted-foreground">{failureReasons[reason]}</p>}
       </dd>
     </div>
@@ -60,7 +56,7 @@ export function PluginReadFact({ reads }: { reads: ShipDetail['pluginReads'] }) 
       <dl className="grid auto-cols-fr grid-flow-col gap-px bg-border max-sm:grid-flow-row">
         {failingSince && <ReadRow label="Failing since" read={failingSince} />}
         {lastFailed && <ReadRow label="Last failed read" read={lastFailed} reason={lastFailed.reason} />}
-        {(lastGood !== null || failingSince !== null) && <ReadRow label="Last good read" read={lastGood} />}
+        {lastGood && <ReadRow label="Last good read" read={lastGood} />}
       </dl>
     </section>
   );
