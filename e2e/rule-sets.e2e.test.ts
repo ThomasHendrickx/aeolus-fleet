@@ -1,7 +1,7 @@
 import { createTRPCClient, httpBatchLink } from '@trpc/client';
 import type { FastifyInstance } from 'fastify';
 import type { Browser } from 'playwright';
-import { afterAll, beforeAll, beforeEach, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, expect, it, onTestFinished } from 'vitest';
 import { z } from 'zod';
 import type { GuardConfiguration } from '../packages/console/lib/trierarch-plugin-guard-schemas.js';
 import { createApp } from '../packages/core/src/app.js';
@@ -14,12 +14,14 @@ import { startFakeTrierarchPlugin, type FakeTrierarchPlugin } from './support/fa
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 
 const INSTALLATION_TOKEN = 'aeolus_installation_test_rule_sets';
+const STORED_COMMIT = '8d41e07a1234567890';
+const UPDATED_COMMIT = 'a73c19e1234567890';
 const GUARD_CATALOGUE: GuardConfiguration = {
   version: 1,
-  repositories: [{ repository: 'acme/guard-rules', folder: 'rules/', access: 'private', readCommit: '8d41e07a1234567890' }],
+  repositories: [{ repository: 'acme/guard-rules', folder: 'rules/', access: 'private', readCommit: STORED_COMMIT }],
   sets: [
-    { name: 'base', repository: 'acme/guard-rules', file: 'rules/base.yaml', commit: '8d41e07a1234567890', rulesCount: 6 },
-    { name: 'docs-only', repository: 'acme/guard-rules', file: 'rules/docs-only.yaml', commit: '8d41e07a1234567890', rulesCount: 4 },
+    { name: 'base', repository: 'acme/guard-rules', file: 'rules/base.yaml', commit: STORED_COMMIT, rulesCount: 6 },
+    { name: 'docs-only', repository: 'acme/guard-rules', file: 'rules/docs-only.yaml', commit: STORED_COMMIT, rulesCount: 4 },
   ],
   errors: [],
   conflicts: [],
@@ -43,7 +45,7 @@ let catalogue = GUARD_CATALOGUE;
 let heldWrite: Promise<undefined> | undefined;
 let isRepositoryAvailable = true;
 const guardUpdate = z.strictObject({ repository: z.literal('acme/guard-rules') });
-const UPDATED_COMMIT = 'a73c19e1234567890';
+let repositoryCommit = UPDATED_COMMIT;
 
 function holdNextWrite() {
   const write = Promise.withResolvers<undefined>();
@@ -84,8 +86,8 @@ beforeAll(async () => {
         }
         catalogue = {
           ...catalogue,
-          repositories: catalogue.repositories.map((entry) => entry.repository === repository ? { ...entry, readCommit: UPDATED_COMMIT } : entry),
-          sets: catalogue.sets.map((set) => set.repository === repository ? { ...set, commit: UPDATED_COMMIT } : set),
+          repositories: catalogue.repositories.map((entry) => entry.repository === repository ? { ...entry, readCommit: repositoryCommit } : entry),
+          sets: catalogue.sets.map((set) => set.repository === repository ? { ...set, commit: repositoryCommit } : set),
         };
         return { status: 200, body: { result: { data: catalogue } } };
       },
@@ -127,6 +129,7 @@ beforeEach(() => {
   receivedWrites.length = 0;
   heldWrite = undefined;
   isRepositoryAvailable = true;
+  repositoryCommit = UPDATED_COMMIT;
 });
 
 afterAll(async () => {
@@ -289,9 +292,7 @@ it('shows file errors and conflicts by set name and lets a manager clear a floor
   }
 });
 
-
-it('updates only the selected repository and keeps its stored rule sets visible on failure', async () => {
-  // Given an operator with the guard scope and two stored repositories.
+async function openStoredRuleSetsAsOperator() {
   if (browser === undefined || web === undefined || accountApp === undefined) throw new Error('The console did not start');
   catalogue = {
     ...GUARD_CATALOGUE,
@@ -303,59 +304,86 @@ it('updates only the selected repository and keeps its stored rule sets visible 
     fleets: [{ id: fleetId, name: 'Acme', scopes: ['fleet:read', 'trierarch:guard'] }],
   });
   const context = await browser.newContext({ baseURL: web.url, reducedMotion: 'reduce' });
-  let releaseUpdate: (() => void) | undefined;
-  try {
-    const page = await context.newPage();
-    await page.clock.setFixedTime(new Date());
-    await page.goto('/');
-    await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
-    await page.goto('/trierarchs/rule-sets');
-    const repository = page.getByRole('row', { name: /^acme\/guard-rules / });
-    const otherRepository = page.getByRole('row', { name: /^acme\/other-rules / });
-    const ruleSet = page.getByRole('row', { name: /^base / });
-    const update = repository.getByTestId('rule-sets-update-acme/guard-rules');
-    await repository.getByText('8d41e07', { exact: true }).waitFor();
-    await ruleSet.getByRole('cell', { name: '6', exact: true }).waitFor();
-    await update.waitFor({ timeout: 5000 });
-    await page.getByText('New requests use the stored copy.', { exact: false }).waitFor();
-    await otherRepository.getByRole('button', { name: /^Update/ }).waitFor();
+  onTestFinished(() => context.close());
+  const page = await context.newPage();
+  await page.clock.setFixedTime(new Date());
+  await page.goto('/');
+  await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
+  await page.goto('/trierarchs/rule-sets');
+  const repository = page.getByRole('row', { name: /^acme\/guard-rules / });
+  const update = repository.getByTestId('rule-sets-update-acme/guard-rules');
+  await repository.getByText('8d41e07', { exact: true }).waitFor();
+  await update.waitFor({ timeout: 5000 });
+  return { page, repository, update };
+}
 
-    // When the operator updates one repository and GitHub fails before the retry succeeds.
-    isRepositoryAvailable = false;
-    releaseUpdate = holdNextWrite();
+it('shows Update working while the repository read is pending', async () => {
+  // Given an operator viewing stored rule sets and a repository read held open.
+  const { page, update } = await openStoredRuleSetsAsOperator();
+  await page.getByText('New requests use the stored copy.', { exact: false }).waitFor();
+  const releaseUpdate = holdNextWrite();
+  try {
+    // When the operator selects Update.
     await update.click();
+
+    // Then the control shows Updating and cannot be pressed again while the read is pending.
     await expect.poll(() => update.getAttribute('data-state')).toBe('pending');
     await expect.poll(() => update.isDisabled()).toBe(true);
     await expect.poll(() => update.textContent()).toContain('Updating');
-    await repository.getByText('8d41e07', { exact: true }).waitFor();
-    await ruleSet.getByText('8d41e07', { exact: true }).waitFor();
-    releaseUpdate();
-
-    const failure = page.getByRole('alert').filter({ hasText: 'Update failed' });
-    await failure.getByText('GitHub did not respond.', { exact: true }).waitFor();
-    await failure.getByText('Kept the stored copy.', { exact: true }).waitFor();
-    await repository.getByText('8d41e07', { exact: true }).waitFor();
-    await ruleSet.getByText('8d41e07', { exact: true }).waitFor();
-    await expect.poll(() => update.isEnabled()).toBe(true);
-    isRepositoryAvailable = true;
-    await update.click();
-
-    // Then the selected repository and its rule sets show the new commit and the other keeps its commit.
-    await repository.getByText('Updated', { exact: true }).waitFor();
-    await repository.getByText('a73c19e', { exact: true }).waitFor();
-    await ruleSet.getByText('a73c19e', { exact: true }).waitFor();
-    await otherRepository.getByText('c258bd3', { exact: true }).waitFor();
-    await failure.waitFor({ state: 'hidden' });
-
-    // Selecting Update again confirms a successful read at the same commit.
-    releaseUpdate = holdNextWrite();
-    await update.click();
-    await expect.poll(() => update.getAttribute('data-state')).toBe('pending');
-    releaseUpdate();
-    await repository.getByText('Updated', { exact: true }).waitFor();
-    await repository.getByText('a73c19e', { exact: true }).waitFor();
   } finally {
-    releaseUpdate?.();
-    await context.close();
+    releaseUpdate();
   }
+});
+
+it('keeps the stored rule sets visible when the repository read fails', async () => {
+  // Given an operator viewing stored rule sets whose repository cannot be read.
+  const { page, repository, update } = await openStoredRuleSetsAsOperator();
+  isRepositoryAvailable = false;
+
+  // When the operator selects Update.
+  await update.click();
+
+  // Then the failure explains that the stored copy was kept and the copy stays visible.
+  const failure = page.getByRole('alert').filter({ hasText: 'Update failed' });
+  await failure.getByText('GitHub did not respond.', { exact: true }).waitFor();
+  await failure.getByText('Kept the stored copy.', { exact: true }).waitFor();
+  await repository.getByText('8d41e07', { exact: true }).waitFor();
+  const ruleSet = page.getByRole('row', { name: /^base / });
+  await ruleSet.getByText('8d41e07', { exact: true }).waitFor();
+  await ruleSet.getByRole('cell', { name: '6', exact: true }).waitFor();
+});
+
+it('updates only the selected repository when the operator retries successfully', async () => {
+  // Given two stored repositories and a failed update whose repository is available again.
+  const { page, repository, update } = await openStoredRuleSetsAsOperator();
+  const otherRepository = page.getByRole('row', { name: /^acme\/other-rules / });
+  await otherRepository.getByText('c258bd3', { exact: true }).waitFor();
+  isRepositoryAvailable = false;
+  await update.click();
+  const failure = page.getByRole('alert').filter({ hasText: 'Update failed' });
+  await failure.waitFor();
+  isRepositoryAvailable = true;
+
+  // When the operator retries Update for the same repository.
+  await update.click();
+
+  // Then only the selected repository and its rule sets show the new commit.
+  await repository.getByText('Updated', { exact: true }).waitFor();
+  await repository.getByText('a73c19e', { exact: true }).waitFor();
+  await page.getByRole('row', { name: /^base / }).getByText('a73c19e', { exact: true }).waitFor();
+  await otherRepository.getByText('c258bd3', { exact: true }).waitFor();
+  await failure.waitFor({ state: 'hidden' });
+});
+
+it('shows Updated when the repository is read at its stored commit', async () => {
+  // Given an operator viewing stored rule sets whose repository is still at that commit.
+  const { repository, update } = await openStoredRuleSetsAsOperator();
+  repositoryCommit = STORED_COMMIT;
+
+  // When the operator selects Update.
+  await update.click();
+
+  // Then the repository shows a successful update at the same commit.
+  await repository.getByText('Updated', { exact: true }).waitFor();
+  await repository.getByText('8d41e07', { exact: true }).waitFor();
 });

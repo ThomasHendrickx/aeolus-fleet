@@ -253,3 +253,21 @@ it('forwards one repository update and returns the stored commits, counts and fa
   expect(response.status).toBe(200);
   expect(await response.json()).toEqual({ result: { data } });
 });
+
+it('answers with the trierarch read error when the plugin returns no usable Update reply', async () => {
+  // Given a trierarch plugin that answers without a catalogue.
+  const plugin = aPlugin(() => Promise.resolve(Response.json({ result: { data: {} } })));
+
+  // When an operator updates the repository through the console.
+  const response = await forwardMcpCall(aRequest('/api/trierarch-plugin/guard.update', {
+    method: 'POST',
+    headers: { cookie: COOKIE, origin: CONSOLE_ORIGIN, 'content-type': 'application/json' },
+    body: JSON.stringify({ repository: 'company/rules' }),
+  }), { procedure: 'guard.update', environment: ENVIRONMENT, fetchImplementation: plugin.fetch });
+
+  // Then the console answers with the existing trierarch read error.
+  expect(response.status).toBe(502);
+  expect(await response.json()).toEqual({
+    error: { message: 'the trierarch plugin or the fleet did not answer: try again in a moment' },
+  });
+});
