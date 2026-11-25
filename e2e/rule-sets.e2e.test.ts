@@ -41,6 +41,9 @@ let accountApp: FakeAccountApp | undefined;
 let serverUrl: string;
 let catalogue = GUARD_CATALOGUE;
 let heldWrite: Promise<undefined> | undefined;
+let isRepositoryAvailable = true;
+const guardUpdate = z.strictObject({ repository: z.literal('acme/guard-rules') });
+const UPDATED_COMMIT = 'a73c19e1234567890';
 
 function holdNextWrite() {
   const write = Promise.withResolvers<undefined>();
@@ -67,6 +70,25 @@ beforeAll(async () => {
   plugin = await startFakeTrierarchPlugin({
     guard: {
       read: () => catalogue,
+      update: async (input) => {
+        const parsed = guardUpdate.safeParse(input);
+        if (!parsed.success) return { status: 400, body: { error: { message: 'Expected the selected repository' } } };
+        const { repository } = parsed.data;
+        const answer = heldWrite;
+        heldWrite = undefined;
+        await answer;
+        if (!isRepositoryAvailable) {
+          return { status: 200, body: { result: { data: {
+            ...catalogue, errors: [...catalogue.errors, { repository, reason: 'GitHub did not respond.' }],
+          } } } };
+        }
+        catalogue = {
+          ...catalogue,
+          repositories: catalogue.repositories.map((entry) => entry.repository === repository ? { ...entry, readCommit: UPDATED_COMMIT } : entry),
+          sets: catalogue.sets.map((set) => set.repository === repository ? { ...set, commit: UPDATED_COMMIT } : set),
+        };
+        return { status: 200, body: { result: { data: catalogue } } };
+      },
       replace: async (input) => {
         const parsed = guardReplacement.safeParse(input);
         const refusal = { status: 400, body: { error: { message: 'Invalid guard configuration' } } };
@@ -104,6 +126,7 @@ beforeEach(() => {
   catalogue = GUARD_CATALOGUE;
   receivedWrites.length = 0;
   heldWrite = undefined;
+  isRepositoryAvailable = true;
 });
 
 afterAll(async () => {
@@ -141,6 +164,7 @@ it('opens Rule sets from Machines and reads repository commits, rule counts and 
     await page.getByRole('row', { name: /^docs-only / }).getByRole('cell', { name: '4', exact: true }).waitFor();
     await base.getByRole('cell', { name: 'Yes', exact: true }).waitFor();
     expect(await page.getByRole('switch').count()).toBe(0);
+    expect(await page.getByRole('button', { name: /^Update/ }).count()).toBe(0);
     expect(await page.getByRole('button', { name: 'Add repository' }).count()).toBe(0);
   } finally {
     await context.close();
@@ -233,6 +257,7 @@ it('shows file errors and conflicts by set name and lets a manager clear a floor
     await page.goto('/trierarchs/rule-sets');
     await page.getByText('rules/broken.yaml', { exact: true }).waitFor({ timeout: 5000 });
     await page.getByText('no-push', { exact: true }).waitFor();
+    await page.getByText('Fix the file in its repository, then select Update.', { exact: false }).waitFor();
 
     // When the manager confirms removing the repository that provided the floor.
     await page.getByTestId('rule-sets-remove-acme/guard-rules').filter({ visible: true }).click({ timeout: 5000 });
@@ -260,6 +285,77 @@ it('shows file errors and conflicts by set name and lets a manager clear a floor
   } finally {
     releaseRemove();
     releaseClear?.();
+    await context.close();
+  }
+});
+
+
+it('updates only the selected repository and keeps its stored rule sets visible on failure', async () => {
+  // Given an operator with the guard scope and two stored repositories.
+  if (browser === undefined || web === undefined || accountApp === undefined) throw new Error('The console did not start');
+  catalogue = {
+    ...GUARD_CATALOGUE,
+    repositories: [...GUARD_CATALOGUE.repositories, { repository: 'acme/other-rules', folder: 'guard/', access: 'public', readCommit: 'c258bd3123456789' }],
+  };
+  const { fleetId } = await installation().fleets.create.mutate({ requestId: newKey(), name: 'Acme', operatorEmail: 'update@example.com' });
+  accountApp.signInAs({
+    id: 'acc-guard-updater', email: 'update@acme.example',
+    fleets: [{ id: fleetId, name: 'Acme', scopes: ['fleet:read', 'trierarch:guard'] }],
+  });
+  const context = await browser.newContext({ baseURL: web.url, reducedMotion: 'reduce' });
+  let releaseUpdate: (() => void) | undefined;
+  try {
+    const page = await context.newPage();
+    await page.clock.setFixedTime(new Date());
+    await page.goto('/');
+    await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
+    await page.goto('/trierarchs/rule-sets');
+    const repository = page.getByRole('row', { name: /^acme\/guard-rules / });
+    const otherRepository = page.getByRole('row', { name: /^acme\/other-rules / });
+    const ruleSet = page.getByRole('row', { name: /^base / });
+    const update = repository.getByTestId('rule-sets-update-acme/guard-rules');
+    await repository.getByText('8d41e07', { exact: true }).waitFor();
+    await ruleSet.getByRole('cell', { name: '6', exact: true }).waitFor();
+    await update.waitFor({ timeout: 5000 });
+    await page.getByText('New requests use the stored copy.', { exact: false }).waitFor();
+    await otherRepository.getByRole('button', { name: /^Update/ }).waitFor();
+
+    // When the operator updates one repository and GitHub fails before the retry succeeds.
+    isRepositoryAvailable = false;
+    releaseUpdate = holdNextWrite();
+    await update.click();
+    await expect.poll(() => update.getAttribute('data-state')).toBe('pending');
+    await expect.poll(() => update.isDisabled()).toBe(true);
+    await expect.poll(() => update.textContent()).toContain('Updating');
+    await repository.getByText('8d41e07', { exact: true }).waitFor();
+    await ruleSet.getByText('8d41e07', { exact: true }).waitFor();
+    releaseUpdate();
+
+    const failure = page.getByRole('alert').filter({ hasText: 'Update failed' });
+    await failure.getByText('GitHub did not respond.', { exact: true }).waitFor();
+    await failure.getByText('Kept the stored copy.', { exact: true }).waitFor();
+    await repository.getByText('8d41e07', { exact: true }).waitFor();
+    await ruleSet.getByText('8d41e07', { exact: true }).waitFor();
+    await expect.poll(() => update.isEnabled()).toBe(true);
+    isRepositoryAvailable = true;
+    await update.click();
+
+    // Then the selected repository and its rule sets show the new commit and the other keeps its commit.
+    await repository.getByText('Updated', { exact: true }).waitFor();
+    await repository.getByText('a73c19e', { exact: true }).waitFor();
+    await ruleSet.getByText('a73c19e', { exact: true }).waitFor();
+    await otherRepository.getByText('c258bd3', { exact: true }).waitFor();
+    await failure.waitFor({ state: 'hidden' });
+
+    // Selecting Update again confirms a successful read at the same commit.
+    releaseUpdate = holdNextWrite();
+    await update.click();
+    await expect.poll(() => update.getAttribute('data-state')).toBe('pending');
+    releaseUpdate();
+    await repository.getByText('Updated', { exact: true }).waitFor();
+    await repository.getByText('a73c19e', { exact: true }).waitFor();
+  } finally {
+    releaseUpdate?.();
     await context.close();
   }
 });

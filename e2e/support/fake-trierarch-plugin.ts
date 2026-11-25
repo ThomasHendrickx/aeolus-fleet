@@ -64,7 +64,11 @@ function modelOf(input: unknown): string {
 }
 
 export async function startFakeTrierarchPlugin(options: {
-  guard?: { read: () => unknown; replace: (input: unknown) => Promise<{ status: number; body: unknown }> };
+  guard?: {
+    read: () => unknown;
+    replace: (input: unknown) => Promise<{ status: number; body: unknown }>;
+    update?: (input: unknown) => Promise<{ status: number; body: unknown }>;
+  };
 } = {}): Promise<FakeTrierarchPlugin> {
   const enabled = new Set<string>();
   let mcpReads = 0;
@@ -90,6 +94,12 @@ export async function startFakeTrierarchPlugin(options: {
         case '/trpc/guard.get':
           answer(response, options.guard?.read() ?? { version: 0, repositories: [], sets: [], errors: [], conflicts: [], floor: [] });
           return;
+        case '/trpc/guard.update': {
+          const update = await options.guard?.update?.(await bodyOf(request));
+          response.writeHead(update?.status ?? 404, { 'content-type': 'application/json' });
+          response.end(JSON.stringify(update?.body ?? {}));
+          return;
+        }
         case '/trpc/guard.replace': {
           const replacement = await options.guard?.replace(await bodyOf(request));
           response.writeHead(replacement?.status ?? 404, { 'content-type': 'application/json' });
