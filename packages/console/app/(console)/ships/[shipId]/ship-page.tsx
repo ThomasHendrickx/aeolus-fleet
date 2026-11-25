@@ -105,6 +105,7 @@ export function ShipPageFor({ shipId, tab, messageId }: { shipId: ShipId; tab: S
 
   // A ship the session does not read whole shows as one it cannot find (decision 0034).
   const isNotFound = trpcErrorCode(ship.error) === 'NOT_FOUND' || ship.data === null;
+  const isRemoved = ship.data?.removedAt != null;
   // argo's own side is this console; a ship no session crews has none.
   const wayView = way.data && (ship.data?.kind === 'agent' || ship.data?.kind === 'trierarch') ? shipWayView(way.data, { now, machines: machines.data ?? [] }) : undefined;
   // In a sealed fleet, a ship the gateway reads says so (decision 0068, B19); nothing until the sealing is read.
@@ -131,7 +132,7 @@ export function ShipPageFor({ shipId, tab, messageId }: { shipId: ShipId; tab: S
       banner={frame.banner}
       title={ship.data?.name ?? 'Ship'}
       parents={
-        inSquadron
+        inSquadron && !isRemoved
           ? [
               { href: '/squadrons', label: 'Squadrons' },
               { href: `/squadrons/${inSquadron.squadronId}`, label: inSquadron.squadronId },
@@ -156,8 +157,8 @@ export function ShipPageFor({ shipId, tab, messageId }: { shipId: ShipId; tab: S
           way={wayView && way.data?.lease ? <ShipWayLines view={wayView} onOpenMessage={openMessageAt} /> : undefined}
           gatewayReader={gatewayReader}
         />
-        {isNotFound ? null : <ShipSquadron shipId={shipId} now={now} />}
-        {isNotFound ? null : <NotHandled shipId={shipId} />}
+        {isNotFound || isRemoved ? null : <ShipSquadron shipId={shipId} now={now} />}
+        {isNotFound || isRemoved ? null : <NotHandled shipId={shipId} />}
         </>
       }
       sheet={

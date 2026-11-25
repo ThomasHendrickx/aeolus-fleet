@@ -253,7 +253,9 @@ describe('the ship page', () => {
 
     // When argo follows the link in the retained entry.
     const timeline = page.getByTestId('ship-timeline');
-    await timeline.locator(`a[href="/ships/${tester.shipId}"]`).click({ timeout: 10_000 });
+    const ownerLink = timeline.getByTestId('ship-timeline-entry').filter({ hasText: 'Owner retired:' })
+      .getByRole('link', { name: new RegExp(`^(tester|${tester.shipId})`) });
+    await ownerLink.click({ timeout: 10_000 });
 
     // Then the remnant shows its dates and retained history, with no ship actions.
     const header = page.getByTestId('ship-header');

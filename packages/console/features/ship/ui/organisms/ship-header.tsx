@@ -51,6 +51,45 @@ interface ShipHeaderProps {
   gatewayReader?: GatewayReader;
 }
 
+/** Decision 0070 keeps the ship's identity and lifecycle dates for its retained history. */
+function RemovedShipHeader({ ship, retiredAt, removedAt }: { ship: ShipDetail; retiredAt: string; removedAt: string }) {
+  const dates = [
+    { label: 'Commissioned', value: ship.commissionedAt },
+    { label: 'Retired', value: retiredAt },
+    { label: 'Removed', value: removedAt },
+  ];
+
+  return (
+    <div data-testid="ship-header" className="flex flex-col gap-4 max-sm:gap-3">
+      <div className="flex min-w-0 flex-wrap items-center gap-2.5 max-sm:flex-col max-sm:items-start max-sm:gap-1.5">
+        <h1 className="min-w-0">
+          <ShipName name={ship.name} shipId={ship.id} size="title" isSuffixShown />
+        </h1>
+        <div className="flex flex-wrap items-center gap-2">
+          <ShipState state="retired" isBadge />
+          <Badge variant="type">{ship.type}</Badge>
+        </div>
+      </div>
+      <Notice icon={<Archive aria-hidden />}>
+        Retired on <ShipDateTime value={retiredAt} />, removed on <ShipDateTime value={removedAt} />. Kept: its name, type and the history that names it.
+      </Notice>
+      <dl className="grid grid-cols-3 gap-px overflow-hidden rounded-lg border border-border bg-border">
+        {dates.map(({ label, value }) => (
+          <div key={label} className="flex min-w-0 flex-col gap-0.5 bg-card px-3.5 py-2.5">
+            <dt className="text-meta text-muted-foreground">{label}</dt>
+            <dd className="text-body text-foreground"><time dateTime={value}>{dayDate(new Date(value))}</time></dd>
+          </div>
+        ))}
+      </dl>
+    </div>
+  );
+}
+
+function ShipDateTime({ value }: { value: string }) {
+  const date = new Date(value);
+  return <time dateTime={value}>{dayDate(date)}, {clockTime(date)}</time>;
+}
+
 /** An open alert above the meta strip (docs/design/monitoring, 4.8): what parted and for how long, the expectation, since when, the owner told, "clears by itself". */
 function ShipOpenAlert({ alert, now }: { alert: AlertOutput; now: Date }) {
   const { headline, detail, caption } = alertShipPanel(alert, now);
@@ -266,6 +305,10 @@ export function ShipHeader({ ship, shipId, state, actions, permissions, crewRequ
         />
       </div>
     );
+  }
+
+  if (ship.removedAt !== null && ship.retiredAt !== null) {
+    return <RemovedShipHeader ship={ship} retiredAt={ship.retiredAt} removedAt={ship.removedAt} />;
   }
 
   const isOperator = ship.kind === 'operator';
