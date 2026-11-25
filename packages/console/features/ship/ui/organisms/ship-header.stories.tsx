@@ -106,6 +106,9 @@ export const WithReportDetails: Story = {
 };
 export const Argo: Story = { args: { ship: ARGO_SHIP, actions: undefined } };
 export const Retired: Story = { args: { ship: RETIRED_SHIP }, play: async ({ canvasElement }) => expectStates(canvasElement, [['Retired', 'ended']]) };
+export const Removed: Story = {
+  args: { ship: { ...RETIRED_SHIP, scopes: [], removedAt: '2026-10-04T15:00:00Z' } },
+};
 export const Loading: Story = { args: { ship: undefined, state: 'loading' } };
 export const NotFound: Story = { args: { ship: undefined, shipId: UNKNOWN_SHIP_ID, state: 'not-found' } };
 export const Phone: Story = { globals: { viewport: { value: 'mobile1' } } };

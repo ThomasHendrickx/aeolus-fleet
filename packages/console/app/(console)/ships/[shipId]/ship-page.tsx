@@ -243,6 +243,7 @@ export function ShipPageFor({ shipId, tab, messageId }: { shipId: ShipId; tab: S
             <div className="flex flex-col gap-3">
             <MessageThreads
               shipId={shipId}
+              isShipRemoved={isRemoved}
               messages={messages.items ?? []}
               state={messages.isFailed ? 'error' : messages.items ? 'ready' : 'loading'}
               onRetry={messages.retry}

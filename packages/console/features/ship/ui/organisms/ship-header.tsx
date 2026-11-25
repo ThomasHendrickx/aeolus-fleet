@@ -66,7 +66,7 @@ function RemovedShipHeader({ ship, retiredAt, removedAt }: { ship: ShipDetail; r
           <ShipName name={ship.name} shipId={ship.id} size="title" isSuffixShown />
         </h1>
         <div className="flex flex-wrap items-center gap-2">
-          <ShipState state="retired" isBadge />
+          <ShipState state="retired" size="caption" className="rounded-full border border-tone-ended-border bg-tone-ended-bg px-2 py-px" />
           <Badge variant="type">{ship.type}</Badge>
         </div>
       </div>

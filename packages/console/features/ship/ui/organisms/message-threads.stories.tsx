@@ -22,6 +22,7 @@ type Story = StoryObj<typeof meta>;
 
 export const Threads: Story = {};
 export const Empty: Story = { args: { messages: [] } };
+export const RemovedShipEmpty: Story = { args: { messages: [], isShipRemoved: true } };
 export const Loading: Story = { args: { state: 'loading' } };
 export const Error: Story = { args: { state: 'error' } };
 /** A member's check-in and role: each in words, its raw payload in the message sheet. */
