@@ -1,6 +1,6 @@
 import type { FleetId, ShipId } from '@aeolus-fleet/common';
 import type { FastifyInstance } from 'fastify';
-import type { Browser, BrowserContext, Page, Request } from 'playwright';
+import type { Browser, BrowserContext, Page } from 'playwright';
 import { THEME_COOKIE } from '@aeolus-fleet/common/rules';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -138,25 +138,26 @@ describe('an account signing in to the console', () => {
   it("asks the account app for the apps list no more when the account comes back to the page's tab", async () => {
     accountApp.signInAs(mathilde());
     const page = await newPage();
+    const firstList = page.waitForResponse((response) => response.url().includes('/api/reads/apps-list'));
+    const firstPalette = page.waitForResponse((response) => response.url().includes('/api/reads/palette-across-apps'));
     await page.goto('/');
     await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
     await page.getByText('Live', { exact: true }).filter({ visible: true }).first().waitFor();
-    const asked = accountApp.appsListsAsked();
-    const reads: Request[] = [];
-    page.on('request', (request) => {
-      if (request.url().includes('/api/reads/')) {
-        reads.push(request);
-      }
-    });
+    await Promise.all([firstList, firstPalette]);
+    const signIn = sharedSignInOf(await page.context().cookies());
+    if (signIn === undefined) throw new Error('The account has no shared sign-in');
+    const asked = accountApp.appsListsAsked(signIn);
     // Harbour is read again when the tab comes back: that round is what the test waits for.
     const listedAgain = page.waitForResponse((response) => response.url().includes('fleet.harbour'));
 
     // The page's tab goes to the background and comes back, as switching tabs does.
     await page.evaluate("for (const state of ['hidden', 'visible']) { Object.defineProperty(document, 'visibilityState', { value: state, configurable: true }); window.dispatchEvent(new Event('visibilitychange')); }");
     await listedAgain;
-    await Promise.all(reads.map((read) => read.response()));
+    // The assertion is about the absence of a read after this round of requests.
+    // eslint-disable-next-line playwright/no-networkidle -- Wait for the tab-return requests to settle before counting.
+    await page.waitForLoadState('networkidle');
 
-    expect(accountApp.appsListsAsked()).toBe(asked);
+    expect(accountApp.appsListsAsked(signIn)).toBe(asked);
   });
 
   it("pings a crewed ship from its page: argo's ping, the event naming the account", async () => {
