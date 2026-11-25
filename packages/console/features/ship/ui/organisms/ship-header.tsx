@@ -3,7 +3,7 @@ import { Archive, CircleAlert, Eye, Info, KeyRound, Monitor, Plug, UserRound } f
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
-import { Button, classNames, EmptyState, ShipState, Skeleton, Badge } from '@aeolus-fleet/ui';
+import { Button, classNames, EmptyState, ShipState, Skeleton, Badge, StatusBadge } from '@aeolus-fleet/ui';
 import { clockTime, dayDate, duration, fullDateTime, lastSeen, relativeTime, shortDateTime } from '../../../../lib/relative-time';
 import { CopyButton } from '../../../../components/atoms/copy-button';
 import { LocationTag } from '../../../../components/molecules/location-tag';
@@ -86,7 +86,7 @@ function RemovedShipHeader({ ship, retiredAt, removedAt }: { ship: ShipDetail; r
           <ShipName name={ship.name} shipId={ship.id} size="title" isSuffixShown />
         </h1>
         <div className="flex flex-wrap items-center gap-2">
-          <ShipState state="retired" size="caption" className="rounded-full border border-tone-ended-border bg-tone-ended-bg px-2 py-px" />
+          <StatusBadge status="retired" look="pill" />
           <ShipTypeAndKind ship={ship} isPluginShip={ship.kind === 'plugin'} />
         </div>
       </div>
