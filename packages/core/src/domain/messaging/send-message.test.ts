@@ -665,6 +665,15 @@ describe('declared formatted messages', () => {
 
 
 describe('formatted message preservation', () => {
+  it('accepts a raw question without a pick', async () => {
+    const { pick: _pick, ...question } = aQuestion();
+    const payload = JSON.stringify(question);
+
+    const messageId = await sent(argo, aReview({ payload, contentType: 'application/vnd.aeolus.question+json' }));
+
+    expect(core.state.messages).toMatchObject([{ id: messageId, payload }]);
+  });
+
   it.each([
     { kind: 'question', payload: JSON.stringify({ ...aQuestion(), title: 'Choose "ship"\n船', options: [{ key: 2, label: 'Ship' }, { key: 4, label: 'Wait' }] }, null, 2) },
     { kind: 'step', payload: JSON.stringify(aStep({ title: 'Sign in\n船' }), null, 2) },

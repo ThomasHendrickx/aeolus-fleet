@@ -1081,6 +1081,19 @@ describe('ask, step and withdraw at /api/v1 (docs/design/ask-and-step)', () => {
     });
   });
 
+  it('ask: accepts a question without a pick', async () => {
+    start();
+    const crewToken = crewedShip('scout');
+    const { pick: _pick, ...question } = aQuestionInput;
+
+    const response = await post('ask', { crewToken, body: question });
+
+    expect(response.statusCode).toBe(200);
+    expect(storedOf(z.object({ messageId: z.string() }).parse(response.json()).messageId).payload).toBe(
+      `{"id":"${QUESTION_ID}","title":"Ship it?","context":"","options":[{"key":2,"label":"Ship","detail":""},{"key":4,"label":"Wait","detail":"After the walk"}]}`,
+    );
+  });
+
   it.each([
     { target: { kind: 'question', questionId: QUESTION_ID }, payload: `{"questionId":"${QUESTION_ID}"}`, contentType: 'application/vnd.aeolus.question-withdrawal+json' },
     { target: { kind: 'step', stepId: STEP_ID }, payload: `{"stepId":"${STEP_ID}"}`, contentType: 'application/vnd.aeolus.step-withdrawal+json' },
