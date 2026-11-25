@@ -544,6 +544,15 @@ describe('timelineSentence', () => {
     expect(onScoutsPage(anEntry('PluginDisconnected', { actor: argo, details: { why: 'released' } })).sentence).toBe('No longer a connected plugin: released by argo');
   });
 
+  it('shows plugin read failure and recovery with the actor who recorded them', () => {
+    expect(onScoutsPage(anEntry('PluginReadFailed', { actor: argo }))).toEqual({
+      sentence: 'Plugin read failed by argo', tone: 'attention', icon: 'undeliverable',
+    });
+    expect(onScoutsPage(anEntry('PluginReadRecovered', { actor: scout }))).toEqual({
+      sentence: 'Plugin read recovered by scout', tone: 'ended', icon: 'acknowledged',
+    });
+  });
+
   it('says the watch raised an alert on the ship, and what parted (decision 0071)', () => {
     expect(onScoutsPage(anEntry('AlertRaised', { actor: argo, details: { alertId: 'alt_x', signal: 'delivery-unacknowledged', occurrenceKey: 'dlv_x' } }))).toEqual({
       sentence: 'Alert raised: delivery unacknowledged by argo',
