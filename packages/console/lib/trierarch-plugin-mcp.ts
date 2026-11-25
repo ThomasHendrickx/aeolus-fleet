@@ -1,3 +1,4 @@
+import { TRIERARCH_PLUGIN_NO_ANSWER } from './no-answer';
 import { sessionCookieOf } from './plugin-call';
 import { trierarchPluginUrlFrom } from './trierarch-plugin-url';
 import { guardAnswerSchemas } from './trierarch-plugin-guard-schemas';
@@ -27,7 +28,7 @@ const noAnswerMessages: Record<ConfigurationProcedure, string> = {
   'mcp.replace': 'The trierarch plugin did not answer: read mcp.get before replacing again',
   'guard.get': 'The trierarch plugin did not answer: read guard.get again',
   'guard.replace': 'The trierarch plugin did not answer: read guard.get before replacing again',
-  'guard.update': 'The trierarch plugin did not confirm the update. Try again.',
+  'guard.update': TRIERARCH_PLUGIN_NO_ANSWER,
 };
 
 export async function forwardMcpCall(

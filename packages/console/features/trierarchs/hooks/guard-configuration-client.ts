@@ -1,9 +1,9 @@
+import { TRIERARCH_PLUGIN_NO_ANSWER } from '../../../lib/no-answer';
 import type { GuardConfiguration } from '../../../lib/trierarch-plugin-guard-schemas';
 import type { guardReplacement } from '../services/guard-configuration';
 
 const TIMEOUT_MS = 35_000; // Allow for the console's network hop after the plugin's 30-second deadline.
 const READ_FAILURE = 'The trierarch plugin did not answer with its rule sets.';
-const UPDATE_FAILURE = 'The trierarch plugin did not confirm the update. Try again.';
 const WRITE_FAILURE = 'The trierarch plugin did not confirm the change. Read the rule sets again before saving.';
 
 export type GuardSaveResult = { kind: 'saved' } | { kind: 'conflict' } | { kind: 'uncertain' | 'refused'; message: string };
@@ -74,8 +74,8 @@ export async function updateGuardRepository(repository: string): Promise<
     });
     const answer: unknown = await response.json();
     if (response.ok && hasCatalogue(answer)) return { kind: 'answered', configuration: answer.result.data };
-    return { kind: 'unconfirmed', reason: refusal(answer) ?? UPDATE_FAILURE };
+    return { kind: 'unconfirmed', reason: refusal(answer) ?? TRIERARCH_PLUGIN_NO_ANSWER };
   } catch {
-    return { kind: 'unconfirmed', reason: UPDATE_FAILURE };
+    return { kind: 'unconfirmed', reason: TRIERARCH_PLUGIN_NO_ANSWER };
   }
 }
