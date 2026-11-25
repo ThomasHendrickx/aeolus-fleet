@@ -23,7 +23,7 @@ Not in it: what a session does inside an allowed call, rules for ships no triera
 | Acknowledgement means receipt. Sending rules is no proof a trierarch applied them; configuration is versioned and confirmed, and an older version never replaces a newer one. | [0001](../../decisions/0001-ack-on-receipt.md), [trusted repositories](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/blob/main/docs/design/trusted-repositories.md) |
 | Payloads are at most 256 KB; a message is the ticket, the reference is where content lives. Full rules in an assignment must fit. | [Architecture rules](../../../AGENTS.md) |
 | The plugin owns its data, its pages and its API; every call checks actor, scopes and fleet; a message is never authority. | [0043](../../decisions/0043-core-surface.md), [0057](../../decisions/0057-actors.md) |
-| Squadrons reads templates from repositories through the GitHub API; the issue asks rule sets to be read the same way. | [0017](https://github.com/ThomasHendrickx/aeolus-fleet-squadrons/blob/main/docs/decisions/0017-squadrons-package.md) |
+| Squadrons reads templates from repositories through the GitHub API. Guard uses the GitHub API for operator-requested updates (section 4.2). | [0017](https://github.com/ThomasHendrickx/aeolus-fleet-squadrons/blob/main/docs/decisions/0017-squadrons-package.md) |
 | Claude Code runs hooks, then deny rules, then the permission tool. A hook that errors or times out lets the call run unless it answers a denial: a guard fails open by default. | [Permission asks](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/blob/main/docs/design/permission-asks.md), Claude Code hook behaviour |
 | A check on the command text is bypassed by anything that builds the command at run time: `sh -c`, `eval`, variables, aliases, an interpreter's `-c`, a script written and then run, `git -c core.hooksPath=`, `--no-verify`, `GIT_*` variables. A path check is bypassed by `..`, symlinks, `cd` before a relative path, and tools other than the shell (Write, Edit, MCP tools). | General bypass classes of PreToolUse guards; the known bypasses of the prior art, an existing Claude Code PreToolUse guard, join them as regression cases ([aeolus-fleet-trierarch#617](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/issues/617)) |
 | A session runs as the computer's user on the host: it can edit the harness's settings, the hook's files or its rules, unless the guard protects them or the session runs in a container that cannot reach them. | [0039](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/blob/main/docs/decisions/0039-container-sessions.md) |
@@ -102,9 +102,9 @@ Answer: approved by Thomas, option 1. Decision: the plugin sends the full resolv
 ### Q10. A rule set that changes while a session runs
 
 Context: the issue wants the same version on restart and move.
-Options: 1 pinned for the crew request's settings version: a new request version resolves the latest commit again; 2 applied live at each new commit.
+Options: 1 pinned for the crew request's settings version: a new request version resolves the stored copy again; 2 applied live at each new commit.
 Pick: 1. What guards a session is then a fact of its request, as its model is under 0063; a live change mid-task surprises the session and the person.
-Answer: approved by Thomas, option 1. Decision: the resolved rules are pinned for the crew request's settings version, across restarts and moves; a new settings version resolves the latest commit again.
+Answer: approved by Thomas, option 1. Decision: the resolved rules are pinned for the crew request's settings version, across restarts and moves; a new settings version resolves the stored copy again.
 
 ### Q11. A session cannot change its own guard
 
@@ -177,11 +177,16 @@ rules:
 
 The plugin keeps, per fleet, one versioned guard configuration in its own database, replaced whole from an expected version, as the MCP configuration is ([fleet crew MCP](../fleet-crew-mcp/README.md), section 4): its repositories `{ repository: "<owner>/<name>", folder, access: "public" | "private" }`, a read token per private repository (write-only, stored and protected as the MCP secrets are), and the floor: a list of rule set names.
 
-- Reading, as squadrons reads templates: on add and every 5 minutes, per repository, the latest commit of its default branch through the GitHub API; when it changed, the folder's tree, and only the `.yaml` files whose blob changed are read. Each is checked against the schema and its `name` against its file name.
-- Each valid file is a rule set of that repository at that commit; each invalid one an error `{ file, reason }` shown on the page and not offered. A repository that cannot be read keeps its last read sets and shows the error.
+Thomas, 25 Nov, [trierarch plugin #113](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch-plugin/issues/113):
+
+> The guard is copied to aeolus. Default behaviour for now is that they only get updated by an operator. Later we can add automated updates but for now not. This solves connection issues to GitHub etc.
+
+- The plugin offers the stored copy. Only an explicit operator update reads GitHub. It reads the latest commit of the repository's default branch through the GitHub API. When the commit changes, it reads the folder's tree and the `.yaml` files whose blobs changed. Each is checked against the schema and its `name` against its file name.
+- An update that fails keeps the stored copy and reports why. Resolve new settings versions against the stored commits, including during a GitHub outage. Existing settings versions keep their pinned commits.
+- Each valid file in the stored copy is a rule set of that repository at that commit. The file errors in that copy are shown with their file and reason, and those files are excluded from the offered rule sets.
 - A name in two repositories is a conflict: neither is offered, both show the conflict (issue #2069, point 2).
 - The floor names rule sets. A floor name that is not offered (gone, invalid, in conflict) leaves the floor unresolvable: every request with any rules waits with `floor unavailable: <name>` until it is fixed (Q3).
-- Calls, on the plugin's tRPC router through the console route, as the MCP page's: `guard.get` (fleet:read: repositories, sets, errors, conflicts, floor, version; never a token) and `guard.replace` (`trierarch:guard`, Q14: `expectedVersion`, the repositories, retained token names and new token values, the floor). `trierarch:guard` is declared by the plugin in its own namespace and granted through the scope catalogue. A replace triggers a read.
+- Calls, on the plugin's tRPC router through the console route, as the MCP page's: `guard.get` (fleet:read: repositories, sets, errors, conflicts, floor, version; never a token) and `guard.replace` (`trierarch:guard`, Q14: `expectedVersion`, the repositories, retained token names and new token values, the floor). `trierarch:guard` is declared by the plugin in its own namespace and granted through the scope catalogue. Replacing configuration saves settings. The operator update is the separate action that reads GitHub.
 
 ### 4.3 The crew request setting (core #2070)
 
@@ -325,14 +330,32 @@ Before: the Trierarchs page with its Machines and MCP servers tabs. After: a thi
 | --- | --- |
 | ![Trierarchs page: Rule sets before, 1440 dark](mockups/rule-sets-before-1440-dark.png) | ![Trierarchs page: Rule sets after, 1440 dark](mockups/rule-sets-after-1440-dark.png) |
 
+#### Operator update proposal for #2090
+
+Each drawing starts with the populated Rule sets tab from the approved design. The proposed control sits in the repository row on desktop and in the repository card on phone. The proposal uses the same `trierarch:guard` access as Add repository. The empty and read-only views have no update control.
+
+| Width | Light | Dark |
+| --- | --- | --- |
+| 1440 px | [Before, ready, working, done and failed](mockups/rule-sets-update-1440-light.png) | [Before, ready, working, done and failed](mockups/rule-sets-update-1440-dark.png) |
+| 375 px | [Before, ready, working, done and failed](mockups/rule-sets-update-375-light.png) | [Before, ready, working, done and failed](mockups/rule-sets-update-375-dark.png) |
+
+- **Ready.** The operator can update the selected repository.
+- **Working.** The control shows the console's existing “Updating” wording and is disabled for that repository. The stored commit and rule sets stay visible.
+- **Done.** The commit in the repository and its rule sets reflects the stored copy. If GitHub returns the same commit, the control still confirms success and the commit stays the same.
+- **Failed.** The repository shows the reason and the stored commit and rule sets stay visible. The operator can use the same control to try again.
+
+**Q1. Should the control update one repository or all repositories?** Options are a control in each repository row or a single control by the Repositories heading. Pick the row so the action, result and retry all refer to one repository.
+
+**Q2. Which wording should the console use?** The drawings propose “Update”, “Updated”, “Update failed”, “GitHub did not respond.” (an example reason), “Kept the stored copy.” and “New requests use the stored copy.” Options are this wording with an inline result beside the affected repository, or “Update rule sets” with the result in a toast. Pick the inline result so a failure stays next to its reason and the commit still in use. Should accompanying error guidance say “Fix the file in its repository, then select Update”? Pick that wording to make the operator step explicit.
+
 ## 6. The flow
 
 ```mermaid
 flowchart TD
   subgraph Plugin[trierarch plugin]
-    R0[every 5 minutes, or on replace] --> R1[latest commit per repository]
-    R1 -->|unchanged| R9[keep what was read]
-    R1 -->|cannot read| RE[keep last read sets; show the error]
+    R0[operator requests an update] --> R1[latest commit for the repository]
+    R1 -->|unchanged| R9[keep the stored copy]
+    R1 -->|cannot read| RE[keep the stored copy and show the reason]
     R1 -->|changed| R2[read changed .yaml files]
     R2 --> V{valid, name matches file?}
     V -->|no| E[error shown; not offered]
