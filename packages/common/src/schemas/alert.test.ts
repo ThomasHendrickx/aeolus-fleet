@@ -32,8 +32,8 @@ const EXAMPLE = {
 const DELIVERY = { deliveryId: 'dlv_01m66p4k2v9qz8f7x3n5c1d1v1', messageId: 'msg_01m66p4k2v9qz8f7x3n5c1msg1' };
 
 describe('the alert signals (docs/design/monitoring, 4.4)', () => {
-  it('are the four distribution signals and the two expectations, nothing else', () => {
-    expect(ALERT_SIGNALS).toEqual(['crew-request-unassigned', 'delivery-unacknowledged', 'delivery-overdue', 'ping-unanswered', 'report-unchanged', 'task-not-done']);
+  it('includes plugin read failed among the alert signals', () => {
+    expect(ALERT_SIGNALS).toEqual(['crew-request-unassigned', 'delivery-unacknowledged', 'delivery-overdue', 'ping-unanswered', 'report-unchanged', 'task-not-done', 'plugin-read-failed']);
   });
 });
 
@@ -99,5 +99,19 @@ describe('raiseAlertInputSchema (docs/design/monitoring, 4.5)', () => {
 
     expect(raiseAlertInputSchema.safeParse({ ...raise, signal: 'ping-unanswered', facts, occurrenceKey: '' }).success).toBe(false);
     expect(raiseAlertInputSchema.safeParse({ ...raise, signal: 'ping-unanswered', facts, occurrenceKey: 'a'.repeat(201) }).success).toBe(false);
+  });
+});
+
+describe('plugin-read-failed (docs/design/monitoring/plugin-read-failed, 4.5)', () => {
+  const facts = { read: 'guard.get', reason: 'no-answer', minutes: 5 };
+  const raise = { shipId: SHIP_ID, signal: 'plugin-read-failed', facts, occurrenceKey: '2026-11-25T14:02:00Z', since: '2026-11-25T14:02:00Z' };
+
+  it('the facts parse', () => {
+    expect(raiseAlertInputSchema.parse(raise)).toEqual(raise);
+    expect(alertMessageSchema.parse({ ...EXAMPLE, signal: raise.signal, facts })).toEqual({ ...EXAMPLE, signal: raise.signal, facts });
+  });
+
+  it("another signal's facts are refused", () => {
+    expect(raiseAlertInputSchema.safeParse({ ...raise, facts: { ...DELIVERY, minutes: 5 } }).success).toBe(false);
   });
 });
