@@ -2226,9 +2226,11 @@ describe("argo's effective scopes at the API (decision 0046)", () => {
     expect(before.scopes).not.toContain('operator-late:guard');
     expect(before.scopes).not.toContain('operator-fleet:review');
     expect(session.scopes).toEqual(expect.arrayContaining(newScopes));
-    expect(detail).toMatchObject({ scopes: expect.arrayContaining(newScopes) });
-    expect(listed).toMatchObject({ scopes: expect.arrayContaining(newScopes) });
-    expect(page.items).toEqual([expect.objectContaining({ id: argoId, scopes: expect.arrayContaining(newScopes) })]);
+    expect('scopes' in detail ? detail.scopes : []).toEqual(expect.arrayContaining(newScopes));
+    expect('scopes' in listed ? listed.scopes : []).toEqual(expect.arrayContaining(newScopes));
+    expect(page.items.map(({ id }) => id)).toEqual([argoId]);
+    const [row] = page.items;
+    expect(row && 'scopes' in row ? row.scopes : []).toEqual(expect.arrayContaining(newScopes));
   });
 
   it("answers only another ship's held scopes when the fleet has additional scopes", async () => {
