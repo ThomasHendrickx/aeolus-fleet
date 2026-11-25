@@ -36,7 +36,7 @@ beforeEach(async () => {
   const plugin: ShipCaller = { fleetId: argo.fleetId, shipId: pluginId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:assign'] };
   trierarch = { fleetId: argo.fleetId, shipId: trierarchId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:run'] };
   scoutId = await commissionedAndCrewed('scout', async (shipId) => {
-    unwrap(await core.useCases.assignCrew(plugin, { shipId, trierarchShipId: trierarchId }));
+    unwrap(await core.useCases.assignCrew(plugin, { shipId, trierarchShipId: trierarchId, settingsVersion: 1 }));
   });
   strayId = await commissionedAndCrewed('stray');
   core.clock.advance(60_000);

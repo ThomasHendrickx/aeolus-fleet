@@ -25,7 +25,7 @@ beforeEach(async () => {
   trierarch = await shipWithScopes({ registry, argo }, { name: 'mac-mini', type: 'trierarch', scopes: ['crew:run'] });
   ({ shipId: scoutId } = unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' })));
   unwrap(await registry.requestCrew(argo, { shipId: scoutId, settings: aCrewSettings({ harness: 'claude-code' }) }));
-  unwrap(await registry.assignCrew(plugin, { shipId: scoutId, trierarchShipId: trierarch.shipId }));
+  unwrap(await registry.assignCrew(plugin, { shipId: scoutId, trierarchShipId: trierarch.shipId, settingsVersion: 1 }));
   unwrap(await registry.reportCrewStatus(trierarch, { shipId: scoutId, status: 'running' }));
   core.clock.advance(60_000);
   core.state.events.length = 0;

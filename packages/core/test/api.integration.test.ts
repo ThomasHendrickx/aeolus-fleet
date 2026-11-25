@@ -325,6 +325,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_person_meeting_intervention$/),
       expect.stringMatching(/^\d{14}_meeting_call_question$/),
       expect.stringMatching(/^\d{14}_guard_status$/),
+      expect.stringMatching(/^\d{14}_crew_settings_version$/),
     ]);
   });
 });
@@ -2948,7 +2949,7 @@ it('carries ruleSet, applied guard and refused activity through tRPC (#2070)', a
   const settings = { workspace: { kind: 'folder', name: 'notes' }, options: {}, ruleSet: 'no-push' };
   const guard = { sets: [{ name: 'no-push', repository: 'company/rules', commit: '8d41e07', floor: false }], refusals: 1, recent: [{ at: '2026-09-29T12:00:00.000Z', tool: 'Bash', rule: 'git.deny push', set: 'no-push', commit: '8d41e07' }] };
   await manager.fleet.crewRequest.mutate({ shipId: target.shipId, settings });
-  await manager.fleet.assignCrew.mutate({ shipId: target.shipId, trierarchShipId });
+  await manager.fleet.assignCrew.mutate({ shipId: target.shipId, trierarchShipId, settingsVersion: 1 });
   await client().ship.register.mutate({ ...target, location: { kind: 'SERVER' } });
 
   await manager.fleet.reportCrewStatus.mutate({ shipId: target.shipId, status: 'running', guard });

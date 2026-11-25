@@ -291,6 +291,10 @@ export interface LeaseRepository {
  * fleet. A use case that changes one locks its ship first.
  */
 export interface CrewRequestRepository {
+  /** The latest settings version issued for the ship, including removed requests. */
+  lastSettingsVersion(fleetId: FleetId, shipId: ShipId): Promise<number>;
+  /** Records a new version while the ship is locked, in the transaction saving its request. */
+  recordSettingsVersion(fleetId: FleetId, input: { shipId: ShipId; settingsVersion: number }): Promise<void>;
   find(fleetId: FleetId, shipId: ShipId): Promise<CrewRequest | undefined>;
   /** Stores the ship's request, replacing the one it held. */
   save(request: CrewRequest): Promise<void>;

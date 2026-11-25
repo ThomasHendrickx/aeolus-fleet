@@ -37,13 +37,13 @@ function crewRequestOf(shipId: ShipId) {
 
 describe('assigning a crew request', () => {
   it('assigns the request to the trierarch, with no status yet', async () => {
-    await expect(registry.assignCrew(plugin, { shipId: scoutId, trierarchShipId: trierarch.shipId })).resolves.toEqual({ isOk: true, value: undefined });
+    await expect(registry.assignCrew(plugin, { shipId: scoutId, trierarchShipId: trierarch.shipId, settingsVersion: 1 })).resolves.toEqual({ isOk: true, value: undefined });
 
     expect(crewRequestOf(scoutId)).toMatchObject({ assignedTo: trierarch.shipId, status: null });
   });
 
   it('writes CrewAssigned, caused by the assigner, naming the trierarch', async () => {
-    unwrap(await registry.assignCrew(plugin, { shipId: scoutId, trierarchShipId: trierarch.shipId }));
+    unwrap(await registry.assignCrew(plugin, { shipId: scoutId, trierarchShipId: trierarch.shipId, settingsVersion: 1 }));
 
     expect(core.state.events).toEqual([
       expect.objectContaining({
@@ -57,13 +57,13 @@ describe('assigning a crew request', () => {
   });
 
   it('assigns to any active ship, crew:run or not: the fleet does no routing', async () => {
-    await expect(registry.assignCrew(plugin, { shipId: scoutId, trierarchShipId: plugin.shipId })).resolves.toEqual({ isOk: true, value: undefined });
+    await expect(registry.assignCrew(plugin, { shipId: scoutId, trierarchShipId: plugin.shipId, settingsVersion: 1 })).resolves.toEqual({ isOk: true, value: undefined });
 
     expect(crewRequestOf(scoutId)).toMatchObject({ assignedTo: plugin.shipId });
   });
 
   it('keeps the assignment and the status when the settings are replaced', async () => {
-    unwrap(await registry.assignCrew(plugin, { shipId: scoutId, trierarchShipId: trierarch.shipId }));
+    unwrap(await registry.assignCrew(plugin, { shipId: scoutId, trierarchShipId: trierarch.shipId, settingsVersion: 1 }));
     unwrap(await registry.reportCrewStatus(trierarch, { shipId: scoutId, status: 'running' }));
 
     unwrap(await registry.requestCrew(argo, { shipId: scoutId, settings: aCrewSettings({ harness: 'codex' }) }));
@@ -74,7 +74,7 @@ describe('assigning a crew request', () => {
 
 describe('an assigned crew request read with the ship', () => {
   it('is listed with the trierarch it is assigned to, by id and name, and its status', async () => {
-    unwrap(await registry.assignCrew(plugin, { shipId: scoutId, trierarchShipId: trierarch.shipId }));
+    unwrap(await registry.assignCrew(plugin, { shipId: scoutId, trierarchShipId: trierarch.shipId, settingsVersion: 1 }));
     unwrap(await registry.reportCrewStatus(trierarch, { shipId: scoutId, status: 'crewing' }));
 
     const listed = wholeShips((await registry.listFleet(argo)).ships).find((ship) => ship.id === scoutId);
@@ -83,7 +83,7 @@ describe('an assigned crew request read with the ship', () => {
   });
 
   it('is read with the one ship, its trierarch by id and name', async () => {
-    unwrap(await registry.assignCrew(plugin, { shipId: scoutId, trierarchShipId: trierarch.shipId }));
+    unwrap(await registry.assignCrew(plugin, { shipId: scoutId, trierarchShipId: trierarch.shipId, settingsVersion: 1 }));
 
     await expect(registry.getShip(argo, { shipId: scoutId })).resolves.toMatchObject({
       value: { crewRequest: { assignedTo: { id: trierarch.shipId, name: 'mac-mini' }, status: null } },
@@ -119,7 +119,7 @@ describe('who crewed the ship of a crew request', () => {
   });
 
   it('is the trierarch that crewed it', async () => {
-    unwrap(await registry.assignCrew(plugin, { shipId: scoutId, trierarchShipId: trierarch.shipId }));
+    unwrap(await registry.assignCrew(plugin, { shipId: scoutId, trierarchShipId: trierarch.shipId, settingsVersion: 1 }));
     await crewedWithPromptFrom(trierarch);
 
     await expect(registry.getShip(argo, { shipId: scoutId })).resolves.toMatchObject({
@@ -137,39 +137,49 @@ describe('an assignment refused', () => {
     expect(core.state).toEqual(before);
   }
 
+  it('refuses to assign when the crew request settings changed after placement read them', async () => {
+    const ship = unwrap(await registry.getShip(argo, { shipId: scoutId }));
+    const settingsVersion = 'crewRequest' in ship ? (ship.crewRequest?.settingsVersion ?? 0) : 0;
+    expect(settingsVersion).toBe(1);
+    const claim = { shipId: scoutId, trierarchShipId: trierarch.shipId, settingsVersion };
+    unwrap(await registry.requestCrew(argo, { shipId: scoutId, settings: aCrewSettings({ harness: 'codex' }) }));
+
+    await expectRefused(claim, 'CREW_REQUEST_SETTINGS_CHANGED');
+  });
+
   it('refuses a request assigned already: the claim is optimistic, the first wins', async () => {
     const other = await shipWithScopes({ registry, argo }, { name: 'linux-box', type: 'trierarch', scopes: ['crew:run'] });
-    unwrap(await registry.assignCrew(plugin, { shipId: scoutId, trierarchShipId: trierarch.shipId }));
+    unwrap(await registry.assignCrew(plugin, { shipId: scoutId, trierarchShipId: trierarch.shipId, settingsVersion: 1 }));
     core.state.events.length = 0;
 
-    await expectRefused({ shipId: scoutId, trierarchShipId: other.shipId }, 'CREW_REQUEST_ALREADY_ASSIGNED');
+    await expectRefused({ shipId: scoutId, trierarchShipId: other.shipId, settingsVersion: 1 }, 'CREW_REQUEST_ALREADY_ASSIGNED');
   });
 
   it('refuses a ship that is crewed: crewing it by hand fulfils the request', async () => {
     crewAboard(core, { fleetId, shipId: scoutId });
 
-    await expectRefused({ shipId: scoutId, trierarchShipId: trierarch.shipId }, 'SHIP_NOT_AWAITING_CREW');
+    await expectRefused({ shipId: scoutId, trierarchShipId: trierarch.shipId, settingsVersion: 1 }, 'SHIP_NOT_AWAITING_CREW');
   });
 
   it('refuses a ship without a crew request', async () => {
     unwrap(await registry.removeCrewRequest(argo, { shipId: scoutId }));
     core.state.events.length = 0;
 
-    await expectRefused({ shipId: scoutId, trierarchShipId: trierarch.shipId }, 'CREW_REQUEST_NOT_FOUND');
+    await expectRefused({ shipId: scoutId, trierarchShipId: trierarch.shipId, settingsVersion: 1 }, 'CREW_REQUEST_NOT_FOUND');
   });
 
   it('refuses an assignee that is retired', async () => {
     unwrap(await registry.retireShip(argo, { shipId: trierarch.shipId }));
     core.state.events.length = 0;
 
-    await expectRefused({ shipId: scoutId, trierarchShipId: trierarch.shipId }, 'ASSIGNEE_NOT_ACTIVE');
+    await expectRefused({ shipId: scoutId, trierarchShipId: trierarch.shipId, settingsVersion: 1 }, 'ASSIGNEE_NOT_ACTIVE');
   });
 
   it('refuses an assignee that is not in the fleet', async () => {
-    await expectRefused({ shipId: scoutId, trierarchShipId: core.ids('ship') }, 'ASSIGNEE_NOT_ACTIVE');
+    await expectRefused({ shipId: scoutId, trierarchShipId: core.ids('ship'), settingsVersion: 1 }, 'ASSIGNEE_NOT_ACTIVE');
   });
 
   it('refuses a ship that is not in the fleet', async () => {
-    await expectRefused({ shipId: core.ids('ship'), trierarchShipId: trierarch.shipId }, 'SHIP_NOT_FOUND');
+    await expectRefused({ shipId: core.ids('ship'), trierarchShipId: trierarch.shipId, settingsVersion: 1 }, 'SHIP_NOT_FOUND');
   });
 });

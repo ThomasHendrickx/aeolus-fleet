@@ -42,10 +42,10 @@ describe('removing a crew request', () => {
     ]);
   });
 
-  it('starts the settings version again at 1 for a new request', async () => {
+  it('continues the settings version for a new request', async () => {
     unwrap(await registry.removeCrewRequest(argo, { shipId: scoutId }));
 
-    await expect(registry.requestCrew(argo, { shipId: scoutId, settings: aCrewSettings() })).resolves.toEqual({ isOk: true, value: { settingsVersion: 1 } });
+    await expect(registry.requestCrew(argo, { shipId: scoutId, settings: aCrewSettings() })).resolves.toEqual({ isOk: true, value: { settingsVersion: 2 } });
   });
 
   it('refuses a ship without a crew request, and changes nothing', async () => {

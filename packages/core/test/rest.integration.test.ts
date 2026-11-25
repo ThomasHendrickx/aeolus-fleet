@@ -798,6 +798,23 @@ describe('the fleet actions at /api/v1/fleet', () => {
     expect(Object.fromEntries(answers)).toEqual(Object.fromEntries(others.map((each) => [each.route, 403])));
   });
 
+  it('refuses stale placement and accepts the current crew request settings version', async () => {
+    const plugin = await crewedWithFleetScopes(['crew:assign']);
+    const trierarch = await crewedWithFleetScopes(['crew:run']);
+    const { shipId } = await commissioned();
+    const { requestCrew } = createUseCases({ prisma: database });
+    const first = unwrap(await requestCrew(argo, { shipId, settings: aCrewSettings({ harness: 'claude-code' }) }));
+    const updated = unwrap(await requestCrew(argo, { shipId, settings: aCrewSettings({ harness: 'codex' }) }));
+
+    const claim = (settingsVersion: number) => request('fleet/assignCrew', { crewToken: plugin.crewToken, body: { shipId, trierarchShipId: trierarch.shipId, settingsVersion } });
+
+    const stale = await claim(first.settingsVersion);
+
+    expect(stale).toMatchObject({ status: 409, body: { code: 'CONFLICT' } });
+    expect(z.object({ message: z.string() }).parse(stale.body).message).toContain('read the new settings before assigning');
+    await ok(claim(updated.settingsVersion), z.strictObject({}));
+  });
+
   it('serve the plugin with crew:assign and the trierarch with crew:run a crew request: assigned, read, run, released and confirmed', async () => {
     const plugin = await crewedWithFleetScopes(['crew:assign']);
     const trierarch = await crewedWithFleetScopes(['crew:run']);
@@ -805,7 +822,7 @@ describe('the fleet actions at /api/v1/fleet', () => {
     const scout = await commissioned();
     unwrap(await createUseCases({ prisma: database }).requestCrew(argo, { shipId: scout.shipId, settings: aCrewSettings({ harness: 'codex' }) }));
 
-    await ok(request('fleet/assignCrew', { crewToken: plugin.crewToken, body: { shipId: scout.shipId, trierarchShipId: trierarchId } }), z.strictObject({}));
+    await ok(request('fleet/assignCrew', { crewToken: plugin.crewToken, body: { shipId: scout.shipId, trierarchShipId: trierarchId, settingsVersion: 1 } }), z.strictObject({}));
     const assigned = await ok(
       request('fleet/assignedCrewRequests', { crewToken: trierarch.crewToken, method: 'GET' }),
       z.array(z.object({ shipId: z.string(), settings: z.unknown(), settingsVersion: z.number(), requestedAt: z.iso.datetime(), status: z.unknown(), isFinal: z.unknown() })),
@@ -925,7 +942,7 @@ it('carries ruleSet and guard through REST and publishes guard and refused in Op
   const settings = aCrewSettings({ ruleSet: 'no-push' });
   const guard = { sets: [{ name: 'no-push', repository: 'company/rules', commit: '8d41e07', floor: false }], refusals: 0, recent: [] };
   await ok(request('fleet/crewRequest', { crewToken: manager.crewToken, body: { shipId: scout.shipId, settings } }), z.object({ settingsVersion: z.literal(1) }));
-  await ok(request('fleet/assignCrew', { crewToken: manager.crewToken, body: { shipId: scout.shipId, trierarchShipId: manager.shipId } }), z.strictObject({}));
+  await ok(request('fleet/assignCrew', { crewToken: manager.crewToken, body: { shipId: scout.shipId, trierarchShipId: manager.shipId, settingsVersion: 1 } }), z.strictObject({}));
 
   await ok(request('fleet/reportCrewStatus', { crewToken: manager.crewToken, body: { shipId: scout.shipId, status: 'running', guard } }), z.strictObject({}));
 

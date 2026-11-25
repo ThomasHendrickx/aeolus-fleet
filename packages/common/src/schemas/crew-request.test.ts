@@ -91,10 +91,12 @@ describe('CREW_STATUSES', () => {
 });
 
 describe('assignCrewInputSchema', () => {
-  it('takes the ship and the trierarch ship', () => {
-    const input = { shipId: newId('ship'), trierarchShipId: newId('ship') };
+  it('takes the ship, trierarch ship and settings version and requires the version', () => {
+    const ships = { shipId: newId('ship'), trierarchShipId: newId('ship') };
+    const input = { ...ships, settingsVersion: 2 };
 
     expect(assignCrewInputSchema.parse(input)).toEqual(input);
+    expect(assignCrewInputSchema.safeParse(ships).success).toBe(false);
   });
 });
 

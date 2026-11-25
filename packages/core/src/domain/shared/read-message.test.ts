@@ -141,7 +141,7 @@ describe("reading a message's way through", () => {
     const trierarch = await shipWithScopes({ registry, argo }, { name: 'mac-mini', type: 'trierarch', scopes: ['crew:run'] });
     const { shipId } = unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name: 'builder', type: 'builder' }));
     unwrap(await registry.requestCrew(argo, { shipId, settings: aCrewSettings({ harness: 'claude-code' }) }));
-    unwrap(await registry.assignCrew(plugin, { shipId, trierarchShipId: trierarch.shipId }));
+    unwrap(await registry.assignCrew(plugin, { shipId, trierarchShipId: trierarch.shipId, settingsVersion: 1 }));
     const { secret } = unwrap(await registry.getStartingPrompt(trierarch, { shipId }));
     core.clock.advance(1_000);
     const { crewToken } = unwrap(await registry.claimShip({ shipId, secret, location: { kind: 'DEVICE' }, harness: 'claude-code' }));

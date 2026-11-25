@@ -259,12 +259,11 @@ describe('the operator login migration', () => {
     try {
       // Raw: the generated client knows columns that later migrations add.
       await before.$executeRaw`INSERT INTO fleets (id, name, created_at) VALUES (${fleetId}, 'old fleet', ${now})`;
-      await before.ship.createMany({
-        data: [
-          { id: argoId, fleetId, name: 'argo', type: 'operator', kind: 'operator', scopes: [], createdAt: now },
-          { id: scoutId, fleetId, name: 'scout', type: 'reviewer', kind: 'agent', scopes: [], createdAt: now },
-        ],
-      });
+      await before.$executeRaw`
+        INSERT INTO ships (id, fleet_id, name, type, kind, scopes, created_at)
+        VALUES
+          (${argoId}, ${fleetId}, 'argo', 'operator', 'operator', ARRAY[]::text[], ${now}),
+          (${scoutId}, ${fleetId}, 'scout', 'reviewer', 'agent', ARRAY[]::text[], ${now})`;
       await before.credential.createMany({ data: [credential(argoId), credential(scoutId)] });
     } finally {
       await before.$disconnect();
@@ -1504,8 +1503,9 @@ describe('the handed migration', () => {
     try {
       // Raw: the generated client writes the defaults of columns later migrations add.
       await before.$executeRaw`INSERT INTO fleets (id, name, created_at, last_event_seq) VALUES (${fleetId}, 'old fleet', ${now}, 2)`;
-      // createMany: it returns no row, so it reads none of the columns later migrations add.
-      await before.ship.createMany({ data: [{ id: shipId, fleetId, name: 'scout', type: 'reviewer', kind: 'agent', scopes: [], createdAt: now }] });
+      await before.$executeRaw`
+        INSERT INTO ships (id, fleet_id, name, type, kind, scopes, created_at)
+        VALUES (${shipId}, ${fleetId}, 'scout', 'reviewer', 'agent', ARRAY[]::text[], ${now})`;
       // Raw: the generated client writes the defaults of columns later migrations add.
       await before.$executeRaw`
         INSERT INTO leases (id, fleet_id, ship_id, location, started_at)

@@ -155,7 +155,7 @@ for (const door of ['REST', 'tRPC', 'MCP'] as const) {
       const runner = await crewed(['crew:run']);
       const target = unwrap(await core.useCases.commissionShip(argo, { name: `assigned-${newKey()}`, type: 'reviewer', idempotencyKey: newKey() }));
       unwrap(await core.useCases.requestCrew(argo, { shipId: target.shipId, settings: {} }));
-      unwrap(await core.useCases.assignCrew(argo, { shipId: target.shipId, trierarchShipId: runner.crew.shipId }));
+      unwrap(await core.useCases.assignCrew(argo, { shipId: target.shipId, trierarchShipId: runner.crew.shipId, settingsVersion: 1 }));
       unwrap(await core.useCases.setOwner(argo, { shipId: target.shipId, ownerShipId: reader.crew.shipId }));
       // The reader owns the target; the excluded ship has no read allowance.
       await applyNetworkRules(core.useCases, { by: argo, rules: [] });

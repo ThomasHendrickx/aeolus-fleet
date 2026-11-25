@@ -25,7 +25,7 @@ it('reads one current lease and immutable sending evidence by indexed ship and m
   const ship = unwrap(await core.useCases.commissionShip(argo, { name: 'sender', type: 'reviewer', idempotencyKey: 'sender' }));
   const guard = { sets: [{ name: 'no-push', repository: 'company/rules', commit: '8d41e07', floor: true }], refusals: 0, recent: [] };
   unwrap(await core.useCases.requestCrew(argo, { shipId: ship.shipId, settings: aCrewSettings({ ruleSet: 'no-push' }) }));
-  unwrap(await core.useCases.assignCrew(argo, { shipId: ship.shipId, trierarchShipId: argo.shipId }));
+  unwrap(await core.useCases.assignCrew(argo, { shipId: ship.shipId, trierarchShipId: argo.shipId, settingsVersion: 1 }));
   const claimed = unwrap(await core.useCases.claimShip({ shipId: ship.shipId, secret: secretOf(ship.secret), location: { kind: 'SERVER' } }));
   const crew = unwrap(await core.useCases.authenticate.byCrewToken(claimed.crewToken));
   const { messageId } = unwrap(await core.useCases.sendMessage(crew, { selector: { kind: 'ship', shipId: argo.shipId }, payload: 'Confirmed', model: 'gpt-6.1-sol', idempotencyKey: 'confirmed' }));

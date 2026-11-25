@@ -3,7 +3,12 @@ import { readFile } from 'node:fs/promises';
 import { createIdGenerator } from '@aeolus-fleet/common';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { createPrismaClientTellingStatements } from '../src/adapters/prisma/client.js';
+import { createPrismaCrewRequestRepository } from '../src/adapters/prisma/registry.js';
+import { assertIndexedPlan } from './support/assert-indexed-plan.js';
 import { createPrismaUnitOfWork } from '../src/adapters/prisma/unit-of-work.js';
+import { createAssignCrew } from '../src/domain/registry/assign-crew.js';
+import { createRequestCrew } from '../src/domain/registry/request-crew.js';
 import { createReportCrewStatus } from '../src/domain/registry/report-crew-status.js';
 import { createChangeLabelValues } from '../src/domain/registry/change-label-values.js';
 import type { ShipCaller } from '../src/domain/shared/caller.js';
@@ -46,7 +51,7 @@ describe('a crew request on Postgres', () => {
     const { shipId } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'guarded-computer', type: 'trierarch', scopes: ['crew:run'] }));
     const trierarch: ShipCaller = { fleetId: argo.fleetId, shipId, kind: 'trierarch', scopes: ['crew:run'] };
     unwrap(await core.useCases.requestCrew(argo, { shipId: scoutId, settings: aCrewSettings({ ruleSet: 'no-push' }) }));
-    unwrap(await core.useCases.assignCrew(argo, { shipId: scoutId, trierarchShipId: shipId }));
+    unwrap(await core.useCases.assignCrew(argo, { shipId: scoutId, trierarchShipId: shipId, settingsVersion: 1 }));
 
     unwrap(await core.useCases.reportCrewStatus(trierarch, { shipId: scoutId, status: 'running', guard }));
 
@@ -71,6 +76,71 @@ describe('a crew request on Postgres', () => {
       }),
     ]);
     await expect(core.prisma.event.count({ where: { type: 'CrewRequested', shipId: scoutId } })).resolves.toBe(2);
+  });
+
+  it('continues the settings version after the crew request is removed and recreated', async () => {
+    unwrap(await core.useCases.requestCrew(argo, { shipId: scoutId, settings: aCrewSettings() }));
+    unwrap(await core.useCases.requestCrew(argo, { shipId: scoutId, settings: aCrewSettings() }));
+    unwrap(await core.useCases.removeCrewRequest(argo, { shipId: scoutId }));
+    await expect(crewRequests()).resolves.toEqual([]);
+
+    const recreated = unwrap(await core.useCases.requestCrew(argo, { shipId: scoutId, settings: aCrewSettings({ harness: 'codex' }) }));
+
+    expect(recreated.settingsVersion).toBe(3);
+    await expect(crewRequests()).resolves.toEqual([expect.objectContaining({ settingsVersion: 3, assignedTo: null })]);
+  });
+
+  it('preserves previously issued versions when upgrading a ship whose request was removed', async () => {
+    unwrap(await core.useCases.requestCrew(argo, { shipId: scoutId, settings: aCrewSettings() }));
+    unwrap(await core.useCases.requestCrew(argo, { shipId: scoutId, settings: aCrewSettings() }));
+    unwrap(await core.useCases.removeCrewRequest(argo, { shipId: scoutId }));
+    const migration = await readFile(new URL('../src/adapters/prisma/migrations/20261125100000_crew_settings_version/migration.sql', import.meta.url), 'utf8');
+    await core.prisma.$executeRaw`ALTER TABLE ships DROP COLUMN last_crew_settings_version`;
+
+    await core.prisma.$executeRawUnsafe(migration);
+
+    await expect(core.useCases.requestCrew(argo, { shipId: scoutId, settings: aCrewSettings() })).resolves.toMatchObject({ value: { settingsVersion: 3 } });
+  });
+
+  it('reads and records the last settings version through a fleet-scoped ship lookup', async () => {
+    const statements: { query: string; params: string }[] = [];
+    const client = createPrismaClientTellingStatements(core.databaseUrl, (query, params) => statements.push({ query, params }));
+    try {
+      const repository = createPrismaCrewRequestRepository(client);
+
+      await repository.lastSettingsVersion(argo.fleetId, scoutId);
+      await repository.recordSettingsVersion(argo.fleetId, { shipId: scoutId, settingsVersion: 1 });
+
+      expect(statements).toHaveLength(2);
+      for (const statement of statements) {
+        const plan = await assertIndexedPlan(core.prisma, statement);
+        expect(plan).toContain('Index');
+        expect(plan).toContain('fleet_id');
+      }
+    } finally {
+      await client.$disconnect();
+    }
+  });
+
+  it('finds the crew request through its fleet and ship index when requesting and assigning', async () => {
+    const statements: { query: string; params: string }[] = [];
+    const client = createPrismaClientTellingStatements(core.databaseUrl, (query, params) => statements.push({ query, params }));
+    const { shipId: trierarchShipId } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'computer', type: 'trierarch' }));
+    const deps = { uow: createPrismaUnitOfWork(client), clock: core.clock, ids: newId };
+    try {
+      const { settingsVersion } = unwrap(await createRequestCrew(deps)(argo, { shipId: scoutId, settings: aCrewSettings() }));
+      unwrap(await createAssignCrew(deps)(argo, { shipId: scoutId, trierarchShipId, settingsVersion }));
+
+      const reads = statements.filter(({ query }) => query.startsWith('SELECT') && query.includes('FROM "public"."crew_requests"'));
+      expect(reads).toHaveLength(2);
+      for (const read of reads) {
+        const plan = await assertIndexedPlan(core.prisma, read);
+        expect(plan).toContain('Index');
+        expect(plan).toContain('fleet_id');
+      }
+    } finally {
+      await client.$disconnect();
+    }
   });
 
   it('is read with the ship: its settings version in the fleet list, its settings with the one ship', async () => {
@@ -191,8 +261,8 @@ describe('a crew request on Postgres', () => {
     const trierarch: ShipCaller = { fleetId: argo.fleetId, shipId: trierarchId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:run'] };
     unwrap(await core.useCases.requestCrew(argo, { shipId: scoutId, settings: aCrewSettings({ harness: 'codex' }) }));
 
-    unwrap(await core.useCases.assignCrew(plugin, { shipId: scoutId, trierarchShipId: trierarchId }));
-    await expect(core.useCases.assignCrew(plugin, { shipId: scoutId, trierarchShipId: trierarchId })).resolves.toMatchObject({
+    unwrap(await core.useCases.assignCrew(plugin, { shipId: scoutId, trierarchShipId: trierarchId, settingsVersion: 1 }));
+    await expect(core.useCases.assignCrew(plugin, { shipId: scoutId, trierarchShipId: trierarchId, settingsVersion: 1 })).resolves.toMatchObject({
       isOk: false,
       error: { kind: 'CREW_REQUEST_ALREADY_ASSIGNED' },
     });
@@ -246,7 +316,7 @@ describe('a crew request on Postgres', () => {
     const plugin: ShipCaller = { fleetId: argo.fleetId, shipId: pluginId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:assign'] };
     const trierarch: ShipCaller = { fleetId: argo.fleetId, shipId: trierarchId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:run'] };
     unwrap(await core.useCases.requestCrew(argo, { shipId: scoutId, settings: aCrewSettings({ harness: 'claude-code', options: { model: 'claude-opus-5-5' } }) }));
-    unwrap(await core.useCases.assignCrew(plugin, { shipId: scoutId, trierarchShipId: trierarchId }));
+    unwrap(await core.useCases.assignCrew(plugin, { shipId: scoutId, trierarchShipId: trierarchId, settingsVersion: 1 }));
     unwrap(await core.useCases.reportCrewStatus(trierarch, { shipId: scoutId, status: 'crewing' }));
     const { secret } = unwrap(await core.useCases.getStartingPrompt(trierarch, { shipId: scoutId }));
     unwrap(await core.useCases.claimShip({ shipId: scoutId, secret, location: { kind: 'DEVICE' }, harness: 'claude-code' }));
@@ -278,7 +348,7 @@ describe('a crew request on Postgres', () => {
     const plugin: ShipCaller = { fleetId: argo.fleetId, shipId: pluginId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:assign'] };
     const trierarch: ShipCaller = { fleetId: argo.fleetId, shipId: trierarchId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:run'] };
     unwrap(await core.useCases.requestCrew(argo, { shipId: scoutId, settings: aCrewSettings({ harness: 'claude-code' }) }));
-    unwrap(await core.useCases.assignCrew(plugin, { shipId: scoutId, trierarchShipId: trierarchId }));
+    unwrap(await core.useCases.assignCrew(plugin, { shipId: scoutId, trierarchShipId: trierarchId, settingsVersion: 1 }));
     unwrap(await core.useCases.reportCrewStatus(trierarch, { shipId: scoutId, status: 'running' }));
 
     unwrap(await core.useCases.reportCrewStatus(trierarch, { shipId: scoutId, status: 'crewing' }));
@@ -300,7 +370,7 @@ describe('a crew request on Postgres', () => {
     const plugin: ShipCaller = { fleetId: argo.fleetId, shipId: pluginId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:assign'] };
     const trierarch: ShipCaller = { fleetId: argo.fleetId, shipId: trierarchId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:run'] };
     unwrap(await core.useCases.requestCrew(argo, { shipId: scoutId, settings: aCrewSettings({ harness: 'claude-code' }) }));
-    unwrap(await core.useCases.assignCrew(plugin, { shipId: scoutId, trierarchShipId: trierarchId }));
+    unwrap(await core.useCases.assignCrew(plugin, { shipId: scoutId, trierarchShipId: trierarchId, settingsVersion: 1 }));
     unwrap(await core.useCases.reportCrewStatus(trierarch, { shipId: scoutId, status: 'running' }));
     unwrap(await core.useCases.reportCrewStatus(trierarch, { shipId: scoutId, status: 'crewing' }));
 
@@ -342,7 +412,7 @@ it('rolls back the applied guard when its status event cannot be written (#2070)
   const { shipId } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'guarded-computer', type: 'trierarch', scopes: ['crew:run'] }));
   const trierarch: ShipCaller = { fleetId: argo.fleetId, shipId, kind: 'trierarch', scopes: ['crew:run'] };
   unwrap(await core.useCases.requestCrew(argo, { shipId: scoutId, settings: aCrewSettings({ ruleSet: 'no-push' }) }));
-  unwrap(await core.useCases.assignCrew(argo, { shipId: scoutId, trierarchShipId: shipId }));
+  unwrap(await core.useCases.assignCrew(argo, { shipId: scoutId, trierarchShipId: shipId, settingsVersion: 1 }));
   const uow = createPrismaUnitOfWork(core.prisma);
   const report = createReportCrewStatus({
     clock: core.clock,

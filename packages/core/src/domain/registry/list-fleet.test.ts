@@ -681,7 +681,7 @@ describe('selecting the ships of a page by what the overview filters (decision 4
     const trierarch = await shipWithScopes({ registry: useCases, argo }, { name: 'mac-mini', type: 'trierarch', scopes: ['crew:run'] });
     for (const shipId of [builderId, testerId]) {
       unwrap(await useCases.requestCrew(argo, { shipId, settings: aCrewSettings() }));
-      unwrap(await useCases.assignCrew(plugin, { shipId, trierarchShipId: trierarch.shipId }));
+      unwrap(await useCases.assignCrew(plugin, { shipId, trierarchShipId: trierarch.shipId, settingsVersion: 1 }));
     }
     unwrap(await useCases.reportCrewStatus(trierarch, { shipId: testerId, status: 'crashed' }));
 
@@ -694,7 +694,7 @@ describe('selecting the ships of a page by what the overview filters (decision 4
     const trierarch = await shipWithScopes({ registry: useCases, argo }, { name: 'mac-mini', type: 'trierarch', scopes: ['crew:run'] });
     unwrap(await useCases.requestCrew(argo, { shipId: builderId, settings: aCrewSettings() }));
     unwrap(await useCases.requestCrew(argo, { shipId: testerId, settings: aCrewSettings() }));
-    unwrap(await useCases.assignCrew(plugin, { shipId: testerId, trierarchShipId: trierarch.shipId }));
+    unwrap(await useCases.assignCrew(plugin, { shipId: testerId, trierarchShipId: trierarch.shipId, settingsVersion: 1 }));
     unwrap(await useCases.reportCrewStatus(trierarch, { shipId: testerId, status: 'crashed' }));
 
     await expect(namesSelected({ needsCrew: 'withoutTrierarchs' })).resolves.toEqual(['builder']);
@@ -715,7 +715,7 @@ describe('selecting the ships of a page by what the overview filters (decision 4
     const linux = await shipWithScopes({ registry: useCases, argo }, { name: 'linux-box', type: 'trierarch', scopes: ['crew:run'] });
     for (const [shipId, trierarchShipId] of [[builderId, mac.shipId], [testerId, linux.shipId]] as const) {
       unwrap(await useCases.requestCrew(argo, { shipId, settings: aCrewSettings() }));
-      unwrap(await useCases.assignCrew(plugin, { shipId, trierarchShipId }));
+      unwrap(await useCases.assignCrew(plugin, { shipId, trierarchShipId, settingsVersion: 1 }));
     }
 
     await expect(namesSelected({ assignedTo: [mac.shipId] })).resolves.toEqual(['builder']);

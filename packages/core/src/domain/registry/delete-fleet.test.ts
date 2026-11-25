@@ -43,6 +43,7 @@ function rowsOf(fleetId: FleetId): Record<keyof InMemoryState, number> {
     leaseTurns: of(state.leaseTurns),
     leaseActivities: of(state.leaseActivities),
     crewRequests: of(state.crewRequests),
+    crewSettingsVersions: of(state.crewSettingsVersions),
     clearRequests: of(state.clearRequests),
     labels: of(state.labels),
     shipLabels: of(state.shipLabels),

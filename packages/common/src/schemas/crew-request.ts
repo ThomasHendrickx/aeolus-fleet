@@ -106,8 +106,8 @@ export const listedCrewRequestSchema = z.object({
 /** A ship's crew request whole, for its page: as the fleet list shows it, with its settings. */
 export const crewRequestSchema = listedCrewRequestSchema.extend({ settings: crewRequestSettingsSchema });
 
-/** Input of `fleet.assignCrew` (crew:assign): the ship whose request to assign, and the trierarch ship that crews it. */
-export const assignCrewInputSchema = z.object({ shipId: idSchema('ship'), trierarchShipId: idSchema('ship') });
+/** Input of `fleet.assignCrew` (crew:assign): the ship whose request to assign, the trierarch that crews it and the settings version placement read. */
+export const assignCrewInputSchema = z.object({ shipId: idSchema('ship'), trierarchShipId: idSchema('ship'), settingsVersion: z.int().min(1) });
 
 /** Output of `fleet.assignCrew`: nothing; the OK is the answer. */
 export const assignCrewOutputSchema = z.strictObject({});
