@@ -1,13 +1,11 @@
 import { sessionCookieOf } from './plugin-call';
 import { trierarchPluginUrlFrom } from './trierarch-plugin-url';
-import { guardAnswerSchema } from './trierarch-plugin-guard-schemas';
+import { guardAnswerSchemas } from './trierarch-plugin-guard-schemas';
 import { mcpAnswerSchemas } from './trierarch-plugin-mcp-schemas';
 
 /**
- * The trierarch plugin's MCP configuration procedures as a manager reaches
- * them from the console (fleet crew MCP design, section 4; #1732, #1735):
- * `GET /api/trierarch-plugin/mcp.get` and `POST /api/trierarch-plugin/mcp.replace`.
- * The web app's server forwards these two and the metadata-only `guard.get`, with only the caller's console
+ * The trierarch plugin's MCP and guard configuration procedures as the console reaches them.
+ * The web app's server forwards them with only the caller's console
  * sign-in cookies and the Origin it sent, never one made up, and for a
  * replacement its content type and body unchanged. The plugin checks the
  * session, scope and Origin, and its refusals go back as they are. Successful answers are parsed here
@@ -16,25 +14,27 @@ import { mcpAnswerSchemas } from './trierarch-plugin-mcp-schemas';
  * limit is refused here, read no further than that.
  */
 
-export type McpProcedure = 'mcp.get' | 'mcp.replace' | 'guard.get';
-
-const answerSchemas = { ...mcpAnswerSchemas, 'guard.get': guardAnswerSchema };
+const answerSchemas = { ...mcpAnswerSchemas, ...guardAnswerSchemas };
+type ConfigurationProcedure = keyof typeof answerSchemas;
 
 const TIMEOUT_MS = 30_000;
 
 /** The plugin's request body limit: Fastify's default, which it keeps. */
 const BODY_MAX_BYTES = 1_048_576;
 
-const NO_ANSWER = { error: { message: 'The trierarch plugin did not answer: read mcp.get before replacing again' } };
-
-const TOO_LARGE = { error: { message: 'The MCP configuration body is over 1 MiB' } };
+const noAnswerMessages: Record<ConfigurationProcedure, string> = {
+  'mcp.get': 'The trierarch plugin did not answer: read mcp.get before replacing again',
+  'mcp.replace': 'The trierarch plugin did not answer: read mcp.get before replacing again',
+  'guard.get': 'The trierarch plugin did not answer: read guard.get again',
+  'guard.replace': 'The trierarch plugin did not answer: read guard.get before replacing again',
+};
 
 export async function forwardMcpCall(
   request: Request,
-  input: { procedure: McpProcedure; environment: Readonly<Record<string, string | undefined>>; fetchImplementation?: typeof fetch },
+  input: { procedure: ConfigurationProcedure; environment: Readonly<Record<string, string | undefined>>; fetchImplementation?: typeof fetch },
 ): Promise<Response> {
   const { procedure, environment, fetchImplementation = fetch } = input;
-  const noAnswer = procedure === 'guard.get' ? { error: { message: 'The trierarch plugin did not answer: read guard.get again' } } : NO_ANSWER;
+  const noAnswer = { error: { message: noAnswerMessages[procedure] } };
   const url = trierarchPluginUrlFrom(environment);
   if (url === undefined) {
     return new Response(null, { status: 404 });
@@ -45,13 +45,14 @@ export async function forwardMcpCall(
     headers.origin = origin;
   }
   const contentType = request.headers.get('content-type');
-  const isReplacement = procedure === 'mcp.replace';
+  const isReplacement = procedure === 'mcp.replace' || procedure === 'guard.replace';
   if (isReplacement && contentType !== null) {
     headers['content-type'] = contentType;
   }
   const body = isReplacement ? await bodyWithin(request, BODY_MAX_BYTES) : undefined;
   if (body?.kind === 'tooLarge') {
-    return Response.json(TOO_LARGE, { status: 413 });
+    const configuration = procedure === 'guard.replace' ? 'guard' : 'MCP';
+    return Response.json({ error: { message: `The ${configuration} configuration body is over 1 MiB` } }, { status: 413 });
   }
   let answer: Response;
   let answerText: string;
