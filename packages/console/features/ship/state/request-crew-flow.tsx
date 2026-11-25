@@ -12,7 +12,7 @@ import { useLabelContext, useRequestCrew } from '../../../lib/fleet';
 import { machineLabelsInputOf } from '../../../lib/machine-labels';
 import { useSquadronsConnection } from '../../../lib/squadrons';
 import { useSquadrons } from '../../../lib/squadrons-api';
-import { useCrewSettingsCheck, useEnabledModels, useMachines } from '../../../lib/trierarch-plugin';
+import { useCrewSettingsCheck, useEnabledModels, useMachines, useTrierarchPluginSettings } from '../../../lib/trierarch-plugin';
 import { showToast } from '@aeolus-fleet/ui';
 
 // Dialogs load when first opened, not with the page.
@@ -34,6 +34,7 @@ interface RequestCrewFor {
  * runs after the request is stored, as Commission and request crew needs.
  */
 export function useRequestCrewFlow(of: RequestCrewFor | undefined): { open: (mode: 'request' | 'edit') => void; dialog: ReactNode } {
+  const plugin = useTrierarchPluginSettings();
   const machines = useMachines();
   const enabledModels = useEnabledModels();
   // A plugin that cannot answer them leaves the forms as without a rule: placement and its check still apply it.
@@ -44,6 +45,7 @@ export function useRequestCrewFlow(of: RequestCrewFor | undefined): { open: (mod
   const labelContext = useLabelContext(machines.data?.map((machine) => machine.shipId));
   const [mode, setMode] = useState<'request' | 'edit'>();
   const guard = useGuardChoices(mode !== undefined);
+  const isUnreachable = plugin.isError || plugin.data?.state === 'not-connected' || machines.isError;
   const isReading = machines.data === undefined || (enabledModels.data === undefined && !enabledModels.isError);
   // Null until the form changes: the check then asks for the settings the form starts with.
   const [edited, setEdited] = useState<CrewSettings | undefined | null>(null);
@@ -57,7 +59,7 @@ export function useRequestCrewFlow(of: RequestCrewFor | undefined): { open: (mod
   const initial = settingsOf(mode === 'edit' ? valuesOf(held, { offers, enabledModels: enabled }) : defaultValues(offers));
   const isOpen = mode !== undefined && of !== undefined && (mode !== 'edit' || parsedHeld !== undefined);
   const settings = edited === null ? initial : edited;
-  const check = useCrewSettingsCheck(isOpen && !isReading && guard.data !== undefined && !guard.isError ? settings : undefined);
+  const check = useCrewSettingsCheck(isOpen && !isReading && !isUnreachable && guard.data !== undefined && !guard.isError ? settings : undefined);
 
   const submit = async (picked: CrewSettings) => {
     if (of === undefined || mode === undefined || guard.isError || guard.data === undefined) {
@@ -101,7 +103,7 @@ export function useRequestCrewFlow(of: RequestCrewFor | undefined): { open: (mod
         <RequestCrewDialog
           shipName={of.shipName}
           mode={mode ?? 'request'}
-          state={machines.isError ? 'unreachable' : isReading ? 'loading' : 'ready'}
+          state={isUnreachable ? 'unreachable' : isReading ? 'loading' : 'ready'}
           offers={offers}
           enabledModels={enabled}
           guardChoices={guard.data}
@@ -126,8 +128,12 @@ export function useRequestCrewFlow(of: RequestCrewFor | undefined): { open: (mod
           }}
           onSubmit={(picked) => void submit(picked)}
           onRetry={() => {
-            void machines.refetch();
-            void enabledModels.refetch();
+            if (!plugin.isError && plugin.data?.state === 'connected') {
+              void machines.refetch();
+              void enabledModels.refetch();
+            } else {
+              void plugin.refetch();
+            }
             void guard.refetch();
           }}
         />

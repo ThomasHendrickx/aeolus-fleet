@@ -14,7 +14,7 @@ import { pickedChips } from '../../../lib/labels';
 import { useCrewSettings } from '../../../lib/crew-settings';
 import { machineLabelIdsOf } from '../../../lib/machine-labels';
 import { isUnclaimedPromptOut } from '../../../lib/starting-prompt';
-import { useHasTrierarchPlugin, useMachines } from '../../../lib/trierarch-plugin';
+import { useMachines, useTrierarchPluginSettings } from '../../../lib/trierarch-plugin';
 import { showToast } from '@aeolus-fleet/ui';
 import { CrewRequestCard, type CrewRequestBusy } from '../ui/organisms/crew-request-card';
 import { useRequestCrewFlow } from './request-crew-flow';
@@ -38,7 +38,8 @@ function sessionLocationOf(ship: ShipDetail): string | null {
  */
 export function ShipCrewRequest({ ship, timeline, now }: { ship: ShipDetail; timeline: readonly TimelineEntry[]; now: Date }) {
   const access = useAccess();
-  const hasTrierarchs = useHasTrierarchPlugin();
+  const plugin = useTrierarchPluginSettings();
+  const hasTrierarchs = plugin.data !== undefined && plugin.data.state !== 'none';
   const machines = useMachines();
   const requestCrew = useRequestCrew();
   const labelContext = useLabelContext();
@@ -142,17 +143,20 @@ export function ShipCrewRequest({ ship, timeline, now }: { ship: ShipDetail; tim
         isAwaitingCrew={ship.status === 'awaitingCrew'}
         hasTrierarchs={hasTrierarchs}
         {...(hasTrierarchs ? { usageHref: usageLinkOf({ ship: ship.id }) } : {})}
-        busy={busy}
+        busy={stage.kind === 'none' && plugin.isPending ? 'request' : busy}
         error={error}
         guard={request?.guard}
         settingsRows={request === null ? undefined : settingsRows(settings)}
         {...(login === undefined ? {} : { login })}
         {...(request === null || labelContext === undefined ? {} : { machineLabels: pickedChips(machineLabelIdsOf(settings), labelContext) })}
         onRequest={() => {
-          if (hasTrierarchs) {
-            requestFlow.open('request');
-          } else {
+          if (plugin.isPending) {
+            return;
+          }
+          if (plugin.data?.state === 'none') {
             void onRequest();
+          } else {
+            requestFlow.open('request');
           }
         }}
         {...(hasTrierarchs ? { onEdit: () => { requestFlow.open('edit'); } } : {})}
