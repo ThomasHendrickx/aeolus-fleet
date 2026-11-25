@@ -190,7 +190,7 @@ export function ShipPageFor({ shipId, tab, messageId }: { shipId: ShipId; tab: S
             }
           }}
           onReply={
-            access.canSend
+            ship.data != null && !isRemoved && access.canSend
               ? (replied) => {
                   setReplyTo({ messageId: replied.id, sender: replied.sender });
                 }
