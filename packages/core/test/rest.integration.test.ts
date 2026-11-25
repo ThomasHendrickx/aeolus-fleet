@@ -247,6 +247,7 @@ describe('the ship calls at /api/v1', () => {
       '/fleet/removeScope',
       '/fleet/setVerifiedFacts',
       '/fleet/setExpectations',
+      '/fleet/recordPluginRead',
       '/fleet/raiseAlert',
       '/fleet/clearAlert',
       '/fleet/openAlerts',

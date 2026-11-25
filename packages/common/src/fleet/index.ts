@@ -317,6 +317,8 @@ export const EVENT_TYPES = [
   'AlertRaised',
   'AlertCleared',
   'ExpectationsSet',
+  'PluginReadFailed',
+  'PluginReadRecovered',
   'MeetingReadUpTo',
 ] as const;
 export const eventTypeSchema = z.enum(EVENT_TYPES);

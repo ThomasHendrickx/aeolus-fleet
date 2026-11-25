@@ -300,6 +300,7 @@ describe('fleetListOutputSchema', () => {
     report: null,
     activity: null,
     openAlertCount: 0,
+    pluginReads: null,
     crewRequest: null,
     labels: [],
     model: null,

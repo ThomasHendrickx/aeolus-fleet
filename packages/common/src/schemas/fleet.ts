@@ -1,5 +1,6 @@
 import { commissionApprovalUseSchema } from './commission-approval.js';
 import { z } from 'zod';
+import { pluginReadsSchema } from './plugin-reads.js';
 
 import { commissionedShipKindSchema, eventTypeSchema, locationKindSchema, scopeNameSchema, shipKindSchema, shipStatusSchema } from '../fleet/index.js';
 import { idSchema } from '../ids/index.js';
@@ -241,6 +242,7 @@ export const listedShipSchema = z.object({
   ownerShipId: idSchema('ship').nullable(),
   /** How many open alerts the ship has (decision 0071); `fleet.openAlerts` lists them. */
   openAlertCount: z.int().min(0),
+  pluginReads: pluginReadsSchema.nullable(),
 });
 
 export type ListedShip = z.infer<typeof listedShipSchema>;

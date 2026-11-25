@@ -16,6 +16,7 @@ import {
   locationKindSchema,
   scopeNameSchema,
   shipKindSchema,
+  pluginReadsSchema,
   statementSchema,
   type FleetId,
   type LeaseId,
@@ -75,6 +76,7 @@ const shipRow = z.object({
   commissionKey: z.string().nullable(),
   commissionRequestHash: z.string().nullable(),
   ownerShipId: idSchema('ship').nullable(),
+  pluginReads: pluginReadsSchema.nullish(),
 });
 
 /** The commissioning actor from its two columns: the kind, and the ship's or account's id, or `installation`. */
@@ -135,6 +137,7 @@ const shipSqlRow = z
     commission_key: z.string().nullable(),
     commission_request_hash: z.string().nullable(),
     owner_ship_id: idSchema('ship').nullable(),
+    plugin_reads: pluginReadsSchema.nullish(),
   })
   .transform(
     (row): Ship => ({
@@ -150,6 +153,7 @@ const shipSqlRow = z
       removedAt: row.removed_at,
       commission: commissionOf({ kind: row.commissioned_by_kind, by: row.commissioned_by, idempotencyKey: row.commission_key, requestHash: row.commission_request_hash }),
       owner: row.owner_ship_id,
+      pluginReads: row.plugin_reads,
     }),
   );
 

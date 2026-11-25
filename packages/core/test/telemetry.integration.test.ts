@@ -1,5 +1,5 @@
 import { context, metrics, propagation, trace } from '@opentelemetry/api';
-import { AggregationTemporality, DataPointType, InMemoryMetricExporter, PeriodicExportingMetricReader, type HistogramMetricData } from '@opentelemetry/sdk-metrics';
+import { AggregationTemporality, DataPointType, InMemoryMetricExporter, PeriodicExportingMetricReader, type HistogramMetricData, type SumMetricData } from '@opentelemetry/sdk-metrics';
 import { InMemorySpanExporter } from '@opentelemetry/sdk-trace';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, expect, it } from 'vitest';
@@ -7,8 +7,9 @@ import { afterAll, beforeAll, expect, it } from 'vitest';
 import { startTelemetry, type Telemetry } from '../src/adapters/telemetry/telemetry.js';
 import { createApp } from '../src/app.js';
 import { createMigratedDatabase } from '../src/testing/database.js';
-import { FLEET_URL } from './support/core-fixtures.js';
-import { createTestClock } from './support/postgres-core.js';
+import { unwrap } from '../src/testing/result.js';
+import { FLEET_URL, operatorCaller } from './support/core-fixtures.js';
+import { createPostgresCore, createTestClock } from './support/postgres-core.js';
 
 // The database queries a call makes, on a real Postgres: each is traced under
 // the call's span and measured in the query duration histogram.
@@ -65,4 +66,32 @@ it('records each query as a point in the query duration histogram, by its operat
     .flatMap((metric) => metric.dataPoints);
   expect(queryDurations).not.toEqual([]);
   expect(queryDurations.every((point) => point.attributes['db.system.name'] === 'postgresql' && typeof point.attributes['db.operation.name'] === 'string')).toBe(true);
+});
+
+it('the counter adds one per failed read', async () => {
+  const core = await createPostgresCore();
+  try {
+    const fleet = unwrap(await core.useCases.initialiseFleet({ name: 'metric fleet' }));
+    const argo = operatorCaller(fleet);
+    const { shipId: pluginShipId } = unwrap(await core.useCases.commissionShip(argo, {
+      name: 'plugin-for-metrics', type: 'trierarch-plugin', kind: 'plugin', idempotencyKey: 'metric-plugin',
+    }));
+    const read = { pluginShipId, read: 'guard.get' };
+    const failure = { ...read, outcome: 'failed', reason: 'timeout' } as const;
+
+    unwrap(await core.useCases.recordPluginRead(argo, failure));
+    unwrap(await core.useCases.recordPluginRead(argo, failure));
+    unwrap(await core.useCases.recordPluginRead(argo, { ...read, outcome: 'good' }));
+    await metricReader.forceFlush();
+
+    const counter = points.getMetrics().at(-1)?.scopeMetrics
+      .flatMap((scope) => scope.metrics)
+      .find((metric): metric is SumMetricData => metric.descriptor.name === 'aeolus.plugin_read.failed' && metric.dataPointType === DataPointType.SUM);
+    expect(counter?.descriptor.unit).toBe('{read}');
+    expect(counter?.dataPoints.map(({ value, attributes }) => ({ value, attributes }))).toEqual([
+      { value: 2, attributes: { plugin: 'trierarch-plugin', read: 'guard.get', reason: 'timeout' } },
+    ]);
+  } finally {
+    await core.close();
+  }
 });

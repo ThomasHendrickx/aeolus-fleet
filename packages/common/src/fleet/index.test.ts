@@ -238,6 +238,8 @@ describe('eventTypeSchema', () => {
       'AlertRaised',
       'AlertCleared',
       'ExpectationsSet',
+      'PluginReadFailed',
+      'PluginReadRecovered',
       'MeetingReadUpTo',
     ]);
   });
