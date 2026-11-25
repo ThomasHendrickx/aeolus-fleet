@@ -119,8 +119,9 @@ export function ShipPageFor({ shipId, tab, messageId }: { shipId: ShipId; tab: S
     : undefined;
   // A ship in a squadron sits below it: Squadrons, then its squadron.
   const inSquadron = shipsInSquadrons(squadrons.data ?? []).get(shipId);
-  // Listing a ship's schedules needs fleet:manage (decision 0062): a viewer has no Schedules tab.
-  const shownTab = tab === SHIP_TABS.schedules && !access.canManage ? SHIP_TABS.timeline : tab;
+  // Listing schedules needs fleet:manage (0062). A removed ship's schedules are gone (0070).
+  const canShowSchedules = ship.data != null && !isRemoved && access.canManage;
+  const shownTab = tab === SHIP_TABS.schedules && !canShowSchedules ? SHIP_TABS.timeline : tab;
 
   return (
     <DetailPage
@@ -213,7 +214,7 @@ export function ShipPageFor({ shipId, tab, messageId }: { shipId: ShipId; tab: S
             <TabsTrigger variant="line" value={SHIP_TABS.messages}>
               Messages
             </TabsTrigger>
-            {access.canManage ? (
+            {canShowSchedules ? (
               <TabsTrigger variant="line" value={SHIP_TABS.schedules}>
                 Schedules
               </TabsTrigger>
@@ -258,7 +259,7 @@ export function ShipPageFor({ shipId, tab, messageId }: { shipId: ShipId; tab: S
             <HistoryKeptFrom keptFrom={keptFrom} area="message-threads" />
             </div>
           </TabsContent>
-          {access.canManage ? (
+          {canShowSchedules ? (
             <TabsContent value={SHIP_TABS.schedules} className="pt-4">
               <ShipPageSchedules shipId={shipId} now={now} onOpenMessage={openMessageAt} />
             </TabsContent>
