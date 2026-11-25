@@ -51,6 +51,26 @@ interface ShipHeaderProps {
   gatewayReader?: GatewayReader;
 }
 
+function ShipTypeAndKind({ ship, isPluginShip }: { ship: ShipDetail; isPluginShip: boolean | undefined }) {
+  return (
+    <>
+      {isPluginShip ? (
+        <Badge variant="kind" data-testid="ship-plugin">
+          <Plug aria-hidden />
+          plugin
+        </Badge>
+      ) : null}
+      <Badge variant="type">{ship.type}</Badge>
+      {ship.kind === 'trierarch' ? (
+        <Badge variant="kind" data-testid="ship-kind">
+          <Monitor aria-hidden />
+          Kind: Trierarch
+        </Badge>
+      ) : null}
+    </>
+  );
+}
+
 /** Decision 0070 keeps the ship's identity and lifecycle dates for its retained history. */
 function RemovedShipHeader({ ship, retiredAt, removedAt }: { ship: ShipDetail; retiredAt: string; removedAt: string }) {
   const dates = [
@@ -67,7 +87,7 @@ function RemovedShipHeader({ ship, retiredAt, removedAt }: { ship: ShipDetail; r
         </h1>
         <div className="flex flex-wrap items-center gap-2">
           <ShipState state="retired" size="caption" className="rounded-full border border-tone-ended-border bg-tone-ended-bg px-2 py-px" />
-          <Badge variant="type">{ship.type}</Badge>
+          <ShipTypeAndKind ship={ship} isPluginShip={ship.kind === 'plugin'} />
         </div>
       </div>
       <Notice icon={<Archive aria-hidden />}>
@@ -330,19 +350,7 @@ export function ShipHeader({ ship, shipId, state, actions, permissions, crewRequ
               </Badge>
             ) : (
               <>
-                {isPluginShip ? (
-                  <Badge variant="kind" data-testid="ship-plugin">
-                    <Plug aria-hidden />
-                    plugin
-                  </Badge>
-                ) : null}
-                <Badge variant="type">{ship.type}</Badge>
-                {ship.kind === 'trierarch' ? (
-                  <Badge variant="kind" data-testid="ship-kind">
-                    <Monitor aria-hidden />
-                    Kind: Trierarch
-                  </Badge>
-                ) : null}
+                <ShipTypeAndKind ship={ship} isPluginShip={isPluginShip} />
               </>
             )}
             {ship.status === 'awaitingCrew' && ship.startingPrompt === null ? (
