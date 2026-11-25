@@ -1,6 +1,6 @@
 # Plugin read failed: argo is told when the console cannot read a plugin it needs
 
-Design for [watch plugin #22](https://github.com/ThomasHendrickx/aeolus-fleet-watch-plugin/issues/22). Thomas agreed the purpose and answered its nine questions on 25 Nov 2026 (section 2). One question is open (section 8); slice P1 waits for it. It adds one signal to [monitoring](monitoring.md) and changes none of its rules (0071).
+Design for [watch plugin #22](https://github.com/ThomasHendrickx/aeolus-fleet-watch-plugin/issues/22). Thomas agreed the purpose and answered its nine questions on 25 Nov 2026 (section 2). It adds one signal to [monitoring](monitoring.md) and changes none of its rules (0071).
 
 ## 1. Purpose (agreed)
 
@@ -165,19 +165,18 @@ Unhappy paths:
 
 | # | Repo | Slice | Done when |
 | --- | --- | --- | --- |
-| P1 | aeolus-fleet (core, common) | The fact on the plugin's ship, `fleet.recordPluginRead` with its two events, carried by `fleet.ship` and `fleet.list`; the counter. Waits for question 1 | Tests by name: first failure sets `failingSince`, a second keeps it, a good read clears it, a ship that is no plugin is refused, rollback leaves no event; the counter adds one per failed read |
+| P1 | aeolus-fleet (core, common) | The fact on the plugin's ship, `fleet.recordPluginRead` with its two events, carried by `fleet.ship` and `fleet.list`; the counter | Tests by name: first failure sets `failingSince`, a second keeps it, a good read clears it, a ship that is no plugin is refused, rollback leaves no event; the counter adds one per failed read |
 | P2 | aeolus-fleet (common) | `plugin-read-failed` and its facts in `schemas/alert.ts`; monitoring 4.4 and 4.9 point here | Tests by name: the facts parse, another signal's facts are refused |
 | P3 | aeolus-fleet (console) | The forward of `guard.get` records each outcome of 4.4; the plugin ship's page shows the fact | Tests by name per row of 4.4, and a refused record leaves the dialog's answer unchanged; walked on staging with the plugin stopped |
 | P4 | the watch plugin | The signal in the pass (after monitoring's W5), default 5 min, raise then send, clear; compatibility row and minimum core | Tests by name: within N nothing, after N one alert and one message, a good read clears, flap, restart; walked on staging with the plugin stopped |
 
-## 8. Question
+## 8. Who records the fact
 
-**1. Which actor writes the fact in core, and under which scope?**
+The operator's own console session records the fact with `fleet:read` and read reach on the plugin's ship. Each event names who recorded it.
 
-The read that failed is the operator's: the console's server forwards the caller's cookie and the plugin authorises `fleet:read`. The console's server holds no credential of its own today.
+The read that failed is the operator's: the console's server forwards the caller's cookie and the plugin authorises `fleet:read`. This records every counted failure on every installation without a new credential or scope. A `fleet:read` holder can record a false failure or good read, causing at most one alert to argo per outage or clearing one early; the event attributes the record to its actor.
 
-1. **The caller's console session, with `fleet:read` and read reach on the plugin's ship.** Whoever can make the read can record how it ended. No new credential or scope; works on every installation; the event names who recorded it. Against: a scope that reads now also writes this one fact, and any `fleet:read` holder can record a failure or a good read that did not happen (at most one alert to argo per outage, or one cleared early, each with its actor in the event).
-2. **The caller's console session, under a new core scope for it.** The catalogue stays exact. Against: an operator without the scope hits the failure and nothing is recorded, so who is told depends on who was blocked; one more scope to grant every fleet manager.
-3. **The console itself, as the installation.** The console's server gets the installation token and records with the `Aeolus-Fleet` header, under `fleet:alert` (already in `INSTALLATION_SCOPES`) or a new installation scope. No person can forge the fact and it is the console's own observation. Against: the web app's server would hold the installation's token for every fleet (manage, commission); an installation without a token (0020: off without one) records nothing, so most self-hosted fleets get no alert.
+Rejected:
 
-Pick: 1. It is the only option that records every counted failure on every installation with nothing new to configure, and a false record costs one attributed alert.
+- A new core scope: an operator without it could hit the failure without recording it, and every fleet manager would need another grant.
+- The installation token: the console's server would hold a token with broad installation permissions, and installations without one would record nothing.
