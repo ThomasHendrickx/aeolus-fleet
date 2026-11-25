@@ -546,10 +546,10 @@ describe('timelineSentence', () => {
 
   it('shows plugin read failure and recovery with the actor who recorded them', () => {
     expect(onScoutsPage(anEntry('PluginReadFailed', { actor: argo }))).toEqual({
-      sentence: 'Plugin read failed by argo', tone: 'attention', icon: 'undeliverable',
+      sentence: 'Plugin read failed by argo', tone: 'attention', icon: 'fleet',
     });
     expect(onScoutsPage(anEntry('PluginReadRecovered', { actor: scout }))).toEqual({
-      sentence: 'Plugin read recovered by scout', tone: 'ended', icon: 'acknowledged',
+      sentence: 'Plugin read recovered by scout', tone: 'ended', icon: 'fleet',
     });
   });
 

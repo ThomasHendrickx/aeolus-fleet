@@ -75,6 +75,7 @@ describe('commissioning a ship on Postgres', () => {
       commissionRequestHash: (await core.prisma.ship.findUnique({ where: { id: shipId } }))?.commissionRequestHash ?? 'none',
       ownerShipId: argoId,
       lastCrewSettingsVersion: 0,
+      pluginReads: null,
     });
     await expect(core.prisma.credential.findMany({ where: { shipId } })).resolves.toEqual([
       expect.objectContaining({
@@ -364,6 +365,7 @@ describe('getting one ship on Postgres', () => {
         openDeliveries: 0,
         owner: { id: argoId, name: 'argo' },
         statement: null,
+        pluginReads: null,
         openAlertCount: 0,
         openAlerts: [],
         expectations: { reportChangesWithin: null, taskDoneBy: null },
@@ -443,6 +445,7 @@ describe('listing the fleet on Postgres', () => {
         awaitingCrewSince: null,
         retiredAt: null,
         ownerShipId: null,
+        pluginReads: null,
         openAlertCount: 0,
       },
       {
@@ -465,6 +468,7 @@ describe('listing the fleet on Postgres', () => {
         awaitingCrewSince: commissionedAt,
         retiredAt: null,
         ownerShipId: argoId,
+        pluginReads: null,
         openAlertCount: 0,
       },
     ]);

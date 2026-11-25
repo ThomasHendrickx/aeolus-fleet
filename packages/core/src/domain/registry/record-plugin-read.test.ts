@@ -3,6 +3,7 @@ import { beforeEach, expect, it } from 'vitest';
 
 import { readReachScenario, type ReadReachScenario } from '../../../test/support/read-reach-scenario.js';
 import { unwrap } from '../../testing/result.js';
+import { applyPluginRead } from './plugin-reads.js';
 import { createRecordPluginRead } from './record-plugin-read.js';
 
 let fleet: ReadReachScenario;
@@ -72,4 +73,12 @@ it('a ship that is no plugin is refused', async () => {
 
   expect(result).toMatchObject({ isOk: false, error: { kind: 'PLUGIN_NOT_FOUND' } });
   expect(fleet.core.state.events).toEqual([]);
+});
+
+it('the plugin read model refuses a ship that is not an active plugin', () => {
+  const ship = fleet.core.state.ships.find((held) => held.id === fleet.near.shipId);
+
+  const result = applyPluginRead(ship, { read: { pluginShipId: fleet.near.shipId, read, outcome: 'good' }, at: fleet.core.clock.now(), actor: { kind: 'ship', shipId: fleet.argo.shipId } });
+
+  expect(result).toMatchObject({ isOk: false, error: { kind: 'PLUGIN_NOT_FOUND' } });
 });
