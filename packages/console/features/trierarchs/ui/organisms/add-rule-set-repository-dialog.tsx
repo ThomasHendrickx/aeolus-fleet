@@ -8,9 +8,10 @@ import { ConfigurationFormDialog } from './configuration-form-dialog';
 type RepositoryFields = RuleSetRepository & { readToken: string };
 
 /** New read tokens live in the password field for the lifetime of the form. */
-export function AddRuleSetRepositoryDialog({ isPending, isDisabled, notice, onClose, onAdd }: {
+export function AddRuleSetRepositoryDialog({ isPending, isDisabled, hasFailed = false, notice, onClose, onAdd }: {
   isPending: boolean;
   isDisabled: boolean;
+  hasFailed?: boolean;
   notice?: ReactNode;
   onClose: () => void;
   onAdd: (repository: RuleSetRepository, readToken: string) => void;
@@ -29,6 +30,7 @@ export function AddRuleSetRepositoryDialog({ isPending, isDisabled, notice, onCl
       action="Add repository"
       isDisabled={isDisabled}
       isPending={isPending}
+      dataState={isPending ? 'pending' : hasFailed ? 'failure' : 'idle'}
       onClose={onClose}
       onSubmit={() => {
         void handleSubmit(({ repository, folder, access: selectedAccess, readToken }) => {

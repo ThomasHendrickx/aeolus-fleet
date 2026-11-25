@@ -40,12 +40,12 @@ let plugin: FakeTrierarchPlugin | undefined;
 let accountApp: FakeAccountApp | undefined;
 let serverUrl: string;
 let catalogue = GUARD_CATALOGUE;
-let heldWrite: Promise<void> | undefined;
+let heldWrite: Promise<undefined> | undefined;
 
 function holdNextWrite() {
-  const write = Promise.withResolvers<void>();
+  const write = Promise.withResolvers<undefined>();
   heldWrite = write.promise;
-  return () => { write.resolve(); };
+  return () => { write.resolve(undefined); };
 }
 const receivedWrites: z.infer<typeof guardReplacement>[] = [];
 

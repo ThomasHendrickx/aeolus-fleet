@@ -31,7 +31,8 @@ export function useGuardConfiguration({ fleetId, isEnabled, canChange }: {
     retry: false,
   });
   const isWriting = useRef(false);
-  const [action, setAction] = useState<{ kind: 'add' | 'remove' } | { kind: 'floor'; name: string }>();
+  const [action, setAction] = useState<GuardChange['kind']>();
+  const [floorSave, setFloorSave] = useState<{ name: string; state: 'pending' | 'success' | 'failure' }>();
   const [error, setError] = useState<GuardSaveError>();
   const readAgain = async () => {
     const result = await query.refetch();
@@ -42,8 +43,10 @@ export function useGuardConfiguration({ fleetId, isEnabled, canChange }: {
   const save = async (change: GuardChange): Promise<boolean> => {
     if (!canChange || query.data === undefined || query.isError || query.isFetching || isWriting.current || error?.shouldReadAgain) return false;
     isWriting.current = true;
-    setAction(change.kind === 'floor' ? { kind: 'floor', name: change.name } : { kind: change.kind });
+    setAction(change.kind);
     setError(undefined);
+    setFloorSave(change.kind === 'floor' ? { name: change.name, state: 'pending' } : undefined);
+    let didSave = false;
     try {
       const result = await replaceGuardConfiguration(guardReplacement(query.data, change));
       if (result.kind === 'saved') {
@@ -52,6 +55,7 @@ export function useGuardConfiguration({ fleetId, isEnabled, canChange }: {
           queryClient.invalidateQueries({ queryKey: ['trierarch-plugin', 'guard-choices'] }),
         ]);
         showToast({ title: done(change) });
+        didSave = true;
         return true;
       }
       if (result.kind === 'conflict') {
@@ -65,9 +69,16 @@ export function useGuardConfiguration({ fleetId, isEnabled, canChange }: {
       return false;
     } finally {
       isWriting.current = false;
+      if (change.kind === 'floor') {
+        setFloorSave({ name: change.name, state: didSave ? 'success' : 'failure' });
+      }
       setAction(undefined);
     }
   };
 
-  return { query, action, error, save, readAgain, resetError: () => { setError((current) => current?.shouldReadAgain ? current : undefined); } };
+  return {
+    query, action, error, save, readAgain,
+    floorSave: floorSave?.state === 'failure' && error === undefined ? undefined : floorSave,
+    resetError: () => { setError((current) => current?.shouldReadAgain ? current : undefined); },
+  };
 }

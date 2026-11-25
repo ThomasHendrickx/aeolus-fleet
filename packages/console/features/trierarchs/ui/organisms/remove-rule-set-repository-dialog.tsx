@@ -5,17 +5,22 @@ import {
 } from '@aeolus-fleet/ui';
 
 /** Removal keeps any configured floor names and confirms the effect before saving. */
-export function RemoveRuleSetRepositoryDialog({ repository, isPending, isDisabled, notice, onClose, onConfirm }: {
+export function RemoveRuleSetRepositoryDialog({ repository, isPending, isDisabled, hasFailed = false, notice, onClose, onConfirm }: {
   repository: string;
   isPending: boolean;
   isDisabled: boolean;
+  hasFailed?: boolean;
   notice?: ReactNode;
   onClose: () => void;
   onConfirm: () => void;
 }) {
   return (
     <AlertDialog open onOpenChange={(isOpen) => { if (!isOpen && !isPending) onClose(); }}>
-      <AlertDialogContent className={dialogSurface.phoneSheet} data-testid="rule-sets-remove-dialog">
+      <AlertDialogContent
+        className={dialogSurface.phoneSheet}
+        data-testid="rule-sets-remove-dialog"
+        data-state={isPending ? 'pending' : hasFailed ? 'failure' : 'idle'}
+      >
         <AlertDialogHeader>
           <AlertDialogTitle className="break-all">Remove {repository}?</AlertDialogTitle>
           <AlertDialogDescription>

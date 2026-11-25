@@ -4,12 +4,14 @@ import { Badge, Button, EmptyState, InlineError, LoadingSkeleton, Switch, Toolti
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../../components/atoms/table';
 import type { GuardConfiguration } from '../../../../lib/trierarch-plugin-guard-schemas';
 
+const SHORT_COMMIT_LENGTH = 7;
+
 type Repository = GuardConfiguration['repositories'][number];
 type RuleSet = GuardConfiguration['sets'][number];
 
 interface Management {
   isDisabled: boolean;
-  savingFloor?: string;
+  floorSave?: { name: string; state: 'pending' | 'success' | 'failure' };
   onAdd: () => void;
   onRemove: (repository: string) => void;
   onSetFloor: (name: string, isIncluded: boolean) => void;
@@ -20,7 +22,7 @@ function SectionTitle({ children, count }: { children: ReactNode; count?: number
 }
 
 function Commit({ commit }: { commit: string | null }) {
-  return commit === null ? null : <span title={commit} className="font-mono text-id text-muted-foreground">{commit.slice(0, 7)}</span>;
+  return commit === null ? null : <span title={commit} className="font-mono text-id text-muted-foreground">{commit.slice(0, SHORT_COMMIT_LENGTH)}</span>;
 }
 
 function countLabel(count: number, singular: string) {
@@ -126,7 +128,8 @@ function Floor({ name, isIncluded, isUnavailable, management }: {
   if (management === undefined) {
     return <span className="text-meta text-muted-foreground"><span className="sm:hidden">Floor {isIncluded ? '· ' : ''}</span>{isIncluded ? 'Yes' : 'No'}</span>;
   }
-  const isSaving = management.savingFloor === name;
+  const state = management.floorSave?.name === name ? management.floorSave.state : 'idle';
+  const isSaving = state === 'pending';
   if (isUnavailable) {
     return (
       <Button
@@ -135,7 +138,7 @@ function Floor({ name, isIncluded, isUnavailable, management }: {
         disabled={management.isDisabled}
         aria-label={`Clear ${name} from the floor`}
         data-testid={`rule-sets-clear-${name}`}
-        data-state={isSaving ? 'pending' : 'idle'}
+        data-state={state}
         onClick={() => { management.onSetFloor(name, false); }}
       >
         {isSaving ? 'Clearing…' : 'Clear floor'}
@@ -143,13 +146,14 @@ function Floor({ name, isIncluded, isUnavailable, management }: {
     );
   }
   return (
-    <div className="flex flex-wrap items-center gap-1.5 text-meta text-muted-foreground" data-state={isSaving ? 'pending' : 'idle'}>
+    <div className="flex flex-wrap items-center gap-1.5 text-meta text-muted-foreground">
       <Switch
         aria-label={`Floor for ${name}`}
         aria-busy={isSaving || undefined}
         checked={isIncluded}
         disabled={management.isDisabled}
         data-testid={`rule-sets-floor-${name}`}
+        data-state={state}
         onCheckedChange={(isChecked) => { management.onSetFloor(name, isChecked); }}
       />
       {isSaving ? (

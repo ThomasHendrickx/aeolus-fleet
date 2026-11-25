@@ -60,7 +60,7 @@ export function RuleSetsContainer() {
   const isDisabled = guard.action !== undefined || guard.query.isFetching || guard.query.isError || guard.error?.shouldReadAgain === true;
   const management = canChange ? {
     isDisabled,
-    savingFloor: guard.action?.kind === 'floor' ? guard.action.name : undefined,
+    floorSave: guard.floorSave,
     onAdd: () => { open({ kind: 'add' }); },
     onRemove: (repository: string) => { open({ kind: 'remove', repository }); },
     onSetFloor: (name: string, isIncluded: boolean) => { void save({ kind: 'floor', name, isIncluded }); },
@@ -98,8 +98,9 @@ export function RuleSetsContainer() {
       />
       {canChange && dialog?.kind === 'add' ? (
         <AddRepositoryDialog
-          isPending={guard.action?.kind === 'add'}
+          isPending={guard.action === 'add'}
           isDisabled={isDisabled}
+          hasFailed={guard.error !== undefined}
           notice={notice}
           onClose={close}
           onAdd={(repository, readToken) => { void save({ kind: 'add', repository, readToken }); }}
@@ -108,8 +109,9 @@ export function RuleSetsContainer() {
       {canChange && dialog?.kind === 'remove' ? (
         <RemoveRepositoryDialog
           repository={dialog.repository}
-          isPending={guard.action?.kind === 'remove'}
+          isPending={guard.action === 'remove'}
           isDisabled={isDisabled}
+          hasFailed={guard.error !== undefined}
           notice={notice}
           onClose={close}
           onConfirm={() => { void save({ kind: 'remove', repository: dialog.repository }); }}

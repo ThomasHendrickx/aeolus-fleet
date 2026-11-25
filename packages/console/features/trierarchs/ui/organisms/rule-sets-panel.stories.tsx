@@ -63,18 +63,17 @@ function PendingFloorOnPress({ configuration }: { configuration: GuardConfigurat
 }
 
 export const Floor: Story = {
+  play: async () => { await expect(floorSwitch()).toHaveAttribute('data-state', 'idle'); },
+};
+export const SavingFloor: Story = {
   render: () => <PendingFloorOnPress configuration={catalogue} />,
   play: async () => {
     await expect(floorSwitch()).toHaveAttribute('data-state', 'idle');
     await userEvent.click(floorSwitch());
     await expect(floorSwitch()).toHaveAttribute('data-state', 'pending');
-    await expect(floorSwitch()).toBeDisabled();
+    await expect(floorSwitch()).toHaveAttribute('aria-disabled', 'true');
     await expect(screen.getByRole('status')).toHaveTextContent('Saving');
   },
-};
-export const SavingFloor: Story = {
-  args: { management: { ...management, isDisabled: true, floorSave: { name: 'docs-only', state: 'pending' } } },
-  play: async () => { await expect(floorSwitch()).toHaveAttribute('data-state', 'pending'); },
 };
 export const SavedFloor: Story = {
   args: { configuration: { ...catalogue, floor: ['base', 'docs-only'] }, management: { ...management, floorSave: { name: 'docs-only', state: 'success' } } },
@@ -94,18 +93,17 @@ export const FloorSaveFailure: Story = {
 
 export const UnavailableFloor: Story = {
   args: { configuration: unavailableFloor },
+  play: async () => { await expect(clearFloor()).toHaveAttribute('data-state', 'idle'); },
+};
+export const ClearingFloor: Story = {
   render: () => <PendingFloorOnPress configuration={unavailableFloor} />,
   play: async () => {
     await expect(clearFloor()).toHaveAttribute('data-state', 'idle');
     await userEvent.click(clearFloor());
     await expect(clearFloor()).toHaveAttribute('data-state', 'pending');
-    await expect(clearFloor()).toBeDisabled();
+    await expect(clearFloor()).toHaveAttribute('aria-disabled', 'true');
     await expect(clearFloor()).toHaveTextContent('Clearing');
   },
-};
-export const ClearingFloor: Story = {
-  args: { configuration: unavailableFloor, management: { ...management, isDisabled: true, floorSave: { name: 'base', state: 'pending' } } },
-  play: async () => { await expect(clearFloor()).toHaveAttribute('data-state', 'pending'); },
 };
 export const ClearedFloor: Story = {
   args: { configuration: { ...unavailableFloor, floor: [] }, management: { ...management, floorSave: { name: 'base', state: 'success' } } },
@@ -160,6 +158,10 @@ function PendingRemovalOnPress() {
 }
 
 export const RemoveRepository: Story = {
+  render: () => <RemoveRuleSetRepositoryDialog repository="acme/guard-rules" isPending={false} isDisabled={false} onClose={noop} onConfirm={noop} />,
+  play: async () => { await expect(await screen.findByRole('alertdialog')).toHaveAttribute('data-state', 'idle'); },
+};
+export const RemovingRepository: Story = {
   render: () => <PendingRemovalOnPress />,
   play: async () => {
     const dialog = await screen.findByRole('alertdialog');
@@ -167,13 +169,9 @@ export const RemoveRepository: Story = {
     const confirm = screen.getByRole('button', { name: 'Remove repository' });
     await userEvent.click(confirm);
     await expect(dialog).toHaveAttribute('data-state', 'pending');
-    await expect(confirm).toBeDisabled();
+    await expect(confirm).toHaveAttribute('aria-disabled', 'true');
     await expect(confirm).toHaveTextContent('Removing');
   },
-};
-export const RemovingRepository: Story = {
-  render: () => <RemoveRuleSetRepositoryDialog repository="acme/guard-rules" isPending isDisabled onClose={noop} onConfirm={noop} />,
-  play: async () => { await expect(await screen.findByRole('alertdialog')).toHaveAttribute('data-state', 'pending'); },
 };
 export const RemoveRepositoryFailure: Story = {
   render: () => <RemoveRuleSetRepositoryDialog repository="acme/guard-rules" isPending={false} isDisabled={false} hasFailed notice={writeFailure} onClose={noop} onConfirm={noop} />,

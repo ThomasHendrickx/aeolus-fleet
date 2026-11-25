@@ -13,6 +13,7 @@ export function ConfigurationFormDialog({
   children,
   size = 'md',
   testIdPrefix = 'mcp',
+  dataState,
 }: {
   title: string;
   description: string;
@@ -24,6 +25,7 @@ export function ConfigurationFormDialog({
   children: ReactNode;
   size?: 'sm' | 'md';
   testIdPrefix?: string;
+  dataState?: 'idle' | 'pending' | 'failure';
 }) {
   return (
     <Dialog
@@ -35,6 +37,7 @@ export function ConfigurationFormDialog({
       <DialogContent
         size={size}
         data-testid={`${testIdPrefix}-form`}
+        data-state={dataState}
         className={`${dialogSurface.phoneFullScreen} max-sm:max-h-none max-sm:bg-background max-sm:flex max-sm:flex-col max-sm:gap-0 max-sm:p-0`}
       >
         <form
