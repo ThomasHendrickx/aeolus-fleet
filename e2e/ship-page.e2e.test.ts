@@ -241,6 +241,8 @@ describe('the ship page', () => {
     // Given a timeline entry that names a ship removed by retention.
     clock.set('2026-08-12T12:00:00.000Z');
     const tester = await crewedOverRest({ name: 'tester', type: 'core' });
+    const trierarch = unwrap(await useCases.commissionShip(argo, { name: 'retained-trierarch', type: 'computer', kind: 'trierarch', idempotencyKey: newKey() }));
+    const plugin = unwrap(await useCases.commissionShip(argo, { name: 'retained-plugin', type: 'service', kind: 'plugin', idempotencyKey: newKey() }));
     const owner = unwrap(await useCases.commissionShip(argo, { name: 'tester-member', type: 'core', idempotencyKey: newKey() }));
     const peer = unwrap(await useCases.commissionShip(argo, { name: 'retained-history-peer', type: 'planner', idempotencyKey: newKey() }));
     unwrap(await useCases.setOwner(argo, { shipId: owner.shipId, ownerShipId: tester.shipId }));
@@ -253,6 +255,8 @@ describe('the ship page', () => {
       payload,
       idempotencyKey: newKey(),
     });
+    unwrap(await useCases.retireShip(argo, { shipId: trierarch.shipId }));
+    unwrap(await useCases.retireShip(argo, { shipId: plugin.shipId }));
     unwrap(await useCases.retireShip(argo, { shipId: tester.shipId }));
     await pruneWithFiveDaysOfRetention('2026-10-04T15:00:00.000Z');
     const page = await signedInPage({ timezoneId: 'UTC', reducedMotion: 'reduce' });
@@ -284,6 +288,13 @@ describe('the ship page', () => {
     const sheet = page.getByTestId('message-sheet');
     await sheet.getByTestId('message-payload').filter({ hasText: payload }).waitFor();
     await expect.soft(page.getByRole('button', { name: /^Reply\b/ }).count()).resolves.toBe(0);
+
+    for (const [ship, badge] of [[trierarch, 'Kind: Trierarch'], [plugin, 'plugin']] as const) {
+      await page.goto(`/ships/${ship.shipId}`);
+      await header.getByText('Removed', { exact: true }).waitFor();
+      await expect.soft(header.getByText(badge, { exact: true }).count()).resolves.toBe(1);
+      await expect(header.getByRole('heading').textContent()).resolves.toContain(ship.shipId.slice(-4));
+    }
   });
 
   it('scenario 21: a removed ship whose messages were pruned shows No messages kept and the retention date', async () => {
