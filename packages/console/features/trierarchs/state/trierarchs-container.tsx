@@ -6,6 +6,7 @@ import { useState } from 'react';
 
 import { Button, Badge } from '@aeolus-fleet/ui';
 import { useAssignedShips } from '../hooks/assigned-ships';
+import { useRuleSetsAccess } from '../hooks/use-rule-sets-access';
 import { ModelsContainer } from './models-container';
 import { MachineList } from '../ui/organisms/machine-list';
 import { ListPage } from '../../../components/organisms/list-page';
@@ -53,6 +54,7 @@ export function TrierarchsContainer() {
   const pluginVersion = useTrierarchPluginVersion();
   const join = useJoinMachine();
   const access = useAccess();
+  const { canReadRuleSets } = useRuleSetsAccess();
   const [isJoining, setIsJoining] = useState(false);
   const [typedName, setTypedName] = useState('');
   const isNameTaken = useIsShipNameTaken(isJoining ? typedName : '');
@@ -86,7 +88,9 @@ export function TrierarchsContainer() {
         ) : undefined
       }
     >
-      {access.canManage && connection !== 'none' && connection !== 'unknown' ? <TrierarchTabs active="machines" /> : null}
+      {(access.canManage || canReadRuleSets) && connection !== 'none' && connection !== 'unknown' ? (
+        <TrierarchTabs active="machines" canSeeMcp={access.canManage} canSeeRuleSets={canReadRuleSets} />
+      ) : null}
       <MachineList
         connection={connection}
         machines={machines.data}
