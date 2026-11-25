@@ -2196,6 +2196,52 @@ describe('console.session for another service', () => {
   });
 });
 
+describe("argo's effective scopes at the API (decision 0046)", () => {
+  it("answers a plugin's declared scope in argo's console session", async () => {
+    const declarer = client({ authorization: `Bearer ${await crewedShip(['scopes:declare'])}` });
+    await declarer.fleet.declareScopes.mutate({ namespace: 'operator-session', scopes: [{ scope: 'operator-session:guard', description: 'Manage guards' }] });
+    clock.advance(SIGN_IN_RATE_LIMIT.windowMs);
+    const cookie = sessionCookieOf(await signIn());
+
+    const session = await client({ cookie }).console.session.query();
+
+    expect(session.scopes).toEqual(expect.arrayContaining(['fleet:read', 'operator-session:guard']));
+  });
+
+  it("answers newly declared and defined scopes on argo's next call with the same session", async () => {
+    const argo = await signedInArgo();
+    const declarer = client({ authorization: `Bearer ${await crewedShip(['scopes:declare'])}` });
+    const newScopes = ['operator-late:guard', 'operator-fleet:review'];
+    const before = await argo.console.session.query();
+
+    await declarer.fleet.declareScopes.mutate({ namespace: 'operator-late', scopes: [{ scope: 'operator-late:guard', description: 'Manage guards' }] });
+    await argo.fleet.defineScope.mutate({ scope: 'operator-fleet:review', description: 'Review requests' });
+    const [session, detail, listed, page] = await Promise.all([
+      argo.console.session.query(),
+      argo.fleet.ship.query({ shipId: argoId }),
+      argo.fleet.listedShip.query({ shipId: argoId }),
+      argo.fleet.list.query({ shipIds: [argoId] }),
+    ]);
+
+    expect(before.scopes).not.toContain('operator-late:guard');
+    expect(before.scopes).not.toContain('operator-fleet:review');
+    expect(session.scopes).toEqual(expect.arrayContaining(newScopes));
+    expect(detail).toMatchObject({ scopes: expect.arrayContaining(newScopes) });
+    expect(listed).toMatchObject({ scopes: expect.arrayContaining(newScopes) });
+    expect(page.items).toEqual([expect.objectContaining({ id: argoId, scopes: expect.arrayContaining(newScopes) })]);
+  });
+
+  it("answers only another ship's held scopes when the fleet has additional scopes", async () => {
+    const argo = await signedInArgo();
+    const { shipId } = await agentShip();
+    await argo.fleet.defineScope.mutate({ scope: 'operator-other:review', description: 'Review requests' });
+
+    const ship = await argo.fleet.ship.query({ shipId });
+
+    expect(ship).toMatchObject({ scopes: ['messages:send', 'messages:receive'] });
+  });
+});
+
 describe('scopes at the API (decision 0046)', () => {
   it('let a ship with scopes:declare declare its namespace, and refuse a ship without', async () => {
     const declarer = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'scopes:declare'])}` });
