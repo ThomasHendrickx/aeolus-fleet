@@ -1,7 +1,7 @@
 import type { ShipId } from '@aeolus-fleet/common';
 import type { FastifyInstance } from 'fastify';
 import type { Browser, BrowserContext } from 'playwright';
-import { afterAll, beforeAll, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, expect, it } from 'vitest';
 
 import { createPrismaClient, type PrismaClient } from '../packages/core/src/adapters/prisma/client.js';
 import { createApp } from '../packages/core/src/app.js';
@@ -40,8 +40,12 @@ beforeAll(async () => {
   browser = await launchChromium();
 });
 
-afterAll(async () => {
+afterEach(async () => {
   await context?.close();
+  context = undefined;
+});
+
+afterAll(async () => {
   await browser.close();
   await web.stop();
   await plugin.stop();
@@ -89,4 +93,24 @@ it('opens the crew dialog without writing a request when the plugin reads are sl
     connection.resolve(undefined);
     machines.resolve(undefined);
   }
+});
+
+
+it('writes a manual crew request in one click when the trierarch plugin is off', async () => {
+  // Given a ship with no request and the trierarch plugin off.
+  context = await browser.newContext({ baseURL: web.url, reducedMotion: 'reduce' });
+  const page = await context.newPage();
+  await page.clock.setFixedTime(clock.now());
+  await signIn(page, OPERATOR);
+  await page.getByTestId('fleet-commission').waitFor();
+  await page.route('**/api/reads/trierarch-plugin-connection', (route) =>
+    route.fulfill({ json: { kind: 'answered', data: { state: 'none' } } }),
+  );
+  await page.goto(`/ships/${shipId}`);
+
+  // When the operator requests crew.
+  await page.getByTestId('crew-request-request').click();
+
+  // Then the manual request is written without settings.
+  await expect.poll(() => database.crewRequest.findFirst({ where: { shipId } })).toMatchObject({ settings: {}, assignedTo: null });
 });
