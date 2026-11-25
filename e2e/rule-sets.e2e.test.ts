@@ -1,8 +1,9 @@
 import { createTRPCClient, httpBatchLink } from '@trpc/client';
 import type { FastifyInstance } from 'fastify';
 import type { Browser } from 'playwright';
-import { afterAll, beforeAll, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, expect, it } from 'vitest';
 import { z } from 'zod';
+import type { GuardConfiguration } from '../packages/console/lib/trierarch-plugin-guard-schemas.js';
 import { createApp } from '../packages/core/src/app.js';
 import type { AppRouter } from '../packages/core/src/index.js';
 import { createMigratedDatabase } from '../packages/core/src/testing/database.js';
@@ -13,7 +14,7 @@ import { startFakeTrierarchPlugin, type FakeTrierarchPlugin } from './support/fa
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 
 const INSTALLATION_TOKEN = 'aeolus_installation_test_rule_sets';
-const GUARD_CATALOGUE = {
+const GUARD_CATALOGUE: GuardConfiguration = {
   version: 1,
   repositories: [{ repository: 'acme/guard-rules', folder: 'rules/', access: 'private', readCommit: '8d41e07a1234567890' }],
   sets: [
@@ -66,15 +67,20 @@ beforeAll(async () => {
         if (!parsed.success) return refusal;
         const { expectedVersion, repositories, floor } = parsed.data;
         receivedWrites.push(parsed.data);
-        if (receivedWrites.length === 1) {
+        if (receivedWrites.length === 1 && repositories.some(({ repository }) => repository === 'acme/more-rules')) {
           await firstWrite.promise;
           return refusal;
         }
         if (expectedVersion !== catalogue.version) return { status: 409, body: { error: { message: 'The guard configuration changed' } } };
         const version = catalogue.version + 1;
+        const existingRepositories = new Map(catalogue.repositories.map((repository) => [repository.repository, repository]));
+        const retained = new Set(repositories.map(({ repository }) => repository));
         catalogue = {
           ...catalogue,
-          repositories: repositories.map((repository) => ({ ...repository, readCommit: '8d41e07a1234567890' })),
+          repositories: repositories.map((repository) => ({ ...repository, readCommit: existingRepositories.get(repository.repository)?.readCommit ?? null })),
+          sets: catalogue.sets.filter(({ repository }) => retained.has(repository)),
+          errors: catalogue.errors.filter(({ repository }) => retained.has(repository)),
+          conflicts: catalogue.conflicts.filter(({ repositories: sources }) => sources.every((repository) => retained.has(repository))),
           version,
           floor,
         };
@@ -84,6 +90,11 @@ beforeAll(async () => {
   });
   web = await startWeb({ url: webUrl, serverUrl, trierarchPluginUrl: plugin.url, accountApp });
   browser = await launchChromium();
+});
+
+beforeEach(() => {
+  catalogue = GUARD_CATALOGUE;
+  receivedWrites.length = 0;
 });
 
 afterAll(async () => {
@@ -130,7 +141,7 @@ it('keeps a private repository’s inputs on failure and shows the committed rep
   const { fleetId } = await installation().fleets.create.mutate({ requestId: newKey(), name: 'Acme', operatorEmail: 'manager@example.com' });
   accountApp.signInAs({
     id: 'acc-guard-manager', email: 'manager@acme.example',
-    fleets: [{ id: fleetId, name: 'Acme', scopes: ['fleet:read', 'fleet:manage', 'trierarch:guard'] }],
+    fleets: [{ id: fleetId, name: 'Acme', scopes: ['fleet:read', 'trierarch:guard'] }],
   });
   const context = await browser.newContext({ baseURL: web.url, reducedMotion: 'reduce' });
   try {
@@ -138,9 +149,12 @@ it('keeps a private repository’s inputs on failure and shows the committed rep
     await page.clock.setFixedTime(new Date());
     await page.goto('/');
     await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
-    await page.goto('/trierarchs/rule-sets');
+    await page.goto('/trierarchs');
+    await page.getByTestId('trierarchs-rule-sets-tab').click({ timeout: 5000 });
     await page.getByTestId('rule-sets-add-repository').click({ timeout: 5000 });
     const dialog = page.getByRole('dialog', { name: 'Add repository' });
+    await expect.poll(() => dialog.getByRole('radio', { name: 'Public', checked: true }).count()).toBe(1);
+    expect(await dialog.getByTestId('rule-sets-read-token').count()).toBe(0);
     await dialog.getByTestId('rule-sets-repository').fill('acme/more-rules');
     await dialog.getByTestId('rule-sets-private').click();
     await dialog.getByTestId('rule-sets-read-token').fill('test-example-value');
@@ -155,7 +169,9 @@ it('keeps a private repository’s inputs on failure and shows the committed rep
     await dialog.getByTestId('rule-sets-submit').click();
 
     // Then the committed repository is shown and the existing private token was retained by name.
-    await page.getByRole('row', { name: /^acme\/more-rules / }).waitFor();
+    const added = page.getByRole('row', { name: /^acme\/more-rules / });
+    await added.waitFor();
+    await expect.poll(() => added.getByRole('cell').nth(2).textContent()).toBe('');
     await dialog.waitFor({ state: 'hidden' });
     expect(receivedWrites[1]).toMatchObject({ expectedVersion: 1, secrets: ['acme/guard-rules', 'acme/more-rules'] });
     expect(Object.keys(receivedWrites[1]?.secretValues ?? {})).toEqual(['acme/more-rules']);
@@ -164,6 +180,47 @@ it('keeps a private repository’s inputs on failure and shows the committed rep
     expect(catalogue.floor).toEqual(['base', 'docs-only']);
   } finally {
     firstWrite.resolve();
+    await context.close();
+  }
+});
+
+it('shows file errors and conflicts by set name and lets a manager clear a floor name after removing its repository', async () => {
+  // Given a manager viewing two repositories with a file error and a conflicting name.
+  if (browser === undefined || web === undefined || accountApp === undefined) throw new Error('The console did not start');
+  catalogue = {
+    ...GUARD_CATALOGUE,
+    repositories: [...GUARD_CATALOGUE.repositories, { repository: 'acme/other-rules', folder: '', access: 'public', readCommit: null }],
+    errors: [{ repository: 'acme/guard-rules', file: 'rules/broken.yaml', reason: 'Invalid rule file' }],
+    conflicts: [{ name: 'no-push', repositories: ['acme/guard-rules', 'acme/other-rules'] }],
+  };
+  const { fleetId } = await installation().fleets.create.mutate({ requestId: newKey(), name: 'Acme', operatorEmail: 'remove@example.com' });
+  accountApp.signInAs({
+    id: 'acc-guard-remover', email: 'remove@acme.example',
+    fleets: [{ id: fleetId, name: 'Acme', scopes: ['fleet:read', 'trierarch:guard'] }],
+  });
+  const context = await browser.newContext({ baseURL: web.url, reducedMotion: 'reduce' });
+  try {
+    const page = await context.newPage();
+    await page.clock.setFixedTime(new Date());
+    await page.goto('/');
+    await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
+    await page.goto('/trierarchs/rule-sets');
+    await page.getByText('rules/broken.yaml', { exact: true }).waitFor({ timeout: 5000 });
+    await page.getByText('no-push', { exact: true }).waitFor();
+
+    // When the manager confirms removing the repository that provided the floor.
+    await page.getByTestId('rule-sets-remove-acme/guard-rules').filter({ visible: true }).click({ timeout: 5000 });
+    const confirm = page.getByRole('alertdialog', { name: 'Remove acme/guard-rules?' });
+    await confirm.getByTestId('rule-sets-confirm-remove').click();
+
+    // Then the floor remains unavailable until explicitly cleared, and the removed token is no longer retained.
+    const floor = page.getByRole('row', { name: /^base Unavailable/ });
+    await floor.waitFor();
+    expect(receivedWrites.at(-1)).toMatchObject({ floor: ['base'], secrets: [], secretValues: {} });
+    await floor.getByTestId('rule-sets-clear-base').click();
+    await floor.waitFor({ state: 'hidden' });
+    expect(catalogue.floor).toEqual([]);
+  } finally {
     await context.close();
   }
 });
