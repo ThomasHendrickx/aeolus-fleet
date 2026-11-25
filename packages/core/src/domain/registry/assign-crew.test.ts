@@ -178,7 +178,7 @@ describe('an assignment refused', () => {
   });
 
   it('refuses an assignee that is not in the fleet', async () => {
-    await expectRefused({ shipId: scoutId, trierarchShipId: core.ids('ship') }, 'ASSIGNEE_NOT_ACTIVE');
+    await expectRefused({ shipId: scoutId, trierarchShipId: core.ids('ship'), settingsVersion: 1 }, 'ASSIGNEE_NOT_ACTIVE');
   });
 
   it('refuses a ship that is not in the fleet', async () => {
