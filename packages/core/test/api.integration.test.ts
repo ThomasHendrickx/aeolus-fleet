@@ -453,6 +453,7 @@ describe('the fleet procedures at the API', () => {
     // argo's inbox takes the message scopes every agent ship holds: each refuses any ship but argo once its input parses.
     const deliveryId = newId('delivery');
     const inputs: Record<string, unknown> = {
+      recordPluginRead: { pluginShipId: newId('ship'), read: 'guard.get', outcome: 'good' },
       setOwner: { shipId: newId('ship'), ownerShipId: newId('ship') },
       markRead: { deliveryId, isRead: true },
       markDone: { deliveryId },
@@ -506,6 +507,7 @@ describe('the fleet procedures at the API', () => {
       retiredAt: null,
       ownerShipId: ownerId,
       openAlertCount: 0,
+      pluginReads: null,
     });
   });
 
@@ -2969,4 +2971,10 @@ it('records a plugin read from the console session and carries it on fleet.ship 
   await expect(argo.fleet.ship.query({ shipId })).resolves.toMatchObject({ pluginReads });
   const listed = await argo.fleet.list.query({ name: 'plugin-read-target' });
   expect(listed.items).toEqual([expect.objectContaining({ id: shipId, pluginReads })]);
+});
+
+it.each(['guard..get', 'Guard.get', 'guard.get_token', 'a'.repeat(65)])('refuses the plugin read name %s as bad input', async (read) => {
+  const argo = await signedInArgo();
+
+  await expect(codeOf(argo.fleet.recordPluginRead.mutate({ pluginShipId: newId('ship'), read, outcome: 'good' }))).resolves.toBe('BAD_REQUEST');
 });

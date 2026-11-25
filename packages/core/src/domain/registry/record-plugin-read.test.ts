@@ -51,13 +51,20 @@ it('a second failure keeps failingSince', async () => {
 
 it('a good read clears failingSince', async () => {
   unwrap(await failRead());
+  fleet.core.clock.advance(30_000);
+  unwrap(await record(fleet.argo, { pluginShipId, read, outcome: 'failed', reason: 'no-answer' }));
   fleet.core.clock.set(laterAt);
 
-  unwrap(await record(fleet.argo, { pluginShipId, read, outcome: 'good' }));
+  unwrap(await record(fleet.argo, { pluginShipId, read: 'other.get', outcome: 'good' }));
 
   const ship = unwrap(await fleet.registry.getShip(fleet.argo, { shipId: pluginShipId }));
-  expect(ship).toMatchObject({ pluginReads: { failingSince: null, lastFailed: firstFailure, lastGood: { at: laterAt, read } } });
-  expect(fleet.core.state.events.map(({ type }) => type)).toEqual(['PluginReadFailed', 'PluginReadRecovered']);
+  expect(ship).toMatchObject({ pluginReads: {
+    failingSince: null, lastFailed: { read, reason: 'no-answer' }, lastGood: { at: laterAt, read: 'other.get' },
+  } });
+  expect(fleet.core.state.events.map(({ type, details }) => ({ type, details }))).toEqual([
+    { type: 'PluginReadFailed', details: { read, reason: 'timeout' } },
+    { type: 'PluginReadRecovered', details: { read: 'other.get', reason: 'timeout' } },
+  ]);
 });
 
 it('a ship that is no plugin is refused', async () => {
