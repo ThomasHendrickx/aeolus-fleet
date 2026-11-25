@@ -5,6 +5,7 @@ import { refuse, type DomainError } from '../shared/errors.js';
 import { ok, type Result } from '../shared/result.js';
 import { listedShipOf, outsideReadReach, type ListedShip, type ShipOutsideReadReach } from './list-fleet.js';
 import type { FleetListing } from './ports.js';
+import type { EffectiveScopes } from './effective-scopes.js';
 import { readsShip, type ReadReachOf } from './read-reach.js';
 
 export type ReadListedShip = (caller: Caller, input: { shipId: ShipId }) => Promise<Result<ListedShip | ShipOutsideReadReach, DomainError<'SHIP_NOT_FOUND'>>>;
@@ -16,13 +17,15 @@ export type ReadListedShip = (caller: Caller, input: { shipId: ShipId }) => Prom
  * shows its name, type and status only (decision 0034). The caller's scope
  * (fleet:read) is checked before this runs.
  */
-export function createReadListedShip(deps: { listing: FleetListing; readReach: ReadReachOf }): ReadListedShip {
+export function createReadListedShip(deps: { listing: FleetListing; readReach: ReadReachOf; scopesOf: EffectiveScopes }): ReadListedShip {
   return async (caller, { shipId }) => {
     const facts = await deps.listing.ship(caller.fleetId, shipId);
     if (!facts) {
       return refuse('SHIP_NOT_FOUND', `No ship ${shipId} in this fleet`);
     }
-    const listed = listedShipOf(facts);
-    return ok(readsShip(await deps.readReach(caller), shipId) ? listed : outsideReadReach(listed));
+    if (!readsShip(await deps.readReach(caller), shipId)) {
+      return ok(outsideReadReach(facts));
+    }
+    return ok(listedShipOf(facts, await deps.scopesOf(facts.ship)));
   };
 }

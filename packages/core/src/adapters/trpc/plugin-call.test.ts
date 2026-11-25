@@ -117,9 +117,10 @@ describe('plugin actor contract slice 1: fleet.callPlugin doors', () => {
     if (!session) throw new Error('No console sign-in');
     session.endsBy = new Date('2026-11-16T12:00:10.000Z');
     session.expiresAt = session.endsBy;
-    const argo = fixture.core.state.ships.find((ship) => ship.id === fixture.argo.shipId);
-    if (!argo) throw new Error('No argo');
-    argo.scopes = [...argo.scopes, 'sample:change'];
+    unwrap(await fixture.registry.declareScopes(
+      { fleetId: fixture.fleet.fleetId, shipId: fixture.plugin.shipId, kind: 'plugin', scopes: ['scopes:declare'] },
+      { namespace: 'sample', scopes: [{ scope: 'sample:change', description: 'Change widgets' }] },
+    ));
     // When the sign-in calls from an untrusted Origin, then the console's own.
     const refused = await fixture.server.inject({ method: 'POST', url: '/trpc/fleet.callPlugin', headers: { cookie, origin: 'https://attacker.example' }, payload: fixture.input });
     const answer = await fixture.server.inject({ method: 'POST', url: '/trpc/fleet.callPlugin', headers: { cookie, origin: new URL(FLEET_URL).origin }, payload: fixture.input });

@@ -1,19 +1,16 @@
 /** Admit one immediate plugin operation using the actor's current fleet and send reach. */
 import type { CallPluginInput, IdGenerator, PluginCallContext, PluginCallData, ScopeName } from '@aeolus-fleet/common';
 
-import { actorOf, effectiveScopes, type Caller } from '../shared/caller.js';
+import { actorOf, type Caller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { actorAsItIs, keepingReachRefusal, reaching, rulesInForceOf, shipAsItIs, type CheckReadTx, type NotReachable } from './check-reach.js';
 import { allowsReach } from './network-settings.js';
-import type { DefinedScopeRepository, ScopeNamespaceRepository } from './ports.js';
+import { effectiveScopes, type ScopeCatalogue } from './effective-scopes.js';
 import type { PluginCalls, PluginCallRefusal } from './plugin-calls.js';
 
-interface CallPluginTx extends CheckReadTx {
-  scopeNamespaces: Pick<ScopeNamespaceRepository, 'list'>;
-  definedScopes: Pick<DefinedScopeRepository, 'list'>;
-}
+type CallPluginTx = CheckReadTx & ScopeCatalogue;
 
 type AdmissionRefusal = { kind: 'PLUGIN_NOT_FOUND'; message: string } | NotReachable;
 export type CallPlugin = (caller: Caller, input: CallPluginInput) => Promise<Result<PluginCallData, AdmissionRefusal | PluginCallRefusal>>;
@@ -32,9 +29,7 @@ export function createCallPlugin(deps: { uow: UnitOfWork<CallPluginTx>; clock: C
       const sender = await actorAsItIs(tx, caller);
       const recipient = await shipAsItIs(tx, plugin);
       if (sender && allowsReach(inForce, { verb: 'send', sender: sender.reaching, recipient: reaching(recipient), isAnswerToSender: false })) {
-        // The plugin uses one scope check for every actor. Materialize the existing all-scopes semantics here.
-        const catalogue = caller.kind === 'operator' ? await availableScopes(tx, caller) : [];
-        return ok(effectiveScopes(caller, catalogue));
+        return ok(await effectiveScopes(tx, caller));
       }
       if (sender) {
         await tx.reachRefusals.record({ id: deps.ids('reachRefusal'), fleetId: caller.fleetId, at: authenticatedAt, sender: sender.refused, askedBy: null, verb: 'send', settingsVersion: settings.version, recipient: { kind: 'ship', ship: { id: plugin.id, name: plugin.name, labels: recipient.labels, owner: recipient.owner } } });
@@ -54,9 +49,4 @@ export function createCallPlugin(deps: { uow: UnitOfWork<CallPluginTx>; clock: C
     const context: PluginCallContext = { ...input, requestId: deps.requestId(), fleetId: caller.fleetId, actor, scopes: [...admitted.value], expiresAt: expiresAt.toISOString() };
     return deps.transport.dispatch(context);
   };
-}
-
-async function availableScopes(tx: CallPluginTx, caller: Caller): Promise<ScopeName[]> {
-  const [namespaces, defined] = await Promise.all([tx.scopeNamespaces.list(caller.fleetId), tx.definedScopes.list(caller.fleetId)]);
-  return [...namespaces.flatMap((namespace) => namespace.scopes.map(({ scope }) => scope)), ...defined.map(({ scope }) => scope)];
 }

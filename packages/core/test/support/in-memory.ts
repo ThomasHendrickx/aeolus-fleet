@@ -2203,8 +2203,8 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         state.ships
           .filter((held) => held.fleetId === fleetId && held.removedAt === null)
           .map(factsOf)
-          .filter((facts) => matchesShipFilter(listedShipOf(facts), { filter, isInReach: readsShip(reach, facts.ship.id) }))
-          .map((facts) => ({ facts, position: positionOf(listedShipOf(facts), { sort, isInReach: readsShip(reach, facts.ship.id) }) }))
+          .filter((facts) => matchesShipFilter(listedShipOf(facts, facts.ship.scopes), { filter, isInReach: readsShip(reach, facts.ship.id) }))
+          .map((facts) => ({ facts, position: positionOf(listedShipOf(facts, facts.ship.scopes), { sort, isInReach: readsShip(reach, facts.ship.id) }) }))
           .filter(({ position }) => after === undefined || comparePositions(sort)(position, after) > 0)
           .sort((first, second) => comparePositions(sort)(first.position, second.position))
           .slice(0, limit),
@@ -2216,7 +2216,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     harbour: (fleetId, read) => {
       const ships = state.ships
         .filter((held) => held.fleetId === fleetId && held.removedAt === null && held.retiredAt === null && held.kind !== 'viewer' && readsShip(read.reach, held.id))
-        .map((held) => listedShipOf(factsOf(held)))
+        .map((held) => listedShipOf(factsOf(held), held.scopes))
         .flatMap((listed) =>
           listed.status === 'retired'
             ? []
@@ -2252,7 +2252,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         shipCountsOf(
           state.ships
             .filter((held) => held.fleetId === fleetId && held.removedAt === null && readsShip(reach, held.id))
-            .map((held) => listedShipOf(factsOf(held)))
+            .map((held) => listedShipOf(factsOf(held), held.scopes))
             .filter((listed) => matchesShipFilter(listed, { filter, isInReach: true })),
         ),
       ),
@@ -2262,7 +2262,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
           ...Map.groupBy(
             state.ships
             .filter((held) => held.fleetId === fleetId && held.removedAt === null && readsShip(reach, held.id))
-            .map((held) => listedShipOf(factsOf(held)))
+            .map((held) => listedShipOf(factsOf(held), held.scopes))
             .filter((listed) => status.includes(listed.status)),
             (listed) => listed.type,
           ),

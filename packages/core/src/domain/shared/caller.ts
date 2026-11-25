@@ -97,8 +97,3 @@ export function actorOf(caller: Caller): Actor {
       return caller.signedInAccountId === undefined ? { kind: 'ship', shipId: caller.shipId } : { kind: 'ship', shipId: caller.shipId, signedInAccountId: caller.signedInAccountId };
   }
 }
-
-/** Materialize argo's existing universal rights for a boundary that checks every actor by scope names. */
-export function effectiveScopes(caller: Caller, catalogue: readonly ScopeName[]): readonly ScopeName[] {
-  return caller.kind === 'operator' ? [...new Set([...caller.scopes, ...catalogue])].sort() : caller.scopes;
-}

@@ -4,6 +4,7 @@ import { createOpenCall } from '../../src/domain/messaging/open-call.js';
 import { createLookup } from '../../src/domain/registry/lookup.js';
 import { createReadInstallationJourneys } from '../../src/domain/registry/read-installation-journeys.js';
 import { randomUUID } from 'node:crypto';
+import { effectiveScopes } from '../../src/domain/registry/effective-scopes.js';
 import { createCallPlugin } from '../../src/domain/registry/call-plugin.js';
 import { createHttpPluginCalls } from '../../src/adapters/http/plugin-calls.js';
 import { createApproveCommission } from '../../src/domain/registry/approve-commission.js';
@@ -279,6 +280,7 @@ export function everyShipMay(verb: NetworkVerb): NetworkRule {
 
 /** The registry use cases, wired to the in-memory core: the operator's, and the claim and deregister a session makes. */
 export function registryUseCases(core: InMemoryCore) {
+  const shipReads = { listing: core.listing, readReach: readReachOf(core), scopesOf: effectiveScopes.bind(undefined, core) };
   const deps = {
     uow: core.uow,
     clock: core.clock,
@@ -358,10 +360,11 @@ export function registryUseCases(core: InMemoryCore) {
     setFleetLimits: createSetFleetLimits({ uow: core.uow, clock: core.clock, ids: core.ids }),
     readFleetLimits: createReadFleetLimits({ limits: core.fleetLimitReads, clock: core.clock }),
     getInstallationFleet: createGetInstallationFleet({ fleets: core.installationFleets, settings: core.installationSettings, health: core.health, snapshots: core.healthSnapshots, clock: core.clock }),
-    listFleet: createListFleet({ listing: core.listing, readReach: readReachOf(core) }),
-    getShip: createGetShip({ listing: core.listing, readReach: readReachOf(core) }),
+    listFleet: createListFleet(shipReads),
+    scopesOf: shipReads.scopesOf,
+    getShip: createGetShip(shipReads),
     readOpenAlerts: createReadOpenAlerts({ listing: core.listing, readReach: readReachOf(core) }),
-    readListedShip: createReadListedShip({ listing: core.listing, readReach: readReachOf(core) }),
+    readListedShip: createReadListedShip(shipReads),
     countShips: createCountShips({ listing: core.listing, readReach: readReachOf(core) }),
     readHarbour: createReadHarbour({ listing: core.listing, readReach: readReachOf(core) }),
     listShipTypes: createListShipTypes({ listing: core.listing, readReach: readReachOf(core) }),

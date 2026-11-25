@@ -135,14 +135,17 @@ export const consoleRouter = router({
       const featureFlags = [...(await ctx.useCases.readFeatureFlags({ fleetId }))];
       return { fleetId, fleetName, expiresAt: (tokenEndsAt ?? new Date()).toISOString(), kind: 'account' as const, accountId, scopes: [...scopes], featureFlags };
     }
-    const { fleetId, kind, scopes } = use.caller;
+    const { fleetId, kind } = use.caller;
     if (kind !== 'operator' && kind !== 'viewer') {
       // A console session is the operator's or a viewer's; no other ship ever signs in to the console.
       return refuseNoConsoleSignIn();
     }
-    const fleetName = okOrThrow(await ctx.useCases.readFleetName({ fleetId }));
-    const featureFlags = [...(await ctx.useCases.readFeatureFlags({ fleetId }))];
-    return { fleetId, fleetName, expiresAt: use.expiresAt.toISOString(), kind, scopes: [...scopes], featureFlags };
+    const [name, featureFlags, scopes] = await Promise.all([
+      ctx.useCases.readFleetName({ fleetId }),
+      ctx.useCases.readFeatureFlags({ fleetId }),
+      ctx.useCases.scopesOf(use.caller),
+    ]);
+    return { fleetId, fleetName: okOrThrow(name), expiresAt: use.expiresAt.toISOString(), kind, scopes: [...scopes], featureFlags: [...featureFlags] };
   }),
 
   /** Sets the email and password of argo's own sign-in, on a self-hosted fleet (accounts design, A1). */

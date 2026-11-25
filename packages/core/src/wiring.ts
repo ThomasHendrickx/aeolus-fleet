@@ -10,6 +10,7 @@ import { createPrismaInstallationJourneyReads } from './adapters/prisma/fleet-jo
 import { countPluginReadFailure } from './adapters/telemetry/plugin-reads.js';
 import { measureCall } from './adapters/telemetry/calls.js';
 import { randomUUID } from 'node:crypto';
+import { effectiveScopes, type EffectiveScopes } from './domain/registry/effective-scopes.js';
 import { createCallPlugin, type CallPlugin } from './domain/registry/call-plugin.js';
 import { createHttpPluginCalls, type PluginDispatchLog } from './adapters/http/plugin-calls.js';
 import type { PluginTarget } from './adapters/http/plugin-targets.js';
@@ -420,6 +421,7 @@ export interface UseCases {
   listInstallationFleets: ListInstallationFleets;
   getInstallationFleet: GetInstallationFleet;
   readFeatureFlags: ReadFeatureFlags;
+  scopesOf: EffectiveScopes;
   setFeatureFlag: SetFeatureFlag;
   issueSignInTicket: IssueSignInTicket;
   issueSignInLink: IssueSignInLink;
@@ -466,6 +468,9 @@ export function createUseCases(options: {
   const ids = options.ids ?? createIdGenerator();
   const uow = createPrismaUnitOfWork(prisma, clock);
   const readReach = createReadReachOf({ uow });
+  const scopeCatalogue = { scopeNamespaces: createPrismaScopeNamespaceRepository(prisma), definedScopes: createPrismaDefinedScopeRepository(prisma) };
+  const scopesOf = effectiveScopes.bind(undefined, scopeCatalogue);
+  const shipReads = { listing: createPrismaFleetListing(prisma), readReach, scopesOf };
   // A fleet delete and a retire grow with the fleet's history and the ship's pending deliveries.
   const bulkUow = createPrismaBulkUnitOfWork(prisma, clock);
   const secrets = { hasher: sha256Hasher, random: cryptoRandomTokens };
@@ -543,10 +548,11 @@ export function createUseCases(options: {
     raiseAlert: createRaiseAlert({ uow, clock, ids }),
     clearAlert: createClearAlert({ uow, clock, ids }),
     recrewShip: createRecrewShip({ uow, clock, ids, secrets }),
-    listFleet: createListFleet({ listing: createPrismaFleetListing(prisma), readReach }),
-    getShip: createGetShip({ listing: createPrismaFleetListing(prisma), readReach }),
+    listFleet: createListFleet(shipReads),
+    scopesOf,
+    getShip: createGetShip(shipReads),
     readOpenAlerts: createReadOpenAlerts({ listing: createPrismaFleetListing(prisma), readReach }),
-    readListedShip: createReadListedShip({ listing: createPrismaFleetListing(prisma), readReach }),
+    readListedShip: createReadListedShip(shipReads),
     countShips: createCountShips({ listing: createPrismaFleetListing(prisma), readReach }),
     readHarbour: createReadHarbour({ listing: createPrismaFleetListing(prisma), readReach }),
     listShipTypes: createListShipTypes({ listing: createPrismaFleetListing(prisma), readReach }),
@@ -577,7 +583,7 @@ export function createUseCases(options: {
     describeScope: createDescribeScope({ uow, clock, ids }),
     removeScope: createRemoveScope({ uow, clock, ids }),
     grantScopes: createGrantScopes({ uow, clock, ids }),
-    listScopes: createListScopes({ scopeNamespaces: createPrismaScopeNamespaceRepository(prisma), definedScopes: createPrismaDefinedScopeRepository(prisma), ships: createPrismaShipRepository(prisma) }),
+    listScopes: createListScopes({ ...scopeCatalogue, ships: createPrismaShipRepository(prisma) }),
     saveNetworkRulesDraft: createSaveNetworkRulesDraft({ uow, clock, ids }),
     discardNetworkRulesDraft: createDiscardNetworkRulesDraft({ uow, clock, ids }),
     applyNetworkRules: createApplyNetworkRules({ uow, clock, ids }),

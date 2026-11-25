@@ -217,7 +217,7 @@ export const listedShipSchema = z.object({
   harness: z.string().nullable(),
   /** The last model the ship's sessions stated on a send, and when (ISO 8601 in UTC); null before any, and for argo. */
   model: z.object({ id: z.string(), statedAt: z.iso.datetime() }).nullable(),
-  /** What the ship may do, checked on every call: every agent ship sends and receives, argo has every core scope; a plugin's scopes beside them (decision 0046). */
+  /** The ship's held scopes. argo holds every core, plugin and fleet scope (decision 0046). */
   scopes: z.array(scopeNameSchema),
   /**
    * The crew's last report (ISO 8601 in UTC): its state, its note, when it
