@@ -1,6 +1,6 @@
 import type { FleetId, ShipId } from '@aeolus-fleet/common';
 import type { FastifyInstance } from 'fastify';
-import type { Browser, BrowserContext, Page, Request } from 'playwright';
+import type { Browser, BrowserContext, Page } from 'playwright';
 import { THEME_COOKIE } from '@aeolus-fleet/common/rules';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -147,19 +147,15 @@ describe('an account signing in to the console', () => {
     const signIn = sharedSignInOf(await page.context().cookies());
     if (signIn === undefined) throw new Error('The account has no shared sign-in');
     const asked = accountApp.appsListsAsked(signIn);
-    const reads: Request[] = [];
-    page.on('request', (request) => {
-      if (request.url().includes('/api/reads/')) {
-        reads.push(request);
-      }
-    });
     // Harbour is read again when the tab comes back: that round is what the test waits for.
     const listedAgain = page.waitForResponse((response) => response.url().includes('fleet.harbour'));
 
     // The page's tab goes to the background and comes back, as switching tabs does.
     await page.evaluate("for (const state of ['hidden', 'visible']) { Object.defineProperty(document, 'visibilityState', { value: state, configurable: true }); window.dispatchEvent(new Event('visibilitychange')); }");
     await listedAgain;
-    await Promise.all(reads.map((read) => read.response()));
+    // The assertion is about the absence of a read after this round of requests.
+    // eslint-disable-next-line playwright/no-networkidle -- Wait for the tab-return requests to settle before counting.
+    await page.waitForLoadState('networkidle');
 
     expect(accountApp.appsListsAsked(signIn)).toBe(asked);
   });
