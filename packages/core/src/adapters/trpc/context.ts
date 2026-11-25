@@ -152,6 +152,7 @@ import type { ReadMessageDeliveries } from '../../domain/shared/read-message-del
 import type { ReadSentMessage } from '../../domain/shared/read-sent-message.js';
 import type { ReadNeedsAttention } from '../../domain/shared/read-needs-attention.js';
 import type { ReadFleetName } from '../../domain/registry/read-fleet-name.js';
+import type { EffectiveScopes } from '../../domain/registry/effective-scopes.js';
 import type { ReadFeatureFlags } from '../../domain/registry/read-feature-flags.js';
 import type { SetFeatureFlag } from '../../domain/registry/set-feature-flag.js';
 import type { ReadAcknowledged } from '../../domain/shared/read-acknowledged.js';
@@ -332,6 +333,7 @@ export interface UseCases {
   listInstallationFleets: ListInstallationFleets;
   getInstallationFleet: GetInstallationFleet;
   readFeatureFlags: ReadFeatureFlags;
+  scopesOf: EffectiveScopes;
   setFeatureFlag: SetFeatureFlag;
   issueSignInTicket: IssueSignInTicket;
   redeemSignInTicket: RedeemSignInTicket;

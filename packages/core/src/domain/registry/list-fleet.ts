@@ -1,6 +1,7 @@
 import { PAGE_SIZE_DEFAULT, type ScopeName, type ShipPosition, type ShipId, type ShipKind, type ShipStatus } from '@aeolus-fleet/common';
 
 import type { Caller } from '../shared/caller.js';
+import type { EffectiveScopes } from './effective-scopes.js';
 import { readsShip, type ReadReachOf } from './read-reach.js';
 import type { Location } from './lease.js';
 import { pingStatusOf, type PingStatus } from './ping-status.js';
@@ -33,7 +34,7 @@ export interface ListedShip {
   lastSeenAt: Date | null;
   /** The ship's last ping and how it stands; null before any ping. Observation only. */
   ping: PingStatus | null;
-  /** What the ship may do: every agent ship sends and receives, and may hold fleet scopes and plugin scopes; argo has every core scope. */
+  /** What the ship may do: every agent ship sends and receives, and may hold fleet scopes and plugin scopes; argo holds every scope in the fleet. */
   scopes: readonly ScopeName[];
   /** The crew's last report with the version of its details, never the details; null until it reports, and while no session crews the ship. */
   report: Omit<ShipReport, 'details'> | null;
@@ -77,8 +78,8 @@ export interface ShipOutsideReadReach {
   isInReadReach: false;
 }
 
-export function outsideReadReach({ id, name, type, status }: Pick<ListedShip, 'id' | 'name' | 'type' | 'status'>): ShipOutsideReadReach {
-  return { id, name, type, status, isInReadReach: false };
+export function outsideReadReach({ ship, openLease }: ShipFacts): ShipOutsideReadReach {
+  return { id: ship.id, name: ship.name, type: ship.type, status: shipStatus(ship, { isCrewed: openLease !== null }), isInReadReach: false };
 }
 
 export type ListFleet = (
@@ -98,7 +99,7 @@ export type ListFleet = (
  * secret, a crew token or their hashes. The caller's scope (fleet:read) is
  * checked before this runs.
  */
-export function createListFleet(deps: { listing: FleetListing; readReach: ReadReachOf }): ListFleet {
+export function createListFleet(deps: { listing: FleetListing; readReach: ReadReachOf; scopesOf: EffectiveScopes }): ListFleet {
   return async (caller, input) => {
     const { cursor, limit = PAGE_SIZE_DEFAULT, sort, status, ...rest } = input ?? {};
     const filter = { ...rest, status: statusesAsked(status) };
@@ -106,10 +107,9 @@ export function createListFleet(deps: { listing: FleetListing; readReach: ReadRe
     // One ship past the page tells whether another page follows.
     const read = await deps.listing.ships(caller.fleetId, { after: cursor, limit: limit + 1, filter, sort, reach });
     const page = read.slice(0, limit);
-    const ships = page.map(({ facts }): ListedShip | ShipOutsideReadReach => {
-      const listed = listedShipOf(facts);
-      return readsShip(reach, facts.ship.id) ? listed : outsideReadReach(listed);
-    });
+    const ships = await Promise.all(page.map(async ({ facts }) =>
+      readsShip(reach, facts.ship.id) ? listedShipOf(facts, await deps.scopesOf(facts.ship)) : outsideReadReach(facts),
+    ));
     const last = page.at(-1);
     return { ships, nextCursor: read.length > limit && last !== undefined ? last.position : null };
   };
@@ -131,7 +131,7 @@ export function listedShipOf({
   lastViewedAt,
   lastLeaseEndedAt,
   openAlertCount,
-}: ShipFacts): ListedShip {
+}: ShipFacts, scopes: readonly ScopeName[]): ListedShip {
   const status = shipStatus(ship, { isCrewed: openLease !== null });
   return {
     id: ship.id,
@@ -144,7 +144,7 @@ export function listedShipOf({
     // The viewer ship holds no lease: it was last seen when its most recent viewer session was used.
     lastSeenAt: openLease?.lastSeenAt ?? lastViewedAt,
     ping: pingStatusOf(lastPing),
-    scopes: ship.scopes,
+    scopes,
     report: openLease?.report ? listedReportOf(openLease.report) : null,
     activity: openLease?.activity ?? null,
     crewRequest: crewRequest && {

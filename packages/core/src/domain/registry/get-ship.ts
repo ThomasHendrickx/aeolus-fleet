@@ -6,6 +6,7 @@ import type { ShownAlert } from './alert.js';
 import type { ShipExpectations } from './expectations.js';
 import { ok, type Result } from '../shared/result.js';
 import { listedShipOf, outsideReadReach, type ListedShip, type ShipOutsideReadReach } from './list-fleet.js';
+import type { EffectiveScopes } from './effective-scopes.js';
 import { readsShip, type ReadReachOf } from './read-reach.js';
 import { checkReaches, type CrewRequest } from './crew-request.js';
 import type { FleetListing } from './ports.js';
@@ -56,7 +57,7 @@ const READ_SCOPES = ['fleet:read'] as const;
  * are assigned to the caller's ship, whole. Any other ship outside the
  * caller's read reach shows its name, type and status only (decision 0034).
  */
-export function createGetShip(deps: { listing: FleetListing; readReach: ReadReachOf }): GetShip {
+export function createGetShip(deps: { listing: FleetListing; readReach: ReadReachOf; scopesOf: EffectiveScopes }): GetShip {
   return async (caller, { shipId }) => {
     const facts = await deps.listing.ship(caller.fleetId, shipId);
     if (!facts) {
@@ -66,18 +67,19 @@ export function createGetShip(deps: { listing: FleetListing; readReach: ReadReac
     if (!reaches.isOk) {
       return reaches;
     }
-    const listed = listedShipOf(facts);
     const isAssignedToCaller = isShipCaller(caller) && facts.crewRequest?.assignedTo === caller.shipId;
     const isInReadReach = hasScope(caller, 'fleet:read') && readsShip(await deps.readReach(caller), shipId);
     if (!isAssignedToCaller && !isInReadReach) {
-      return ok(outsideReadReach(listed));
+      return ok(outsideReadReach(facts));
     }
-    const [counts, stated, openAlerts, expectations] = await Promise.all([
+    const [counts, stated, openAlerts, expectations, scopes] = await Promise.all([
       deps.listing.deliveryCounts(caller.fleetId, shipId),
       deps.listing.statement(caller.fleetId, shipId),
       deps.listing.openAlertsOn(caller.fleetId, shipId),
       deps.listing.expectationsOn(caller.fleetId, shipId),
+      deps.scopesOf(facts.ship),
     ]);
+    const listed = listedShipOf(facts, scopes);
     return ok({
       ...listed,
       report: facts.openLease?.report ? shownReportOf(facts.openLease.report) : null,
