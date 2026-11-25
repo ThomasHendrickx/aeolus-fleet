@@ -267,6 +267,11 @@ describe('the ship page', () => {
     await expect(header.getByRole('button').count()).resolves.toBe(0);
     await expect(header.getByText('Permissions', { exact: true }).count()).resolves.toBe(0);
     await timeline.getByText('Commissioned', { exact: false }).first().waitFor();
+    await expect.soft(page.getByRole('tab', { name: 'Schedules' }).count()).resolves.toBe(0);
+
+    await page.goto(`/ships/${tester.shipId}?tab=schedules`);
+    await header.getByText('Removed', { exact: true }).waitFor();
+    await expect.soft(page.getByRole('tab', { name: 'Timeline' }).getAttribute('aria-selected')).resolves.toBe('true');
   });
 
   it('scenario 21: a removed ship whose messages were pruned shows No messages kept and the retention date', async () => {
