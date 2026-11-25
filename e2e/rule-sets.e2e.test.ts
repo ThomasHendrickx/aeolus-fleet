@@ -40,7 +40,13 @@ let plugin: FakeTrierarchPlugin | undefined;
 let accountApp: FakeAccountApp | undefined;
 let serverUrl: string;
 let catalogue = GUARD_CATALOGUE;
-const firstWrite = Promise.withResolvers<undefined>();
+let heldWrite: Promise<void> | undefined;
+
+function holdNextWrite() {
+  const write = Promise.withResolvers<void>();
+  heldWrite = write.promise;
+  return () => { write.resolve(); };
+}
 const receivedWrites: z.infer<typeof guardReplacement>[] = [];
 
 function installation() {
@@ -67,8 +73,10 @@ beforeAll(async () => {
         if (!parsed.success) return refusal;
         const { expectedVersion, repositories, floor } = parsed.data;
         receivedWrites.push(parsed.data);
+        const answer = heldWrite;
+        heldWrite = undefined;
+        await answer;
         if (receivedWrites.length === 1 && repositories.some(({ repository }) => repository === 'acme/more-rules')) {
-          await firstWrite.promise;
           return refusal;
         }
         if (expectedVersion !== catalogue.version) return { status: 409, body: { error: { message: 'The guard configuration changed' } } };
@@ -95,6 +103,7 @@ beforeAll(async () => {
 beforeEach(() => {
   catalogue = GUARD_CATALOGUE;
   receivedWrites.length = 0;
+  heldWrite = undefined;
 });
 
 afterAll(async () => {
@@ -147,6 +156,8 @@ it('keeps a private repository’s inputs on failure and shows the committed rep
     fleets: [{ id: fleetId, name: 'Acme', scopes: ['fleet:read', 'trierarch:guard'] }],
   });
   const context = await browser.newContext({ baseURL: web.url, reducedMotion: 'reduce' });
+  const releaseAdd = holdNextWrite();
+  let releaseFloor: (() => void) | undefined;
   try {
     const page = await context.newPage();
     await page.clock.setFixedTime(new Date());
@@ -163,10 +174,13 @@ it('keeps a private repository’s inputs on failure and shows the committed rep
     await dialog.getByTestId('rule-sets-read-token').fill('test-example-value');
 
     // When the first replacement is held, then refused, and the account saves again.
+    await expect.poll(() => dialog.getAttribute('data-state')).toBe('idle');
     await dialog.getByTestId('rule-sets-submit').click();
     await expect.poll(() => dialog.getByTestId('rule-sets-submit').getAttribute('aria-busy')).toBe('true');
-    firstWrite.resolve(undefined);
+    await expect.poll(() => dialog.getAttribute('data-state')).toBe('pending');
+    releaseAdd();
     await dialog.getByRole('alert').getByText('Invalid guard configuration', { exact: true }).waitFor();
+    await expect.poll(() => dialog.getAttribute('data-state')).toBe('failure');
     await expect.poll(() => dialog.getByTestId('rule-sets-repository').inputValue()).toBe('acme/more-rules');
     await expect.poll(() => dialog.getByTestId('rule-sets-read-token').inputValue()).toBe('test-example-value');
     await dialog.getByTestId('rule-sets-submit').click();
@@ -178,11 +192,18 @@ it('keeps a private repository’s inputs on failure and shows the committed rep
     await dialog.waitFor({ state: 'hidden' });
     expect(receivedWrites[1]).toMatchObject({ expectedVersion: 1, secrets: ['acme/guard-rules', 'acme/more-rules'] });
     expect(Object.keys(receivedWrites[1]?.secretValues ?? {})).toEqual(['acme/more-rules']);
-    await page.getByTestId('rule-sets-floor-docs-only').filter({ visible: true }).click();
+    releaseFloor = holdNextWrite();
+    const floorSwitch = page.getByTestId('rule-sets-floor-docs-only').filter({ visible: true });
+    await floorSwitch.click();
+    await expect.poll(() => floorSwitch.getAttribute('data-state')).toBe('pending');
+    await expect.poll(() => floorSwitch.isDisabled()).toBe(true);
+    releaseFloor();
+    await expect.poll(() => floorSwitch.getAttribute('data-state')).toBe('success');
     await page.getByRole('switch', { name: 'Floor for docs-only', checked: true }).waitFor();
     expect(catalogue.floor).toEqual(['base', 'docs-only']);
   } finally {
-    firstWrite.resolve(undefined);
+    releaseAdd();
+    releaseFloor?.();
     await context.close();
   }
 });
@@ -202,6 +223,8 @@ it('shows file errors and conflicts by set name and lets a manager clear a floor
     fleets: [{ id: fleetId, name: 'Acme', scopes: ['fleet:read', 'trierarch:guard'] }],
   });
   const context = await browser.newContext({ baseURL: web.url, reducedMotion: 'reduce' });
+  const releaseRemove = holdNextWrite();
+  let releaseClear: (() => void) | undefined;
   try {
     const page = await context.newPage();
     await page.clock.setFixedTime(new Date());
@@ -214,16 +237,29 @@ it('shows file errors and conflicts by set name and lets a manager clear a floor
     // When the manager confirms removing the repository that provided the floor.
     await page.getByTestId('rule-sets-remove-acme/guard-rules').filter({ visible: true }).click({ timeout: 5000 });
     const confirm = page.getByRole('alertdialog', { name: 'Remove acme/guard-rules?' });
-    await confirm.getByTestId('rule-sets-confirm-remove').click();
+    await expect.poll(() => confirm.getAttribute('data-state')).toBe('idle');
+    const removeButton = confirm.getByTestId('rule-sets-confirm-remove');
+    await removeButton.click();
+    await expect.poll(() => confirm.getAttribute('data-state')).toBe('pending');
+    await expect.poll(() => removeButton.isDisabled()).toBe(true);
+    releaseRemove();
 
     // Then the floor remains unavailable until explicitly cleared, and the removed token is no longer retained.
     const floor = page.getByRole('row', { name: /^base Unavailable/ });
     await floor.waitFor();
     expect(receivedWrites.at(-1)).toMatchObject({ floor: ['base'], secrets: [], secretValues: {} });
-    await floor.getByTestId('rule-sets-clear-base').click();
+    await confirm.waitFor({ state: 'hidden' });
+    releaseClear = holdNextWrite();
+    const clearButton = floor.getByTestId('rule-sets-clear-base');
+    await clearButton.click();
+    await expect.poll(() => clearButton.getAttribute('data-state')).toBe('pending');
+    await expect.poll(() => clearButton.isDisabled()).toBe(true);
+    releaseClear();
     await floor.waitFor({ state: 'hidden' });
     expect(catalogue.floor).toEqual([]);
   } finally {
+    releaseRemove();
+    releaseClear?.();
     await context.close();
   }
 });

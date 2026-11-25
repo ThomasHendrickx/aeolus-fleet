@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
+import { useState } from 'react';
 import { expect, screen, userEvent } from 'storybook/test';
 import type { GuardConfiguration } from '../../../../lib/trierarch-plugin-guard-schemas';
 import { AddRuleSetRepositoryDialog } from './add-rule-set-repository-dialog';
@@ -46,10 +47,81 @@ export const CatalogueErrors: Story = {
     },
   },
 };
-export const UnavailableFloor: Story = { args: { configuration: { ...catalogue, sets: catalogue.sets.filter(({ name }) => name !== 'base') } } };
-export const SavingFloor: Story = { args: { management: { ...management, isDisabled: true, savingFloor: 'docs-only' } } };
-export const SavedFloor: Story = { args: { configuration: { ...catalogue, floor: ['base', 'docs-only'] } } };
-export const FloorSaveFailure: Story = { args: { floorNotice: writeFailure } };
+const unavailableFloor = { ...catalogue, sets: catalogue.sets.filter(({ name }) => name !== 'base') };
+const floorSwitch = () => screen.getByRole('switch', { name: 'Floor for docs-only' });
+const clearFloor = () => screen.getByRole('button', { name: 'Clear base from the floor' });
+
+function PendingFloorOnPress({ configuration }: { configuration: GuardConfiguration }) {
+  const [saving, setSaving] = useState<string>();
+  return (
+    <RuleSetsPanel
+      {...meta.args}
+      configuration={configuration}
+      management={{ ...management, isDisabled: saving !== undefined, floorSave: saving === undefined ? undefined : { name: saving, state: 'pending' }, onSetFloor: setSaving }}
+    />
+  );
+}
+
+export const Floor: Story = {
+  render: () => <PendingFloorOnPress configuration={catalogue} />,
+  play: async () => {
+    await expect(floorSwitch()).toHaveAttribute('data-state', 'idle');
+    await userEvent.click(floorSwitch());
+    await expect(floorSwitch()).toHaveAttribute('data-state', 'pending');
+    await expect(floorSwitch()).toBeDisabled();
+    await expect(screen.getByRole('status')).toHaveTextContent('Saving');
+  },
+};
+export const SavingFloor: Story = {
+  args: { management: { ...management, isDisabled: true, floorSave: { name: 'docs-only', state: 'pending' } } },
+  play: async () => { await expect(floorSwitch()).toHaveAttribute('data-state', 'pending'); },
+};
+export const SavedFloor: Story = {
+  args: { configuration: { ...catalogue, floor: ['base', 'docs-only'] }, management: { ...management, floorSave: { name: 'docs-only', state: 'success' } } },
+  play: async () => {
+    await expect(floorSwitch()).toHaveAttribute('data-state', 'success');
+    await expect(floorSwitch()).toBeChecked();
+  },
+};
+export const FloorSaveFailure: Story = {
+  args: { floorNotice: writeFailure, management: { ...management, floorSave: { name: 'docs-only', state: 'failure' } } },
+  play: async () => {
+    await expect(floorSwitch()).toHaveAttribute('data-state', 'failure');
+    await expect(floorSwitch()).not.toBeChecked();
+    await expect(screen.getByRole('alert')).toHaveTextContent('Invalid guard configuration');
+  },
+};
+
+export const UnavailableFloor: Story = {
+  args: { configuration: unavailableFloor },
+  render: () => <PendingFloorOnPress configuration={unavailableFloor} />,
+  play: async () => {
+    await expect(clearFloor()).toHaveAttribute('data-state', 'idle');
+    await userEvent.click(clearFloor());
+    await expect(clearFloor()).toHaveAttribute('data-state', 'pending');
+    await expect(clearFloor()).toBeDisabled();
+    await expect(clearFloor()).toHaveTextContent('Clearing');
+  },
+};
+export const ClearingFloor: Story = {
+  args: { configuration: unavailableFloor, management: { ...management, isDisabled: true, floorSave: { name: 'base', state: 'pending' } } },
+  play: async () => { await expect(clearFloor()).toHaveAttribute('data-state', 'pending'); },
+};
+export const ClearedFloor: Story = {
+  args: { configuration: { ...unavailableFloor, floor: [] }, management: { ...management, floorSave: { name: 'base', state: 'success' } } },
+  play: async () => {
+    await expect(screen.getByRole('switch', { name: 'Floor for docs-only' })).toBeVisible();
+    await expect(screen.queryByRole('button', { name: 'Clear base from the floor' })).not.toBeInTheDocument();
+  },
+};
+export const ClearFloorFailure: Story = {
+  args: { configuration: unavailableFloor, floorNotice: writeFailure, management: { ...management, floorSave: { name: 'base', state: 'failure' } } },
+  play: async () => {
+    await expect(clearFloor()).toHaveAttribute('data-state', 'failure');
+    await expect(clearFloor()).toBeEnabled();
+    await expect(screen.getByRole('alert')).toHaveTextContent('Invalid guard configuration');
+  },
+};
 
 export const AddRepository: Story = {
   render: (args) => (
@@ -59,6 +131,7 @@ export const AddRepository: Story = {
     </>
   ),
   play: async () => {
+    await expect(await screen.findByRole('dialog')).toHaveAttribute('data-state', 'idle');
     await expect(await screen.findByRole('radio', { name: 'Public' })).toBeChecked();
     await expect(screen.queryByLabelText('Read token')).toBeNull();
     await userEvent.click(screen.getByRole('radio', { name: 'Private' }));
@@ -67,9 +140,11 @@ export const AddRepository: Story = {
 };
 export const AddingRepository: Story = {
   render: () => <AddRuleSetRepositoryDialog isPending isDisabled onClose={noop} onAdd={noop} />,
+  play: async () => { await expect(await screen.findByRole('dialog')).toHaveAttribute('data-state', 'pending'); },
 };
 export const AddRepositoryFailure: Story = {
-  render: () => <AddRuleSetRepositoryDialog isPending={false} isDisabled={false} notice={writeFailure} onClose={noop} onAdd={noop} />,
+  render: () => <AddRuleSetRepositoryDialog isPending={false} isDisabled={false} hasFailed notice={writeFailure} onClose={noop} onAdd={noop} />,
+  play: async () => { await expect(await screen.findByRole('dialog')).toHaveAttribute('data-state', 'failure'); },
 };
 export const AddedRepository: Story = {
   args: {
@@ -79,16 +154,41 @@ export const AddedRepository: Story = {
     },
   },
 };
+function PendingRemovalOnPress() {
+  const [isPending, setPending] = useState(false);
+  return <RemoveRuleSetRepositoryDialog repository="acme/guard-rules" isPending={isPending} isDisabled={isPending} onClose={noop} onConfirm={() => { setPending(true); }} />;
+}
+
 export const RemoveRepository: Story = {
-  render: () => <RemoveRuleSetRepositoryDialog repository="acme/guard-rules" isPending={false} isDisabled={false} onClose={noop} onConfirm={noop} />,
+  render: () => <PendingRemovalOnPress />,
+  play: async () => {
+    const dialog = await screen.findByRole('alertdialog');
+    await expect(dialog).toHaveAttribute('data-state', 'idle');
+    const confirm = screen.getByRole('button', { name: 'Remove repository' });
+    await userEvent.click(confirm);
+    await expect(dialog).toHaveAttribute('data-state', 'pending');
+    await expect(confirm).toBeDisabled();
+    await expect(confirm).toHaveTextContent('Removing');
+  },
 };
 export const RemovingRepository: Story = {
   render: () => <RemoveRuleSetRepositoryDialog repository="acme/guard-rules" isPending isDisabled onClose={noop} onConfirm={noop} />,
+  play: async () => { await expect(await screen.findByRole('alertdialog')).toHaveAttribute('data-state', 'pending'); },
 };
 export const RemoveRepositoryFailure: Story = {
-  render: () => <RemoveRuleSetRepositoryDialog repository="acme/guard-rules" isPending={false} isDisabled={false} notice={writeFailure} onClose={noop} onConfirm={noop} />,
+  render: () => <RemoveRuleSetRepositoryDialog repository="acme/guard-rules" isPending={false} isDisabled={false} hasFailed notice={writeFailure} onClose={noop} onConfirm={noop} />,
+  play: async () => {
+    await expect(await screen.findByRole('alertdialog')).toHaveAttribute('data-state', 'failure');
+    await expect(screen.getByRole('alert')).toHaveTextContent('Invalid guard configuration');
+  },
 };
-export const RemovedRepository: Story = { args: { configuration: { ...catalogue, repositories: [], sets: [] } } };
+export const RemovedRepository: Story = {
+  args: { configuration: { ...catalogue, repositories: [], sets: [] } },
+  play: async () => {
+    await expect(screen.getByText('No rule set repositories')).toBeVisible();
+    await expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+  },
+};
 
 export const Phone: Story = { globals: { viewport: { value: 'mobile1' } } };
 export const Desktop1440: Story = { parameters: { viewport: { defaultViewport: 'desktop1440' } } };
