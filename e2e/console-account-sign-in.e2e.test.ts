@@ -138,10 +138,15 @@ describe('an account signing in to the console', () => {
   it("asks the account app for the apps list no more when the account comes back to the page's tab", async () => {
     accountApp.signInAs(mathilde());
     const page = await newPage();
+    const firstList = page.waitForResponse((response) => response.url().includes('/api/reads/apps-list'));
+    const firstPalette = page.waitForResponse((response) => response.url().includes('/api/reads/palette-across-apps'));
     await page.goto('/');
     await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
     await page.getByText('Live', { exact: true }).filter({ visible: true }).first().waitFor();
-    const asked = accountApp.appsListsAsked();
+    await Promise.all([firstList, firstPalette]);
+    const signIn = sharedSignInOf(await page.context().cookies());
+    if (signIn === undefined) throw new Error('The account has no shared sign-in');
+    const asked = accountApp.appsListsAsked(signIn);
     const reads: Request[] = [];
     page.on('request', (request) => {
       if (request.url().includes('/api/reads/')) {
@@ -156,7 +161,7 @@ describe('an account signing in to the console', () => {
     await listedAgain;
     await Promise.all(reads.map((read) => read.response()));
 
-    expect(accountApp.appsListsAsked()).toBe(asked);
+    expect(accountApp.appsListsAsked(signIn)).toBe(asked);
   });
 
   it("pings a crewed ship from its page: argo's ping, the event naming the account", async () => {
