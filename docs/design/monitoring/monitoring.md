@@ -110,6 +110,7 @@ Each signal is one fact the watch reads from core on each pass, with its default
 | Ping unanswered | the ping delivery | 10 min | answered, undeliverable, dismissed |
 | Report unchanged (expectation) | the ship and its `reportChangedAt` | the owner's N | the report changes |
 | Task not done (expectation) | the ship, the task and T | the owner's T | the task changes or clears |
+| [Plugin read failed](plugin-read-failed.md#45-the-signal-common-the-watch) | the plugin ship and `failingSince.at` | 5 min | `failingSince` clears or names a later time, or the ship retired |
 
 - One alert per occurrence: a ping on a pushed lease that 0040 marks overdue is the same occurrence as its ping signal, raised once.
 - The unassigned alert names the assigner's reason when one is written (0029), such as `model disabled: ...` (0063).
@@ -166,7 +167,7 @@ Every message the design sends, with its full contract, as 0038 gives the questi
 | `alertId` | string, `alt_` id | yes | The alert in core; read it back with the ship (`fleet.ship`) to see whether it is still open |
 | `headline` | string, 1 to 80 characters | yes | The line an inbox shows first |
 | `body` | string, markdown, at most 2 KB | yes | The facts in words and the ship's page link, for a reader that shows text |
-| `signal` | `crew-request-unassigned`, `delivery-unacknowledged`, `delivery-overdue`, `ping-unanswered`, `report-unchanged` or `task-not-done` | yes | What parted (4.4) |
+| `signal` | `crew-request-unassigned`, `delivery-unacknowledged`, `delivery-overdue`, `ping-unanswered`, `report-unchanged`, `task-not-done` or `plugin-read-failed` | yes | What parted (4.4) |
 | `ship` | object: `id` (`shp_`), `name` (string) | yes | The ship the alert is on |
 | `fleetId` | string, `flt_` id | yes | The fleet the ship is in |
 | `toldAs` | `owner` or `setter` | yes | Why this recipient is told |
@@ -184,6 +185,7 @@ Every message the design sends, with its full contract, as 0038 gives the questi
 | `ping-unanswered` | `deliveryId` (`dlv_`), `messageId` (`msg_`, the ping), `minutes` (integer) |
 | `report-unchanged` | `reportChangedAt` (ISO 8601), `state` (`working` or `blocked`), `minutes` (integer, the expectation), `setBy` (`shp_`) |
 | `task-not-done` | `task` (the typed reference, 4.2), `doneBy` (ISO 8601), `setBy` (`shp_`) |
+| `plugin-read-failed` | [Plugin read failed facts](plugin-read-failed.md#45-the-signal-common-the-watch) |
 
 - **Example** (to the owner):
 

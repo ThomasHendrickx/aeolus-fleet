@@ -63,6 +63,8 @@ export function signalFactsOf(alert: AlertSignalFacts): AlertSignalFacts {
       return { signal: alert.signal, facts: alert.facts };
     case 'task-not-done':
       return { signal: alert.signal, facts: alert.facts };
+    case 'plugin-read-failed':
+      return { signal: alert.signal, facts: alert.facts };
   }
 }
 
