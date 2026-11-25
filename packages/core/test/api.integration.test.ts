@@ -2957,3 +2957,16 @@ it('carries ruleSet, applied guard and refused activity through tRPC (#2070)', a
 
   await expect(manager.fleet.ship.query({ shipId: target.shipId })).resolves.toMatchObject({ crewRequest: { settings, guard }, activity: { kind: 'refused', tool: 'Bash' } });
 });
+
+it('records a plugin read from the console session and carries it on fleet.ship and fleet.list', async () => {
+  const argo = await signedInArgo();
+  const { shipId } = await argo.fleet.commission.mutate({ name: 'plugin-read-target', type: 'sample-plugin', kind: 'plugin', idempotencyKey: newKey() });
+
+  await argo.fleet.recordPluginRead.mutate({ pluginShipId: shipId, read: 'guard.get', outcome: 'failed', reason: 'timeout' });
+
+  const failure = { at: clock.now().toISOString(), read: 'guard.get', reason: 'timeout' };
+  const pluginReads = { lastFailed: failure, failingSince: failure, lastGood: null };
+  await expect(argo.fleet.ship.query({ shipId })).resolves.toMatchObject({ pluginReads });
+  const listed = await argo.fleet.list.query({ name: 'plugin-read-target' });
+  expect(listed.items).toEqual([expect.objectContaining({ id: shipId, pluginReads })]);
+});
