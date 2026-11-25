@@ -1,4 +1,4 @@
-import { PAGE_SIZE_DEFAULT, type ScopeName, type ShipPosition, type ShipId, type ShipKind, type ShipStatus } from '@aeolus-fleet/common';
+import { PAGE_SIZE_DEFAULT, type PluginReads, type ScopeName, type ShipPosition, type ShipId, type ShipKind, type ShipStatus } from '@aeolus-fleet/common';
 
 import type { Caller } from '../shared/caller.js';
 import { readsShip, type ReadReachOf } from './read-reach.js';
@@ -12,6 +12,7 @@ import type { FleetListing, ShipFacts } from './ports.js';
 import type { ShipReport } from './ship-report.js';
 import type { LeaseActivity } from './lease-activity.js';
 import { shipStatus } from './ship.js';
+import { NO_PLUGIN_READS } from './plugin-reads.js';
 
 /** A ship as the fleet snapshot shows it. */
 export interface ListedShip {
@@ -66,6 +67,7 @@ export interface ListedShip {
   ownerShipId: ShipId | null;
   /** How many open alerts the ship has (decision 0071): the overview's alert badge. */
   openAlertCount: number;
+  pluginReads: PluginReads | null;
 }
 
 /** A ship outside the caller's read reach: its name, type and status only (decision 0034). */
@@ -167,6 +169,7 @@ export function listedShipOf({
     retiredAt: ship.retiredAt,
     ownerShipId: ship.owner,
     openAlertCount,
+    pluginReads: ship.kind === 'plugin' && ship.retiredAt === null ? ship.pluginReads ?? NO_PLUGIN_READS : null,
   };
 }
 

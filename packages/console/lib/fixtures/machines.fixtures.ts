@@ -106,13 +106,13 @@ export const FLEET: ListedShip[] = [
       id: machine.shipId, name: machine.name, type: 'trierarch', kind: 'agent', status: machine.status, startingPrompt: null,
       location: machine === NEW_MACHINE ? null : { kind: 'DEVICE', description: machine === ALIVE_MACHINE ? 'Mac mini' : 'MacBook' },
       lastSeenAt: machine.lastSeenAt, ping: null, scopes: ['messages:send', 'messages:receive', 'crew:run'], labels: [], report: null, harness: null, model: null,
-      activity: null, openAlertCount: 0, awaitingCrewSince: null, crewRequest: null, retiredAt: null, ownerShipId: null,
+      activity: null, openAlertCount: 0, pluginReads: null, awaitingCrewSince: null, crewRequest: null, retiredAt: null, ownerShipId: null,
     }),
   ),
   ...SPOTS.map(
     (spot): ListedShip => ({
       id: spot.shipId, name: spot.name, type: 'implementer', kind: 'agent', status: 'crewed', startingPrompt: null, location: null, lastSeenAt: null, ping: null,
-      scopes: ['messages:send', 'messages:receive'], labels: [], report: null, harness: null, model: null, activity: null, openAlertCount: 0, awaitingCrewSince: null, retiredAt: null, ownerShipId: null,
+      scopes: ['messages:send', 'messages:receive'], labels: [], report: null, harness: null, model: null, activity: null, openAlertCount: 0, pluginReads: null, awaitingCrewSince: null, retiredAt: null, ownerShipId: null,
       crewRequest: { settingsVersion: 1, requestedAt: minutesAgo(90), requestedBy: null, assignedTo: { id: ALIVE_MACHINE.shipId, name: ALIVE_MACHINE.name }, status: spot.status, reason: null, crewedBy: null, attempt: spot.attempt, startedAt: spot.startedAt, guard: null, givenBack: [] },
     }),
   ),
@@ -203,7 +203,7 @@ export const SETTINGS = { harness: 'claude-code', workspace: { kind: 'repositori
 /** A plain agent ship awaiting crew, for the Needs crew stories. */
 const AWAITING: ListedShip = {
   id: shipId('nc00'), name: 'awaiting', type: 'implementer', kind: 'agent', status: 'awaitingCrew', startingPrompt: null, location: null, lastSeenAt: null, ping: null,
-  scopes: ['messages:send', 'messages:receive'], report: null, harness: null, model: null, activity: null, openAlertCount: 0, awaitingCrewSince: null, crewRequest: null, labels: [], retiredAt: null, ownerShipId: null,
+  scopes: ['messages:send', 'messages:receive'], report: null, harness: null, model: null, activity: null, openAlertCount: 0, pluginReads: null, awaitingCrewSince: null, crewRequest: null, labels: [], retiredAt: null, ownerShipId: null,
 };
 
 const TRIAGE: ListedShip = {

@@ -68,6 +68,7 @@ Every other `OTEL_*` setting the OpenTelemetry Node SDK reads works as its speci
 - Every HTTP request is a point in the histogram `http.server.request.duration` (seconds) with `http.request.method`, `http.route` (the route template, such as `/trpc/:path`) and `http.response.status_code`; a 5xx adds `error.type`. A tRPC batch is one request for several procedures, so each procedure is measured on its own as well.
 - Every tRPC, REST and MCP call is a server span named by its procedure (`system.ping`, `ship.receive`), and a point in the histogram `rpc.server.call.duration` (seconds) with `rpc.system` (`trpc`), `rpc.method` and `rpc.response.status_code` (`OK` or the refusal code), so p95, p99 and the error rate are read per procedure; a server failure adds `error.type`. No call waits for a message (decision 0072), so each duration is the call's work. Subscriptions are not measured.
 - Every database query is traced under the call that made it (Prisma's instrumentation, with its SQL), and each Prisma operation is a point in `db.client.operation.duration` (seconds) with `db.operation.name`, such as `Ship.findMany` or `$queryRaw`.
+- Each recorded failed plugin read adds 1 to `aeolus.plugin_read.failed` (unit `{read}`), with `plugin` (the plugin ship type), `read` and `reason`.
 - The console sends Next.js's own spans and a point in `http.server.request.duration` for every request, and each console read as a span and a point in `rpc.server.call.duration`, named `reads.<read>`.
 
 ## Beyond localhost

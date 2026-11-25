@@ -72,6 +72,7 @@ describe('shipDetailOutputSchema', () => {
     report: null,
     activity: null,
     openAlertCount: 0,
+    pluginReads: null,
     openAlerts: [],
     expectations: { reportChangesWithin: null, taskDoneBy: null },
     crewRequest: null,

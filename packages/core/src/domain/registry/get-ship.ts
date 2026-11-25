@@ -80,6 +80,7 @@ export function createGetShip(deps: { listing: FleetListing; readReach: ReadReac
     ]);
     return ok({
       ...listed,
+      pluginReads: isInReadReach ? listed.pluginReads : null,
       report: facts.openLease?.report ? shownReportOf(facts.openLease.report) : null,
       crewRequest: listed.crewRequest && facts.crewRequest && { ...listed.crewRequest, settings: facts.crewRequest.settings },
       inFlightDeliveries: counts.inFlight,

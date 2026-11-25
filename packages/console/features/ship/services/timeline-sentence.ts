@@ -355,6 +355,10 @@ export function timelineSentence(entry: TimelineEntry, { shipId, ownerNames = ne
       return { parts: [text('Connected as a plugin: reads every ship'), ...by(entry.actor)], tone: 'ended', icon: 'fleet' };
     case 'PluginDisconnected':
       return { parts: [text(`No longer a connected plugin: ${stringDetail(entry, 'why') ?? ''}`), ...by(entry.actor)], tone: 'ended', icon: 'fleet' };
+    case 'PluginReadFailed':
+      return { parts: [text('Plugin read failed'), ...by(entry.actor)], tone: 'attention', icon: 'fleet' };
+    case 'PluginReadRecovered':
+      return { parts: [text('Plugin read recovered'), ...by(entry.actor)], tone: 'ended', icon: 'fleet' };
     case 'CallOpened':
       return { parts: [text('Opened a call in a meeting')], tone: 'ok', icon: 'sent' };
     case 'CallAnswered':

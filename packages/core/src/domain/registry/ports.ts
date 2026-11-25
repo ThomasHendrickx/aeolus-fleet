@@ -140,6 +140,9 @@ export interface ShipRepository {
    * ship waits for, so locking the ship there would deadlock.
    */
   findForUpdate(fleetId: FleetId, shipId: ShipId): Promise<Ship | undefined>;
+
+  /** Stores the counted outcomes of a plugin read on the ship locked by the caller. */
+  savePluginReads(input: { fleetId: FleetId; shipId: ShipId; pluginReads: NonNullable<Ship['pluginReads']> }): Promise<void>;
   /**
    * The ship a message is addressed to, held until the unit of work ends
    * against a use case that locks it to change it, such as a retire: that use

@@ -133,6 +133,8 @@ import {
   checkManageOutputSchema,
   setOwnerOutputSchema,
   setVerifiedFactsInputSchema,
+  recordPluginReadInputSchema,
+  recordPluginReadOutputSchema,
   setExpectationsInputSchema,
   setExpectationsOutputSchema,
   raiseAlertInputSchema,
@@ -896,6 +898,17 @@ export const fleetRouter = router({
           ...(taskDoneBy !== undefined && { taskDoneBy: taskDoneBy && { task: taskDoneBy.task, doneBy: new Date(taskDoneBy.doneBy) } }),
         }),
       );
+      return {};
+    }),
+
+  recordPluginRead: actorAllScopesProcedure('fleet:read')
+    .meta({
+      description: 'Needs fleet:read and read reach on an active plugin ship. Records a good or failed read on that ship, with core time. A failed read names its reason: no-answer, timeout or unusable-answer. Read the fact back with fleet_ship and fleet_list.',
+    })
+    .input(recordPluginReadInputSchema)
+    .output(recordPluginReadOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      okOrThrow(await ctx.useCases.recordPluginRead(ctx.caller, input));
       return {};
     }),
 

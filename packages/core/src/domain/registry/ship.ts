@@ -5,6 +5,7 @@ import {
   SCOPES,
   type FleetId,
   type LeaseId,
+  type PluginReads,
   type Scope,
   type ScopeName,
   type ShipId,
@@ -29,6 +30,8 @@ export interface Ship {
   name: string;
   type: string;
   kind: ShipKind;
+  /** Recorded outcomes on an active plugin ship, when its projection includes them. */
+  pluginReads?: PluginReads | null;
   /** Core scopes and plugin scopes (decision 0046). */
   scopes: readonly ScopeName[];
   note: string | null;

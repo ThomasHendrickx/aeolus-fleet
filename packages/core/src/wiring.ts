@@ -7,6 +7,7 @@ import { type Lookup, createLookup } from './domain/registry/lookup.js';
 import { createExpireJourneyActivity } from './domain/shared/expire-journey-activity.js';
 import { createReadInstallationJourneys } from './domain/registry/read-installation-journeys.js';
 import { createPrismaInstallationJourneyReads } from './adapters/prisma/fleet-journeys.js';
+import { countPluginReadFailure } from './adapters/telemetry/plugin-reads.js';
 import { measureCall } from './adapters/telemetry/calls.js';
 import { randomUUID } from 'node:crypto';
 import { createCallPlugin, type CallPlugin } from './domain/registry/call-plugin.js';
@@ -149,6 +150,7 @@ import { createRenameShip, type RenameShip } from './domain/registry/rename-ship
 import { createSetOwner, type SetOwner } from './domain/registry/set-owner.js';
 import { createCheckManage, type CheckManage } from './domain/registry/check-manage.js';
 import { createSetVerifiedFacts, type SetVerifiedFacts } from './domain/registry/set-verified-facts.js';
+import { createRecordPluginRead, type RecordPluginRead } from './domain/registry/record-plugin-read.js';
 import { createSetExpectations, type SetExpectations } from './domain/registry/set-expectations.js';
 import { createRaiseAlert, type RaiseAlert } from './domain/registry/raise-alert.js';
 import { createClearAlert, type ClearAlert } from './domain/registry/clear-alert.js';
@@ -258,6 +260,7 @@ export interface UseCases {
   callPlugin: CallPlugin;
   setVerifiedFacts: SetVerifiedFacts;
   setExpectations: SetExpectations;
+  recordPluginRead: RecordPluginRead;
   raiseAlert: RaiseAlert;
   readOpenAlerts: ReadOpenAlerts;
   clearAlert: ClearAlert;
@@ -536,6 +539,7 @@ export function createUseCases(options: {
     checkManage: createCheckManage({ uow, clock, ids }),
     setVerifiedFacts: createSetVerifiedFacts({ uow, clock, ids }),
     setExpectations: createSetExpectations({ uow, clock, ids }),
+    recordPluginRead: createRecordPluginRead({ uow, clock, ids, countFailure: countPluginReadFailure }),
     raiseAlert: createRaiseAlert({ uow, clock, ids }),
     clearAlert: createClearAlert({ uow, clock, ids }),
     recrewShip: createRecrewShip({ uow, clock, ids, secrets }),

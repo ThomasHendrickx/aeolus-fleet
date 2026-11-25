@@ -326,6 +326,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_meeting_call_question$/),
       expect.stringMatching(/^\d{14}_guard_status$/),
       expect.stringMatching(/^\d{14}_crew_settings_version$/),
+      expect.stringMatching(/^\d{14}_plugin_reads$/),
     ]);
   });
 });
@@ -453,6 +454,7 @@ describe('the fleet procedures at the API', () => {
     // argo's inbox takes the message scopes every agent ship holds: each refuses any ship but argo once its input parses.
     const deliveryId = newId('delivery');
     const inputs: Record<string, unknown> = {
+      recordPluginRead: { pluginShipId: newId('ship'), read: 'guard.get', outcome: 'good' },
       setOwner: { shipId: newId('ship'), ownerShipId: newId('ship') },
       markRead: { deliveryId, isRead: true },
       markDone: { deliveryId },
@@ -506,6 +508,7 @@ describe('the fleet procedures at the API', () => {
       retiredAt: null,
       ownerShipId: ownerId,
       openAlertCount: 0,
+      pluginReads: null,
     });
   });
 
@@ -2956,4 +2959,23 @@ it('carries ruleSet, applied guard and refused activity through tRPC (#2070)', a
   await manager.fleet.reportActivity.mutate({ intervalSeconds: 30, activities: [{ shipId: target.shipId, kind: 'refused', tool: 'Bash', at: guard.recent[0]?.at ?? '' }] });
 
   await expect(manager.fleet.ship.query({ shipId: target.shipId })).resolves.toMatchObject({ crewRequest: { settings, guard }, activity: { kind: 'refused', tool: 'Bash' } });
+});
+
+it('records a plugin read from the console session and carries it on fleet.ship and fleet.list', async () => {
+  const argo = await signedInArgo();
+  const { shipId } = await argo.fleet.commission.mutate({ name: 'plugin-read-target', type: 'sample-plugin', kind: 'plugin', idempotencyKey: newKey() });
+
+  await argo.fleet.recordPluginRead.mutate({ pluginShipId: shipId, read: 'guard.get', outcome: 'failed', reason: 'timeout' });
+
+  const failure = { at: clock.now().toISOString(), read: 'guard.get', reason: 'timeout' };
+  const pluginReads = { lastFailed: failure, failingSince: failure, lastGood: null };
+  await expect(argo.fleet.ship.query({ shipId })).resolves.toMatchObject({ pluginReads });
+  const listed = await argo.fleet.list.query({ name: 'plugin-read-target' });
+  expect(listed.items).toEqual([expect.objectContaining({ id: shipId, pluginReads })]);
+});
+
+it.each(['guard..get', 'Guard.get', 'guard.get_token', 'a'.repeat(65)])('refuses the plugin read name %s as bad input', async (read) => {
+  const argo = await signedInArgo();
+
+  await expect(codeOf(argo.fleet.recordPluginRead.mutate({ pluginShipId: newId('ship'), read, outcome: 'good' }))).resolves.toBe('BAD_REQUEST');
 });

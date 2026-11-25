@@ -282,11 +282,12 @@ export function createPrismaShipRepository(db: Db): ShipRepository {
       await db.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('aeolus:ownership'), hashtext(${fleetId}))`;
     },
     create: async (ship) => {
-      const { commission, owner, ...columns } = ship;
+      const { commission, owner, pluginReads, ...columns } = ship;
       await db.ship.create({
         data: {
           ...columns,
           ownerShipId: owner,
+          pluginReads: pluginReads ?? Prisma.DbNull,
           scopes: [...ship.scopes],
           ...commissionerColumns(commission?.by),
           commissionKey: commission?.idempotencyKey ?? null,
@@ -349,7 +350,7 @@ export function createPrismaShipRepository(db: Db): ShipRepository {
       // ship wait, but not the foreign key checks of rows that point at the
       // ship (a new lease, secret or event), so those never deadlock with it.
       const [row] = await db.$queryRaw<unknown[]>`
-        SELECT id, fleet_id, name, type, kind::text AS kind, scopes, note, created_at, retired_at, removed_at, commissioned_by_kind::text AS commissioned_by_kind, commissioned_by, commission_key, commission_request_hash, owner_ship_id
+        SELECT id, fleet_id, name, type, kind::text AS kind, scopes, note, created_at, retired_at, removed_at, commissioned_by_kind::text AS commissioned_by_kind, commissioned_by, commission_key, commission_request_hash, owner_ship_id, plugin_reads
         FROM ships
         WHERE fleet_id = ${fleetId} AND id = ${shipId}
         FOR NO KEY UPDATE`;
@@ -429,8 +430,11 @@ export function createPrismaShipRepository(db: Db): ShipRepository {
     setOwner: async ({ fleetId, shipId, ownerShipId }) => {
       await db.ship.update({ where: { fleetId_id: { fleetId, id: shipId } }, data: { ownerShipId } });
     },
+    savePluginReads: async ({ fleetId, shipId, pluginReads }) => {
+      await db.ship.update({ where: { fleetId_id: { fleetId, id: shipId } }, data: { pluginReads } });
+    },
     retire: async ({ fleetId, shipId, at }) => {
-      await db.ship.update({ where: { fleetId_id: { fleetId, id: shipId } }, data: { retiredAt: at } });
+      await db.ship.update({ where: { fleetId_id: { fleetId, id: shipId } }, data: { retiredAt: at, pluginReads: Prisma.DbNull } });
     },
   };
 }
@@ -1048,7 +1052,7 @@ export function fleetListingStatement(fleetId: FleetId, { after, limit, filter, 
   const value = sortValueOfShip(sort, reach);
   return Prisma.sql`
     SELECT s.id, s.fleet_id, s.name, s.type, s.kind::text AS kind, s.scopes, s.note, s.created_at, s.retired_at, s.removed_at,
-           s.commissioned_by_kind::text AS commissioned_by_kind, s.commissioned_by, s.commission_key, s.commission_request_hash, s.owner_ship_id,
+           s.commissioned_by_kind::text AS commissioned_by_kind, s.commissioned_by, s.commission_key, s.commission_request_hash, s.owner_ship_id, s.plugin_reads,
            l.id AS lease_id, l.location::text AS lease_location, l.location_description AS lease_location_description,
            l.harness AS lease_harness, l.started_at AS lease_started_at, l.last_seen_at AS lease_last_seen_at,
            l.report_state::text AS report_state, l.report_note, l.reported_at, l.report_changed_at, l.report_task, l.report_step_at, l.report_step_of,
@@ -1182,7 +1186,7 @@ export function createPrismaFleetListing(db: Db): FleetListing {
     ship: async (fleetId, shipId) => {
       const [row] = await db.$queryRaw<unknown[]>`
         SELECT s.id, s.fleet_id, s.name, s.type, s.kind::text AS kind, s.scopes, s.note, s.created_at, s.retired_at, s.removed_at,
-               s.commissioned_by_kind::text AS commissioned_by_kind, s.commissioned_by, s.commission_key, s.commission_request_hash, s.owner_ship_id,
+               s.commissioned_by_kind::text AS commissioned_by_kind, s.commissioned_by, s.commission_key, s.commission_request_hash, s.owner_ship_id, s.plugin_reads,
                l.id AS lease_id, l.location::text AS lease_location, l.location_description AS lease_location_description,
                l.harness AS lease_harness, l.started_at AS lease_started_at, l.last_seen_at AS lease_last_seen_at,
                l.report_state::text AS report_state, l.report_note, l.reported_at, l.report_changed_at, l.report_task, l.report_step_at, l.report_step_of,

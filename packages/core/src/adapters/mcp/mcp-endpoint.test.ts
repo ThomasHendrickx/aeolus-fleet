@@ -133,6 +133,7 @@ const SHIP_TOOLS = [
   'fleet_removeScope',
   'fleet_setVerifiedFacts',
   'fleet_setExpectations',
+  'fleet_recordPluginRead',
   'fleet_raiseAlert',
   'fleet_clearAlert',
   'fleet_openAlerts',

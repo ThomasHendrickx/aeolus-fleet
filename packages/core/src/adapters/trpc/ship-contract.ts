@@ -162,6 +162,7 @@ const FLEET_ACTIONS = [
   'removeScope',
   'setVerifiedFacts',
   'setExpectations',
+  'recordPluginRead',
   'raiseAlert',
   'clearAlert',
   'openAlerts',
