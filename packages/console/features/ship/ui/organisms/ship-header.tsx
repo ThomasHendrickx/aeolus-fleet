@@ -11,6 +11,7 @@ import type { GatewayReader } from '../../services/gateway-reader';
 import { ModelLine } from '../molecules/model-line';
 import { PingStatus } from '../molecules/ping-status';
 import { ReportDetails } from '../molecules/report-details';
+import { PluginReadFact } from '../molecules/plugin-read-fact';
 import { ShipStatement } from '../molecules/ship-statement';
 import { ReportLine } from '../../../../components/molecules/report-line';
 import { ActivityLine } from '../../../../components/molecules/activity-line';
@@ -343,6 +344,7 @@ export function ShipHeader({ ship, shipId, state, actions, permissions, crewRequ
         <ShipOpenAlert key={alert.id} alert={alert} now={now} />
       ))}
       <MetaStrip ship={ship} now={now} viewerFleetId={viewerFleetId} labels={labels} owner={owner} way={way} />
+      {ship.kind === 'plugin' && <PluginReadFact reads={ship.pluginReads} />}
       {permissions ?? (ship.kind === 'operator' || ship.kind === 'viewer' ? null : <div className="flex flex-col gap-3"><h2 className="text-section font-semibold">Permissions</h2><div className="flex flex-wrap gap-1.5">{ship.scopes.map((scope) => <Badge key={scope} variant="type" data-testid="ship-fleet-scope">{scope}</Badge>)}</div></div>)}
       {(ship.kind === 'agent' || ship.kind === 'plugin' || ship.kind === 'trierarch') && ship.report?.details && ship.report.detailsBytes !== null ? (
         <ReportDetails details={ship.report.details} bytes={ship.report.detailsBytes} version={ship.report.detailsVersion} testId="ship-report-details" />

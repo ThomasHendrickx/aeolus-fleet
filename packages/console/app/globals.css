@@ -15,6 +15,7 @@
  */
 :root {
   --tab-bar-clearance: var(--size-tabbar);
+  --size-plugin-read-label: 7rem;
 }
 
 /*
