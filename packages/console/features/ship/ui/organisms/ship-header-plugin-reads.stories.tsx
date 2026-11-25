@@ -45,11 +45,16 @@ export const Failing: Story = {
     const reads = canvas.getByTestId('ship-plugin-reads');
     // Then the attention heading and three facts appear between details and Permissions.
     await expect(within(reads).getByRole('heading', { name: 'Plugin read failed' })).toBeVisible();
-    await expect(within(reads).getAllByRole('term').map((term) => term.textContent))
+    const terms = within(reads).getAllByRole('term');
+    await expect(terms.map((term) => term.textContent))
       .toEqual(['Failing since', 'Last failed read', 'Last good read']);
     await expect([...reads.querySelectorAll('time')].map((time) => time.dateTime))
       .toEqual(['2026-11-25T14:02:00Z', '2026-11-25T14:06:00Z', '2026-11-25T13:56:00Z']);
-    await expect(within(reads).getAllByText('guard.get')).toHaveLength(3);
+    const values = within(reads).getAllByText('guard.get');
+    await expect(values).toHaveLength(3);
+    const valueOffsets = values.map((value, index) =>
+      value.getBoundingClientRect().top - (terms[index]?.getBoundingClientRect().top ?? NaN));
+    await expect(new Set(valueOffsets).size).toBe(1);
     await expect(within(reads).getByText('An answer the console cannot use')).toBeVisible();
     await expect(canvas.getByText('Commissioned').compareDocumentPosition(reads)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     await expect(reads.compareDocumentPosition(canvas.getByRole('heading', { name: 'Permissions' }))).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
@@ -69,9 +74,12 @@ export const Recovered: Story = {
 export const FirstReadFailed: Story = {
   args: { ship: { ...plugin, pluginReads: { failingSince: firstFailure, lastFailed: { ...lastFailure, reason: 'timeout' }, lastGood: null } } },
   play: async ({ canvasElement }) => {
+    // Given the plugin's first recorded read failed.
+    // When its ship page shows the recorded read fact.
     const reads = within(within(canvasElement).getByTestId('ship-plugin-reads'));
+    // Then the failure is shown without a Last good read row.
     await expect(reads.getByText('Timeout')).toBeVisible();
-    await expect(reads.getByText('No good read yet')).toBeVisible();
+    await expect(reads.getAllByRole('term').map((term) => term.textContent)).toEqual(['Failing since', 'Last failed read']);
   },
 };
 
