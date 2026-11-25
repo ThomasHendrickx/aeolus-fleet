@@ -146,7 +146,7 @@ describe('an account signed in to the console, acting on ships', () => {
     const planner = await commissioned('planner');
 
     await mathilde.fleet.crewRequest.mutate({ shipId: keeper, settings: aCrewSettings({ harness: 'claude-code' }) });
-    await mathilde.fleet.assignCrew.mutate({ shipId: keeper, trierarchShipId: trierarch });
+    await mathilde.fleet.assignCrew.mutate({ shipId: keeper, trierarchShipId: trierarch, settingsVersion: 1 });
     await mathilde.fleet.crewRequest.mutate({ shipId: planner, settings: aCrewSettings({ harness: 'codex' }) });
     await mathilde.fleet.explainCrewRequest.mutate({ shipId: planner, reason: 'No trierarch runs codex' });
     await mathilde.fleet.removeCrewRequest.mutate({ shipId: planner });

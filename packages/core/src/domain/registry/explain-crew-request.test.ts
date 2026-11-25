@@ -75,7 +75,7 @@ describe('the reason on an unassigned crew request', () => {
     const trierarch = await shipWithScopes({ registry, argo }, { name: 'mac-mini', type: 'trierarch', scopes: ['crew:run'] });
     unwrap(await registry.explainCrewRequest(plugin, { shipId: scoutId, reason: NO_ROOM }));
 
-    unwrap(await registry.assignCrew(plugin, { shipId: scoutId, trierarchShipId: trierarch.shipId }));
+    unwrap(await registry.assignCrew(plugin, { shipId: scoutId, trierarchShipId: trierarch.shipId, settingsVersion: 1 }));
 
     expect(reasonOf(scoutId)).toBeNull();
   });
@@ -100,7 +100,7 @@ describe('a reason refused', () => {
 
   it('refuses a request that is assigned already', async () => {
     const trierarch = await shipWithScopes({ registry, argo }, { name: 'mac-mini', type: 'trierarch', scopes: ['crew:run'] });
-    unwrap(await registry.assignCrew(plugin, { shipId: scoutId, trierarchShipId: trierarch.shipId }));
+    unwrap(await registry.assignCrew(plugin, { shipId: scoutId, trierarchShipId: trierarch.shipId, settingsVersion: 1 }));
     core.state.events.length = 0;
 
     await expectRefused({ shipId: scoutId, reason: NO_ROOM }, 'CREW_REQUEST_ALREADY_ASSIGNED');

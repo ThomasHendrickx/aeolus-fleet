@@ -281,7 +281,7 @@ describe('current lease evidence (#1993, approved Q6/Q7)', () => {
     await fleet.readRulesApply();
     unwrap(await fleet.registry.releaseShip(fleet.argo, { shipId: fleet.far.shipId }));
     unwrap(await fleet.registry.requestCrew(fleet.argo, { shipId: fleet.far.shipId, settings: {} }));
-    unwrap(await fleet.registry.assignCrew(fleet.argo, { shipId: fleet.far.shipId, trierarchShipId: fleet.reader.shipId }));
+    unwrap(await fleet.registry.assignCrew(fleet.argo, { shipId: fleet.far.shipId, trierarchShipId: fleet.reader.shipId, settingsVersion: 1 }));
 
     // When
     const assigned = unwrap(await fleet.registry.getShip(fleet.reader, { shipId: fleet.far.shipId }));
@@ -297,7 +297,7 @@ describe('current lease evidence (#1993, approved Q6/Q7)', () => {
     const fleet = await readReachScenario();
     unwrap(await fleet.registry.releaseShip(fleet.argo, { shipId: fleet.near.shipId }));
     unwrap(await fleet.registry.requestCrew(fleet.argo, { shipId: fleet.near.shipId, settings: {} }));
-    unwrap(await fleet.registry.assignCrew(fleet.argo, { shipId: fleet.near.shipId, trierarchShipId: fleet.reader.shipId }));
+    unwrap(await fleet.registry.assignCrew(fleet.argo, { shipId: fleet.near.shipId, trierarchShipId: fleet.reader.shipId, settingsVersion: 1 }));
 
     // When
     const read = unwrap(await fleet.registry.getShip({ ...fleet.reader, scopes: ['crew:run'] }, { shipId: fleet.near.shipId }));

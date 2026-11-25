@@ -34,8 +34,8 @@ describe("a trierarch's assigned crew requests", () => {
     const scoutId = await requested('scout');
     const lookoutId = await requested('lookout');
     await requested('unassigned');
-    unwrap(await registry.assignCrew(plugin, { shipId: lookoutId, trierarchShipId: trierarch.shipId }));
-    unwrap(await registry.assignCrew(plugin, { shipId: scoutId, trierarchShipId: trierarch.shipId }));
+    unwrap(await registry.assignCrew(plugin, { shipId: lookoutId, trierarchShipId: trierarch.shipId, settingsVersion: 1 }));
+    unwrap(await registry.assignCrew(plugin, { shipId: scoutId, trierarchShipId: trierarch.shipId, settingsVersion: 1 }));
     unwrap(await registry.reportCrewStatus(trierarch, { shipId: scoutId, status: 'running' }));
 
     await expect(registry.readAssignedCrewRequests(trierarch)).resolves.toEqual([
@@ -46,7 +46,7 @@ describe("a trierarch's assigned crew requests", () => {
 
   it('say a crew is final once its trierarch saw it working, whatever status it reported since (#477)', async () => {
     const scoutId = await requested('scout');
-    unwrap(await registry.assignCrew(plugin, { shipId: scoutId, trierarchShipId: trierarch.shipId }));
+    unwrap(await registry.assignCrew(plugin, { shipId: scoutId, trierarchShipId: trierarch.shipId, settingsVersion: 1 }));
     unwrap(await registry.reportCrewStatus(trierarch, { shipId: scoutId, status: 'running' }));
 
     unwrap(await registry.reportCrewStatus(trierarch, { shipId: scoutId, status: 'crewing' }));
@@ -56,7 +56,7 @@ describe("a trierarch's assigned crew requests", () => {
 
   it('say a crew is not final once a new settings version is requested, until it runs again (#477)', async () => {
     const scoutId = await requested('scout');
-    unwrap(await registry.assignCrew(plugin, { shipId: scoutId, trierarchShipId: trierarch.shipId }));
+    unwrap(await registry.assignCrew(plugin, { shipId: scoutId, trierarchShipId: trierarch.shipId, settingsVersion: 1 }));
     unwrap(await registry.reportCrewStatus(trierarch, { shipId: scoutId, status: 'running' }));
 
     unwrap(await registry.requestCrew(argo, { shipId: scoutId, settings: aCrewSettings({ harness: 'codex' }) }));
@@ -66,7 +66,7 @@ describe("a trierarch's assigned crew requests", () => {
 
   it("name each ship's owner as it is now, so its crash report reaches its owner (decision 0045)", async () => {
     const scoutId = await requested('scout');
-    unwrap(await registry.assignCrew(plugin, { shipId: scoutId, trierarchShipId: trierarch.shipId }));
+    unwrap(await registry.assignCrew(plugin, { shipId: scoutId, trierarchShipId: trierarch.shipId, settingsVersion: 1 }));
     const { shipId: thomasId } = unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name: 'thomas', type: 'person', kind: 'person' }));
 
     unwrap(await registry.setOwner(argo, { shipId: scoutId, ownerShipId: thomasId }));

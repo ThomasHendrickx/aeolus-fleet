@@ -57,7 +57,7 @@ it('migrates agent and app computers proven by commissioning or owned labels, pr
   unwrap(await core.useCases.claimShip({ shipId: agent.shipId, secret: secretOf(agent.secret), location: { kind: 'SERVER' } }));
   unwrap(await core.useCases.sendMessage(argo, { selector: { kind: 'ship', shipId: agent.shipId }, contentType: 'text/plain', payload: 'Keep this inbox', idempotencyKey: 'inbox' }));
   unwrap(await core.useCases.requestCrew(argo, { shipId: helper.shipId, settings: aCrewSettings() }));
-  unwrap(await core.useCases.assignCrew(plugin, { shipId: helper.shipId, trierarchShipId: agent.shipId }));
+  unwrap(await core.useCases.assignCrew(plugin, { shipId: helper.shipId, trierarchShipId: agent.shipId, settingsVersion: 1 }));
   const otherFleet = unwrap(await core.useCases.createFleet({ requestId: 'another-fleet', name: 'another fleet', operatorEmail: 'another@example.com' }));
   const otherArgo: ShipCaller = { ...argo, fleetId: otherFleet.fleetId, shipId: otherFleet.operatorShipId };
   const impostorId = unwrap(await core.useCases.commissionShip(otherArgo, { idempotencyKey: 'impostor', name: 'another-plugin', type: 'another-plugin', kind: 'plugin', scopes: ['fleet:commission', 'labels:define', 'labels:assign'] })).shipId;

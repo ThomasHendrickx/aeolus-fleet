@@ -25,7 +25,7 @@ beforeEach(async () => {
   trierarch = await shipWithScopes({ registry, argo }, { name: 'mac-mini', type: 'trierarch', scopes: ['crew:run'] });
   ({ shipId: scoutId } = unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' })));
   unwrap(await registry.requestCrew(argo, { shipId: scoutId, settings: aCrewSettings({ harness: 'claude-code' }) }));
-  unwrap(await registry.assignCrew(plugin, { shipId: scoutId, trierarchShipId: trierarch.shipId }));
+  unwrap(await registry.assignCrew(plugin, { shipId: scoutId, trierarchShipId: trierarch.shipId, settingsVersion: 1 }));
   core.clock.advance(60_000);
   core.state.events.length = 0;
 });
@@ -172,7 +172,7 @@ describe('guard status follows the applied settings (#2070)', () => {
     unwrap(await registry.giveBackCrewRequest(trierarch, { shipId: scoutId, settingsVersion: 1, reason: 'guard failed' }));
 
     expect(core.state.crewRequests.find((request) => request.shipId === scoutId)).toMatchObject({ assignedTo: null, guard: null });
-    unwrap(await registry.assignCrew(argo, { shipId: scoutId, trierarchShipId: trierarch.shipId }));
+    unwrap(await registry.assignCrew(argo, { shipId: scoutId, trierarchShipId: trierarch.shipId, settingsVersion: 1 }));
     expect(core.state.crewRequests.find((request) => request.shipId === scoutId)).toMatchObject({ assignedTo: trierarch.shipId, guard: null });
   });
 });

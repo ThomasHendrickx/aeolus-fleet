@@ -25,7 +25,7 @@ let writerId: ShipId;
 async function assignedAndCrewed(name: string): Promise<ShipId> {
   const { shipId } = unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name, type: 'reviewer' }));
   unwrap(await registry.requestCrew(argo, { shipId, settings: aCrewSettings({ harness: 'claude-code' }) }));
-  unwrap(await registry.assignCrew(plugin, { shipId, trierarchShipId: trierarch.shipId }));
+  unwrap(await registry.assignCrew(plugin, { shipId, trierarchShipId: trierarch.shipId, settingsVersion: 1 }));
   crewAboard(core, { fleetId, shipId });
   return shipId;
 }
@@ -153,7 +153,7 @@ describe('an activity refused for its entry, the rest taken', () => {
   it('refuses an assigned ship no session crews yet', async () => {
     const { shipId: waitingId } = unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name: 'waiting', type: 'reviewer' }));
     unwrap(await registry.requestCrew(argo, { shipId: waitingId, settings: aCrewSettings({ harness: 'claude-code' }) }));
-    unwrap(await registry.assignCrew(plugin, { shipId: waitingId, trierarchShipId: trierarch.shipId }));
+    unwrap(await registry.assignCrew(plugin, { shipId: waitingId, trierarchShipId: trierarch.shipId, settingsVersion: 1 }));
 
     const written = unwrap(await registry.reportActivity(trierarch, { intervalSeconds: 30, activities: [{ shipId: waitingId, at: '2026-10-31T08:59:50.000Z', kind: 'tool' }] }));
 

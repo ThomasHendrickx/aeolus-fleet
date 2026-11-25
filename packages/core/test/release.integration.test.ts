@@ -265,7 +265,7 @@ describe('a trierarch releases a crewed ship with an open crew request (#1308)',
     const trierarch: ShipCaller = { fleetId, shipId: trierarchId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:run'] };
     const { shipId } = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'pilot', type: 'navigator' }));
     unwrap(await useCases.requestCrew(argo, { shipId, settings: aCrewSettings({ harness: 'claude-code' }) }));
-    unwrap(await useCases.assignCrew(plugin, { shipId, trierarchShipId: trierarchId }));
+    unwrap(await useCases.assignCrew(plugin, { shipId, trierarchShipId: trierarchId, settingsVersion: 1 }));
     await register(shipId, unwrap(await useCases.getStartingPrompt(trierarch, { shipId })).secret);
 
     unwrap(await useCases.releaseShip(trierarch, { shipId }));

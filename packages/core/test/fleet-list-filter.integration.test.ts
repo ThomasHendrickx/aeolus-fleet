@@ -37,7 +37,7 @@ beforeAll(async () => {
   }
   unwrap(await core.useCases.claimShip({ shipId: byHand.shipId, secret: secretOf(byHand.secret), location: { kind: 'DEVICE' }, harness: 'codex' }));
   for (const shipId of [crashed.shipId, crewing.shipId]) {
-    unwrap(await core.useCases.assignCrew(plugin, { shipId, trierarchShipId: trierarch.shipId }));
+    unwrap(await core.useCases.assignCrew(plugin, { shipId, trierarchShipId: trierarch.shipId, settingsVersion: 1 }));
   }
   unwrap(await core.useCases.reportCrewStatus(trierarch, { shipId: crashed.shipId, status: 'crashed' }));
 }, 120_000);

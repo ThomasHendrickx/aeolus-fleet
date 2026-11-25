@@ -33,7 +33,7 @@ beforeEach(async () => {
   trierarch = await shipWithScopes({ registry, argo }, { name: 'mac-mini', type: 'trierarch', scopes: ['crew:run'] });
   ({ shipId: scoutId } = unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' })));
   unwrap(await registry.requestCrew(argo, { shipId: scoutId, settings: aCrewSettings({ harness: 'claude-code', options: { model: 'claude-opus-5-5' } }) }));
-  unwrap(await registry.assignCrew(plugin, { shipId: scoutId, trierarchShipId: trierarch.shipId }));
+  unwrap(await registry.assignCrew(plugin, { shipId: scoutId, trierarchShipId: trierarch.shipId, settingsVersion: 1 }));
   unwrap(await registry.reportCrewStatus(trierarch, { shipId: scoutId, status: 'crewing' }));
   core.clock.advance(60_000);
   core.state.events.length = 0;
@@ -69,7 +69,7 @@ describe('a trierarch giving back a crew request', () => {
   it('gives back a request it has not written a status for yet', async () => {
     const lookout = unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name: 'lookout', type: 'reviewer' }));
     unwrap(await registry.requestCrew(argo, { shipId: lookout.shipId, settings: aCrewSettings() }));
-    unwrap(await registry.assignCrew(plugin, { shipId: lookout.shipId, trierarchShipId: trierarch.shipId }));
+    unwrap(await registry.assignCrew(plugin, { shipId: lookout.shipId, trierarchShipId: trierarch.shipId, settingsVersion: 1 }));
 
     await expect(registry.giveBackCrewRequest(trierarch, { shipId: lookout.shipId, settingsVersion: 1, reason: REASON })).resolves.toEqual({ isOk: true, value: undefined });
   });
@@ -80,7 +80,7 @@ describe('a trierarch giving back a crew request', () => {
     unwrap(await giveBack(trierarch));
 
     expect(core.state.leases.find((lease) => lease.id === crew.leaseId)?.endedAt).toEqual(core.clock.now());
-    await expect(registry.assignCrew(plugin, { shipId: scoutId, trierarchShipId: trierarch.shipId })).resolves.toMatchObject({ isOk: true });
+    await expect(registry.assignCrew(plugin, { shipId: scoutId, trierarchShipId: trierarch.shipId, settingsVersion: 1 })).resolves.toMatchObject({ isOk: true });
   });
 
   it('shows on the request in the fleet list, by trierarch, with the settings version, the reason and when', async () => {
@@ -94,7 +94,7 @@ describe('a trierarch giving back a crew request', () => {
   it('keeps every trierarch that gave it back', async () => {
     unwrap(await giveBack(trierarch));
     const linux = await shipWithScopes({ registry, argo }, { name: 'linux-box', type: 'trierarch', scopes: ['crew:run'] });
-    unwrap(await registry.assignCrew(plugin, { shipId: scoutId, trierarchShipId: linux.shipId }));
+    unwrap(await registry.assignCrew(plugin, { shipId: scoutId, trierarchShipId: linux.shipId, settingsVersion: 1 }));
 
     unwrap(await giveBack(linux, { reason: 'linux-box: nothing on screen within a minute' }));
 

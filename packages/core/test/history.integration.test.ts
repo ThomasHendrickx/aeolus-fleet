@@ -229,7 +229,7 @@ describe('the history reads on Postgres', () => {
     const plugin: ShipCaller = { fleetId: argo.fleetId, shipId: pluginId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:assign'] };
     const { shipId: builderId } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'builder', type: 'builder' }));
     unwrap(await core.useCases.requestCrew(argo, { shipId: builderId, settings: aCrewSettings({ harness: 'claude-code' }) }));
-    unwrap(await core.useCases.assignCrew(plugin, { shipId: builderId, trierarchShipId: trierarchId }));
+    unwrap(await core.useCases.assignCrew(plugin, { shipId: builderId, trierarchShipId: trierarchId, settingsVersion: 1 }));
     const { secret } = unwrap(await core.useCases.getStartingPrompt(trierarch, { shipId: builderId }));
     core.clock.advance(1_000);
     const { crewToken } = unwrap(await core.useCases.claimShip({ shipId: builderId, secret, location: { kind: 'DEVICE' }, harness: 'claude-code' }));

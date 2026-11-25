@@ -593,7 +593,7 @@ it('carries ruleSet and guard through MCP and publishes guard and refused in too
   const settings = { workspace: { kind: 'folder', name: 'notes' }, options: {}, ruleSet: 'no-push' };
   const guard = { sets: [{ name: 'no-push', repository: 'company/rules', commit: '8d41e07', floor: false }], refusals: 0, recent: [] };
   await call(session, { tool: { name: 'fleet_crewRequest', answers: z.object({ settingsVersion: z.literal(1) }) }, arguments: { crewToken, shipId: scout.shipId, settings } });
-  await call(session, { tool: { name: 'fleet_assignCrew', answers: z.strictObject({}) }, arguments: { crewToken, shipId: scout.shipId, trierarchShipId: manager.shipId } });
+  await call(session, { tool: { name: 'fleet_assignCrew', answers: z.strictObject({}) }, arguments: { crewToken, shipId: scout.shipId, trierarchShipId: manager.shipId, settingsVersion: 1 } });
 
   await call(session, { tool: { name: 'fleet_reportCrewStatus', answers: z.strictObject({}) }, arguments: { crewToken, shipId: scout.shipId, status: 'running', guard } });
 

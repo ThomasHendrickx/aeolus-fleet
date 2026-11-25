@@ -76,7 +76,7 @@ describe("an account and a ship's crew request", () => {
     const keeper = await awaitingCrew('keeper', 'codex');
     fleet.core.state.events.length = 0;
 
-    unwrap(await fleet.registry.assignCrew(mathilde, { shipId: scout, trierarchShipId: trierarch.shipId }));
+    unwrap(await fleet.registry.assignCrew(mathilde, { shipId: scout, trierarchShipId: trierarch.shipId, settingsVersion: 1 }));
     unwrap(await fleet.registry.explainCrewRequest(mathilde, { shipId: keeper, reason: 'No trierarch runs codex' }));
 
     expect(fleet.core.state.events.map(({ type, actor }) => ({ type, actor }))).toEqual([

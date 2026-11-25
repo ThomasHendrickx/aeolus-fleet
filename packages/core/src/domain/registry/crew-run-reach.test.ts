@@ -32,7 +32,7 @@ beforeEach(async () => {
   ({ shipId: otherId } = unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name: 'lookout', type: 'reviewer' })));
   unwrap(await registry.requestCrew(argo, { shipId: assignedId, settings: aCrewSettings() }));
   unwrap(await registry.requestCrew(argo, { shipId: otherId, settings: aCrewSettings() }));
-  unwrap(await registry.assignCrew(plugin, { shipId: assignedId, trierarchShipId: trierarch.shipId }));
+  unwrap(await registry.assignCrew(plugin, { shipId: assignedId, trierarchShipId: trierarch.shipId, settingsVersion: 1 }));
 });
 
 describe('a ship with crew:run', () => {
