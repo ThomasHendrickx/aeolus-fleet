@@ -16,8 +16,8 @@ import { reportTaskSchema } from './report.js';
 /** The content type of the alert message the watch sends (4.9). */
 export const ALERT_CONTENT_TYPE = 'application/vnd.aeolus.alert+json';
 
-/** What parted (4.4): the four distribution signals, then the two expectations. */
-export const ALERT_SIGNALS = ['crew-request-unassigned', 'delivery-unacknowledged', 'delivery-overdue', 'ping-unanswered', 'report-unchanged', 'task-not-done'] as const;
+/** What parted (4.4): the distribution signals and expectations. */
+export const ALERT_SIGNALS = ['crew-request-unassigned', 'delivery-unacknowledged', 'delivery-overdue', 'ping-unanswered', 'report-unchanged', 'task-not-done', 'plugin-read-failed'] as const;
 export const alertSignalSchema = z.enum(ALERT_SIGNALS);
 export type AlertSignal = z.infer<typeof alertSignalSchema>;
 
@@ -47,6 +47,8 @@ const pingUnansweredFactsSchema = z.strictObject({ deliveryId: idSchema('deliver
 const reportUnchangedFactsSchema = z.strictObject({ reportChangedAt: isoTime, state: z.enum(['working', 'blocked']), minutes: minutesSchema, setBy: idSchema('ship') });
 const taskNotDoneFactsSchema = z.strictObject({ task: reportTaskSchema, doneBy: isoTime, setBy: idSchema('ship') });
 
+const pluginReadFailedFactsSchema = z.strictObject({ read: z.string(), reason: z.enum(['no-answer', 'timeout', 'unusable-answer']), minutes: minutesSchema });
+
 const alertFactsBySignal = [
   z.object({ signal: z.literal('crew-request-unassigned'), facts: crewRequestUnassignedFactsSchema }),
   z.object({ signal: z.literal('delivery-unacknowledged'), facts: deliveryUnacknowledgedFactsSchema }),
@@ -54,6 +56,7 @@ const alertFactsBySignal = [
   z.object({ signal: z.literal('ping-unanswered'), facts: pingUnansweredFactsSchema }),
   z.object({ signal: z.literal('report-unchanged'), facts: reportUnchangedFactsSchema }),
   z.object({ signal: z.literal('task-not-done'), facts: taskNotDoneFactsSchema }),
+  z.object({ signal: z.literal('plugin-read-failed'), facts: pluginReadFailedFactsSchema }),
 ] as const;
 
 /** A signal with its facts at raise. */
@@ -99,6 +102,7 @@ export const raiseAlertInputSchema = z
       pingUnansweredFactsSchema,
       reportUnchangedFactsSchema,
       taskNotDoneFactsSchema,
+      pluginReadFailedFactsSchema,
     ]),
     occurrenceKey: z.string().min(1).max(ALERT_OCCURRENCE_KEY_MAX_LENGTH),
     since: isoTime,

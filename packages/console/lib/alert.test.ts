@@ -37,7 +37,17 @@ const REPORT_UNCHANGED = anAlert({
   facts: { reportChangedAt: new Date(2026, 9, 31, 12, 5).toISOString(), state: 'working', minutes: 60, setBy: 'shp_01m66p4k2v9qz8f7x3n5c1r1x0' },
 });
 
+const PLUGIN_READ_FAILED = anAlert({
+  signal: 'plugin-read-failed',
+  since: new Date(2026, 9, 31, 15, 3),
+  facts: { read: 'guard.get', reason: 'no-answer', minutes: 5 },
+});
+
 describe("the overview's Open alerts line", () => {
+  it('shows plugin read failed with the read and reason', () => {
+    expect(alertOverviewLine(PLUGIN_READ_FAILED, NOW)).toEqual({ ship: 'merger-1', text: 'Plugin read failed 12 min, guard.get, no answer', caption: 'since 15:03 · clears by itself' });
+  });
+
   it('says what parted and for how long, awaiting crew, since when, and that it clears by itself', () => {
     expect(alertOverviewLine(UNACKNOWLEDGED, NOW)).toEqual({ ship: 'merger-1', text: 'Delivery unacknowledged 22 min, awaiting crew', caption: 'since 14:53 · clears by itself' });
   });
@@ -54,6 +64,10 @@ describe("the overview's Open alerts line", () => {
 });
 
 describe("the ship page's open alert", () => {
+  it('shows plugin read failed with the read and reason', () => {
+    expect(alertShipPanel(PLUGIN_READ_FAILED, NOW)).toEqual({ headline: 'Plugin read failed 12 min', detail: 'Guard.get, no answer', caption: 'since 15:03 · owner told · clears by itself' });
+  });
+
   it('heads with what parted and for how long, then within what it was expected, since when, the owner told and that it clears by itself', () => {
     expect(alertShipPanel(REPORT_UNCHANGED, NOW)).toEqual({ headline: 'Report unchanged 3 h 10 min', detail: 'Expected within 60 min', caption: 'since 12:05 · owner told · clears by itself' });
   });

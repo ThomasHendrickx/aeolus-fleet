@@ -18,6 +18,7 @@ export const SIGNAL_WORDS: Readonly<Record<AlertSignal, string>> = {
   'ping-unanswered': 'Ping unanswered',
   'report-unchanged': 'Report unchanged',
   'task-not-done': 'Task not done',
+  'plugin-read-failed': 'Plugin read failed',
 };
 
 const CLEARS_BY_ITSELF = 'clears by itself';
@@ -59,6 +60,10 @@ function detailOf(alert: AlertOutput): string | null {
       return alert.facts.awaitingCrew ? 'awaiting crew' : null;
     case 'report-unchanged':
       return `expected within ${String(alert.facts.minutes)} min`;
+    case 'plugin-read-failed': {
+      const reasons = { 'no-answer': 'no answer', timeout: 'timeout', 'unusable-answer': 'an answer the console cannot use' };
+      return `${alert.facts.read}, ${reasons[alert.facts.reason]}`;
+    }
     case 'delivery-overdue':
     case 'ping-unanswered':
     case 'task-not-done':
