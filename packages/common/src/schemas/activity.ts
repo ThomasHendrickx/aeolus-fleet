@@ -38,7 +38,7 @@ export const reportActivityInputSchema = z.object({
     .array(
       z.discriminatedUnion('kind', [
         activityObservationSchema.extend({ kind: activityKindSchema.exclude(['refused']) }),
-        activityObservationSchema.extend({ kind: z.literal('refused'), reason: z.string().trim().min(1) }),
+        activityObservationSchema.extend({ kind: z.literal('refused'), reason: z.string().trim().min(1).optional() }),
       ]),
     )
     .min(1)

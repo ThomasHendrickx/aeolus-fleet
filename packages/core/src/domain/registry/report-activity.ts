@@ -89,13 +89,19 @@ async function writeActivity(
   for (const entry of observations) {
     if (entry.kind === 'tool' || entry.kind === 'refused') {
       const tool = entry.tool ?? null;
+      const reason = entry.kind === 'refused' ? entry.reason : undefined;
       await recordEvent({ events: tx.events, ids }, {
         fleetId: caller.fleetId,
         type: 'ToolCallObserved',
         occurredAt: new Date(entry.at),
         actor: shipActor(caller.shipId),
         shipId: ship.id,
-        details: entry.kind === 'refused' ? { leaseId, tool, outcome: 'refused', reason: entry.reason } : { leaseId, tool, outcome: 'allowed' },
+        details: {
+          leaseId,
+          tool,
+          outcome: entry.kind === 'refused' ? 'refused' : 'allowed',
+          ...(reason === undefined ? {} : { reason }),
+        },
       });
     }
   }

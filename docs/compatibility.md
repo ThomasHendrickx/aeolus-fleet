@@ -30,9 +30,9 @@ Every package also builds against `@aeolus-fleet/common`: its schemas are the sh
 
 ## Tool-call history and working time
 
-The trierarch uses `POST /api/v1/fleet/reportActivity` with `crew:run` for activity observations on the ships assigned to it. A batch can contain several observations of the same ship in session order. Use `kind: "tool"` for an allowed call and `kind: "refused"` with a nonempty `reason` for a refused call. Send tool names and guard reasons without argument values.
+The trierarch uses `POST /api/v1/fleet/reportActivity` with `crew:run` for activity observations on the ships assigned to it. A batch can contain several observations of the same ship in session order. Use `kind: "tool"` for an allowed call and `kind: "refused"` for a refused call, with a nonempty `reason` when available. Send tool names and guard reasons without argument values.
 
-An owner with `fleet:read` can read the calls through `fleet.shipTimeline` (`POST /api/v1/fleet/shipTimeline`, MCP `fleet_shipTimeline`). Its `ToolCallObserved` rows carry the observed time and `details` with `leaseId`, `tool`, `outcome` and, for a refusal, `reason`. Pages follow the timeline's newest-first order. The ship's latest activity summary remains available through `fleet/ship`.
+An owner with `fleet:read` can read the calls through `fleet.shipTimeline` (`POST /api/v1/fleet/shipTimeline`, MCP `fleet_shipTimeline`). Its `ToolCallObserved` rows carry the observed time and `details` with `leaseId`, `tool`, `outcome` and, for a refusal reported with a reason, `reason`. Pages follow the timeline's newest-first order. The ship's latest activity summary remains available through `fleet/ship`.
 
 The trierarch uses `POST /api/v1/ship/report` for its report. Common's trierarch report schema accepts optional `details.usage.ships[].activeMinutes` as a finite nonnegative number. Omit the field when working time is unknown. These contracts require the core/common release carrying aeolus-fleet#2103.
 
