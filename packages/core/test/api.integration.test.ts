@@ -327,6 +327,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_guard_status$/),
       expect.stringMatching(/^\d{14}_crew_settings_version$/),
       expect.stringMatching(/^\d{14}_plugin_reads$/),
+      expect.stringMatching(/^\d{14}_tool_call_history$/),
     ]);
   });
 });
@@ -3023,9 +3024,44 @@ it('carries ruleSet, applied guard and refused activity through tRPC (#2070)', a
   await client().ship.register.mutate({ ...target, location: { kind: 'SERVER' } });
 
   await manager.fleet.reportCrewStatus.mutate({ shipId: target.shipId, status: 'running', guard });
-  await manager.fleet.reportActivity.mutate({ intervalSeconds: 30, activities: [{ shipId: target.shipId, kind: 'refused', tool: 'Bash', at: guard.recent[0]?.at ?? '' }] });
+  await manager.fleet.reportActivity.mutate({ intervalSeconds: 30, activities: [{ shipId: target.shipId, kind: 'refused', tool: 'Bash', at: guard.recent[0]?.at ?? '', reason: 'Push refused by the guard' }] });
 
   await expect(manager.fleet.ship.query({ shipId: target.shipId })).resolves.toMatchObject({ crewRequest: { settings, guard }, activity: { kind: 'refused', tool: 'Bash' } });
+});
+
+it('shows an assigned trierarch’s tool calls to the owner in timeline order with their guard results', async () => {
+  const trierarch = client({ authorization: `Bearer ${await crewedShip(['fleet:manage', 'crew:assign', 'crew:run'])}` });
+  const owner = client({ authorization: `Bearer ${await crewedShip(['fleet:read'])}` });
+  const outsider = client({ authorization: `Bearer ${await crewedShip(['fleet:read'])}` });
+  const target = await agentShip();
+  const { shipId: trierarchShipId } = await trierarch.ship.whoami.query();
+  const { shipId: ownerShipId } = await owner.ship.whoami.query();
+  const { shipId } = target;
+  await database.ship.update({ where: { id: shipId }, data: { ownerShipId } });
+  await trierarch.fleet.crewRequest.mutate({ shipId, settings: { workspace: { kind: 'folder', name: 'notes' }, options: {} } });
+  await trierarch.fleet.assignCrew.mutate({ shipId, trierarchShipId, settingsVersion: 1 });
+  await client().ship.register.mutate({ ...target, location: { kind: 'SERVER' } });
+  const { id: leaseId } = await database.lease.findFirstOrThrow({ where: { fleetId, shipId, endedAt: null } });
+
+  const firstAt = '2026-09-29T12:00:01.000Z';
+  const laterAt = '2026-09-29T12:00:02.000Z';
+  const reason = 'Write path is outside the permitted directory';
+  const first = { shipId, at: firstAt, kind: 'tool' as const, tool: 'Read', arguments: { path: 'example.txt' } };
+  const refused = { shipId, at: laterAt, kind: 'refused' as const, tool: 'Write', reason };
+  const last = { shipId, at: laterAt, kind: 'tool' as const, tool: 'Read' };
+  await expect(trierarch.fleet.reportActivity.mutate({ intervalSeconds: 30, activities: [first] })).resolves.toEqual({ refused: [] });
+  await expect(trierarch.fleet.reportActivity.mutate({ intervalSeconds: 30, activities: [refused, last] })).resolves.toEqual({ refused: [] });
+
+  const page = await owner.fleet.shipTimeline.query({ shipId, limit: 2 });
+  const older = await owner.fleet.shipTimeline.query({ shipId, cursor: page.nextCursor ?? undefined, limit: 2 });
+  const toolCalls = [...page.items, ...older.items].filter((entry) => entry.details.outcome !== undefined);
+  expect(toolCalls.map(({ occurredAt, details }) => ({ occurredAt, details }))).toEqual([
+    { occurredAt: laterAt, details: { leaseId, tool: 'Read', outcome: 'allowed' } },
+    { occurredAt: laterAt, details: { leaseId, tool: 'Write', outcome: 'refused', reason } },
+    { occurredAt: firstAt, details: { leaseId, tool: 'Read', outcome: 'allowed' } },
+  ]);
+  const hidden = await outsider.fleet.shipTimeline.query({ shipId, limit: 2 });
+  expect(hidden.items).toEqual([]);
 });
 
 it('records a plugin read from the console session and carries it on fleet.ship and fleet.list', async () => {

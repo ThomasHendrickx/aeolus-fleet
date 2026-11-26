@@ -197,6 +197,7 @@ describe('the ship calls at /api/v1', () => {
       '/fleet/callPlugin',
       '/fleet/list',
       '/fleet/ship',
+      '/fleet/shipTimeline',
       '/fleet/commission',
       '/fleet/getStartingPrompt',
       '/fleet/release',

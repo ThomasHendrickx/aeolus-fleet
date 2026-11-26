@@ -83,6 +83,7 @@ const SHIP_TOOLS = [
   'fleet_callPlugin',
   'fleet_list',
   'fleet_ship',
+  'fleet_shipTimeline',
   'fleet_commission',
   'fleet_getStartingPrompt',
   'fleet_release',

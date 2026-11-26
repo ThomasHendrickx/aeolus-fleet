@@ -213,6 +213,7 @@ describe('the OpenAPI spec at /api/v1/openapi.json', () => {
       ['/fleet/callPlugin', ['post']],
       ['/fleet/list', ['post']],
       ['/fleet/ship', ['post']],
+      ['/fleet/shipTimeline', ['post']],
       ['/fleet/commission', ['post']],
       ['/fleet/getStartingPrompt', ['post']],
       ['/fleet/release', ['post']],

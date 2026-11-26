@@ -5,7 +5,7 @@ import { afterAll, beforeAll, expect, it } from 'vitest';
 import { createPrismaClientTellingStatements } from '../src/adapters/prisma/client.js';
 import { createReportCrewStatus } from '../src/domain/registry/report-crew-status.js';
 import { createPrismaUnitOfWork } from '../src/adapters/prisma/unit-of-work.js';
-import { createPrismaFleetListing } from '../src/adapters/prisma/registry.js';
+import { createPrismaFleetListing, createPrismaLeaseRepository } from '../src/adapters/prisma/registry.js';
 import { createPrismaShipHistory } from '../src/adapters/prisma/history.js';
 import { toMessage } from '../src/adapters/prisma/rows.js';
 import { unwrap } from '../src/testing/result.js';
@@ -52,12 +52,20 @@ it('reads one current lease and immutable sending evidence by indexed ship and m
     const facts = await createPrismaFleetListing(client).ship(fleet.fleetId, ship.shipId);
     const message = await createPrismaShipHistory(client).message(fleet.fleetId, messageId);
     const stored = toMessage(await client.message.findUniqueOrThrow({ where: { id: messageId } }));
+    const at = core.clock.now();
+    await createPrismaLeaseRepository(client).saveActivity({ fleetId: fleet.fleetId, shipId: ship.shipId, activity: { at, kind: 'tool', tool: 'Read', reportedAt: at, intervalSeconds: 30 } });
 
     // Then evidence survives projection and every history lookup uses its index.
     expect(facts?.crewRequest?.guard).toEqual(guard);
     expect(facts?.openLease).toMatchObject({ id: crew.leaseId });
     expect(message).toMatchObject({ senderLeaseId: crew.leaseId });
     expect(stored.senderLeaseId).toBe(crew.leaseId);
+    const activityWrite = statements.find(({ query }) => query.includes('"activity_at"') && query.startsWith('UPDATE '));
+    expect(activityWrite).toBeDefined();
+    if (activityWrite !== undefined) {
+      const plan = await assertIndexedPlan(core.prisma, activityWrite);
+      expect(plan).toContain('leases_ship_id_open_key');
+    }
     const reads = statements.filter(({ query }) => /^\s*SELECT/.test(query));
     expect(reads.length).toBeGreaterThan(0);
     for (const statement of reads) {
