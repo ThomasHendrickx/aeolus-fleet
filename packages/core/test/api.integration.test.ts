@@ -3048,7 +3048,7 @@ it('shows tool calls to the owner in timeline order with their guard results', a
   const reason = 'Write path is outside the permitted directory';
   const first = { shipId, at: firstAt, kind: 'tool' as const, tool: 'Read', arguments: { path: 'example.txt' } };
   const refused = { shipId, at: laterAt, kind: 'refused' as const, tool: 'Write', reason };
-  const last = { shipId, at: laterAt, kind: 'tool' as const, tool: 'Read' };
+  const last = { shipId, at: laterAt, kind: 'refused' as const, tool: 'Bash' };
   await expect(trierarch.fleet.reportActivity.mutate({ intervalSeconds: 30, activities: [first] })).resolves.toEqual({ refused: [] });
   await expect(trierarch.fleet.reportActivity.mutate({ intervalSeconds: 30, activities: [refused, last] })).resolves.toEqual({ refused: [] });
 
@@ -3059,7 +3059,7 @@ it('shows tool calls to the owner in timeline order with their guard results', a
     const older = await owner.fleet.shipTimeline.query({ shipId, cursor: page.nextCursor ?? undefined, limit: 2 });
     const toolCalls = [...page.items, ...older.items].filter((entry) => entry.type === 'ToolCallObserved');
     expect(toolCalls.map(({ occurredAt, details }) => ({ occurredAt, details }))).toEqual([
-      { occurredAt: laterAt, details: { leaseId, tool: 'Read', outcome: 'allowed' } },
+      { occurredAt: laterAt, details: { leaseId, tool: 'Bash', outcome: 'refused' } },
       { occurredAt: laterAt, details: { leaseId, tool: 'Write', outcome: 'refused', reason } },
       { occurredAt: firstAt, details: { leaseId, tool: 'Read', outcome: 'allowed' } },
     ]);
