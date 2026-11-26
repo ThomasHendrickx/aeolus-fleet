@@ -162,6 +162,7 @@ describe('eventTypeSchema', () => {
       'DeliveryDismissed',
       'ShipRenamed',
       'ShipReported',
+      'ToolCallObserved',
       'StatementSet',
       'TurnReported',
       'SignInTicketIssued',
