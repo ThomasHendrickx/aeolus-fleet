@@ -128,6 +128,19 @@ describe('Harbour on the fleet overview', () => {
     await panel.getByText(/guard\.get, no answer/).waitFor();
   });
 
+  it('shows Open alerts outside the Harbour region in cards view', async () => {
+    const page = await signedIn({ reducedMotion: 'reduce' });
+    await page.clock.setFixedTime(new Date('2026-11-01T12:00:00.000Z'));
+
+    await page.goto('/?view=cards');
+
+    const alerts = page.getByRole('region', { name: 'Open alerts · 1', exact: true });
+    const harbour = page.getByRole('region', { name: 'Harbour', exact: true });
+    await alerts.waitFor();
+    await harbour.getByRole('region', { name: 'Agents', exact: true }).waitFor();
+    await expect.poll(() => harbour.getByRole('region', { name: 'Open alerts · 1', exact: true }).count()).toBe(0);
+  });
+
   it('counts the active ships by state and shows one tile per ship, grouped by kind, alerts first', async () => {
     const page = await signedIn();
     const harbour = page.getByTestId('harbour');
