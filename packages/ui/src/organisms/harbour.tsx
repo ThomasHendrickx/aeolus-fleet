@@ -102,11 +102,11 @@ export function Harbour({ counts, groups, now, hrefOf, link, between, empty, sta
       </div>
     );
   return (
-    <section aria-label="Harbour" className="@container flex min-w-0 flex-col gap-3.5" data-testid="harbour">
+    <div className="@container flex min-w-0 flex-col gap-3.5" data-testid="harbour">
       {/* A failed first read has no numbers to show: the error says so, rather than a shape that never comes. */}
       {state === 'error' && counts === undefined ? null : <HarbourNumbers counts={state === 'loading' ? undefined : counts} />}
       {between}
-      {body}
-    </section>
+      <section aria-label="Harbour">{body}</section>
+    </div>
   );
 }
