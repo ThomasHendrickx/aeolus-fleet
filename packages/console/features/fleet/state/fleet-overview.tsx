@@ -13,13 +13,14 @@ import { useSessionFleetId } from '../../../lib/session-fleet-id';
 import { useShipTypeCounts } from '../../../lib/ship-types';
 import { useSquadrons } from '../../../lib/squadrons-api';
 import { shipsInSquadrons } from '../../../lib/squadrons-view';
-import { useFleetCounts, useFleetPages } from '../hooks/fleet-pages';
+import { useFleetCounts, useFleetPages, useOpenAlerts } from '../hooks/fleet-pages';
 import { useHarbour, useHarbourNumbers } from '../hooks/harbour';
 import { activeFilterCount, DEFAULT_FLEET_VIEW, type FleetView } from '../services/fleet-filter';
 import { fleetListFilterOf, fleetListSortOf } from '../services/fleet-list-input';
 import { NoMatch } from '../ui/molecules/no-match';
 import { FleetBar } from '../ui/organisms/fleet-bar';
 import { FleetTable, type FleetTableProps } from '../ui/organisms/fleet-table';
+import { OpenAlerts } from '../ui/organisms/open-alerts';
 
 function errorDetailOf(error: unknown): string | undefined {
   return error instanceof Error ? error.message : undefined;
@@ -59,6 +60,7 @@ export function FleetOverview({
   const isCards = view.mode === 'cards';
   const filter = fleetListFilterOf(view);
   const numbers = useHarbourNumbers();
+  const openAlerts = useOpenAlerts();
   const harbour = useHarbour(filter, isCards);
   const ships = useFleetPages(isCards ? null : filter, fleetListSortOf(view.sort));
   const listCounts = useFleetCounts(isCards ? null : filter).counts;
@@ -75,6 +77,7 @@ export function FleetOverview({
   const bar = isOnlyArgo || isFailed || !isRead ? null : (
     <FleetBar view={view} onViewChange={onViewChange} counts={counts} types={types} labels={labels} shown={isCards ? harbour.shown : listCounts?.shown} isUpdating={isUpdating} />
   );
+  const alertsPanel = openAlerts === undefined ? null : <OpenAlerts alerts={openAlerts.alerts} hasMore={openAlerts.hasMore} now={now} />;
   const noMatch = <NoMatch query={view.query} hasFilters={activeFilterCount(view.filters) > 0} fleetShips={counts?.ships} onClear={clear} />;
   const onlyArgo = isOnlyArgo ? (
     <EmptyState
@@ -94,7 +97,12 @@ export function FleetOverview({
           now={now}
           hrefOf={(shipId) => `/ships/${shipId}`}
           link={({ href, ...props }: AnchorHTMLAttributes<HTMLAnchorElement>) => <Link {...props} href={href ?? '/'} />}
-          between={bar}
+          between={
+            <>
+              {bar}
+              {alertsPanel}
+            </>
+          }
           empty={noMatch}
           state={isFailed ? 'error' : isRead ? 'ready' : 'loading'}
           errorDetail={errorDetailOf(harbour.error ?? numbers.error)}
@@ -113,6 +121,7 @@ export function FleetOverview({
     <section aria-label="Fleet" className="flex flex-col gap-3.5" data-testid="fleet-overview" data-view="list">
       <HarbourNumbers counts={counts} />
       {bar}
+      {alertsPanel}
       <FleetTable
         ships={ships.items ?? []}
         isOnlyArgo={isOnlyArgo}
