@@ -317,7 +317,7 @@ describe('the ship page', () => {
     await page.getByRole('tab', { name: 'Messages' }).click();
 
     // Then the empty state names the retained history and its cutoff.
-    const messages = page.getByRole('tabpanel');
+    const messages = page.getByRole('tabpanel', { name: 'Messages', exact: true });
     await messages.getByRole('heading', { name: 'No messages kept' }).waitFor({ timeout: 6_000 });
     await messages.getByText('This fleet keeps its finished history from 30 Oct 2026, 15:00. Older open deliveries stay.').waitFor();
   });
