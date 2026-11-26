@@ -1316,10 +1316,10 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       saveActivity: ({ fleetId, shipId, activity }) => {
         const lease = state.leases.find((held) => held.fleetId === fleetId && held.shipId === shipId && held.endedAt === null);
         if (!lease) {
-          return Promise.resolve(false);
+          return Promise.resolve(undefined);
         }
         state.leaseActivities = [...state.leaseActivities.filter((held) => held.leaseId !== lease.id), { fleetId, leaseId: lease.id, activity: { ...activity } }];
-        return Promise.resolve(true);
+        return Promise.resolve(lease.id);
       },
       findOpenByIdForShare: (fleetId, leaseId) => {
         const lease = state.leases.find(

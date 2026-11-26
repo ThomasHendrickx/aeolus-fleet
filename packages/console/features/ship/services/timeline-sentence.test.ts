@@ -1,4 +1,4 @@
-import { createIdGenerator, type EventType, type TimelineEntry } from '@aeolus-fleet/common';
+import { createIdGenerator, timelineEntrySchema, type EventType, type TimelineEntry } from '@aeolus-fleet/common';
 import { describe, expect, it } from 'vitest';
 
 import { plainText } from '../../../lib/sentence';
@@ -35,6 +35,15 @@ const pingFromArgo = { id: newId('message'), sender: argo, recipient: { kind: 's
 const fromScout = { id: newId('message'), sender: scout, recipient: { kind: 'ship' as const, ship: planner }, contentType: 'text/plain', isPing: false, model: null };
 
 describe('timelineSentence', () => {
+  it('shows whether the guard allowed or refused each tool call, with the refusal reason', () => {
+    const call = { ...anEntry('ShipReported'), type: 'ToolCallObserved' };
+    const allowed = timelineEntrySchema.parse({ ...call, details: { tool: 'Read', outcome: 'allowed' } });
+    const refused = timelineEntrySchema.parse({ ...call, details: { tool: 'Write', outcome: 'refused', reason: 'Path outside the allowed directory' } });
+
+    expect(onScoutsPage(allowed).sentence).toBe('Read allowed');
+    expect(onScoutsPage(refused).sentence).toBe('Write refused. Path outside the allowed directory');
+  });
+
   it('says the fleet was initialised', () => {
     expect(onScoutsPage(anEntry('FleetInitialised'))).toEqual({ sentence: 'Fleet initialised', tone: 'ended', icon: 'fleet' });
   });

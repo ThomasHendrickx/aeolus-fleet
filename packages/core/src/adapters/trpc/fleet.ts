@@ -467,8 +467,9 @@ export const fleetRouter = router({
   reportActivity: scopedProcedure('crew:run')
     .meta({
       description: [
-        "Needs crew:run. Writes, for each crewed ship whose crew request is assigned to yours, its session's latest event: when, its kind (text, tool, result, error or refused) and for a tool call or refusal the tool's name, never content.",
-        'State the interval you write at, in seconds: activity reads unknown once your write is older than twice it. Up to 100 ships per call;',
+        'Needs crew:run. Up to 100 observations for crewed ships assigned to yours. The final observation per ship updates its latest activity.',
+        'Each tool or refused observation records a tool call in the ship timeline. Send the tool name and, for refused, a guard reason. Omit tool arguments.',
+        'State the interval you write at in seconds. Activity reads unknown once your write is older than twice it.',
         'an entry for a ship not assigned to yours, without a crew request or not crewed is refused for that entry, with its code, and the rest are taken.',
       ].join(' '),
     })
@@ -1317,6 +1318,7 @@ export const fleetRouter = router({
 
   /** A page of every change to a ship, newest first: the events naming it and the ones it caused. */
   shipTimeline: actorScopedProcedure('fleet:read')
+    .meta({ description: 'Needs fleet:read. Reads the events concerning a ship in your read reach, including its tool activity, newest first. Continue with nextCursor.' })
     .input(shipTimelineInputSchema)
     .output(shipTimelineOutputSchema)
     .query(async ({ ctx, input }) => {

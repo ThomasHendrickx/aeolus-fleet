@@ -112,6 +112,7 @@ const FLEET_ACTIONS = [
   'callPlugin',
   'list',
   'ship',
+  'shipTimeline',
   'commission',
   'getStartingPrompt',
   'release',

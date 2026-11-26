@@ -14,28 +14,32 @@ export type ActivityKind = z.infer<typeof activityKindSchema>;
 /** The longest a tool call's tool name may be. */
 export const ACTIVITY_TOOL_MAX_LENGTH = 100;
 
-/** The most ships one `fleet.reportActivity` writes. */
+/** The most observations one `fleet.reportActivity` writes. */
 export const ACTIVITY_SHIPS_MAX = 100;
 
 /** The longest report interval a trierarch may state, in seconds: a day. */
 export const ACTIVITY_INTERVAL_MAX_SECONDS = 24 * 60 * 60;
 
+const activityObservationSchema = z.object({
+  shipId: idSchema('ship'),
+  at: z.iso.datetime(),
+  tool: z.string().trim().min(1).max(ACTIVITY_TOOL_MAX_LENGTH).optional(),
+});
+
 /**
  * Input of `fleet.reportActivity` (crew:run): the report interval the
- * trierarch writes at, in seconds, and per crewed ship it runs its session's
- * latest event: when, its kind, and for a tool call the tool's name
- * (docs/design/monitoring, 4.3).
+ * trierarch writes at, in seconds, and its observations for the ships it
+ * crews. Each tool call goes to the timeline with its guard outcome. The
+ * final observation for a ship also updates its latest activity.
  */
 export const reportActivityInputSchema = z.object({
   intervalSeconds: z.int().min(1).max(ACTIVITY_INTERVAL_MAX_SECONDS),
   activities: z
     .array(
-      z.object({
-        shipId: idSchema('ship'),
-        at: z.iso.datetime(),
-        kind: activityKindSchema,
-        tool: z.string().trim().min(1).max(ACTIVITY_TOOL_MAX_LENGTH).optional(),
-      }),
+      z.discriminatedUnion('kind', [
+        activityObservationSchema.extend({ kind: activityKindSchema.exclude(['refused']) }),
+        activityObservationSchema.extend({ kind: z.literal('refused'), reason: z.string().trim().min(1).optional() }),
+      ]),
     )
     .min(1)
     .max(ACTIVITY_SHIPS_MAX),

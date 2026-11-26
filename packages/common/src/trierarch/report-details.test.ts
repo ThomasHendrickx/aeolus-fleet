@@ -57,6 +57,31 @@ function documentedDetails(): unknown {
 }
 
 describe('trierarchReportDetailsSchema', () => {
+  it('takes known working minutes per ship and leaves unknown working minutes absent', () => {
+    const details = {
+      ...trierarchReportDetailsSchema.parse(documentedDetails()),
+      usage: {
+        subscriptions: [],
+        ships: [
+          { shipId: 'shp_01m473j7hp3x6gha0gzs1mnf88', models: [], activeMinutes: 2.5 },
+          { shipId: 'shp_01m473j7hp3x6gha0gzs1mnf89', models: [], activeMinutes: 0 },
+          { shipId: 'shp_01m473j7hp3x6gha0gzs1mnf90', models: [] },
+        ],
+      },
+    };
+
+    expect(trierarchReportDetailsSchema.safeParse(details)).toEqual({ success: true, data: details });
+  });
+
+  it.each([-1, Infinity, -Infinity, NaN])('refuses %s working minutes for a ship', (activeMinutes) => {
+    const details = {
+      ...trierarchReportDetailsSchema.parse(documentedDetails()),
+      usage: { subscriptions: [], ships: [{ shipId: 'shp_01m473j7hp3x6gha0gzs1mnf88', models: [], activeMinutes }] },
+    };
+
+    expect(trierarchReportDetailsSchema.safeParse(details).success).toBe(false);
+  });
+
   it('takes the documented example', () => {
     const details = documentedDetails();
 

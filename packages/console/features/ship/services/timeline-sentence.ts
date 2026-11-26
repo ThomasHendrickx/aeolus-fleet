@@ -192,6 +192,13 @@ function schedulePausedParts(entry: TimelineEntry): SentencePart[] {
  */
 export function timelineSentence(entry: TimelineEntry, { shipId, ownerNames = new Map() }: { shipId: string; ownerNames?: ReadonlyMap<ShipId, string> }): TimelineSentence {
   switch (entry.type) {
+    case 'ToolCallObserved': {
+      const tool = stringDetail(entry, 'tool') ?? 'Tool call';
+      const reason = stringDetail(entry, 'reason');
+      return stringDetail(entry, 'outcome') === 'refused'
+        ? { parts: [text(reason === undefined ? `${tool} refused` : `${tool} refused. ${reason}`)], tone: 'attention', icon: 'undeliverable' }
+        : { parts: [text(`${tool} allowed`)], tone: 'ok', icon: 'reported' };
+    }
     case 'FleetInitialised':
       return { parts: [text('Fleet initialised')], tone: 'ended', icon: 'fleet' };
     case 'ShipCommissioned': {

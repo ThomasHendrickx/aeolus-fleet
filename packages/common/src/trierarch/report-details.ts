@@ -80,7 +80,14 @@ export const modelUsageSchema = z.strictObject({
  */
 const harnessUsageSchema = z.strictObject({
   subscriptions: z.array(subscriptionReadingSchema),
-  ships: z.array(z.strictObject({ shipId: idSchema('ship'), models: z.array(modelUsageSchema) })),
+  ships: z.array(
+    z.strictObject({
+      shipId: idSchema('ship'),
+      models: z.array(modelUsageSchema),
+      /** Working time in minutes, omitted when unknown. */
+      activeMinutes: z.number().nonnegative().optional(),
+    }),
+  ),
 });
 
 /** The longest reason a harness is not offered: one line for the console. */

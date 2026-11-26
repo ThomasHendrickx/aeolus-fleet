@@ -116,6 +116,7 @@ export const CREW_EVENT_TYPES = [
   'LeaseRevoked',
   'LeasePushed',
   'ShipReported',
+  'ToolCallObserved',
   'TurnReported',
   'StatementSet',
   'CrewStatusChanged',
