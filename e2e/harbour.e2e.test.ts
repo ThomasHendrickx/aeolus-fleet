@@ -61,10 +61,10 @@ beforeAll(async () => {
   unwrap(
     await core.raiseAlert(argo, {
       shipId: deployBotId,
-      signal: 'delivery-unacknowledged',
-      occurrenceKey: 'dlv_01m66p4k2v9qz8f7x3n5c1d1v1',
+      signal: 'plugin-read-failed',
+      occurrenceKey: 'guard.get:2026-11-01T11:45:00.000Z',
       since: '2026-11-01T11:45:00.000Z',
-      facts: { deliveryId: 'dlv_01m66p4k2v9qz8f7x3n5c1d1v1', messageId: 'msg_01m66p4k2v9qz8f7x3n5c1msg1', state: 'pending', awaitingCrew: true, minutes: 15 },
+      facts: { read: 'guard.get', reason: 'no-answer', minutes: 15 },
     }),
   );
   const old = unwrap(await core.commissionShip(argo, { idempotencyKey: newKey(), name: 'old', type: 'reviewer' }));
@@ -116,6 +116,18 @@ async function numbersOf(page: Page): Promise<Record<string, string>> {
 }
 
 describe('Harbour on the fleet overview', () => {
+  it.each(['cards', 'list'])('names the failed plugin read and its reason in Open alerts in %s view', async (view) => {
+    const page = await signedIn({ reducedMotion: 'reduce' });
+    await page.clock.setFixedTime(new Date('2026-11-01T12:00:00.000Z'));
+
+    await page.goto(`/?view=${view}`);
+
+    const panel = page.getByTestId('fleet-open-alerts');
+    await panel.getByRole('heading', { name: 'Open alerts · 1' }).waitFor();
+    await panel.getByText('builder-gateway', { exact: true }).waitFor();
+    await panel.getByText(/guard\.get, no answer/).waitFor();
+  });
+
   it('counts the active ships by state and shows one tile per ship, grouped by kind, alerts first', async () => {
     const page = await signedIn();
     const harbour = page.getByTestId('harbour');
