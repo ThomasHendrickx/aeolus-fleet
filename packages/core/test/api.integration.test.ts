@@ -3029,8 +3029,8 @@ it('carries ruleSet, applied guard and refused activity through tRPC (#2070)', a
   await expect(manager.fleet.ship.query({ shipId: target.shipId })).resolves.toMatchObject({ crewRequest: { settings, guard }, activity: { kind: 'refused', tool: 'Bash' } });
 });
 
-it('shows an assigned trierarch’s tool calls to the owner in timeline order with their guard results', async () => {
-  const trierarch = client({ authorization: `Bearer ${await crewedShip(['fleet:manage', 'crew:assign', 'crew:run'])}` });
+it('shows tool calls to the owner in timeline order with their guard results', async () => {
+  const trierarch = client({ authorization: `Bearer ${await crewedShip(['fleet:manage', 'fleet:network', 'crew:assign', 'crew:run'])}` });
   const owner = client({ authorization: `Bearer ${await crewedShip(['fleet:read'])}` });
   const outsider = client({ authorization: `Bearer ${await crewedShip(['fleet:read'])}` });
   const target = await agentShip();
@@ -3052,16 +3052,23 @@ it('shows an assigned trierarch’s tool calls to the owner in timeline order wi
   await expect(trierarch.fleet.reportActivity.mutate({ intervalSeconds: 30, activities: [first] })).resolves.toEqual({ refused: [] });
   await expect(trierarch.fleet.reportActivity.mutate({ intervalSeconds: 30, activities: [refused, last] })).resolves.toEqual({ refused: [] });
 
-  const page = await owner.fleet.shipTimeline.query({ shipId, limit: 2 });
-  const older = await owner.fleet.shipTimeline.query({ shipId, cursor: page.nextCursor ?? undefined, limit: 2 });
-  const toolCalls = [...page.items, ...older.items].filter((entry) => entry.details.outcome !== undefined);
-  expect(toolCalls.map(({ occurredAt, details }) => ({ occurredAt, details }))).toEqual([
-    { occurredAt: laterAt, details: { leaseId, tool: 'Read', outcome: 'allowed' } },
-    { occurredAt: laterAt, details: { leaseId, tool: 'Write', outcome: 'refused', reason } },
-    { occurredAt: firstAt, details: { leaseId, tool: 'Read', outcome: 'allowed' } },
-  ]);
-  const hidden = await outsider.fleet.shipTimeline.query({ shipId, limit: 2 });
-  expect(hidden.items).toEqual([]);
+  const closed = await trierarch.fleet.saveNetworkRulesDraft.mutate({ rules: [] });
+  await trierarch.fleet.applyNetworkRules.mutate({ version: closed.savedAgainstVersion });
+  try {
+    const page = await owner.fleet.shipTimeline.query({ shipId, limit: 2 });
+    const older = await owner.fleet.shipTimeline.query({ shipId, cursor: page.nextCursor ?? undefined, limit: 2 });
+    const toolCalls = [...page.items, ...older.items].filter((entry) => entry.type === 'ToolCallObserved');
+    expect(toolCalls.map(({ occurredAt, details }) => ({ occurredAt, details }))).toEqual([
+      { occurredAt: laterAt, details: { leaseId, tool: 'Read', outcome: 'allowed' } },
+      { occurredAt: laterAt, details: { leaseId, tool: 'Write', outcome: 'refused', reason } },
+      { occurredAt: firstAt, details: { leaseId, tool: 'Read', outcome: 'allowed' } },
+    ]);
+    const hidden = await outsider.fleet.shipTimeline.query({ shipId, limit: 2 });
+    expect(hidden.items).toEqual([]);
+  } finally {
+    const open = await trierarch.fleet.saveNetworkRulesDraft.mutate({ rules: null });
+    await trierarch.fleet.applyNetworkRules.mutate({ version: open.savedAgainstVersion });
+  }
 });
 
 it('records a plugin read from the console session and carries it on fleet.ship and fleet.list', async () => {

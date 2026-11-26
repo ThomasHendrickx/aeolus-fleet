@@ -587,8 +587,9 @@ export function createPrismaLeaseRepository(db: Db): LeaseRepository {
       await db.lease.updateMany({ where: { fleetId, id: leaseId }, data: { turn: turn.state, turnAt: turn.at } });
     },
     saveActivity: async ({ fleetId, shipId, activity }) => {
-      const written = await db.lease.updateMany({
+      const [written] = await db.lease.updateManyAndReturn({
         where: { fleetId, shipId, endedAt: null },
+        select: { id: true },
         data: {
           activityAt: activity.at,
           activityKind: activity.kind,
@@ -597,7 +598,7 @@ export function createPrismaLeaseRepository(db: Db): LeaseRepository {
           activityIntervalSeconds: activity.intervalSeconds,
         },
       });
-      return written.count > 0;
+      return written === undefined ? undefined : idSchema('lease').parse(written.id);
     },
     findOpenByIdForShare: async (fleetId, leaseId) => {
       // FOR SHARE, not FOR KEY SHARE: ending the lease updates it, so a release

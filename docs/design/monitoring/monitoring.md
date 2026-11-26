@@ -93,8 +93,8 @@ The task is a reference to where the work lives, never its content. It is one ki
 
 ### 4.3 Observed activity (core, written by the trierarch)
 
-- The lease gains `activity`: `{ at, kind, tool? }`, `kind` one of `text`, `tool`, `result`, `error` (H14's shape, no content), and `reportedAt`, when the trierarch wrote it.
-- `fleet.reportActivity` (crew:run): the assigned trierarch writes the activity of the crewed ships it runs, many in one call, each only for a ship whose crew request is assigned to it (0029); any other ship is refused for that entry and the rest are taken. No event (a session's activity is not a fleet change, as turns are not events beside `TurnReported`).
+- The lease gains `activity`: `{ at, kind, tool? }`, `kind` one of `text`, `tool`, `result`, `error`, `refused`, and `reportedAt`, when the trierarch wrote it. The observation carries metadata only.
+- `fleet.reportActivity` (crew:run): the assigned trierarch writes the activity of the crewed ships it runs, many entries in one call, each only for a ship whose crew request is assigned to it (0029); any other ship is refused for that entry and the rest are taken. Tool calls keep a `ToolCallObserved` timeline event beside the latest activity summary. The [compatibility contract](../../compatibility.md#tool-call-history-and-working-time) names the report fields and the timeline read.
 - Unknown: the console and the watch read activity as unknown when its `reportedAt` is older than the trierarch's own report interval twice over, the interval the trierarch states with it (N4). Unknown is shown as "Activity unknown, trierarch last reported 25 min ago", never as stopped work.
 - A ship crewed by hand has no activity: the field stays empty and the console shows nothing for it.
 

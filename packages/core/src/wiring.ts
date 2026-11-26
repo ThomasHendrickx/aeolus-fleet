@@ -569,7 +569,7 @@ export function createUseCases(options: {
     removeCrewRequest: createRemoveCrewRequest({ uow, clock, ids }),
     assignCrew: createAssignCrew({ uow, clock, ids }),
     reportCrewStatus: createReportCrewStatus({ uow, clock, ids }),
-    reportActivity: createReportActivity({ uow, clock }),
+    reportActivity: createReportActivity({ uow, clock, ids }),
     confirmCrewRelease: createConfirmCrewRelease({ uow, clock, ids }),
     giveBackCrewRequest: createGiveBackCrewRequest({ uow, clock, ids }),
     readAssignedCrewRequests: createReadAssignedCrewRequests({ crewRequests: createPrismaCrewRequestRepository(prisma), ships: createPrismaShipRepository(prisma) }),

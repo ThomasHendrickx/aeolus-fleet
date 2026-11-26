@@ -67,7 +67,9 @@ describe('lease activity on Postgres', () => {
     await expect(activityOf(scoutId)).resolves.toEqual(expected);
     await expect(activityOf(strayId)).resolves.toBeNull();
     await expect(core.useCases.getShip(argo, { shipId: scoutId })).resolves.toMatchObject({ isOk: true, value: { activity: expected } });
-    await expect(core.prisma.event.count({ where: { shipId: scoutId, occurredAt: { gte: core.clock.now() } } })).resolves.toBe(0);
+    const { id: leaseId } = await core.prisma.lease.findFirstOrThrow({ where: { fleetId: argo.fleetId, shipId: scoutId, endedAt: null } });
+    await expect(core.prisma.event.findMany({ where: { fleetId: argo.fleetId, type: 'ToolCallObserved' }, select: { shipId: true, details: true } }))
+      .resolves.toEqual([{ shipId: scoutId, details: { leaseId, tool: 'Bash', outcome: 'allowed' } }]);
   });
 
   it("goes with the lease: the ship's next crew starts with none", async () => {

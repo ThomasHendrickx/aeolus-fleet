@@ -268,9 +268,10 @@ export interface LeaseRepository {
   /**
    * Writes the activity its trierarch observed on the ship's open lease,
    * replacing what it held, without locking anything else of the lease
-   * (docs/design/monitoring, 4.3). False when no lease of the ship is open.
+   * (docs/design/monitoring, 4.3). Returns the lease written, or undefined
+   * when no lease of the ship is open.
    */
-  saveActivity(change: { fleetId: FleetId; shipId: ShipId; activity: LeaseActivity }): Promise<boolean>;
+  saveActivity(change: { fleetId: FleetId; shipId: ShipId; activity: LeaseActivity }): Promise<LeaseId | undefined>;
   /**
    * The lease's report and the last report of the lease its ship held before
    * it, the one that ended last; undefined once this lease has ended.
