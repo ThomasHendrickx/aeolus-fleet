@@ -85,10 +85,12 @@ async function tileNames(page: Page): Promise<string[]> {
   return texts.map((text) => text.split('\n')[0] ?? '');
 }
 
-async function rowNames(page: Page): Promise<string[]> {
-  const rows = await page.getByRole('table', { name: 'Ships' }).getByTestId(/^fleet-row-/).all();
-  const ids = await Promise.all(rows.map((row) => row.getAttribute('data-testid')));
-  return ids.map((id) => (id ?? '').replace('fleet-row-', ''));
+function rowNames(page: Page): Promise<string[]> {
+  // Read every position together so a list refresh cannot mix two row orders.
+  return page.getByRole('table', { name: 'Ships' }).getByTestId(/^fleet-row-/).evaluateAll(
+    (rows: { getAttribute(name: string): string | null }[]) =>
+      rows.map((row) => (row.getAttribute('data-testid') ?? '').replace('fleet-row-', '')),
+  );
 }
 
 describe("the overview's bar", () => {
@@ -159,15 +161,15 @@ describe('sorting by a header', () => {
 
     await header.getByRole('button').click();
     await page.waitForURL(/sort=ship/);
-    await expect(header.getAttribute('aria-sort')).resolves.toBe('ascending');
-    await expect(rowNames(page)).resolves.toEqual(['argo', 'builder', 'reviewer', 'trierarch-mac']);
+    await expect.poll(() => header.getAttribute('aria-sort')).toBe('ascending');
+    await expect.poll(() => rowNames(page)).toEqual(['argo', 'builder', 'reviewer', 'trierarch-mac']);
 
     await header.getByRole('button').press('Enter');
     await page.waitForURL(/order=desc/);
-    await expect(rowNames(page)).resolves.toEqual(['trierarch-mac', 'reviewer', 'builder', 'argo']);
+    await expect.poll(() => rowNames(page)).toEqual(['trierarch-mac', 'reviewer', 'builder', 'argo']);
 
     await header.getByRole('button').click();
     await expect.poll(() => header.getAttribute('aria-sort')).toBe('none');
-    await expect(rowNames(page)).resolves.toEqual(['argo', 'builder', 'reviewer', 'trierarch-mac']);
+    await expect.poll(() => rowNames(page)).toEqual(['argo', 'builder', 'reviewer', 'trierarch-mac']);
   });
 });
